@@ -19,6 +19,7 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 - **Solo a band:** Alt-click (and drag) a node to hear only the region it affects while the mouse is held, or latch it with the Solo button in the band panel or the right-click menu
 - **Output gain** (±24 dB, double-click to reset) with a peak meter, peak hold and clip indicator (click the meter to clear it)
 - **Global bypass** that your DAW uses as its native bypass, with a smooth 20 ms cross-fade
+- **Presets:** 8 factory starting points plus your own presets, saved as `.twpreset` files in `%APPDATA%TW Pro EQPresets` (Windows) or `~/Library/TW Pro EQ/Presets` (macOS). Use the arrows and the menu in the top bar; `*` means the settings differ from the loaded preset. Loading a preset is one undo step.
 
 ### Just want to use it?
 

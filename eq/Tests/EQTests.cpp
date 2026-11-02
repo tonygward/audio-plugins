@@ -1280,6 +1280,204 @@ public:
     }
 };
 
+//==============================================================================
+class PresetTests final : public juce::UnitTest
+{
+public:
+    PresetTests() : juce::UnitTest ("Presets", "EQ") {}
+
+    struct TempFolder
+    {
+        juce::File dir = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                             .getChildFile ("TWProEQ-tests-" + juce::String::toHexString (juce::Random::getSystemRandom().nextInt64()));
+        TempFolder()  { dir.createDirectory(); }
+        ~TempFolder() { dir.deleteRecursively(); }
+    };
+
+    static std::vector<float> allValues (ThreeBandEQAudioProcessor& p)
+    {
+        std::vector<float> v;
+        for (int b = 0; b < numBands; ++b)
+        {
+            v.push_back (p.isBandUsed (b) ? 1.0f : 0.0f);
+            for (int prm = 0; prm < numBandParams; ++prm)
+                v.push_back (p.getBandValue (b, (Param) prm));
+        }
+        v.push_back (p.apvts.getRawParameterValue ("output_gain")->load());
+        return v;
+    }
+
+    void runTest() override
+    {
+        beginTest ("Save then load round-trips every parameter exactly");
+        {
+            TempFolder tmp;
+            ThreeBandEQAudioProcessor p;
+            p.presets.setUserFolder (tmp.dir);
+
+            std::mt19937 rng (21);
+            std::uniform_real_distribution<float> u (0.0f, 1.0f);
+            for (int b = 0; b < numBands; ++b)
+            {
+                p.setBandUsed (b, u (rng) > 0.4f);
+                for (int prm = 0; prm < numBandParams; ++prm)
+                    p.getBandParam (b, (Param) prm)->setValueNotifyingHost (u (rng));
+            }
+            p.getOutputGainParam()->setValueNotifyingHost (0.3f);
+            const auto saved = allValues (p);
+
+            juce::String error;
+            expect (p.presets.saveAs ("Round trip", error), error);
+            expect (tmp.dir.getChildFile ("Round trip.twpreset").existsAsFile(), "file written");
+
+            // Scramble, then load.
+            for (int b = 0; b < numBands; ++b)
+            {
+                p.setBandUsed (b, b % 3 == 0);
+                for (int prm = 0; prm < numBandParams; ++prm)
+                    p.getBandParam (b, (Param) prm)->setValueNotifyingHost (u (rng));
+            }
+            p.getOutputGainParam()->setValueNotifyingHost (0.9f);
+
+            const auto user = p.presets.getUserPresets();
+            expectEquals ((int) user.size(), 1);
+            expect (p.presets.load (user.front(), error), error);
+            expect (allValues (p) == saved, "every band parameter, used flag and the output gain restored exactly");
+            expect (! p.presets.isModified(), "not modified straight after loading");
+
+            set (p, 0, Param::Gain, 3.3f);
+            expect (p.presets.isModified() || ! p.isBandUsed (0), "modified marker after an edit");
+        }
+
+        beginTest ("A preset holds no UI state and no bypass");
+        {
+            TempFolder tmp;
+            ThreeBandEQAudioProcessor p;
+            p.presets.setUserFolder (tmp.dir);
+            p.editorWidth = 1500;
+            p.getBypassParameter()->setValueNotifyingHost (1.0f);
+            juce::String error;
+            expect (p.presets.saveAs ("UI", error));
+            const auto text = tmp.dir.getChildFile ("UI.twpreset").loadFileAsString();
+            expect (! text.contains ("editorWidth") && ! text.contains ("analyserMode"), "no UI state");
+            expect (! text.contains ("\"bypass\""), "no bypass");
+            expect (text.contains ("version"), "versioned");
+        }
+
+        beginTest ("Loading a preset is one undo transaction");
+        {
+            ThreeBandEQAudioProcessor p;
+            const auto before = allValues (p);
+            juce::String error;
+            expect (p.presets.load ({ "Kick punch", 5, {} }, error));
+            expect (allValues (p) != before, "preset changed the EQ");
+            expect (p.edits.undo(), "undo");
+            {
+                const auto after = allValues (p);
+                juce::String diffs;
+                for (size_t k = 0; k < after.size(); ++k)
+                    if (std::abs (after[k] - before[k]) > std::abs (before[k]) * 1.0e-5f)   // ulp-level drift through the normalised range
+                        diffs << (int) k << ":" << before[k] << "->" << after[k] << " ";
+                expect (diffs.isEmpty(), "one undo restores everything " + diffs);
+            }
+            expect (! p.edits.getUndoManager().canUndo(), "it was a single transaction");
+            expect (p.edits.redo());
+            expect (! p.presets.isModified(), "redo brings the preset back");
+        }
+
+        beginTest ("Every factory preset loads, is finite and has the expected bands");
+        {
+            expectGreaterOrEqual (PresetManager::getNumFactoryPresets(), 6);
+            expectLessOrEqual (PresetManager::getNumFactoryPresets(), 8);
+
+            for (int i = 0; i < PresetManager::getNumFactoryPresets(); ++i)
+            {
+                ThreeBandEQAudioProcessor p;
+                juce::String error;
+                expect (p.presets.load ({ PresetManager::getFactoryName (i), i, {} }, error), error);
+                expectEquals (p.getNumUsedBands(), PresetManager::getFactoryUsedBands (i), PresetManager::getFactoryName (i));
+                expect (! p.presets.isModified(), "factory preset not modified after load");
+
+                p.prepareToPlay (48000.0, 256);
+                std::mt19937 rng ((unsigned) i);
+                std::uniform_real_distribution<float> dist (-0.5f, 0.5f);
+                bool finite = true;
+                const auto out = runProcessor (p, 48000.0, 256, 48000, [&] (int) { return dist (rng); }, [] (int) {});
+                for (float v : out)
+                    finite = finite && std::isfinite (v) && std::abs (v) < 10.0f;
+                expect (finite, "finite output: " + PresetManager::getFactoryName (i));
+            }
+        }
+
+        beginTest ("Presets written by older versions migrate");
+        {
+            TempFolder tmp;
+            const char* v1 =
+                R"(<PARAMETERS><PARAM id="band1_freq" value="250.0"/><PARAM id="band1_gain" value="-4.0"/>)"
+                R"(<PARAM id="band1_q" value="2.0"/><PARAM id="band2_freq" value="1500.0"/><PARAM id="band2_gain" value="3.0"/>)"
+                R"(<PARAM id="band3_freq" value="9000.0"/><PARAM id="band3_gain" value="1.5"/></PARAMETERS>)";
+            tmp.dir.getChildFile ("Old.twpreset").replaceWithText (v1);
+
+            ThreeBandEQAudioProcessor p;
+            p.presets.setUserFolder (tmp.dir);
+            p.setBandUsed (7, true);
+            set (p, 7, Param::Gain, 5.0f);
+            set (p, 0, Param::Slope, 4.0f);
+
+            juce::String error;
+            expect (p.presets.load (p.presets.getUserPresets().front(), error), error);
+            expectWithinAbsoluteError (p.getBandValue (0, Param::Freq), 250.0f, 0.01f, "band 1 freq");
+            expectWithinAbsoluteError (p.getBandValue (1, Param::Gain), 3.0f, 0.01f, "band 2 gain");
+            expect (p.isBandUsed (0) && p.isBandUsed (1) && p.isBandUsed (2) && ! p.isBandUsed (7), "v1: bands 1-3 used");
+            expectEquals ((int) p.getBandValue (0, Param::Slope), defaultSlope, "missing slope -> default");
+            expectEquals (p.getBandValue (7, Param::Gain), 0.0f, "missing params -> defaults");
+        }
+
+        beginTest ("Corrupt or foreign files are rejected and change nothing");
+        {
+            TempFolder tmp;
+            tmp.dir.getChildFile ("Garbage.twpreset").replaceWithText ("this is <not xml");
+            tmp.dir.getChildFile ("Foreign.twpreset").replaceWithText ("<SOMETHING><PARAM id=\"band1_gain\" value=\"12\"/></SOMETHING>");
+            juce::FileOutputStream (tmp.dir.getChildFile ("Empty.twpreset")).flush();
+
+            ThreeBandEQAudioProcessor p;
+            p.presets.setUserFolder (tmp.dir);
+            set (p, 1, Param::Gain, 4.0f);
+            const auto before = allValues (p);
+
+            for (auto& e : p.presets.getUserPresets())
+            {
+                juce::String error;
+                expect (! p.presets.load (e, error), "rejected: " + e.name);
+                expect (error.isNotEmpty(), "with a message: " + e.name);
+                expect (allValues (p) == before, "state unchanged: " + e.name);
+            }
+
+            juce::String error;
+            expect (! p.presets.load ({ "Gone", -1, tmp.dir.getChildFile ("Missing.twpreset") }, error), "missing file rejected");
+            expect (! p.edits.getUndoManager().canUndo(), "no undo entries from failed loads");
+        }
+
+        beginTest ("Current preset survives saving and restoring the session");
+        {
+            ThreeBandEQAudioProcessor p;
+            juce::String error;
+            expect (p.presets.load ({ PresetManager::getFactoryName (3), 3, {} }, error));
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+
+            ThreeBandEQAudioProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expect (q.presets.hasCurrent(), "preset name restored");
+            expectEquals (q.presets.getCurrent().name, PresetManager::getFactoryName (3));
+            expect (! q.presets.isModified(), "and not marked modified");
+        }
+    }
+
+    static void set (ThreeBandEQAudioProcessor& p, int band, Param prm, float v) { setBand (p, band, prm, v); }
+};
+
+static PresetTests presetTests;
 static SoloTests soloTests;
 static SlopeTests slopeTests;
 static OutputStageTests outputStageTests;
