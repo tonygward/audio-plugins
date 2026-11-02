@@ -43,7 +43,7 @@ private:
 
     juce::Label title;
     juce::TextButton powerButton { "ON" };
-    juce::ComboBox typeBox;
+    juce::ComboBox typeBox, slopeBox;
     Knob freqKnob, gainKnob, qKnob;
     juce::TextButton resetButton { "Reset" }, deleteButton { "Delete" };
 

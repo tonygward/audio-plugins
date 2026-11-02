@@ -67,7 +67,7 @@ void EQDisplay::setSelectedBand (int band)
 // (UI edits, host automation, undo/redo, state restore).
 void EQDisplay::timerCallback()
 {
-    const size_t needed = (size_t) EQ::numBands * 6 + 3;
+    const size_t needed = (size_t) EQ::numBands * (EQ::numBandParams + 1) + 3;
     if (lastValues.size() != needed)
         lastValues.assign (needed, -12345.0f);
 
@@ -77,7 +77,7 @@ void EQDisplay::timerCallback()
 
     for (int b = 0; b < EQ::numBands; ++b)
     {
-        for (int p = 0; p < 5; ++p)
+        for (int p = 0; p < EQ::numBandParams; ++p)
             check (processor.getBandValue (b, (EQ::Param) p));
         check (processor.isBandUsed (b) ? 1.0f : 0.0f);
     }
@@ -342,7 +342,7 @@ void EQDisplay::computeCurves (juce::Rectangle<float> area)
     auto& c = curves;
 
     // Same coefficient function as the audio engine -> the curve is the actual response.
-    std::vector<EQ::SvfCoeffs> coeffs;
+    std::vector<EQ::FilterCoeffs> coeffs;
     c.bands.clear();
     c.enabled.clear();
 
@@ -352,10 +352,11 @@ void EQDisplay::computeCurves (juce::Rectangle<float> area)
             continue;
 
         const auto type = getType (b);
-        coeffs.push_back (EQ::makeCoeffs (type, sr,
+        coeffs.push_back (EQ::makeFilter (type, sr,
                                           processor.getBandValue (b, EQ::Param::Freq),
                                           processor.getBandValue (b, EQ::Param::Q),
-                                          EQ::typeHasGain (type) ? processor.getBandValue (b, EQ::Param::Gain) : 0.0f));
+                                          EQ::typeHasGain (type) ? processor.getBandValue (b, EQ::Param::Gain) : 0.0f,
+                                          (int) std::lround (processor.getBandValue (b, EQ::Param::Slope))));
         c.bands.push_back (b);
         c.enabled.push_back (isEnabled (b));
     }
@@ -512,6 +513,8 @@ void EQDisplay::drawTooltip (juce::Graphics& g, juce::Rectangle<float> area, int
 {
     const auto type = getType (band);
     juce::String line1 = "Band " + juce::String (band + 1) + "  " + EQ::getTypeNames()[(int) type];
+    if (EQ::typeHasSlope (type))
+        line1 << "  " << EQ::getSlopeNames()[(int) std::lround (processor.getBandValue (band, EQ::Param::Slope))];
     if (! isEnabled (band))
         line1 << "  (bypassed)";
 
@@ -592,6 +595,14 @@ void EQDisplay::showContextMenu (int band)
     menu.addSectionHeader ("Band " + juce::String (band + 1));
     for (int t = 0; t < EQ::numFilterTypes; ++t)
         menu.addItem (100 + t, EQ::getTypeNames()[t], true, (int) current == t);
+
+    {
+        juce::PopupMenu slopes;
+        const int slope = (int) std::lround (processor.getBandValue (band, EQ::Param::Slope));
+        for (int s = 0; s < EQ::numSlopes; ++s)
+            slopes.addItem (200 + s, EQ::getSlopeNames()[s], true, slope == s);
+        menu.addSubMenu ("Slope", slopes, EQ::typeHasSlope (current));
+    }
     menu.addSeparator();
     menu.addItem (1, enabled ? "Bypass" : "Enable");
     menu.addItem (2, "Reset gain and Q");
@@ -607,7 +618,8 @@ void EQDisplay::showContextMenu (int band)
 
                             auto& edits = safe->processor.edits;
 
-                            if (result >= 100)       edits.setType (band, EQ::typeFromIndex (result - 100));
+                            if (result >= 200)       edits.setSlope (band, result - 200);
+                            else if (result >= 100)  edits.setType (band, EQ::typeFromIndex (result - 100));
                             else if (result == 1)    edits.setEnabled (band, ! enabled);
                             else if (result == 2)    edits.resetBand (band);
                             else if (result == 3)  { edits.removeBand (band); safe->setSelectedBand (-1); }

@@ -42,6 +42,15 @@ BandPanel::BandPanel (ThreeBandEQAudioProcessor& p) : processor (p)
     };
     addAndMakeVisible (typeBox);
 
+    slopeBox.addItemList (EQ::getSlopeNames(), 1);
+    slopeBox.setTooltip ("Cut slope (Low Cut / High Cut only)");
+    slopeBox.onChange = [this]
+    {
+        if (! updating && band >= 0 && slopeBox.getSelectedItemIndex() >= 0)
+            processor.edits.setSlope (band, slopeBox.getSelectedItemIndex());
+    };
+    addAndMakeVisible (slopeBox);
+
     setupKnob (freqKnob, "FREQ", EQ::Param::Freq);
     setupKnob (gainKnob, "GAIN", EQ::Param::Gain);
     setupKnob (qKnob,    "Q",    EQ::Param::Q);
@@ -161,12 +170,20 @@ void BandPanel::refreshFromParams()
     title.setColour (juce::Label::textColourId, colour);
 
     powerButton.setToggleState (enabled, juce::dontSendNotification);
-    powerButton.setButtonText (enabled ? "ON" : "BYPASS");
+    powerButton.setButtonText (enabled ? "ON" : "OFF");
     powerButton.setColour (juce::TextButton::buttonOnColourId, colour.withAlpha (0.85f));
     powerButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
 
     if (typeBox.getSelectedItemIndex() != (int) type)
         typeBox.setSelectedItemIndex ((int) type, juce::dontSendNotification);
+
+    const int slope = (int) std::lround (processor.getBandValue (band, EQ::Param::Slope));
+    if (slopeBox.getSelectedItemIndex() != slope)
+        slopeBox.setSelectedItemIndex (slope, juce::dontSendNotification);
+
+    const bool hasSlope = EQ::typeHasSlope (type);
+    slopeBox.setEnabled (hasSlope);
+    slopeBox.setAlpha (hasSlope ? 1.0f : 0.35f);
 
     for (auto* k : { &freqKnob, &gainKnob, &qKnob })
     {
@@ -197,12 +214,14 @@ void BandPanel::resized()
 {
     auto area = getLocalBounds().reduced (12, 8);
 
-    auto left = area.removeFromLeft (118);
-    title.setBounds (left.removeFromTop (22));
-    left.removeFromTop (4);
-    powerButton.setBounds (left.removeFromTop (26));
-    left.removeFromTop (6);
-    typeBox.setBounds (left.removeFromTop (26));
+    auto left = area.removeFromLeft (124);
+    auto top = left.removeFromTop (24);
+    powerButton.setBounds (top.removeFromRight (50));
+    title.setBounds (top);
+    left.removeFromTop (5);
+    typeBox.setBounds (left.removeFromTop (24));
+    left.removeFromTop (5);
+    slopeBox.setBounds (left.removeFromTop (24));
 
     auto right = area.removeFromRight (64);
     right = right.withSizeKeepingCentre (right.getWidth(), 62);
