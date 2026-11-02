@@ -20,7 +20,7 @@ public:
     void resized() override;
 
     static constexpr int panelWidth  = 470;
-    static constexpr int panelHeight = 104;
+    static constexpr int panelHeight = 128;
 
     std::function<void()> onBandRemoved;
 
@@ -43,7 +43,7 @@ private:
 
     juce::Label title;
     juce::TextButton powerButton { "ON" };
-    juce::ComboBox typeBox, slopeBox;
+    juce::ComboBox typeBox, slopeBox, stereoBox;
     Knob freqKnob, gainKnob, qKnob;
     juce::TextButton resetButton { "Reset" }, deleteButton { "Delete" }, soloButton { "Solo" };
 

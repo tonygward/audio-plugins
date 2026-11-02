@@ -52,6 +52,19 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
     };
     addAndMakeVisible (analyserBox);
 
+    curveViewBox.addItemList ({ "Curve: all bands", "Curve: Left", "Curve: Right", "Curve: Mid", "Curve: Side" }, 1);
+    curveViewBox.setTooltip ("Which channel the combined curve shows: Stereo bands plus the bands set to that channel");
+    curveViewBox.onChange = [this]
+    {
+        const int i = curveViewBox.getSelectedItemIndex();
+        if (i >= 0)
+        {
+            processor.curveView.store (i);
+            processor.notifyNonParameterStateChanged();
+        }
+    };
+    addAndMakeVisible (curveViewBox);
+
     // Output gain (bar slider, double-click resets to 0 dB) and global bypass.
     outputAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
         processor.apvts, EQ::outputGainId, outputSlider);
@@ -134,6 +147,10 @@ void ThreeBandEQAudioProcessorEditor::timerCallback()
         if (std::abs (ranges[i] - range) < 0.5f && rangeBox.getSelectedItemIndex() != i)
             rangeBox.setSelectedItemIndex (i, juce::dontSendNotification);
 
+    if (curveViewBox.getSelectedItemIndex() != processor.curveView.load())
+        curveViewBox.setSelectedItemIndex (processor.curveView.load(), juce::dontSendNotification);
+    curveViewBox.setVisible (processor.getTotalNumInputChannels() >= 2);
+
     if (analyserBox.getSelectedItemIndex() != processor.analyser.mode.load())
         analyserBox.setSelectedItemIndex (processor.analyser.mode.load(), juce::dontSendNotification);
 }
@@ -200,6 +217,8 @@ void ThreeBandEQAudioProcessorEditor::resized()
         rangeBox.setBounds (row.removeFromLeft (92));
         row.removeFromLeft (6);
         analyserBox.setBounds (row.removeFromLeft (132));
+        row.removeFromLeft (6);
+        curveViewBox.setBounds (row.removeFromLeft (132));
 
         bypassButton.setBounds (row.removeFromRight (62));
         row.removeFromRight (6);

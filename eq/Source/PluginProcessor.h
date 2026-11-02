@@ -86,6 +86,7 @@ public:
     // Persisted UI state
     std::atomic<int>   selectedBand { 0 };
     std::atomic<float> displayRangeDb { 24.0f };
+    std::atomic<int>   curveView { 0 };   // 0 all bands, 1 L, 2 R, 3 M, 4 S (see EQDisplay::isInCurveView)
     std::atomic<int>   editorWidth { 980 }, editorHeight { 580 };
 
     SpectrumAnalyser analyser;   // mode is persisted with the UI state

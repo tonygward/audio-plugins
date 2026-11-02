@@ -56,6 +56,17 @@ int EQDisplay::getSoloBand() const
     return isUsed (b) ? b : -1;
 }
 
+// Curve view: 0 = all bands (the combined curve as before), otherwise one channel
+// (1 Left, 2 Right, 3 Mid, 4 Side): Stereo bands plus the bands set to that channel.
+// It's a per-channel view of each band's own response, not a full L/R <-> M/S
+// cross-model, so e.g. a Mid band is not shown in the Left view.
+bool EQDisplay::isInCurveView (int band) const
+{
+    const int view = processor.curveView.load();
+    const int mode = (int) std::lround (processor.getBandValue (band, EQ::Param::Stereo));
+    return view == 0 || mode == 0 || mode == view || processor.getTotalNumInputChannels() < 2;
+}
+
 int EQDisplay::getSelectedBand() const
 {
     const int b = processor.selectedBand.load();
@@ -94,6 +105,7 @@ void EQDisplay::timerCallback()
     }
     check ((float) processor.selectedBand.load());
     check ((float) getSoloBand());
+    check ((float) processor.curveView.load());
     check (processor.displayRangeDb.load());
     check ((float) getWidth());
     check ((float) getHeight());
@@ -360,6 +372,7 @@ void EQDisplay::computeCurves (juce::Rectangle<float> area)
     std::vector<EQ::FilterCoeffs> coeffs;
     c.bands.clear();
     c.enabled.clear();
+    c.inView.clear();
 
     for (int b = 0; b < EQ::numBands; ++b)
     {
@@ -374,6 +387,7 @@ void EQDisplay::computeCurves (juce::Rectangle<float> area)
                                           (int) std::lround (processor.getBandValue (b, EQ::Param::Slope))));
         c.bands.push_back (b);
         c.enabled.push_back (isEnabled (b));
+        c.inView.push_back (isInCurveView (b));
     }
 
     // Sample every pixel, plus each band's exact centre frequency so that narrow
@@ -402,7 +416,7 @@ void EQDisplay::computeCurves (juce::Rectangle<float> area)
         {
             const float db = (float) EQ::getMagnitudeDb (coeffs[k], freqs[i], sr);
             c.single[k][i] = db;
-            if (c.enabled[k])
+            if (c.enabled[k] && c.inView[k])
                 c.total[i] += db;   // sum in dB = product of magnitudes
         }
 
@@ -462,7 +476,7 @@ void EQDisplay::drawCurves (juce::Graphics& g, juce::Rectangle<float> area)
         }
         else if (enabled)
         {
-            g.setColour (colour.withAlpha (band == hoveredBand ? 0.6f : 0.22f));
+            g.setColour (colour.withAlpha ((band == hoveredBand ? 0.6f : 0.22f) * (c.inView[k] ? 1.0f : 0.35f)));
             g.strokePath (makePath (c.single[k]), juce::PathStrokeType (1.0f));
         }
     }
@@ -521,6 +535,18 @@ void EQDisplay::drawNodes (juce::Graphics& g)
         g.setFont (EQColours::font (b >= 9 ? 9.0f : 10.0f, true));
         g.drawText (juce::String (b + 1), circle.expanded (2.0f), juce::Justification::centred, false);
 
+        // Stereo-mode badge (L, R, M, S) at the top right of the node.
+        if (const int mode = (int) std::lround (processor.getBandValue (b, EQ::Param::Stereo)); mode != 0)
+        {
+            const auto badge = juce::Rectangle<float> (11.0f, 11.0f).withCentre (circle.getTopRight().translated (-1.0f, 1.0f));
+            g.setColour (EQColours::background);
+            g.fillEllipse (badge);
+            g.setColour (colour);
+            g.drawEllipse (badge, 1.0f);
+            g.setFont (EQColours::font (8.5f, true));
+            g.drawText (juce::String::charToString ("SLRMS"[mode]), badge, juce::Justification::centred, false);
+        }
+
         if (dim)
             g.endTransparencyLayer();
     };
@@ -541,6 +567,8 @@ void EQDisplay::drawTooltip (juce::Graphics& g, juce::Rectangle<float> area, int
         line1 << "  " << EQ::getSlopeNames()[(int) std::lround (processor.getBandValue (band, EQ::Param::Slope))];
     if (! isEnabled (band))
         line1 << "  (bypassed)";
+    if (const int mode = (int) std::lround (processor.getBandValue (band, EQ::Param::Stereo)); mode != 0)
+        line1 << "  [" << EQ::getStereoModeNames()[mode] << "]";
 
     juce::String line2 = formatFreq (processor.getBandValue (band, EQ::Param::Freq));
     if (EQ::typeHasGain (type))
@@ -654,6 +682,12 @@ void EQDisplay::showContextMenu (int band)
         for (int s = 0; s < EQ::numSlopes; ++s)
             slopes.addItem (200 + s, EQ::getSlopeNames()[s], true, slope == s);
         menu.addSubMenu ("Slope", slopes, EQ::typeHasSlope (current));
+
+        juce::PopupMenu modes;
+        const int stereo = (int) std::lround (processor.getBandValue (band, EQ::Param::Stereo));
+        for (int m = 0; m < EQ::numStereoModes; ++m)
+            modes.addItem (300 + m, EQ::getStereoModeNames()[m], true, stereo == m);
+        menu.addSubMenu ("Stereo mode", modes, processor.getTotalNumInputChannels() >= 2);
     }
     menu.addSeparator();
     menu.addItem (4, "Solo (audition)", true, processor.soloBand.load() == band);
@@ -671,7 +705,8 @@ void EQDisplay::showContextMenu (int band)
 
                             auto& edits = safe->processor.edits;
 
-                            if (result >= 200)       edits.setSlope (band, result - 200);
+                            if (result >= 300)       edits.setStereoMode (band, result - 300);
+                            else if (result >= 200)  edits.setSlope (band, result - 200);
                             else if (result >= 100)  edits.setType (band, EQ::typeFromIndex (result - 100));
                             else if (result == 1)    edits.setEnabled (band, ! enabled);
                             else if (result == 2)    edits.resetBand (band);

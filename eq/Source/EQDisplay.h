@@ -63,6 +63,7 @@ private:
     void drawEmptyHint (juce::Graphics&, juce::Rectangle<float> area);
     void drawSoloRegion (juce::Graphics&, juce::Rectangle<float> area, int band);
     int getSoloBand() const;
+    bool isInCurveView (int band) const;
 
     void showContextMenu (int band);
     void positionPanel();
@@ -81,6 +82,7 @@ private:
         std::vector<float> xs, total;
         std::vector<int> bands;                   // used bands, in order
         std::vector<bool> enabled;
+        std::vector<bool> inView;                 // counted in the main curve for the current curve view
         std::vector<std::vector<float>> single;   // per entry in 'bands'
     } curves;
 

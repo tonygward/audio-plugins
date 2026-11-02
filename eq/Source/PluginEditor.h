@@ -27,7 +27,7 @@ private:
     EQDisplay display;
     PresetBar presetBar { processor };
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
-    juce::ComboBox rangeBox, analyserBox;
+    juce::ComboBox rangeBox, analyserBox, curveViewBox;
     juce::Label bandCountLabel, hintLabel;
 
     // Global output stage

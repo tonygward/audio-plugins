@@ -51,6 +51,15 @@ BandPanel::BandPanel (ThreeBandEQAudioProcessor& p) : processor (p)
     };
     addAndMakeVisible (slopeBox);
 
+    stereoBox.addItemList (EQ::getStereoModeNames(), 1);
+    stereoBox.setTooltip ("Which channels this band processes: both, left, right, mid or side");
+    stereoBox.onChange = [this]
+    {
+        if (! updating && band >= 0 && stereoBox.getSelectedItemIndex() >= 0)
+            processor.edits.setStereoMode (band, stereoBox.getSelectedItemIndex());
+    };
+    addAndMakeVisible (stereoBox);
+
     setupKnob (freqKnob, "FREQ", EQ::Param::Freq);
     setupKnob (gainKnob, "GAIN", EQ::Param::Gain);
     setupKnob (qKnob,    "Q",    EQ::Param::Q);
@@ -195,6 +204,15 @@ void BandPanel::refreshFromParams()
     if (slopeBox.getSelectedItemIndex() != slope)
         slopeBox.setSelectedItemIndex (slope, juce::dontSendNotification);
 
+    const int stereo = (int) std::lround (processor.getBandValue (band, EQ::Param::Stereo));
+    if (stereoBox.getSelectedItemIndex() != stereo)
+        stereoBox.setSelectedItemIndex (stereo, juce::dontSendNotification);
+
+    // A mono bus treats every mode as Stereo.
+    const bool stereoBus = processor.getTotalNumInputChannels() >= 2;
+    stereoBox.setEnabled (stereoBus);
+    stereoBox.setAlpha (stereoBus ? 1.0f : 0.35f);
+
     const bool hasSlope = EQ::typeHasSlope (type);
     slopeBox.setEnabled (hasSlope);
     slopeBox.setAlpha (hasSlope ? 1.0f : 0.35f);
@@ -236,6 +254,8 @@ void BandPanel::resized()
     typeBox.setBounds (left.removeFromTop (24));
     left.removeFromTop (5);
     slopeBox.setBounds (left.removeFromTop (24));
+    left.removeFromTop (5);
+    stereoBox.setBounds (left.removeFromTop (24));
 
     auto right = area.removeFromRight (64);
     right = right.withSizeKeepingCentre (right.getWidth(), 3 * 24 + 2 * 5);
