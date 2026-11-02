@@ -10,6 +10,14 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 
 ## TW Pro EQ
 
+### Features
+
+- Up to 24 bands: Bell, Low Shelf, High Shelf, Low Cut, High Cut and Notch
+- Click-free parameter smoothing, undo/redo, and a response curve drawn from the real DSP coefficients
+- Pre/post spectrum analyser
+- **Output gain** (±24 dB, double-click to reset) with a peak meter, peak hold and clip indicator (click the meter to clear it)
+- **Global bypass** that your DAW uses as its native bypass, with a smooth 20 ms cross-fade
+
 ### Just want to use it?
 
 Pre-built **Windows** binaries are on the [Releases page](https://github.com/tonygward/audio-plugins/releases).

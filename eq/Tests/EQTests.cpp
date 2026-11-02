@@ -445,14 +445,19 @@ public:
         beginTest ("Parameter identities");
         {
             ThreeBandEQAudioProcessor p;
-            expectEquals (p.getParameters().size(), numBands * 5, "24 bands x 5 parameters");
+            constexpr int numGlobalParams = 2;   // output_gain, bypass
+            expectEquals (p.getParameters().size(), numBands * 5 + numGlobalParams, "24 bands x 5 parameters + globals");
 
             juce::StringArray ids;
             for (auto* param : p.getParameters())
                 if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (param))
                     ids.add (rp->paramID);
             ids.removeDuplicates (false);
-            expectEquals (ids.size(), numBands * 5, "IDs are unique");
+            expectEquals (ids.size(), numBands * 5 + numGlobalParams, "IDs are unique");
+
+            expect (p.apvts.getParameter ("output_gain") != nullptr, "output_gain present");
+            expect (p.apvts.getParameter ("bypass") != nullptr, "bypass present");
+            expect (p.getBypassParameter() == p.apvts.getParameter ("bypass"), "bypass is the host bypass parameter");
 
             for (const char* legacy : { "band1_freq", "band1_gain", "band1_q", "band2_freq", "band2_gain",
                                         "band2_q", "band3_freq", "band3_gain", "band3_q" })
@@ -554,6 +559,8 @@ public:
             expectWithinAbsoluteError (p.getBandValue (9, Param::Gain), 0.0f, 0.001f, "missing params reset to default");
             expectEquals ((int) p.getBandValue (1, Param::Type), (int) FilterType::Bell, "legacy bands are bells");
             expectEquals (p.getBandValue (1, Param::Enabled), 1.0f, "legacy bands enabled");
+            expectEquals (p.apvts.getRawParameterValue ("output_gain")->load(), 0.0f, "legacy: 0 dB output gain");
+            expectEquals (p.apvts.getRawParameterValue ("bypass")->load(), 0.0f, "legacy: bypass off");
         }
 
         beginTest ("Multiple instances are independent");
@@ -756,6 +763,222 @@ public:
     }
 };
 
+//==============================================================================
+// Shared helpers for processor-level tests.
+namespace
+{
+    void setParam (ThreeBandEQAudioProcessor& p, const juce::String& id, float value)
+    {
+        auto* rp = p.apvts.getParameter (id);
+        rp->setValueNotifyingHost (rp->convertTo0to1 (value));
+    }
+
+    void setBand (ThreeBandEQAudioProcessor& p, int band, Param prm, float value)
+    {
+        auto* rp = p.getBandParam (band, prm);
+        rp->setValueNotifyingHost (rp->convertTo0to1 (value));
+    }
+
+    // Streams a signal through the processor in fixed blocks; 'onBlock' may change
+    // parameters before each block. Returns the left output and fills 'inputOut'.
+    std::vector<float> runProcessor (ThreeBandEQAudioProcessor& p, double fs, int block, int total,
+                                     const std::function<float (int n)>& signal,
+                                     const std::function<void (int sample)>& onBlock,
+                                     std::vector<float>* rightOut = nullptr)
+    {
+        p.setRateAndBufferSizeDetails (fs, block);
+        juce::AudioBuffer<float> buf (2, block);
+        juce::MidiBuffer midi;
+        std::vector<float> out ((size_t) total);
+        if (rightOut != nullptr)
+            rightOut->assign ((size_t) total, 0.0f);
+
+        for (int n = 0; n < total; n += block)
+        {
+            const int num = std::min (block, total - n);
+            onBlock (n);
+            buf.setSize (2, num, false, false, true);
+            for (int i = 0; i < num; ++i)
+            {
+                const float v = signal (n + i);
+                buf.setSample (0, i, v);
+                buf.setSample (1, i, v);
+            }
+            p.processBlock (buf, midi);
+            for (int i = 0; i < num; ++i)
+            {
+                out[(size_t) (n + i)] = buf.getSample (0, i);
+                if (rightOut != nullptr)
+                    (*rightOut)[(size_t) (n + i)] = buf.getSample (1, i);
+            }
+        }
+        return out;
+    }
+
+    double rms (const std::vector<float>& x, size_t from, size_t to)
+    {
+        double s = 0.0;
+        for (size_t i = from; i < to; ++i)
+            s += (double) x[i] * x[i];
+        return std::sqrt (s / (double) std::max<size_t> (1, to - from));
+    }
+}
+
+class OutputStageTests final : public juce::UnitTest
+{
+public:
+    OutputStageTests() : juce::UnitTest ("Output gain and bypass", "EQ") {}
+
+    void runTest() override
+    {
+        constexpr double fs = 48000.0;
+        constexpr int block = 256;
+        auto sine = [] (double f, double amp) { return [=] (int n) { return (float) (amp * std::sin (2.0 * pi * f * n / fs)); }; };
+
+        beginTest ("Output gain accuracy (-12, 0, +12 dB)");
+        for (float db : { -12.0f, 0.0f, 12.0f })
+        {
+            ThreeBandEQAudioProcessor p;
+            for (int b = 0; b < numBands; ++b)
+                p.setBandUsed (b, false);
+            setParam (p, "output_gain", db);
+            p.prepareToPlay (fs, block);
+
+            const int total = (int) (0.5 * fs);
+            const auto out = runProcessor (p, fs, block, total, sine (997.0, 0.25), [] (int) {});
+            std::vector<float> in ((size_t) total);
+            for (int n = 0; n < total; ++n)
+                in[(size_t) n] = sine (997.0, 0.25) (n);
+
+            const double measured = 20.0 * std::log10 (rms (out, (size_t) total / 2, (size_t) total) / rms (in, (size_t) total / 2, (size_t) total));
+            expectWithinAbsoluteError (measured, (double) db, 0.01, "output gain " + juce::String (db) + " dB");
+        }
+
+        beginTest ("Output gain jump is smoothed");
+        {
+            ThreeBandEQAudioProcessor p;
+            for (int b = 0; b < numBands; ++b)
+                p.setBandUsed (b, false);
+            p.prepareToPlay (fs, block);
+
+            const int total = (int) (0.6 * fs);
+            const auto out = runProcessor (p, fs, block, total, sine (100.0, 0.2), [&] (int n)
+            {
+                if (n >= (int) (0.2 * fs) && n < (int) (0.2 * fs) + block)
+                    setParam (p, "output_gain", 12.0f);
+            });
+
+            const double steady = maxStep (out, (size_t) (0.45 * fs), out.size());
+            const double during = maxStep (out, (size_t) (0.19 * fs), (size_t) (0.3 * fs));
+            // An unsmoothed 4x jump would step by up to 0.6 in one sample (~100x the steady step).
+            // Multiplicative smoothing over 20 ms adds ln(4)/(0.02 * 2 pi 100) ~ 11 % to the slope.
+            expectLessThan (during, steady * 1.2, "max step during the gain change ~ final steady-state step");
+            expect (std::all_of (out.begin(), out.end(), [] (float v) { return std::isfinite (v); }), "finite");
+        }
+
+        beginTest ("Bypass cross-fades to bit-exact dry output");
+        {
+            ThreeBandEQAudioProcessor p;
+            setBand (p, 0, Param::Gain, 12.0f);   // band 1: +12 dB bell at 100 Hz -> clearly processed
+            setBand (p, 1, Param::Gain, -9.0f);
+            setParam (p, "output_gain", 6.0f);
+            p.prepareToPlay (fs, block);
+
+            std::mt19937 rng (3);
+            std::uniform_real_distribution<float> dist (-0.3f, 0.3f);
+            const int total = (int) (0.6 * fs);
+            std::vector<float> in ((size_t) total);
+            for (auto& v : in) v = dist (rng);
+
+            const int bypassAt = (int) (0.2 * fs) / block * block;
+            std::vector<float> right;
+            const auto out = runProcessor (p, fs, block, total, [&] (int n) { return in[(size_t) n]; }, [&] (int n)
+            {
+                if (n == bypassAt)
+                    setParam (p, "bypass", 1.0f);
+            }, &right);
+
+            double maxErr = 0.0;
+            const auto settled = (size_t) (bypassAt + (int) (0.03 * fs));
+            for (size_t i = settled; i < out.size(); ++i)
+                maxErr = std::max ({ maxErr, (double) std::abs (out[i] - in[i]), (double) std::abs (right[i] - in[i]) });
+            expectLessThan (maxErr, 1.0e-6, "bypassed output equals the input once the fade has finished");
+
+            double before = 0.0;
+            for (size_t i = (size_t) (0.1 * fs); i < (size_t) bypassAt; ++i)
+                before = std::max (before, (double) std::abs (out[i] - in[i]));
+            expectGreaterThan (before, 0.05, "processing was audible before bypass");
+        }
+
+        beginTest ("Bypass on/off transition is smooth");
+        {
+            ThreeBandEQAudioProcessor p;
+            setBand (p, 1, Param::Gain, 12.0f);   // +12 dB at 1 kHz
+            setBand (p, 1, Param::Q, 1.0f);
+            p.prepareToPlay (fs, block);
+
+            const int total = (int) (0.8 * fs);
+            const auto out = runProcessor (p, fs, block, total, sine (1000.0, 0.1), [&] (int n)
+            {
+                if (n == (int) (0.2 * fs) / block * block) setParam (p, "bypass", 1.0f);
+                if (n == (int) (0.5 * fs) / block * block) setParam (p, "bypass", 0.0f);
+            });
+
+            const double loud = maxStep (out, (size_t) (0.1 * fs), (size_t) (0.19 * fs));
+            expectLessThan (maxStep (out, 1, out.size()), loud * 1.05, "no step bigger than the processed signal's");
+
+            const double quiet = rms (out, (size_t) (0.35 * fs), (size_t) (0.45 * fs));
+            expectWithinAbsoluteError (20.0 * std::log10 (quiet / (0.1 / std::sqrt (2.0))), 0.0, 0.01, "bypassed level = input level");
+            const double back = rms (out, (size_t) (0.7 * fs), (size_t) (0.8 * fs));
+            expectWithinAbsoluteError (20.0 * std::log10 (back / (0.1 / std::sqrt (2.0))), 12.0, 0.1, "un-bypassed: processing returns");
+        }
+
+        beginTest ("Output meter sees peaks and clipping");
+        {
+            ThreeBandEQAudioProcessor p;
+            for (int b = 0; b < numBands; ++b)
+                p.setBandUsed (b, false);
+            setParam (p, "output_gain", 6.0f);
+            p.prepareToPlay (fs, block);
+
+            runProcessor (p, fs, block, (int) (0.1 * fs), sine (500.0, 0.25), [] (int) {});
+            expectWithinAbsoluteError (p.outputMeter.readAndReset(), 0.25f * juce::Decibels::decibelsToGain (6.0f), 0.01f, "peak");
+            expect (! p.outputMeter.clipped.load(), "no clip at -6 dBFS");
+            expectEquals (p.outputMeter.readAndReset(), 0.0f, "read resets the peak");
+
+            runProcessor (p, fs, block, (int) (0.1 * fs), sine (500.0, 0.9), [] (int) {});
+            expect (p.outputMeter.clipped.load(), "clip latched above 0 dBFS");
+        }
+
+        beginTest ("Output gain and bypass are saved with the session");
+        {
+            ThreeBandEQAudioProcessor a;
+            setParam (a, "output_gain", -7.5f);
+            setParam (a, "bypass", 1.0f);
+            juce::MemoryBlock mb;
+            a.getStateInformation (mb);
+
+            ThreeBandEQAudioProcessor b;
+            b.setStateInformation (mb.getData(), (int) mb.getSize());
+            expectWithinAbsoluteError (b.apvts.getRawParameterValue ("output_gain")->load(), -7.5f, 0.001f, "output gain restored");
+            expectEquals (b.apvts.getRawParameterValue ("bypass")->load(), 1.0f, "bypass restored");
+
+            // A v2 session (saved before these parameters existed) loads with neutral values,
+            // even into an instance where they were changed.
+            auto state = b.apvts.copyState();
+            state.setProperty ("version", 2, nullptr);
+            state.removeChild (state.getChildWithProperty ("id", "output_gain"), nullptr);
+            state.removeChild (state.getChildWithProperty ("id", "bypass"), nullptr);
+            juce::MemoryBlock old;
+            juce::AudioProcessor::copyXmlToBinary (*state.createXml(), old);
+            b.setStateInformation (old.getData(), (int) old.getSize());
+            expectEquals (b.apvts.getRawParameterValue ("output_gain")->load(), 0.0f, "old session: 0 dB");
+            expectEquals (b.apvts.getRawParameterValue ("bypass")->load(), 0.0f, "old session: bypass off");
+        }
+    }
+};
+
+static OutputStageTests outputStageTests;
 static AnalyserTests analyserTests;
 static FilterResponseTests filterResponseTests;
 static SmoothingTests smoothingTests;
