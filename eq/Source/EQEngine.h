@@ -13,6 +13,7 @@ namespace EQ
         float gain = 0.0f;
         float q    = defaultQ;
         int slope  = defaultSlope;        // index into slopeOrders (cut types only)
+        StereoMode stereo = StereoMode::Stereo;
     };
 
     // Real-time EQ processor for up to 24 bands x 2 channels.
@@ -75,6 +76,7 @@ namespace EQ
 
             FilterType type = FilterType::Bell;
             int slope = defaultSlope;         // effective slope (always the default for non-cut types)
+            StereoMode stereo = StereoMode::Stereo;   // changes only while the band is silent (fade out, switch, fade in)
             Ramp logFreq, gainDb, logQ;
             bool coeffsDirty = true;
 
@@ -98,12 +100,15 @@ namespace EQ
             void resetState() noexcept { for (auto& ch : state) for (auto& s : ch) s.reset(); }
         };
 
+        static void encodeMidSide (float* const* channels, int start, int num) noexcept;
+        static void decodeMidSide (float* const* channels, int start, int num) noexcept;
+
         void updateSolo() noexcept;
         void processSolo (float* const* channels, const float (*input)[updateInterval], int numChannels, int start, int num) noexcept;
 
         void snapBand (Band&);
         void beginBlockForBand (Band&);
-        void processBand (Band&, float* const* channels, int numChannels, int start, int num) noexcept;
+        void processBand (Band&, float* const* channels, int firstChannel, int lastChannel, int start, int num) noexcept;
 
         double sampleRate = 48000.0;
         int smoothingSamples = 960;

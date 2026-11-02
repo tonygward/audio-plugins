@@ -58,14 +58,28 @@ namespace EQ
 
     // Per-band host parameters. Append new ones at the end: the index is used for
     // fixed-size arrays and the ID suffix table below.
-    enum class Param { Freq, Gain, Q, Type, Enabled, Slope };
-    constexpr int numBandParams = 6;
+    // Per-band stereo processing. Stereo (default) processes both channels; Mid/Side bands
+    // run on an M/S-encoded signal (M = (L+R)/2, S = (L-R)/2).
+    enum class StereoMode { Stereo = 0, Left, Right, Mid, Side };
+    constexpr int numStereoModes = 5;
+
+    inline const juce::StringArray& getStereoModeNames()
+    {
+        static const juce::StringArray names { "Stereo", "Left", "Right", "Mid", "Side" };
+        return names;
+    }
+
+    inline StereoMode stereoModeFromIndex (int i) { return static_cast<StereoMode> (juce::jlimit (0, numStereoModes - 1, i)); }
+    inline bool isMidSide (StereoMode m) { return m == StereoMode::Mid || m == StereoMode::Side; }
+
+    enum class Param { Freq, Gain, Q, Type, Enabled, Slope, Stereo };
+    constexpr int numBandParams = 7;
 
     // IDs for bands 1-3 freq/gain/q are unchanged from v0.1 so automation and
     // saved sessions keep pointing at the same parameters.
     inline juce::String paramId (int band, Param p)
     {
-        static const char* const suffix[] = { "freq", "gain", "q", "type", "on", "slope" };
+        static const char* const suffix[] = { "freq", "gain", "q", "type", "on", "slope", "stereo" };
         static_assert (std::size (suffix) == (size_t) numBandParams);
         return "band" + juce::String (band + 1) + "_" + suffix[(int) p];
     }

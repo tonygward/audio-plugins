@@ -86,6 +86,7 @@ namespace EQ
         s.gain    = processor.getBandValue (band, Param::Gain);
         s.q       = processor.getBandValue (band, Param::Q);
         s.slope   = (int) std::lround (processor.getBandValue (band, Param::Slope));
+        s.stereo  = (int) std::lround (processor.getBandValue (band, Param::Stereo));
         return s;
     }
 
@@ -106,6 +107,7 @@ namespace EQ
         setParamWithGesture (band, Param::Enabled, s.enabled ? 1.0f : 0.0f);
         setParamWithGesture (band, Param::Type, (float) s.type);
         setParamWithGesture (band, Param::Slope, (float) s.slope);
+        setParamWithGesture (band, Param::Stereo, (float) s.stereo);
         setParamWithGesture (band, Param::Freq, s.freq);
         setParamWithGesture (band, Param::Gain, s.gain);
         setParamWithGesture (band, Param::Q, s.q);
@@ -225,6 +227,14 @@ namespace EQ
         auto after = before;
         after.slope = juce::jlimit (0, numSlopes - 1, slopeIndex);
         commit (band, before, after, "Change slope");
+    }
+
+    void EditController::setStereoMode (int band, int mode)
+    {
+        const auto before = getSnapshot (band);
+        auto after = before;
+        after.stereo = juce::jlimit (0, numStereoModes - 1, mode);
+        commit (band, before, after, "Change stereo mode");
     }
 
     void EditController::setEnabled (int band, bool enabled)

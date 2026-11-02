@@ -77,6 +77,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::c
         group->addChild (std::make_unique<juce::AudioParameterChoice> (
             juce::ParameterID { EQ::paramId (b, Param::Slope), 3 }, name + " Slope", EQ::getSlopeNames(), EQ::defaultSlope));
 
+        group->addChild (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { EQ::paramId (b, Param::Stereo), 4 }, name + " Stereo", EQ::getStereoModeNames(), 0));
+
         layout.add (std::move (group));
     }
 
@@ -172,6 +175,7 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         s.gain   = EQ::typeHasGain (s.type) ? raw[(size_t) Param::Gain]->load() : 0.0f;
         s.q      = raw[(size_t) Param::Q]->load();
         s.slope  = (int) std::lround (raw[(size_t) Param::Slope]->load());
+        s.stereo = EQ::stereoModeFromIndex ((int) std::lround (raw[(size_t) Param::Stereo]->load()));
         engine.setBand (b, s);
     }
 
@@ -273,6 +277,7 @@ void ThreeBandEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     presets.saveToUiState (ui);
     ui.setProperty ("selectedBand", selectedBand.load(), nullptr);
     ui.setProperty ("displayRange", displayRangeDb.load(), nullptr);
+    ui.setProperty ("curveView", curveView.load(), nullptr);
     ui.setProperty ("analyserMode", analyser.mode.load(), nullptr);
     ui.setProperty ("editorWidth", editorWidth.load(), nullptr);
     ui.setProperty ("editorHeight", editorHeight.load(), nullptr);
@@ -328,6 +333,7 @@ void ThreeBandEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& sav
     {
         selectedBand.store (juce::jlimit (-1, numBands - 1, (int) ui.getProperty ("selectedBand", 0)));
         displayRangeDb.store (juce::jlimit (6.0f, 30.0f, (float) ui.getProperty ("displayRange", 24.0f)));
+        curveView.store (juce::jlimit (0, EQ::numStereoModes - 1, (int) ui.getProperty ("curveView", 0)));
         analyser.mode.store (juce::jlimit (0, 2, (int) ui.getProperty ("analyserMode", (int) SpectrumAnalyser::Mode::Post)));
         editorWidth.store  (juce::jlimit (760, 2000, (int) ui.getProperty ("editorWidth", 980)));
         editorHeight.store (juce::jlimit (440, 1200, (int) ui.getProperty ("editorHeight", 580)));

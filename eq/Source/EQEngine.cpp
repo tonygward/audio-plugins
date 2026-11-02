@@ -75,6 +75,7 @@ namespace EQ
     {
         b.type = b.target.type;
         b.slope = effectiveSlope (b.target);
+        b.stereo = b.target.stereo;
         b.logFreq.reset (std::log (clampFreqForSampleRate (b.target.freq, sampleRate)));
         b.gainDb.reset (b.target.gain);
         b.logQ.reset (std::log ((double) std::max (b.target.q, 0.01f)));
@@ -112,7 +113,16 @@ namespace EQ
             b.wet.reset (0.0);
         }
 
-        b.wet.setTarget (s.active ? 1.0 : 0.0, fadeSamples);
+        // Stereo-mode change: the band works on other channels (or in M/S), so it can't
+        // cross-fade in place. Fade it out, switch while silent, then fade back in.
+        if (b.stereo != s.stereo && b.wet.current <= 0.0 && b.wet.target <= 0.0)
+        {
+            b.stereo = s.stereo;
+            for (auto& st : b.state) st.reset();
+        }
+        const bool modeSettled = b.stereo == s.stereo;
+
+        b.wet.setTarget (s.active && modeSettled ? 1.0 : 0.0, fadeSamples);
         b.logFreq.setTarget (std::log (clampFreqForSampleRate (s.freq, sampleRate)), smoothingSamples);
         b.gainDb.setTarget (s.gain, smoothingSamples);
         b.logQ.setTarget (std::log ((double) std::max (s.q, 0.01f)), smoothingSamples);
@@ -154,13 +164,13 @@ namespace EQ
         }
     }
 
-    void Engine::processBand (Band& b, float* const* channels, int numChannels, int start, int num) noexcept
+    void Engine::processBand (Band& b, float* const* channels, int firstChannel, int lastChannel, int start, int num) noexcept
     {
         const bool simple = ! b.crossfading && ! b.wet.isRamping() && b.wet.current >= 1.0;
 
         if (simple)
         {
-            for (int ch = 0; ch < numChannels; ++ch)
+            for (int ch = firstChannel; ch <= lastChannel; ++ch)
             {
                 auto* data = channels[ch] + start;
                 auto& st = b.state[(size_t) ch];
@@ -191,7 +201,7 @@ namespace EQ
             }
         }
 
-        for (int ch = 0; ch < numChannels; ++ch)
+        for (int ch = firstChannel; ch <= lastChannel; ++ch)
         {
             auto* data = channels[ch] + start;
             auto& st  = b.state[(size_t) ch];
@@ -232,6 +242,8 @@ namespace EQ
                     std::copy (channels[ch] + pos, channels[ch] + pos + num, soloInput[ch]);
             }
 
+            bool midSide = false;   // is this chunk currently M/S-encoded?
+
             for (auto& b : bands)
             {
                 if (! b.initialised)
@@ -241,8 +253,24 @@ namespace EQ
                 if (b.wet.current <= 0.0 && b.wet.target <= 0.0)
                     continue;
 
+                // Stereo modes. Bands run in index order; the chunk is M/S-encoded only while
+                // the next band needs it and decoded again before an L/R band, so a session
+                // with every band in Stereo never converts and stays bit-exact. A mono bus
+                // treats every mode as Stereo.
+                const auto mode = numChannels < 2 ? StereoMode::Stereo : b.stereo;
+                const bool wantMidSide = isMidSide (mode);
+                if (wantMidSide != midSide)
+                {
+                    if (wantMidSide) encodeMidSide (channels, pos, num);
+                    else             decodeMidSide (channels, pos, num);
+                    midSide = wantMidSide;
+                }
+
+                const int first = (mode == StereoMode::Right || mode == StereoMode::Side) ? 1 : 0;
+                const int last  = (mode == StereoMode::Stereo) ? numChannels - 1 : first;
+
                 beginBlockForBand (b);
-                processBand (b, channels, numChannels, pos, num);
+                processBand (b, channels, first, last, pos, num);
 
                 b.logFreq.advance (num);
                 b.gainDb.advance (num);
@@ -271,8 +299,36 @@ namespace EQ
                 }
             }
 
+            if (midSide)
+                decodeMidSide (channels, pos, num);
+
             if (soloing)
                 processSolo (channels, soloInput, numChannels, pos, num);
+        }
+    }
+
+    //==========================================================================
+    void Engine::encodeMidSide (float* const* channels, int start, int num) noexcept
+    {
+        auto* l = channels[0] + start;
+        auto* r = channels[1] + start;
+        for (int i = 0; i < num; ++i)
+        {
+            const float m = (l[i] + r[i]) * 0.5f, s = (l[i] - r[i]) * 0.5f;
+            l[i] = m;
+            r[i] = s;
+        }
+    }
+
+    void Engine::decodeMidSide (float* const* channels, int start, int num) noexcept
+    {
+        auto* m = channels[0] + start;
+        auto* s = channels[1] + start;
+        for (int i = 0; i < num; ++i)
+        {
+            const float l = m[i] + s[i], r = m[i] - s[i];
+            m[i] = l;
+            s[i] = r;
         }
     }
 

@@ -12,12 +12,12 @@ namespace EQ
     struct BandSnapshot
     {
         bool used = false, enabled = true;
-        int type = 0, slope = defaultSlope;
+        int type = 0, slope = defaultSlope, stereo = 0;
         float freq = 1000.0f, gain = 0.0f, q = defaultQ;
 
         bool operator== (const BandSnapshot& o) const noexcept
         {
-            return used == o.used && enabled == o.enabled && type == o.type && slope == o.slope
+            return used == o.used && enabled == o.enabled && type == o.type && slope == o.slope && stereo == o.stereo
                 && freq == o.freq && gain == o.gain && q == o.q;
         }
         bool operator!= (const BandSnapshot& o) const noexcept { return ! (*this == o); }
@@ -43,7 +43,7 @@ namespace EQ
                 const auto& y = o.bands[b];
                 if (x.used != y.used)
                     return false;
-                if (x.used && (x.enabled != y.enabled || x.type != y.type || x.slope != y.slope
+                if (x.used && (x.enabled != y.enabled || x.type != y.type || x.slope != y.slope || x.stereo != y.stereo
                                || std::abs (x.freq - y.freq) > x.freq * 1.0e-4f
                                || std::abs (x.gain - y.gain) > 0.005f
                                || std::abs (x.q - y.q) > 0.005f))
@@ -78,6 +78,7 @@ namespace EQ
         void resetBand (int band);
         void setType (int band, FilterType type);
         void setSlope (int band, int slopeIndex);
+        void setStereoMode (int band, int mode);
         void setEnabled (int band, bool enabled);
         void setValue (int band, Param p, float value);
 
