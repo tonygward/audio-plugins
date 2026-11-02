@@ -14,6 +14,7 @@
 //  Wheel over node ............. Q (Shift = fine)
 //  Double-click node ........... reset gain and Q
 //  Right-click node ............ context menu
+//  Alt-click / Alt-drag node ... solo (audition) the band while held
 //  Delete / Backspace .......... remove selected band
 class EQDisplay : public juce::Component, private juce::Timer
 {
@@ -60,6 +61,8 @@ private:
     void drawNodes (juce::Graphics&);
     void drawTooltip (juce::Graphics&, juce::Rectangle<float> area, int band);
     void drawEmptyHint (juce::Graphics&, juce::Rectangle<float> area);
+    void drawSoloRegion (juce::Graphics&, juce::Rectangle<float> area, int band);
+    int getSoloBand() const;
 
     void showContextMenu (int band);
     void positionPanel();
@@ -86,6 +89,8 @@ private:
     int hoveredBand  = -1;
     int draggingBand = -1;
     bool dragFine = false, gainTouched = false;
+    bool momentarySolo = false;     // Alt-drag audition in progress
+    int soloBeforeMomentary = -1;   // latched solo to restore on release
     juce::Point<float> anchorMouse, anchorNode;
 
     int wheelBand = -1;

@@ -71,6 +71,17 @@ BandPanel::BandPanel (ThreeBandEQAudioProcessor& p) : processor (p)
     qKnob.slider.textFromValueFunction = [] (double q) { return juce::String (q, q >= 10.0 ? 1 : 2); };
     qKnob.slider.valueFromTextFunction = [] (const juce::String& t) { return t.getDoubleValue(); };
 
+    soloButton.setClickingTogglesState (true);
+    soloButton.setTooltip ("Solo: hear only the region this band affects (Alt-click a node to audition momentarily)");
+    soloButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
+    soloButton.onClick = [this]
+    {
+        if (updating || band < 0)
+            return;
+        processor.soloBand.store (soloButton.getToggleState() ? band : -1);   // transient: no undo step
+    };
+    addAndMakeVisible (soloButton);
+
     resetButton.setTooltip ("Reset gain and Q");
     resetButton.onClick = [this] { if (band >= 0) processor.edits.resetBand (band); };
     addAndMakeVisible (resetButton);
@@ -174,6 +185,9 @@ void BandPanel::refreshFromParams()
     powerButton.setColour (juce::TextButton::buttonOnColourId, colour.withAlpha (0.85f));
     powerButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
 
+    soloButton.setToggleState (processor.soloBand.load() == band, juce::dontSendNotification);
+    soloButton.setColour (juce::TextButton::buttonOnColourId, colour.withAlpha (0.85f));
+
     if (typeBox.getSelectedItemIndex() != (int) type)
         typeBox.setSelectedItemIndex ((int) type, juce::dontSendNotification);
 
@@ -224,10 +238,12 @@ void BandPanel::resized()
     slopeBox.setBounds (left.removeFromTop (24));
 
     auto right = area.removeFromRight (64);
-    right = right.withSizeKeepingCentre (right.getWidth(), 62);
-    resetButton.setBounds (right.removeFromTop (28));
-    right.removeFromTop (6);
-    deleteButton.setBounds (right.removeFromTop (28));
+    right = right.withSizeKeepingCentre (right.getWidth(), 3 * 24 + 2 * 5);
+    soloButton.setBounds (right.removeFromTop (24));
+    right.removeFromTop (5);
+    resetButton.setBounds (right.removeFromTop (24));
+    right.removeFromTop (5);
+    deleteButton.setBounds (right.removeFromTop (24));
 
     area.reduce (8, 0);
     const int kw = area.getWidth() / 3;

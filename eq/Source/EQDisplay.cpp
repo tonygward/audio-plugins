@@ -50,6 +50,12 @@ EQ::FilterType EQDisplay::getType (int band) const
     return EQ::typeFromIndex ((int) std::lround (processor.getBandValue (band, EQ::Param::Type)));
 }
 
+int EQDisplay::getSoloBand() const
+{
+    const int b = processor.soloBand.load();
+    return isUsed (b) ? b : -1;
+}
+
 int EQDisplay::getSelectedBand() const
 {
     const int b = processor.selectedBand.load();
@@ -67,13 +73,18 @@ void EQDisplay::setSelectedBand (int band)
 // (UI edits, host automation, undo/redo, state restore).
 void EQDisplay::timerCallback()
 {
-    const size_t needed = (size_t) EQ::numBands * (EQ::numBandParams + 1) + 3;
-    if (lastValues.size() != needed)
-        lastValues.assign (needed, -12345.0f);
+    // Grows to fit on the first tick (a fixed count once overran the vector).
+    if (lastValues.empty())
+        lastValues.reserve ((size_t) EQ::numBands * (EQ::numBandParams + 1) + 16);
 
     bool changed = false;
     size_t i = 0;
-    auto check = [&] (float v) { if (lastValues[i] != v) { lastValues[i] = v; changed = true; } ++i; };
+    auto check = [&] (float v)
+    {
+        if (i == lastValues.size()) { lastValues.push_back (v); changed = true; }
+        else if (lastValues[i] != v) { lastValues[i] = v; changed = true; }
+        ++i;
+    };
 
     for (int b = 0; b < EQ::numBands; ++b)
     {
@@ -82,6 +93,7 @@ void EQDisplay::timerCallback()
         check (processor.isBandUsed (b) ? 1.0f : 0.0f);
     }
     check ((float) processor.selectedBand.load());
+    check ((float) getSoloBand());
     check (processor.displayRangeDb.load());
     check ((float) getWidth());
     check ((float) getHeight());
@@ -217,6 +229,9 @@ void EQDisplay::paint (juce::Graphics& g)
 
         if (processor.analyser.mode.load() != (int) SpectrumAnalyser::Mode::Off)
             drawAnalyser (g, area);
+
+        if (const int solo = getSoloBand(); solo >= 0)
+            drawSoloRegion (g, area, solo);
 
         if (! curves.valid)
             computeCurves (area);
@@ -463,9 +478,15 @@ void EQDisplay::drawCurves (juce::Graphics& g, juce::Rectangle<float> area)
 void EQDisplay::drawNodes (juce::Graphics& g)
 {
     const int selected = getSelectedBand();
+    const int solo = getSoloBand();
 
     auto drawNode = [&] (int b)
     {
+        // While soloing, every other node is dimmed.
+        const bool dim = solo >= 0 && b != solo;
+        if (dim)
+            g.beginTransparencyLayer (0.3f);
+
         const auto pos = getNodePosition (b);
         const auto colour = EQColours::band (b);
         const bool isSel = (b == selected);
@@ -499,6 +520,9 @@ void EQDisplay::drawNodes (juce::Graphics& g)
         g.setColour (enabled ? juce::Colours::black.withAlpha (0.8f) : colour);
         g.setFont (EQColours::font (b >= 9 ? 9.0f : 10.0f, true));
         g.drawText (juce::String (b + 1), circle.expanded (2.0f), juce::Justification::centred, false);
+
+        if (dim)
+            g.endTransparencyLayer();
     };
 
     for (int b = 0; b < EQ::numBands; ++b)
@@ -546,6 +570,34 @@ void EQDisplay::drawTooltip (juce::Graphics& g, juce::Rectangle<float> area, int
     g.drawText (line1, text.removeFromTop (text.getHeight() * 0.5f), juce::Justification::centred, false);
     g.setColour (EQColours::text);
     g.drawText (line2, text, juce::Justification::centred, false);
+}
+
+// The audition filter's pass region, shaded with an opacity that follows its magnitude.
+void EQDisplay::drawSoloRegion (juce::Graphics& g, juce::Rectangle<float> area, int band)
+{
+    const double sr = getDisplaySampleRate();
+    EQ::SvfCoeffs c[EQ::numSoloSections];
+    EQ::makeSoloFilter (getType (band), sr, processor.getBandValue (band, EQ::Param::Freq),
+                        processor.getBandValue (band, EQ::Param::Q), c);
+
+    const auto colour = EQColours::band (band);
+    for (float x = area.getX(); x < area.getRight(); x += 2.0f)
+    {
+        double mag = 1.0;
+        for (auto& s : c)
+            mag *= EQ::getMagnitude (s, xToFreq (x + 1.0f), sr);
+
+        if (mag > 0.01)
+        {
+            g.setColour (colour.withAlpha ((float) (0.28 * mag)));
+            g.fillRect (x, area.getY(), 2.0f, area.getHeight());
+        }
+    }
+
+    g.setColour (colour);
+    g.setFont (EQColours::font (12.0f, true));
+    g.drawText ("SOLO  Band " + juce::String (band + 1), area.reduced (10.0f, 8.0f).removeFromTop (16.0f),
+                juce::Justification::centredLeft, false);
 }
 
 void EQDisplay::drawEmptyHint (juce::Graphics& g, juce::Rectangle<float> area)
@@ -604,6 +656,7 @@ void EQDisplay::showContextMenu (int band)
         menu.addSubMenu ("Slope", slopes, EQ::typeHasSlope (current));
     }
     menu.addSeparator();
+    menu.addItem (4, "Solo (audition)", true, processor.soloBand.load() == band);
     menu.addItem (1, enabled ? "Bypass" : "Enable");
     menu.addItem (2, "Reset gain and Q");
     menu.addItem (3, "Delete band");
@@ -623,6 +676,12 @@ void EQDisplay::showContextMenu (int band)
                             else if (result == 1)    edits.setEnabled (band, ! enabled);
                             else if (result == 2)    edits.resetBand (band);
                             else if (result == 3)  { edits.removeBand (band); safe->setSelectedBand (-1); }
+                            else if (result == 4)
+                            {
+                                auto& solo = safe->processor.soloBand;
+                                solo.store (solo.load() == band ? -1 : band);   // not a parameter: no undo step
+                                safe->repaint();
+                            }
                         });
 }
 
@@ -667,6 +726,14 @@ void EQDisplay::mouseDown (const juce::MouseEvent& e)
     {
         showContextMenu (hit);
         return;
+    }
+
+    // Alt-click / Alt-drag: audition this band until the mouse is released.
+    if (e.mods.isAltDown())
+    {
+        momentarySolo = true;
+        soloBeforeMomentary = processor.soloBand.load();
+        processor.soloBand.store (hit);
     }
 
     draggingBand = hit;
@@ -718,6 +785,12 @@ void EQDisplay::mouseUp (const juce::MouseEvent& e)
 
     processor.edits.endEdit();
     draggingBand = -1;
+
+    if (momentarySolo)
+    {
+        momentarySolo = false;
+        processor.soloBand.store (soloBeforeMomentary);
+    }
 
     hoveredBand = hitTestNode (e.position);
     setMouseCursor (hoveredBand >= 0 ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);

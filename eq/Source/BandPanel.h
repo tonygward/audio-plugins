@@ -45,7 +45,7 @@ private:
     juce::TextButton powerButton { "ON" };
     juce::ComboBox typeBox, slopeBox;
     Knob freqKnob, gainKnob, qKnob;
-    juce::TextButton resetButton { "Reset" }, deleteButton { "Delete" };
+    juce::TextButton resetButton { "Reset" }, deleteButton { "Delete" }, soloButton { "Solo" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BandPanel)
 };

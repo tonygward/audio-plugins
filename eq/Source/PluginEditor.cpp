@@ -84,7 +84,7 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
     bandCountLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (bandCountLabel);
 
-    hintLabel.setText ("Dbl-click: add/reset  Drag: freq/gain (Shift fine)  Wheel: Q  Right-click: menu  Del: remove",
+    hintLabel.setText ("Dbl-click: add/reset  Drag: freq/gain (Shift fine)  Wheel: Q  Alt-click: solo  Right-click: menu  Del: remove",
                        juce::dontSendNotification);
     hintLabel.setFont (EQColours::font (11.0f));
     hintLabel.setJustificationType (juce::Justification::centredRight);
@@ -103,6 +103,8 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
 
 ThreeBandEQAudioProcessorEditor::~ThreeBandEQAudioProcessorEditor()
 {
+    processor.soloBand.store (-1);   // solo is an editing aid: never leave it on without a UI
+
     setLookAndFeel (nullptr);
 }
 
