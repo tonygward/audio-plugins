@@ -49,4 +49,10 @@ namespace EQ
         static const char* const suffix[] = { "freq", "gain", "q", "type", "on" };
         return "band" + juce::String (band + 1) + "_" + suffix[(int) p];
     }
+
+    // Global (non-band) host parameters.
+    inline const char* const outputGainId = "output_gain";
+    inline const char* const bypassId     = "bypass";
+
+    constexpr float minOutputGain = -24.0f, maxOutputGain = 24.0f;
 }

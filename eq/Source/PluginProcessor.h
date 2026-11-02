@@ -58,6 +58,26 @@ public:
     // UI settings), so it marks the project as modified and saves it.
     void notifyNonParameterStateChanged();
 
+    juce::AudioProcessorParameter* getBypassParameter() const override { return bypassParam; }
+    juce::RangedAudioParameter* getOutputGainParam() const noexcept { return outputGainParam; }
+
+    // Output peak meter, written by the audio thread and read (and reset) by the editor.
+    struct OutputMeter
+    {
+        std::atomic<float> peak { 0.0f };       // max |sample| since the last read
+        std::atomic<bool>  clipped { false };   // latched when a sample reaches 0 dBFS
+
+        void push (float blockPeak) noexcept
+        {
+            float prev = peak.load (std::memory_order_relaxed);
+            while (blockPeak > prev && ! peak.compare_exchange_weak (prev, blockPeak, std::memory_order_relaxed)) {}
+            if (blockPeak >= 1.0f)
+                clipped.store (true, std::memory_order_relaxed);
+        }
+
+        float readAndReset() noexcept { return peak.exchange (0.0f, std::memory_order_relaxed); }
+    } outputMeter;
+
     // Persisted UI state
     std::atomic<int>   selectedBand { 0 };
     std::atomic<float> displayRangeDb { 24.0f };
@@ -77,6 +97,15 @@ private:
     std::array<std::array<std::atomic<float>*, 5>, numBands> rawValues {};
 
     EQ::Engine engine;
+
+    // Global output stage: per-sample output gain, then a dry/processed cross-fade for bypass.
+    juce::RangedAudioParameter* outputGainParam = nullptr;
+    juce::AudioParameterBool*   bypassParam = nullptr;
+    std::atomic<float>* outputGainRaw = nullptr;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> outputGain { 1.0f };
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix { 0.0f };   // 1 = fully bypassed
+    juce::AudioBuffer<float> dryBuffer;
+    static constexpr double outputGainSmoothingSeconds = 0.02, bypassFadeSeconds = 0.02;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ThreeBandEQAudioProcessor)
 };

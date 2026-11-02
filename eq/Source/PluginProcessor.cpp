@@ -27,6 +27,13 @@ ThreeBandEQAudioProcessor::ThreeBandEQAudioProcessor()
             jassert (bandParams[(size_t) b][(size_t) p] != nullptr);
         }
     }
+
+    outputGainParam = apvts.getParameter (EQ::outputGainId);
+    outputGainRaw   = apvts.getRawParameterValue (EQ::outputGainId);
+    bypassParam     = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (EQ::bypassId));
+    jassert (outputGainParam != nullptr && outputGainRaw != nullptr && bypassParam != nullptr);
+
+    dryBuffer.setSize (EQ::Engine::maxChannels, 512);   // resized in prepareToPlay
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::createParameterLayout()
@@ -69,6 +76,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::c
 
         layout.add (std::move (group));
     }
+
+    // Global output stage (added in v0.3). Defaults are neutral, so sessions saved
+    // before these existed load with 0 dB output gain and bypass off.
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { EQ::outputGainId, 3 }, "Output Gain",
+        juce::NormalisableRange<float> (EQ::minOutputGain, EQ::maxOutputGain, 0.1f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("dB")));
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { EQ::bypassId, 3 }, "Bypass", false));
 
     return layout;
 }
@@ -116,9 +133,17 @@ bool ThreeBandEQAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
     return out == layouts.getMainInputChannelSet();
 }
 
-void ThreeBandEQAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
+void ThreeBandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     engine.prepare (sampleRate);
+
+    // Larger host blocks are processed in chunks of this size, so nothing is allocated later.
+    dryBuffer.setSize (EQ::Engine::maxChannels, juce::jmax (512, samplesPerBlock), false, true, false);
+
+    outputGain.reset (sampleRate, outputGainSmoothingSeconds);
+    outputGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (outputGainRaw->load()));
+    bypassMix.reset (sampleRate, bypassFadeSeconds);
+    bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 }
 
 void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -149,13 +174,68 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     const auto analyserMode = (SpectrumAnalyser::Mode) analyser.mode.load (std::memory_order_relaxed);
     const bool capture = analyser.activeViewers.load (std::memory_order_relaxed) > 0;
 
-    if (capture && analyserMode == SpectrumAnalyser::Mode::Pre)
-        analyser.push (buffer.getArrayOfReadPointers(), numCh, buffer.getNumSamples());
+    outputGain.setTargetValue (juce::Decibels::decibelsToGain (outputGainRaw->load (std::memory_order_relaxed)));
+    bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
-    engine.process (buffer.getArrayOfWritePointers(), numCh, buffer.getNumSamples());
+    const int total = buffer.getNumSamples();
+    const int chunk = juce::jmax (1, dryBuffer.getNumSamples());
+    float blockPeak = 0.0f;
 
-    if (capture && analyserMode == SpectrumAnalyser::Mode::Post)
-        analyser.push (buffer.getArrayOfReadPointers(), numCh, buffer.getNumSamples());
+    for (int pos = 0; pos < total; pos += chunk)
+    {
+        const int num = juce::jmin (chunk, total - pos);
+
+        float* ch[EQ::Engine::maxChannels] = {};
+        for (int c = 0; c < numCh; ++c)
+            ch[c] = buffer.getWritePointer (c, pos);
+
+        if (capture && analyserMode == SpectrumAnalyser::Mode::Pre)
+            analyser.push (ch, numCh, num);
+
+        // The engine always runs, even when bypassed, so un-bypassing never glitches.
+        const bool needDry = bypassMix.isSmoothing() || bypassMix.getTargetValue() > 0.0f;
+        if (needDry)
+            for (int c = 0; c < numCh; ++c)
+                juce::FloatVectorOperations::copy (dryBuffer.getWritePointer (c), ch[c], num);
+
+        engine.process (ch, numCh, num);
+
+        if (outputGain.isSmoothing() || bypassMix.isSmoothing())
+        {
+            for (int i = 0; i < num; ++i)
+            {
+                const float g = outputGain.getNextValue();
+                const float m = bypassMix.getNextValue();
+
+                for (int c = 0; c < numCh; ++c)
+                {
+                    const float wet = ch[c][i] * g;
+                    ch[c][i] = wet + (dryBuffer.getSample (c, i) - wet) * m;
+                }
+            }
+        }
+        else if (bypassMix.getTargetValue() >= 1.0f)
+        {
+            for (int c = 0; c < numCh; ++c)
+                juce::FloatVectorOperations::copy (ch[c], dryBuffer.getReadPointer (c), num);   // bit-exact dry
+        }
+        else if (const float g = outputGain.getTargetValue(); g != 1.0f)
+        {
+            for (int c = 0; c < numCh; ++c)
+                juce::FloatVectorOperations::multiply (ch[c], g, num);
+        }
+
+        if (capture && analyserMode == SpectrumAnalyser::Mode::Post)
+            analyser.push (ch, numCh, num);
+
+        for (int c = 0; c < numCh; ++c)
+        {
+            const auto range = juce::FloatVectorOperations::findMinAndMax (ch[c], num);
+            blockPeak = juce::jmax (blockPeak, -range.getStart(), range.getEnd());
+        }
+    }
+
+    outputMeter.push (blockPeak);
 }
 
 //==============================================================================
