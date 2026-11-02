@@ -34,6 +34,8 @@ private:
     // Global output stage
     juce::Slider outputSlider { juce::Slider::LinearBar, juce::Slider::TextBoxLeft };
     juce::TextButton bypassButton { "Bypass" };
+    juce::TextButton analyserSettingsButton { "..." };   // analyser settings popup
+    void showAnalyserMenu();
     OutputMeterDisplay outputMeter;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;

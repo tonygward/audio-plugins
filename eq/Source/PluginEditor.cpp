@@ -65,6 +65,10 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
     };
     addAndMakeVisible (curveViewBox);
 
+    analyserSettingsButton.setTooltip ("Analyser settings: freeze, peak hold, tilt, resolution, speed, range");
+    analyserSettingsButton.onClick = [this] { showAnalyserMenu(); };
+    addAndMakeVisible (analyserSettingsButton);
+
     sidechainBox.addItemList ({ "Sidechain: off", "Sidechain: spectrum", "Sidechain: + overlap" }, 1);
     sidechainBox.setTooltip ("Show the sidechain input's spectrum (orange). \"+ overlap\" shades frequencies where "
                              "both tracks are above -60 dBFS and within 6 dB of each other (needs the analyser on)");
@@ -180,6 +184,67 @@ void ThreeBandEQAudioProcessorEditor::timerCallback()
         analyserBox.setSelectedItemIndex (processor.analyser.mode.load(), juce::dontSendNotification);
 }
 
+void ThreeBandEQAudioProcessorEditor::showAnalyserMenu()
+{
+    auto& an = processor.analyser;
+    juce::PopupMenu menu;
+
+    menu.addItem (1, "Freeze", true, an.isFrozen());
+    menu.addItem (2, "Peak hold", true, an.isPeakHold());
+    menu.addItem (3, "Reset peaks (or click the graph)", an.isPeakHold());
+
+    juce::PopupMenu tilt, resolution, speed, top, bottom;
+    const float tilts[] = { 0.0f, 3.0f, 4.5f, 6.0f };
+    for (int i = 0; i < 4; ++i)
+        tilt.addItem (10 + i, juce::String (tilts[i], i == 2 ? 1 : 0) + " dB/oct", true,
+                      std::abs (processor.analyserTilt.load() - tilts[i]) < 0.01f);
+
+    for (int order = SpectrumAnalyser::minFftOrder; order <= SpectrumAnalyser::fftOrder; ++order)
+        resolution.addItem (20 + order, juce::String (1 << order) + "-point FFT", true, an.getFftOrder() == order);
+
+    const char* speeds[] = { "Slow", "Medium", "Fast" };
+    for (int i = 0; i < 3; ++i)
+        speed.addItem (40 + i, speeds[i], true, an.getSpeed() == i);
+
+    const float tops[] = { 6.0f, 0.0f, -12.0f }, bottoms[] = { -60.0f, -90.0f, -120.0f };
+    for (int i = 0; i < 3; ++i)
+    {
+        top.addItem (50 + i, juce::String ((int) tops[i]) + " dBFS", true, processor.analyserTopDb.load() == tops[i]);
+        bottom.addItem (60 + i, juce::String ((int) bottoms[i]) + " dBFS", true, processor.analyserBottomDb.load() == bottoms[i]);
+    }
+
+    menu.addSeparator();
+    menu.addSubMenu ("Tilt", tilt);
+    menu.addSubMenu ("Resolution", resolution);
+    menu.addSubMenu ("Speed", speed);
+    menu.addSubMenu ("Range top", top);
+    menu.addSubMenu ("Range floor", bottom);
+
+    juce::Component::SafePointer<ThreeBandEQAudioProcessorEditor> safe (this);
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&analyserSettingsButton),
+                        [safe, tilts, tops, bottoms] (int r)
+                        {
+                            if (safe == nullptr || r == 0)
+                                return;
+
+                            auto& p = safe->processor;
+                            auto& a = p.analyser;
+
+                            if (r == 1)                 { a.setFrozen (! a.isFrozen()); p.sidechainAnalyser.setFrozen (a.isFrozen()); }
+                            else if (r == 2)            a.setPeakHold (! a.isPeakHold());
+                            else if (r == 3)            a.resetPeaks();
+                            else if (r >= 10 && r < 14) p.analyserTilt.store (tilts[r - 10]);
+                            else if (r >= 20 && r < 40) p.setAnalyserFftOrder (r - 20);
+                            else if (r >= 40 && r < 43) p.setAnalyserSpeed (r - 40);
+                            else if (r >= 50 && r < 53) p.analyserTopDb.store (tops[r - 50]);
+                            else if (r >= 60 && r < 63) p.analyserBottomDb.store (bottoms[r - 60]);
+
+                            if (r != 1)   // freeze is transient and not saved
+                                p.notifyNonParameterStateChanged();
+                            safe->display.repaint();
+                        });
+}
+
 bool ThreeBandEQAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
 {
     const auto mods = key.getModifiers();
@@ -242,16 +307,18 @@ void ThreeBandEQAudioProcessorEditor::resized()
         rangeBox.setBounds (row.removeFromLeft (84));
         row.removeFromLeft (6);
         analyserBox.setBounds (row.removeFromLeft (126));
+        row.removeFromLeft (4);
+        analyserSettingsButton.setBounds (row.removeFromLeft (28));
         row.removeFromLeft (6);
-        curveViewBox.setBounds (row.removeFromLeft (118));
+        curveViewBox.setBounds (row.removeFromLeft (104));
         row.removeFromLeft (6);
-        sidechainBox.setBounds (row.removeFromLeft (140));
+        sidechainBox.setBounds (row.removeFromLeft (128));
 
         bypassButton.setBounds (row.removeFromRight (62));
         row.removeFromRight (6);
         outputMeter.setBounds (row.removeFromRight (64));
         row.removeFromRight (6);
-        outputSlider.setBounds (row.removeFromRight (104));
+        outputSlider.setBounds (row.removeFromRight (98));
     }
 
     display.setBounds (area.reduced (margin, 0).withTrimmedBottom (margin));

@@ -106,6 +106,11 @@ void EQDisplay::timerCallback()
     check ((float) processor.selectedBand.load());
     check ((float) getSoloBand());
     check ((float) processor.curveView.load());
+    check (processor.analyserTilt.load());
+    check (processor.analyserTopDb.load());
+    check (processor.analyserBottomDb.load());
+    check (processor.analyser.isFrozen() ? 1.0f : 0.0f);
+    check (processor.analyser.isPeakHold() ? 1.0f : 0.0f);
     check (processor.displayRangeDb.load());
     check ((float) getWidth());
     check ((float) getHeight());
@@ -321,53 +326,75 @@ void EQDisplay::drawGrid (juce::Graphics& g, juce::Rectangle<float> area)
 // A +4.5 dB/octave tilt (pivot 1 kHz) makes pink noise / typical mixes read flat.
 void EQDisplay::drawAnalyser (juce::Graphics& g, juce::Rectangle<float> area)
 {
-    constexpr float topDb = 0.0f, bottomDb = -90.0f, tiltDbPerOct = 4.5f;
+    const float topDb = processor.analyserTopDb.load(), bottomDb = processor.analyserBottomDb.load();
+    const float tilt = processor.analyserTilt.load();
 
     const auto& an = processor.analyser;
     const double sr = getDisplaySampleRate();
     const float yTop = area.getY() + gainPad, yBottom = area.getBottom();
+    auto toY = [&] (float db) { return juce::jlimit (yTop, yBottom, juce::jmap (db, topDb, bottomDb, yTop, yBottom)); };
 
-    juce::Path fill;
+    juce::Path fill, peakLine;
     fill.startNewSubPath (area.getX(), yBottom);
-    bool anything = false;
+    bool anything = false, anyPeak = false;
 
     for (float x = area.getX(); x <= area.getRight(); x += 1.0f)
     {
         const double f0 = xToFreq (x - 0.5f), f1 = xToFreq (x + 0.5f);
-        const double fc = std::sqrt (f0 * f1);
+        const float t = SpectrumAnalyser::tiltDb (f0, f1, tilt);
         float db = an.getLevelDb (f0, f1, sr);
 
         if (db > SpectrumAnalyser::floorDb + 1.0f)
         {
             anything = true;
-            db += tiltDbPerOct * (float) std::log2 (fc / 1000.0);
+            db += t;
         }
+        fill.lineTo (x, toY (db));
 
-        fill.lineTo (x, juce::jlimit (yTop, yBottom, juce::jmap (db, topDb, bottomDb, yTop, yBottom)));
+        if (an.isPeakHold())
+        {
+            const float peak = an.getPeakLevelDb (f0, f1, sr);
+            anyPeak = anyPeak || peak > SpectrumAnalyser::floorDb + 1.0f;
+            if (x == area.getX()) peakLine.startNewSubPath (x, toY (peak + t));
+            else                  peakLine.lineTo (x, toY (peak + t));
+        }
     }
 
-    // dBFS labels on the left edge.
+    // dBFS labels on the left edge, every 15 dB inside the range.
     g.setFont (EQColours::font (10.0f));
     g.setColour (EQColours::label.withAlpha (0.55f));
-    for (int db = -15; db >= -75; db -= 15)
+    for (int db = (int) std::floor (topDb / 15.0f) * 15 - 15; db > bottomDb + 5.0f; db -= 15)
     {
-        const float y = juce::jmap ((float) db, topDb, bottomDb, yTop, yBottom);
+        const float y = toY ((float) db);
         g.drawText (juce::String (db), juce::Rectangle<float> (area.getX() + 4.0f, y - 7.0f, 30.0f, 14.0f),
                     juce::Justification::centredLeft, false);
     }
 
-    if (! anything)
-        return;
+    if (an.isFrozen())
+    {
+        g.setColour (juce::Colour (0xff5aa9ff));
+        g.drawText ("FROZEN", juce::Rectangle<float> (area.getX() + 40.0f, area.getY() + 6.0f, 80.0f, 14.0f),
+                    juce::Justification::centredLeft, false);
+    }
 
-    juce::Path line (fill);
-    fill.lineTo (area.getRight(), yBottom);
-    fill.closeSubPath();
+    if (anything)
+    {
+        juce::Path line (fill);
+        fill.lineTo (area.getRight(), yBottom);
+        fill.closeSubPath();
 
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0x40a8b4c8), 0.0f, yTop,
-                                             juce::Colour (0x10a8b4c8), 0.0f, yBottom, false));
-    g.fillPath (fill);
-    g.setColour (juce::Colour (0x60c0c8d8));
-    g.strokePath (line, juce::PathStrokeType (1.0f));
+        g.setGradientFill (juce::ColourGradient (juce::Colour (0x40a8b4c8), 0.0f, yTop,
+                                                 juce::Colour (0x10a8b4c8), 0.0f, yBottom, false));
+        g.fillPath (fill);
+        g.setColour (juce::Colour (0x60c0c8d8));
+        g.strokePath (line, juce::PathStrokeType (1.0f));
+    }
+
+    if (anyPeak)
+    {
+        g.setColour (juce::Colour (0x90e4e7ec));
+        g.strokePath (peakLine, juce::PathStrokeType (0.8f));
+    }
 }
 
 // Sidechain spectrum (orange) on the analyser's dBFS scale and tilt. With view 2 the
@@ -376,7 +403,8 @@ void EQDisplay::drawAnalyser (juce::Graphics& g, juce::Rectangle<float> area)
 // -60 dBFS and within 6 dB of each other, i.e. where they compete for the same space.
 void EQDisplay::drawSidechain (juce::Graphics& g, juce::Rectangle<float> area)
 {
-    constexpr float topDb = 0.0f, bottomDb = -90.0f, tiltDbPerOct = 4.5f;
+    const float topDb = processor.analyserTopDb.load(), bottomDb = processor.analyserBottomDb.load();
+    const float tiltDbPerOct = processor.analyserTilt.load();
     constexpr float overlapFloorDb = -60.0f, overlapWithinDb = 6.0f;
 
     const auto& sc = processor.sidechainAnalyser;
@@ -809,7 +837,14 @@ void EQDisplay::mouseDown (const juce::MouseEvent& e)
     if (hit < 0)
     {
         if (! e.mods.isPopupMenu())
+        {
             setSelectedBand (-1);
+            if (processor.analyser.isPeakHold())   // click the analyser area: reset peak hold
+            {
+                processor.analyser.resetPeaks();
+                repaint();
+            }
+        }
         return;
     }
 

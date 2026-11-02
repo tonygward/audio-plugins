@@ -313,6 +313,12 @@ void ThreeBandEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     ui.setProperty ("displayRange", displayRangeDb.load(), nullptr);
     ui.setProperty ("curveView", curveView.load(), nullptr);
     ui.setProperty ("sidechainView", sidechainView.load(), nullptr);
+    ui.setProperty ("analyserTilt", analyserTilt.load(), nullptr);
+    ui.setProperty ("analyserTop", analyserTopDb.load(), nullptr);
+    ui.setProperty ("analyserBottom", analyserBottomDb.load(), nullptr);
+    ui.setProperty ("analyserFftOrder", analyser.getFftOrder(), nullptr);
+    ui.setProperty ("analyserSpeed", analyser.getSpeed(), nullptr);
+    ui.setProperty ("analyserPeakHold", analyser.isPeakHold(), nullptr);
     ui.setProperty ("analyserMode", analyser.mode.load(), nullptr);
     ui.setProperty ("editorWidth", editorWidth.load(), nullptr);
     ui.setProperty ("editorHeight", editorHeight.load(), nullptr);
@@ -370,6 +376,12 @@ void ThreeBandEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& sav
         displayRangeDb.store (juce::jlimit (6.0f, 30.0f, (float) ui.getProperty ("displayRange", 24.0f)));
         curveView.store (juce::jlimit (0, EQ::numStereoModes - 1, (int) ui.getProperty ("curveView", 0)));
         sidechainView.store (juce::jlimit (0, 2, (int) ui.getProperty ("sidechainView", 0)));
+        analyserTilt.store (juce::jlimit (0.0f, 6.0f, (float) ui.getProperty ("analyserTilt", 4.5f)));
+        analyserTopDb.store (juce::jlimit (-30.0f, 12.0f, (float) ui.getProperty ("analyserTop", 0.0f)));
+        analyserBottomDb.store (juce::jlimit (-150.0f, -40.0f, (float) ui.getProperty ("analyserBottom", -90.0f)));
+        setAnalyserFftOrder ((int) ui.getProperty ("analyserFftOrder", SpectrumAnalyser::fftOrder));
+        setAnalyserSpeed ((int) ui.getProperty ("analyserSpeed", 1));
+        analyser.setPeakHold ((bool) ui.getProperty ("analyserPeakHold", false));
         analyser.mode.store (juce::jlimit (0, 2, (int) ui.getProperty ("analyserMode", (int) SpectrumAnalyser::Mode::Post)));
         editorWidth.store  (juce::jlimit (760, 2000, (int) ui.getProperty ("editorWidth", 980)));
         editorHeight.store (juce::jlimit (440, 1200, (int) ui.getProperty ("editorHeight", 580)));

@@ -89,7 +89,13 @@ public:
     std::atomic<int>   curveView { 0 };   // 0 all bands, 1 L, 2 R, 3 M, 4 S (see EQDisplay::isInCurveView)
     std::atomic<int>   editorWidth { 980 }, editorHeight { 580 };
 
-    SpectrumAnalyser analyser;   // mode is persisted with the UI state
+    SpectrumAnalyser analyser;   // mode and settings are persisted with the UI state
+
+    // Analyser display settings (UI state, message thread).
+    std::atomic<float> analyserTilt { 4.5f };                          // dB/oct around 1 kHz: 0, 3, 4.5, 6
+    std::atomic<float> analyserTopDb { 0.0f }, analyserBottomDb { -90.0f };
+    void setAnalyserFftOrder (int order)  { analyser.setFftOrder (order); sidechainAnalyser.setFftOrder (order); }
+    void setAnalyserSpeed (int speed)     { analyser.setSpeed (speed);    sidechainAnalyser.setSpeed (speed); }
 
     // Sidechain analyser (input bus 1, disabled by default). Captured only while an
     // editor shows it (analyser.activeViewers > 0 and sidechainView > 0).
