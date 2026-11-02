@@ -18,7 +18,7 @@ The next steps are less about DSP accuracy and more about what mixing engineers 
 Small, low-risk changes that make the plugin usable on real mixes.
 
 - [x] **Output gain and global bypass.** These are host parameters, with an output meter.
-- [ ] **Steeper cut slopes.** Offer 6, 12, 18, 24, 36 and 48 dB/oct for Low Cut and High Cut by cascading SVF stages.
+- [x] **Steeper cut slopes.** Offer 6, 12, 18, 24, 36 and 48 dB/oct for Low Cut and High Cut by cascading SVF stages.
 - [ ] **Solo a band.** Alt-click a node to hear only that band, using a band-pass around its frequency. This helps find problem frequencies.
 - [ ] **Presets.** Save and load from a user folder, plus a few factory starting points (vocal clean-up, low-end tidy-up, air).
 - [ ] **Build checks on every push.** A GitHub Actions job that builds and runs `EQTests` on Windows and macOS.

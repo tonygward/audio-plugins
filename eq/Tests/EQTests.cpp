@@ -20,6 +20,7 @@ namespace
         FilterType type;
         float freq, gain, q;
         bool enabled = true;
+        int slope = defaultSlope;
     };
 
     void configure (Engine& e, const std::vector<Spec>& specs)
@@ -35,6 +36,7 @@ namespace
                 s.freq = sp.freq;
                 s.gain = typeHasGain (sp.type) ? sp.gain : 0.0f;
                 s.q = sp.q;
+                s.slope = sp.slope;
             }
             e.setBand (b, s);
         }
@@ -45,7 +47,7 @@ namespace
         double db = 0.0;
         for (auto& s : specs)
             if (s.enabled)
-                db += getMagnitudeDb (makeCoeffs (s.type, fs, s.freq, s.q, typeHasGain (s.type) ? s.gain : 0.0f), f, fs);
+                db += getMagnitudeDb (makeFilter (s.type, fs, s.freq, s.q, typeHasGain (s.type) ? s.gain : 0.0f, s.slope), f, fs);
         return db;
     }
 
@@ -446,14 +448,14 @@ public:
         {
             ThreeBandEQAudioProcessor p;
             constexpr int numGlobalParams = 2;   // output_gain, bypass
-            expectEquals (p.getParameters().size(), numBands * 5 + numGlobalParams, "24 bands x 5 parameters + globals");
+            expectEquals (p.getParameters().size(), numBands * numBandParams + numGlobalParams, "24 bands x per-band parameters + globals");
 
             juce::StringArray ids;
             for (auto* param : p.getParameters())
                 if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (param))
                     ids.add (rp->paramID);
             ids.removeDuplicates (false);
-            expectEquals (ids.size(), numBands * 5 + numGlobalParams, "IDs are unique");
+            expectEquals (ids.size(), numBands * numBandParams + numGlobalParams, "IDs are unique");
 
             expect (p.apvts.getParameter ("output_gain") != nullptr, "output_gain present");
             expect (p.apvts.getParameter ("bypass") != nullptr, "bypass present");
@@ -498,7 +500,7 @@ public:
             for (int band = 0; band < numBands; ++band)
             {
                 same = same && a.isBandUsed (band) == b.isBandUsed (band);
-                for (int prm = 0; prm < 5; ++prm)
+                for (int prm = 0; prm < numBandParams; ++prm)
                     same = same && std::abs (a.getBandValue (band, (Param) prm) - b.getBandValue (band, (Param) prm)) < 1.0e-4f;
             }
             expect (same, "all 24 bands (values, types, enabled, used) restored");
@@ -978,6 +980,176 @@ public:
     }
 };
 
+//==============================================================================
+class SlopeTests final : public juce::UnitTest
+{
+public:
+    SlopeTests() : juce::UnitTest ("Cut slopes", "EQ") {}
+
+    void runTest() override
+    {
+        beginTest ("Butterworth section Qs");
+        {
+            double qs[maxSvfSections] {};
+            expectEquals (butterworthQs (2, qs), 1);
+            expectWithinAbsoluteError (qs[0], 0.70711, 1.0e-4);
+            expectEquals (butterworthQs (4, qs), 2);
+            expectWithinAbsoluteError (qs[0], 0.54120, 1.0e-4);
+            expectWithinAbsoluteError (qs[1], 1.30656, 1.0e-4);
+            expectEquals (butterworthQs (3, qs), 1);
+            expectWithinAbsoluteError (qs[0], 1.0, 1.0e-6);
+            expectEquals (butterworthQs (8, qs), 4);
+            expectWithinAbsoluteError (qs[3], 2.56292, 1.0e-4);
+        }
+
+        beginTest ("Slope steepness, -3 dB at cutoff (44.1 / 96 / 192 kHz)");
+        for (double fs : { 44100.0, 96000.0, 192000.0 })
+            for (int slope = 0; slope < numSlopes; ++slope)
+            {
+                const int n = slopeOrder (slope);
+                const juce::String what = getSlopeNames()[slope] + " fs " + juce::String (fs);
+
+                // Low cut at 400 Hz: 1 and 2 octaves below.
+                const std::vector<Spec> hp { { FilterType::LowCut, 400.0f, 0.0f, defaultQ, true, slope } };
+                const double hp0 = measureDb (hp, fs, 400.0), hp1 = measureDb (hp, fs, 200.0), hp2 = measureDb (hp, fs, 100.0);
+                expectWithinAbsoluteError (hp0, -3.01, 0.05, "low cut -3 dB at cutoff, " + what);
+                expectWithinAbsoluteError (hp1 - hp2, 6.0 * n, 1.0, "low cut dB/oct between 1 and 2 octaves, " + what);
+                expectWithinAbsoluteError (-hp2 / 2.0, 6.0 * n, 1.0, "low cut average dB/oct over 2 octaves, " + what);
+                expectWithinAbsoluteError (hp1, analyticDb (hp, fs, 200.0), 0.05, "low cut DSP = drawn curve, " + what);
+                expectWithinAbsoluteError (measureDb (hp, fs, 3000.0), analyticDb (hp, fs, 3000.0), 0.05, "low cut passband, " + what);
+                expectGreaterThan (analyticDb (hp, fs, 3000.0), -0.1, "low cut passband near 0 dB, " + what);
+
+                // High cut at 500 Hz: 1 and 2 octaves above.
+                const std::vector<Spec> lp { { FilterType::HighCut, 500.0f, 0.0f, defaultQ, true, slope } };
+                const double lp0 = measureDb (lp, fs, 500.0), lp1 = measureDb (lp, fs, 1000.0), lp2 = measureDb (lp, fs, 2000.0);
+                expectWithinAbsoluteError (lp0, -3.01, 0.05, "high cut -3 dB at cutoff, " + what);
+                expectWithinAbsoluteError (lp1 - lp2, 6.0 * n, 1.0, "high cut dB/oct between 1 and 2 octaves, " + what);
+                expectWithinAbsoluteError (-lp2 / 2.0, 6.0 * n, 1.0, "high cut average dB/oct over 2 octaves, " + what);
+                expectWithinAbsoluteError (lp1, analyticDb (lp, fs, 1000.0), 0.05, "high cut DSP = drawn curve, " + what);
+                expectWithinAbsoluteError (measureDb (lp, fs, 60.0), analyticDb (lp, fs, 60.0), 0.05, "high cut passband, " + what);
+                expectGreaterThan (analyticDb (lp, fs, 60.0), -0.1, "high cut passband near 0 dB, " + what);
+            }
+
+        beginTest ("Q adds resonance on steep slopes; slope ignored for other types");
+        {
+            constexpr double fs = 48000.0;
+            const std::vector<Spec> flat     { { FilterType::LowCut, 400.0f, 0.0f, defaultQ, true, 3 } };
+            const std::vector<Spec> resonant { { FilterType::LowCut, 400.0f, 0.0f, 3.0f, true, 3 } };
+            expectGreaterThan (measureDb (resonant, fs, 420.0), measureDb (flat, fs, 420.0) + 6.0, "Q 3 peaks near the cutoff");
+            expectLessThan (measureDb (resonant, fs, 100.0), -40.0, "still 24 dB/oct below");
+
+            const std::vector<Spec> bell12 { { FilterType::Bell, 1000.0f, 6.0f, 1.0f, true, 1 } };
+            const std::vector<Spec> bell48 { { FilterType::Bell, 1000.0f, 6.0f, 1.0f, true, 5 } };
+            expectEquals (measureDb (bell48, fs, 700.0), measureDb (bell12, fs, 700.0), "bell ignores the slope parameter");
+        }
+
+        beginTest ("12 dB/oct is bit-identical to the single-SVF path");
+        for (auto type : { FilterType::LowCut, FilterType::HighCut })
+        {
+            constexpr double fs = 48000.0;
+            Engine e;
+            e.prepare (fs);
+            configure (e, { { type, 300.0f, 0.0f, 1.3f, true, defaultSlope } });
+            e.snapToTargets();
+
+            // The engine smooths in the log domain, so it sees exp(log(x)), not x.
+            const auto c = makeCoeffs (type, fs, std::exp (std::log (300.0)), std::exp (std::log ((double) 1.3f)), 0.0);
+            SvfState st;
+            std::mt19937 rng (5);
+            std::uniform_real_distribution<float> dist (-0.5f, 0.5f);
+            std::vector<float> l (4096), r (4096);
+            for (auto& v : l) v = dist (rng);
+            r = l;
+            std::vector<float> ref (l.size());
+            for (size_t i = 0; i < l.size(); ++i)
+                ref[i] = (float) processSample (c, st, (double) l[i]);
+
+            float* ch[] = { l.data(), r.data() };
+            e.process (ch, 2, (int) l.size());
+            expect (l == ref, "identical samples for " + getTypeNames()[(int) type]);
+        }
+
+        beginTest ("Slope change while running: finite, no discontinuity");
+        for (double fs : { 44100.0, 192000.0 })
+        {
+            Engine e;
+            e.prepare (fs);
+            int slope = 1;
+            auto out = runSine (e, fs, 300.0, 0.25, 0.8, 64, [&] (int, int n)
+            {
+                if (n >= (int) (0.3 * fs)) slope = 5;
+                if (n >= (int) (0.5 * fs)) slope = 0;
+                e.setBand (0, BandSettings { true, FilterType::LowCut, 250.0f, 0.0f, defaultQ, slope });
+            });
+            // Each slope has a different steady level at 300 Hz; transitions must not step
+            // further than the loudest of them.
+            const double steady = std::max ({ maxStep (out, (size_t) (0.1 * fs), (size_t) (0.29 * fs)),
+                                              maxStep (out, (size_t) (0.4 * fs), (size_t) (0.49 * fs)),
+                                              maxStep (out, (size_t) (0.65 * fs), out.size()) });
+            expectLessThan (maxStep (out, (size_t) (0.29 * fs), out.size()), steady * 1.05,
+                            "no step bigger than the steady state, fs " + juce::String (fs));
+
+            // Rapid slope automation, every 2 ms, across every slope and both cut types.
+            std::mt19937 rng (9);
+            bool finite = true;
+            float peak = 0.0f;
+            const int block = (int) (0.002 * fs);
+            auto noisy = runSine (e, fs, 180.0, 0.25, 1.0, block, [&] (int bi, int)
+            {
+                e.setBand (0, BandSettings { true, (bi % 7) < 4 ? FilterType::LowCut : FilterType::HighCut,
+                                             100.0f + (float) (rng() % 4000), 0.0f, 0.3f + (float) (rng() % 100) * 0.1f,
+                                             (int) (rng() % numSlopes) });
+            });
+            for (float v : noisy)
+            {
+                finite = finite && std::isfinite (v);
+                peak = std::max (peak, std::abs (v));
+            }
+            expect (finite, "finite under slope automation");
+            expectLessThan (peak, 20.0f, "bounded under slope automation");
+        }
+
+        beginTest ("Legacy session loads at 12 dB/oct");
+        {
+            ThreeBandEQAudioProcessor p;
+            setBand (p, 0, Param::Slope, 5.0f);   // must be reset by the restore
+            auto state = p.apvts.copyState();
+            state.setProperty ("version", 2, nullptr);
+            for (int b = 0; b < numBands; ++b)
+                state.removeChild (state.getChildWithProperty ("id", paramId (b, Param::Slope)), nullptr);
+            state.getChildWithProperty ("id", "band1_type").setProperty ("value", (int) FilterType::LowCut, nullptr);
+
+            juce::MemoryBlock mb;
+            juce::AudioProcessor::copyXmlToBinary (*state.createXml(), mb);
+            p.setStateInformation (mb.getData(), (int) mb.getSize());
+
+            expectEquals ((int) p.getBandValue (0, Param::Type), (int) FilterType::LowCut);
+            bool all12 = true;
+            for (int b = 0; b < numBands; ++b)
+                all12 = all12 && (int) p.getBandValue (b, Param::Slope) == defaultSlope;
+            expect (all12, "every band at 12 dB/oct");
+        }
+
+        beginTest ("Slope edits are undoable and stored in the session");
+        {
+            ThreeBandEQAudioProcessor p;
+            p.edits.setType (0, FilterType::HighCut);
+            p.edits.setSlope (0, 4);
+            expectEquals ((int) p.getBandValue (0, Param::Slope), 4);
+            p.edits.undo();
+            expectEquals ((int) p.getBandValue (0, Param::Slope), defaultSlope, "undo slope");
+            p.edits.redo();
+
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+            ThreeBandEQAudioProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expectEquals ((int) q.getBandValue (0, Param::Slope), 4, "slope restored");
+        }
+    }
+};
+
+static SlopeTests slopeTests;
 static OutputStageTests outputStageTests;
 static AnalyserTests analyserTests;
 static FilterResponseTests filterResponseTests;
@@ -1044,6 +1216,60 @@ static void runBenchmark()
                 std::printf ("%-7d %-6d %-10s %12.2f %12.2f %9.3f%%\n", numActive, block, modulated ? "automated" : "static",
                              best / numBlocks * 1.0e6, best / (numBlocks * (double) block) * 1.0e9, best / seconds * 100.0);
             }
+
+    // Worst case for cut slopes: every band a 48 dB/oct Low Cut or High Cut.
+    std::printf ("\n24 cut bands at 48 dB/oct\n");
+    std::printf ("%-7s %-6s %-10s %12s %12s %10s\n", "bands", "block", "mode", "us/block", "ns/sample", "% of RT");
+    for (int block : { 32, 128, 512 })
+        for (bool modulated : { false, true })
+        {
+            ThreeBandEQAudioProcessor p;
+            p.setRateAndBufferSizeDetails (fs, block);
+            p.prepareToPlay (fs, block);
+
+            for (int b = 0; b < numBands; ++b)
+            {
+                p.setBandUsed (b, true);
+                auto set = [&] (Param prm, float v) { auto* rp = p.getBandParam (b, prm); rp->setValueNotifyingHost (rp->convertTo0to1 (v)); };
+                set (Param::Type, (float) (b % 2 == 0 ? FilterType::LowCut : FilterType::HighCut));
+                set (Param::Freq, b % 2 == 0 ? 20.0f + (float) b : 20000.0f - (float) b * 100.0f);
+                set (Param::Slope, 5.0f);
+            }
+
+            juce::AudioBuffer<float> buf (2, block);
+            juce::MidiBuffer midi;
+            std::mt19937 rng (7);
+            std::uniform_real_distribution<float> noise (-0.5f, 0.5f);
+            const int numBlocks = (int) (seconds * fs / block);
+
+            double best = 1.0e30;
+            for (int run = 0; run < 3; ++run)
+            {
+                double elapsed = 0.0;
+                for (int bi = 0; bi < numBlocks; ++bi)
+                {
+                    for (int ch = 0; ch < 2; ++ch)
+                        for (int n = 0; n < block; ++n)
+                            buf.setSample (ch, n, noise (rng));
+
+                    if (modulated)   // continuous frequency automation on every band
+                        for (int b = 0; b < numBands; ++b)
+                        {
+                            auto* rp = p.getBandParam (b, Param::Freq);
+                            const float base = b % 2 == 0 ? 30.0f : 15000.0f;
+                            rp->setValueNotifyingHost (rp->convertTo0to1 (base * (1.0f + 0.2f * std::sin ((float) bi * 0.05f + (float) b))));
+                        }
+
+                    const auto t0 = juce::Time::getHighResolutionTicks();
+                    p.processBlock (buf, midi);
+                    elapsed += juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0);
+                }
+                best = std::min (best, elapsed);
+            }
+
+            std::printf ("%-7d %-6d %-10s %12.2f %12.2f %9.3f%%\n", numBands, block, modulated ? "automated" : "static",
+                         best / numBlocks * 1.0e6, best / (numBlocks * (double) block) * 1.0e9, best / seconds * 100.0);
+        }
 }
 
 struct ConsoleRunner final : juce::UnitTestRunner

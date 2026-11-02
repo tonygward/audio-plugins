@@ -13,6 +13,7 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 ### Features
 
 - Up to 24 bands: Bell, Low Shelf, High Shelf, Low Cut, High Cut and Notch
+- Low Cut and High Cut slopes of 6, 12, 18, 24, 36 or 48 dB/oct (Butterworth; raise Q for a resonant peak at the cutoff)
 - Click-free parameter smoothing, undo/redo, and a response curve drawn from the real DSP coefficients
 - Pre/post spectrum analyser
 - **Output gain** (±24 dB, double-click to reset) with a peak meter, peak hold and clip indicator (click the meter to clear it)
