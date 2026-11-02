@@ -561,7 +561,7 @@ public:
             expectWithinAbsoluteError (p.getBandValue (9, Param::Gain), 0.0f, 0.001f, "missing params reset to default");
             expectEquals ((int) p.getBandValue (1, Param::Type), (int) FilterType::Bell, "legacy bands are bells");
             expectEquals (p.getBandValue (1, Param::Enabled), 1.0f, "legacy bands enabled");
-            expectEquals (p.apvts.getRawParameterValue ("output_gain")->load(), 0.0f, "legacy: 0 dB output gain");
+            expectWithinAbsoluteError (p.apvts.getRawParameterValue ("output_gain")->load(), 0.0f, 1.0e-5f, "legacy: 0 dB output gain");
             expectEquals (p.apvts.getRawParameterValue ("bypass")->load(), 0.0f, "legacy: bypass off");
         }
 
@@ -569,7 +569,7 @@ public:
         {
             ThreeBandEQAudioProcessor a, b;
             set (a, 0, Param::Gain, 6.0f);
-            expectEquals (b.getBandValue (0, Param::Gain), 0.0f);
+            expectWithinAbsoluteError (b.getBandValue (0, Param::Gain), 0.0f, 1.0e-5f);   // interval snapping may leave ~1e-7 (FMA on Apple clang)
         }
 
         beginTest ("Undo / redo");
@@ -974,7 +974,7 @@ public:
             juce::MemoryBlock old;
             juce::AudioProcessor::copyXmlToBinary (*state.createXml(), old);
             b.setStateInformation (old.getData(), (int) old.getSize());
-            expectEquals (b.apvts.getRawParameterValue ("output_gain")->load(), 0.0f, "old session: 0 dB");
+            expectWithinAbsoluteError (b.apvts.getRawParameterValue ("output_gain")->load(), 0.0f, 1.0e-5f, "old session: 0 dB");
             expectEquals (b.apvts.getRawParameterValue ("bypass")->load(), 0.0f, "old session: bypass off");
         }
     }
@@ -1430,7 +1430,7 @@ public:
             expectWithinAbsoluteError (p.getBandValue (1, Param::Gain), 3.0f, 0.01f, "band 2 gain");
             expect (p.isBandUsed (0) && p.isBandUsed (1) && p.isBandUsed (2) && ! p.isBandUsed (7), "v1: bands 1-3 used");
             expectEquals ((int) p.getBandValue (0, Param::Slope), defaultSlope, "missing slope -> default");
-            expectEquals (p.getBandValue (7, Param::Gain), 0.0f, "missing params -> defaults");
+            expectWithinAbsoluteError (p.getBandValue (7, Param::Gain), 0.0f, 1.0e-5f, "missing params -> defaults");
         }
 
         beginTest ("Corrupt or foreign files are rejected and change nothing");
