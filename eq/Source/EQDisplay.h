@@ -56,6 +56,7 @@ private:
 
     void drawGrid (juce::Graphics&, juce::Rectangle<float> area);
     void drawAnalyser (juce::Graphics&, juce::Rectangle<float> area);
+    void drawSidechain (juce::Graphics&, juce::Rectangle<float> area);
     void computeCurves (juce::Rectangle<float> area);
     void drawCurves (juce::Graphics&, juce::Rectangle<float> area);
     void drawNodes (juce::Graphics&);

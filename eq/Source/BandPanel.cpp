@@ -209,7 +209,7 @@ void BandPanel::refreshFromParams()
         stereoBox.setSelectedItemIndex (stereo, juce::dontSendNotification);
 
     // A mono bus treats every mode as Stereo.
-    const bool stereoBus = processor.getTotalNumInputChannels() >= 2;
+    const bool stereoBus = processor.getMainBusNumInputChannels() >= 2;
     stereoBox.setEnabled (stereoBus);
     stereoBox.setAlpha (stereoBus ? 1.0f : 0.35f);
 

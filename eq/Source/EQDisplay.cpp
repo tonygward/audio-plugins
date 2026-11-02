@@ -64,7 +64,7 @@ bool EQDisplay::isInCurveView (int band) const
 {
     const int view = processor.curveView.load();
     const int mode = (int) std::lround (processor.getBandValue (band, EQ::Param::Stereo));
-    return view == 0 || mode == 0 || mode == view || processor.getTotalNumInputChannels() < 2;
+    return view == 0 || mode == 0 || mode == view || processor.getMainBusNumInputChannels() < 2;
 }
 
 int EQDisplay::getSelectedBand() const
@@ -119,6 +119,10 @@ void EQDisplay::timerCallback()
     {
         const bool on = processor.analyser.mode.load() != (int) SpectrumAnalyser::Mode::Off;
         if (processor.analyser.update (juce::Time::getMillisecondCounterHiRes() * 0.001) && on)
+            repaint();
+
+        if (processor.sidechainView.load() > 0 && processor.isSidechainConnected()
+            && processor.sidechainAnalyser.update (juce::Time::getMillisecondCounterHiRes() * 0.001))
             repaint();
     }
 
@@ -242,6 +246,9 @@ void EQDisplay::paint (juce::Graphics& g)
         if (processor.analyser.mode.load() != (int) SpectrumAnalyser::Mode::Off)
             drawAnalyser (g, area);
 
+        if (processor.sidechainView.load() > 0 && processor.isSidechainConnected())
+            drawSidechain (g, area);
+
         if (const int solo = getSoloBand(); solo >= 0)
             drawSoloRegion (g, area, solo);
 
@@ -361,6 +368,57 @@ void EQDisplay::drawAnalyser (juce::Graphics& g, juce::Rectangle<float> area)
     g.fillPath (fill);
     g.setColour (juce::Colour (0x60c0c8d8));
     g.strokePath (line, juce::PathStrokeType (1.0f));
+}
+
+// Sidechain spectrum (orange) on the analyser's dBFS scale and tilt. With view 2 the
+// overlap ("collision") regions are shaded: frequencies where both this track's
+// spectrum (pre or post, whatever the analyser shows) and the sidechain are above
+// -60 dBFS and within 6 dB of each other, i.e. where they compete for the same space.
+void EQDisplay::drawSidechain (juce::Graphics& g, juce::Rectangle<float> area)
+{
+    constexpr float topDb = 0.0f, bottomDb = -90.0f, tiltDbPerOct = 4.5f;
+    constexpr float overlapFloorDb = -60.0f, overlapWithinDb = 6.0f;
+
+    const auto& sc = processor.sidechainAnalyser;
+    const auto& main = processor.analyser;
+    const bool mainOn = main.mode.load() != (int) SpectrumAnalyser::Mode::Off;
+    const bool showOverlap = processor.sidechainView.load() >= 2 && mainOn;
+
+    const double sr = getDisplaySampleRate();
+    const float yTop = area.getY() + gainPad, yBottom = area.getBottom();
+    const juce::Colour colour (0xffff9f43);
+
+    juce::Path line;
+    bool started = false, anything = false;
+
+    for (float x = area.getX(); x <= area.getRight(); x += 1.0f)
+    {
+        const double f0 = xToFreq (x - 0.5f), f1 = xToFreq (x + 0.5f);
+        const float tilt = tiltDbPerOct * (float) std::log2 (std::sqrt (f0 * f1) / 1000.0);
+        const float scDb = sc.getLevelDb (f0, f1, sr);
+        anything = anything || scDb > SpectrumAnalyser::floorDb + 1.0f;
+
+        const float y = juce::jlimit (yTop, yBottom, juce::jmap (scDb + tilt, topDb, bottomDb, yTop, yBottom));
+        if (! started) { line.startNewSubPath (x, y); started = true; }
+        else           line.lineTo (x, y);
+
+        if (showOverlap)
+        {
+            const float mainDb = main.getLevelDb (f0, f1, sr);
+            if (scDb > overlapFloorDb && mainDb > overlapFloorDb && std::abs (scDb - mainDb) <= overlapWithinDb)
+            {
+                const float yLow = juce::jlimit (yTop, yBottom, juce::jmap (juce::jmin (scDb, mainDb) + tilt, topDb, bottomDb, yTop, yBottom));
+                g.setColour (juce::Colour (0x38ff4d4d));
+                g.fillRect (x - 0.5f, yLow, 1.0f, yBottom - yLow);
+            }
+        }
+    }
+
+    if (! anything)
+        return;
+
+    g.setColour (colour.withAlpha (0.85f));
+    g.strokePath (line, juce::PathStrokeType (1.3f));
 }
 
 void EQDisplay::computeCurves (juce::Rectangle<float> area)
@@ -687,7 +745,7 @@ void EQDisplay::showContextMenu (int band)
         const int stereo = (int) std::lround (processor.getBandValue (band, EQ::Param::Stereo));
         for (int m = 0; m < EQ::numStereoModes; ++m)
             modes.addItem (300 + m, EQ::getStereoModeNames()[m], true, stereo == m);
-        menu.addSubMenu ("Stereo mode", modes, processor.getTotalNumInputChannels() >= 2);
+        menu.addSubMenu ("Stereo mode", modes, processor.getMainBusNumInputChannels() >= 2);
     }
     menu.addSeparator();
     menu.addItem (4, "Solo (audition)", true, processor.soloBand.load() == band);

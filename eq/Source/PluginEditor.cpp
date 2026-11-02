@@ -65,6 +65,22 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
     };
     addAndMakeVisible (curveViewBox);
 
+    sidechainBox.addItemList ({ "Sidechain: off", "Sidechain: spectrum", "Sidechain: + overlap" }, 1);
+    sidechainBox.setTooltip ("Show the sidechain input's spectrum (orange). \"+ overlap\" shades frequencies where "
+                             "both tracks are above -60 dBFS and within 6 dB of each other (needs the analyser on)");
+    sidechainBox.onChange = [this]
+    {
+        const int i = sidechainBox.getSelectedItemIndex();
+        if (i >= 0)
+        {
+            processor.sidechainView.store (i);
+            processor.sidechainAnalyser.clear();
+            processor.notifyNonParameterStateChanged();
+            display.repaint();
+        }
+    };
+    addChildComponent (sidechainBox);
+
     // Output gain (bar slider, double-click resets to 0 dB) and global bypass.
     outputAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
         processor.apvts, EQ::outputGainId, outputSlider);
@@ -149,7 +165,16 @@ void ThreeBandEQAudioProcessorEditor::timerCallback()
 
     if (curveViewBox.getSelectedItemIndex() != processor.curveView.load())
         curveViewBox.setSelectedItemIndex (processor.curveView.load(), juce::dontSendNotification);
-    curveViewBox.setVisible (processor.getTotalNumInputChannels() >= 2);
+    curveViewBox.setVisible (processor.getMainBusNumInputChannels() >= 2);
+
+    // Sidechain selector: only while the sidechain bus is connected and receiving signal
+    // (anything above -80 dBFS in the last 3 s).
+    if (processor.sidechainMeter.readAndReset() > 1.0e-4f)
+        lastSidechainSignal = now;
+    processor.sidechainMeter.clipped.store (false);
+    sidechainBox.setVisible (processor.isSidechainConnected() && now - lastSidechainSignal < 3.0);
+    if (sidechainBox.getSelectedItemIndex() != processor.sidechainView.load())
+        sidechainBox.setSelectedItemIndex (processor.sidechainView.load(), juce::dontSendNotification);
 
     if (analyserBox.getSelectedItemIndex() != processor.analyser.mode.load())
         analyserBox.setSelectedItemIndex (processor.analyser.mode.load(), juce::dontSendNotification);
@@ -214,11 +239,13 @@ void ThreeBandEQAudioProcessorEditor::resized()
     // Row 2: display range | analyser ...   output gain | meter | bypass (right-aligned)
     {
         auto row = area.removeFromTop (row2Height).reduced (margin, 4).withTrimmedBottom (2);
-        rangeBox.setBounds (row.removeFromLeft (92));
+        rangeBox.setBounds (row.removeFromLeft (84));
         row.removeFromLeft (6);
-        analyserBox.setBounds (row.removeFromLeft (132));
+        analyserBox.setBounds (row.removeFromLeft (126));
         row.removeFromLeft (6);
-        curveViewBox.setBounds (row.removeFromLeft (132));
+        curveViewBox.setBounds (row.removeFromLeft (118));
+        row.removeFromLeft (6);
+        sidechainBox.setBounds (row.removeFromLeft (140));
 
         bypassButton.setBounds (row.removeFromRight (62));
         row.removeFromRight (6);
