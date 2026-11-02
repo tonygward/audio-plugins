@@ -33,7 +33,7 @@ ThreeBandEQAudioProcessor::ThreeBandEQAudioProcessor()
     bypassParam     = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (EQ::bypassId));
     jassert (outputGainParam != nullptr && outputGainRaw != nullptr && bypassParam != nullptr);
 
-    dryBuffer.setSize (EQ::Engine::maxChannels, 512);   // resized in prepareToPlay
+    dryBuffer.setSize (EQ::Engine::maxChannels, 512, false, true);   // resized in prepareToPlay; zeroed
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::createParameterLayout()
@@ -142,6 +142,7 @@ void ThreeBandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 
     // Larger host blocks are processed in chunks of this size, so nothing is allocated later.
     dryBuffer.setSize (EQ::Engine::maxChannels, juce::jmax (512, samplesPerBlock), false, true, false);
+    dryBuffer.clear();
 
     outputGain.reset (sampleRate, outputGainSmoothingSeconds);
     outputGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (outputGainRaw->load()));
@@ -206,6 +207,7 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
         if (outputGain.isSmoothing() || bypassMix.isSmoothing())
         {
+            // The dry copy is only valid when needDry: never mix in stale buffer contents.
             for (int i = 0; i < num; ++i)
             {
                 const float g = outputGain.getNextValue();
@@ -214,7 +216,7 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                 for (int c = 0; c < numCh; ++c)
                 {
                     const float wet = ch[c][i] * g;
-                    ch[c][i] = wet + (dryBuffer.getSample (c, i) - wet) * m;
+                    ch[c][i] = needDry ? wet + (dryBuffer.getSample (c, i) - wet) * m : wet;
                 }
             }
         }
