@@ -58,7 +58,14 @@ namespace EQ
         setParamWithGesture (band, Param::Freq, s.freq);
         setParamWithGesture (band, Param::Gain, s.gain);
         setParamWithGesture (band, Param::Q, s.q);
-        processor.setBandUsed (band, s.used);
+
+        if (processor.isBandUsed (band) != s.used)
+        {
+            // Adding/removing a band changes no host parameter, so tell the host
+            // explicitly; otherwise deleting a band would not mark the project dirty.
+            processor.setBandUsed (band, s.used);
+            processor.notifyNonParameterStateChanged();
+        }
     }
 
     void EditController::commit (int band, const BandSnapshot& before, const BandSnapshot& after, const juce::String& name)

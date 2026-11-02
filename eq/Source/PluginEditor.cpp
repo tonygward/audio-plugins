@@ -29,7 +29,10 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
     {
         const int i = rangeBox.getSelectedItemIndex();
         if (i >= 0)
+        {
             processor.displayRangeDb.store (ranges[i]);
+            processor.notifyNonParameterStateChanged();
+        }
     };
     addAndMakeVisible (rangeBox);
 
@@ -42,6 +45,7 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
         {
             processor.analyser.mode.store (i);
             processor.analyser.clear();
+            processor.notifyNonParameterStateChanged();
             display.repaint();
         }
     };
@@ -60,9 +64,11 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
 
     timerCallback();
 
+    // Read the saved size first: setResizeLimits() may call resized(), which overwrites it.
+    const int savedWidth = processor.editorWidth.load(), savedHeight = processor.editorHeight.load();
     setResizable (true, true);
     setResizeLimits (760, 440, 2000, 1200);
-    setSize (980, 580);
+    setSize (savedWidth, savedHeight);
     startTimerHz (10);
 }
 
@@ -124,6 +130,9 @@ void ThreeBandEQAudioProcessorEditor::paint (juce::Graphics& g)
 
 void ThreeBandEQAudioProcessorEditor::resized()
 {
+    processor.editorWidth.store (getWidth());
+    processor.editorHeight.store (getHeight());
+
     auto area = getLocalBounds();
     auto header = area.removeFromTop (headerHeight).reduced (margin, 9);
 

@@ -84,6 +84,11 @@ void ThreeBandEQAudioProcessor::setBandUsed (int band, bool used)
     bandUsed[(size_t) band].store (used);
 }
 
+void ThreeBandEQAudioProcessor::notifyNonParameterStateChanged()
+{
+    updateHostDisplay (ChangeDetails{}.withNonParameterStateChanged (true));
+}
+
 int ThreeBandEQAudioProcessor::getNumUsedBands() const noexcept
 {
     int n = 0;
@@ -173,6 +178,8 @@ void ThreeBandEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     ui.setProperty ("selectedBand", selectedBand.load(), nullptr);
     ui.setProperty ("displayRange", displayRangeDb.load(), nullptr);
     ui.setProperty ("analyserMode", analyser.mode.load(), nullptr);
+    ui.setProperty ("editorWidth", editorWidth.load(), nullptr);
+    ui.setProperty ("editorHeight", editorHeight.load(), nullptr);
     state.appendChild (ui, nullptr);
 
     if (auto xml = state.createXml())
@@ -226,6 +233,8 @@ void ThreeBandEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& sav
         selectedBand.store (juce::jlimit (-1, numBands - 1, (int) ui.getProperty ("selectedBand", 0)));
         displayRangeDb.store (juce::jlimit (6.0f, 30.0f, (float) ui.getProperty ("displayRange", 24.0f)));
         analyser.mode.store (juce::jlimit (0, 2, (int) ui.getProperty ("analyserMode", (int) SpectrumAnalyser::Mode::Post)));
+        editorWidth.store  (juce::jlimit (760, 2000, (int) ui.getProperty ("editorWidth", 980)));
+        editorHeight.store (juce::jlimit (440, 1200, (int) ui.getProperty ("editorHeight", 580)));
     }
 
     if (juce::MessageManager::existsAndIsCurrentThread())
