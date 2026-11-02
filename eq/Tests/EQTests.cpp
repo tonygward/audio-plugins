@@ -1855,6 +1855,179 @@ public:
     }
 };
 
+//==============================================================================
+class AnalyserControlTests final : public juce::UnitTest
+{
+public:
+    AnalyserControlTests() : juce::UnitTest ("Analyser controls", "EQ") {}
+
+    static constexpr double fs = 48000.0;
+
+    static void feed (SpectrumAnalyser& a, const std::function<float (int)>& signal, int samples, int offset = 0)
+    {
+        std::vector<float> l (512);
+        const float* ch[] = { l.data() };
+        for (int n = 0; n < samples; n += 512)
+        {
+            for (int i = 0; i < 512; ++i)
+                l[(size_t) i] = signal (offset + n + i);
+            a.push (ch, 1, 512);
+        }
+    }
+
+    // Mean displayed level (dB, with tilt) over the bins of one octave starting at f.
+    static double octaveMeanDb (const SpectrumAnalyser& a, double f, float tilt)
+    {
+        const double binHz = fs / a.getFftSize();
+        double sum = 0.0;
+        int count = 0;
+        for (int b = (int) std::ceil (f / binHz); b * binHz < 2.0 * f; ++b, ++count)
+            sum += a.getBinDb (b) + SpectrumAnalyser::tiltDb (b * binHz, b * binHz, tilt);
+        return sum / count;
+    }
+
+    void runTest() override
+    {
+        beginTest ("Calibration and frequency accuracy at every FFT size");
+        for (int order = SpectrumAnalyser::minFftOrder; order <= SpectrumAnalyser::fftOrder; ++order)
+        {
+            const int size = 1 << order;
+            const double binHz = fs / size;
+            const juce::String what = juce::String (size) + "-point";
+
+            for (float ampDb : { 0.0f, -20.0f })
+            {
+                SpectrumAnalyser a;
+                a.setFftOrder (order);
+                expectEquals (a.getFftSize(), size);
+                const int bin = (int) std::round (1000.0 / binHz);
+                const double f = bin * binHz;
+                const float amp = juce::Decibels::decibelsToGain (ampDb);
+                feed (a, [&] (int n) { return amp * (float) std::sin (2.0 * pi * f * n / fs); }, SpectrumAnalyser::fftSize * 2);
+                a.update (1.0);
+
+                int best = 1;
+                for (int b = 1; b < a.getNumBins(); ++b)
+                    if (a.getBinDb (b) > a.getBinDb (best))
+                        best = b;
+                expectEquals (best, bin, "peak bin, " + what);
+                expectWithinAbsoluteError (a.getBinDb (bin), ampDb, 0.05f, "level, " + what);
+            }
+
+            for (double f : { 100.0, 3333.0, 15000.0 })
+            {
+                SpectrumAnalyser a;
+                a.setFftOrder (order);
+                feed (a, [&] (int n) { return (float) std::sin (2.0 * pi * f * n / fs); }, SpectrumAnalyser::fftSize * 2);
+                a.update (1.0);
+                expectGreaterThan (a.getLevelDb (f - binHz, f + binHz, fs), -1.5f, "off-bin level at " + juce::String (f) + ", " + what);
+            }
+        }
+
+        beginTest ("Changing the FFT size keeps the analyser consistent");
+        {
+            SpectrumAnalyser a;
+            feed (a, [] (int n) { return 0.5f * (float) std::sin (2.0 * pi * 1000.0 * n / fs); }, SpectrumAnalyser::fftSize * 2);
+            a.update (1.0);
+            a.setFftOrder (11);
+            a.update (1.1);   // no new audio: recomputed from the kept history
+            expectWithinAbsoluteError (a.getLevelDb (990.0, 1010.0, fs), -6.0f, 1.6f, "level right after switching");
+        }
+
+        beginTest ("Tilt: white noise shows the selected slope (+-0.5 dB/oct)");
+        for (float tilt : { 0.0f, 3.0f, 4.5f, 6.0f })
+        {
+            SpectrumAnalyser a;
+            a.decayDbPerSecond = 0.0f;
+            std::mt19937 rng (77);
+            std::normal_distribution<float> d (0.0f, 0.1f);
+            feed (a, [&] (int) { return d (rng); }, SpectrumAnalyser::fftSize * 2);
+            a.update (1.0);
+
+            const double slope = (octaveMeanDb (a, 4000.0, tilt) - octaveMeanDb (a, 250.0, tilt)) / 4.0;
+            expectWithinAbsoluteError (slope, (double) tilt, 0.5, "tilt " + juce::String (tilt));
+        }
+
+        beginTest ("Peak hold keeps the maximum after the signal drops; reset clears it");
+        {
+            SpectrumAnalyser a;
+            a.setPeakHold (true);
+            feed (a, [] (int n) { return 0.5f * (float) std::sin (2.0 * pi * 1000.0 * n / fs); }, SpectrumAnalyser::fftSize * 2);
+            a.update (1.0);
+            const float peak = a.getPeakLevelDb (990.0, 1010.0, fs);
+            expectWithinAbsoluteError (peak, -6.0f, 1.6f, "peak captured");
+
+            feed (a, [] (int) { return 0.0f; }, SpectrumAnalyser::fftSize * 2);
+            a.update (1.4);
+            a.update (2.0);
+            expectLessThan (a.getLevelDb (990.0, 1010.0, fs), peak - 20.0f, "live spectrum fell");
+            expectEquals (a.getPeakLevelDb (990.0, 1010.0, fs), peak, "peak held");
+
+            a.resetPeaks();
+            expectLessThan (a.getPeakLevelDb (990.0, 1010.0, fs), -100.0f, "reset");
+        }
+
+        beginTest ("Freeze keeps the data unchanged while new audio arrives");
+        {
+            SpectrumAnalyser a;
+            feed (a, [] (int n) { return 0.5f * (float) std::sin (2.0 * pi * 1000.0 * n / fs); }, SpectrumAnalyser::fftSize * 2);
+            a.update (1.0);
+            std::vector<float> before;
+            for (int b = 0; b < a.getNumBins(); ++b) before.push_back (a.getBinDb (b));
+
+            a.setFrozen (true);
+            feed (a, [] (int n) { return 0.9f * (float) std::sin (2.0 * pi * 5000.0 * n / fs); }, SpectrumAnalyser::fftSize * 2);
+            expect (! a.update (1.5), "no change reported");
+            a.update (3.0);
+            bool same = true;
+            for (int b = 0; b < a.getNumBins(); ++b) same = same && a.getBinDb (b) == before[(size_t) b];
+            expect (same, "frozen spectrum unchanged (no new data, no decay)");
+
+            a.setFrozen (false);
+            a.update (3.1);
+            expectGreaterThan (a.getLevelDb (4990.0, 5010.0, fs), -3.0f, "unfreezing shows the current signal");
+        }
+
+        beginTest ("Speed sets the release rate");
+        {
+            for (int s = 0; s < 3; ++s)
+            {
+                SpectrumAnalyser a;
+                a.setSpeed (s);
+                expectEquals (a.decayDbPerSecond, SpectrumAnalyser::speedDecayDbPerSecond[s]);
+            }
+            expectLessThan (SpectrumAnalyser::speedDecayDbPerSecond[0], SpectrumAnalyser::speedDecayDbPerSecond[2], "slow < fast");
+        }
+
+        beginTest ("Settings survive saving and restoring");
+        {
+            ThreeBandEQAudioProcessor p;
+            p.analyserTilt = 3.0f;
+            p.analyserTopDb = -12.0f;
+            p.analyserBottomDb = -120.0f;
+            p.setAnalyserFftOrder (12);
+            p.setAnalyserSpeed (2);
+            p.analyser.setPeakHold (true);
+
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+            ThreeBandEQAudioProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expectEquals (q.analyserTilt.load(), 3.0f, "tilt");
+            expectEquals (q.analyserTopDb.load(), -12.0f, "top");
+            expectEquals (q.analyserBottomDb.load(), -120.0f, "floor");
+            expectEquals (q.analyser.getFftOrder(), 12, "resolution");
+            expectEquals (q.sidechainAnalyser.getFftOrder(), 12, "resolution (sidechain)");
+            expectEquals (q.analyser.getSpeed(), 2, "speed");
+            expect (q.analyser.isPeakHold(), "peak hold");
+
+            ThreeBandEQAudioProcessor fresh;
+            expectEquals (fresh.analyserTilt.load(), 4.5f, "default tilt 4.5 dB/oct");
+        }
+    }
+};
+
+static AnalyserControlTests analyserControlTests;
 static SidechainTests sidechainTests;
 static StereoModeTests stereoModeTests;
 static PresetTests presetTests;
