@@ -78,6 +78,10 @@ public:
         float readAndReset() noexcept { return peak.exchange (0.0f, std::memory_order_relaxed); }
     } outputMeter;
 
+    // Solo / audition (transient, never saved or automated): the band being auditioned,
+    // or -1. The editor sets it; it is cleared when the editor closes.
+    std::atomic<int> soloBand { -1 };
+
     // Persisted UI state
     std::atomic<int>   selectedBand { 0 };
     std::atomic<float> displayRangeDb { 24.0f };

@@ -60,6 +60,10 @@ namespace EQ
             b.crossfading = false;
             b.coeffsDirty = true;
         }
+
+        solo.resetState();
+        solo.mix.reset (0.0);
+        solo.band = -1;
     }
 
     static int effectiveSlope (const BandSettings& s) noexcept
@@ -217,6 +221,17 @@ namespace EQ
         {
             const int num = std::min (updateInterval, numSamples - pos);
 
+            // Solo: keep this chunk's input, which the audition filter plays.
+            const bool soloing = soloTarget >= 0 || solo.band >= 0;
+            float soloInput[maxChannels][updateInterval];
+
+            if (soloing)
+            {
+                updateSolo();
+                for (int ch = 0; ch < numChannels; ++ch)
+                    std::copy (channels[ch] + pos, channels[ch] + pos + num, soloInput[ch]);
+            }
+
             for (auto& b : bands)
             {
                 if (! b.initialised)
@@ -255,6 +270,97 @@ namespace EQ
                     b.crossfading = false;
                 }
             }
+
+            if (soloing)
+                processSolo (channels, soloInput, numChannels, pos, num);
+        }
+    }
+
+    //==========================================================================
+    // Solo state machine, run once per chunk. A different band (or a type change on the
+    // soloed band) first fades the current audition out, then switches filters while
+    // silent and fades back in, so the filter is never swapped while audible.
+    void Engine::updateSolo() noexcept
+    {
+        const int target = (soloTarget >= 0 && soloTarget < numBands) ? soloTarget : -1;
+        const bool mismatch = target != solo.band
+                           || (target >= 0 && bands[(size_t) target].target.type != solo.type);
+
+        if (mismatch)
+        {
+            if (solo.band >= 0 && solo.mix.current > 0.0)
+            {
+                solo.mix.setTarget (0.0, fadeSamples);   // fade out the old audition first
+                return;
+            }
+
+            solo.band = target;
+            solo.resetState();
+            solo.mix.reset (0.0);
+
+            if (target < 0)
+                return;
+
+            const auto& t = bands[(size_t) target].target;
+            solo.type = t.type;
+            solo.logFreq.reset (std::log (clampFreqForSampleRate (t.freq, sampleRate)));
+            solo.logQ.reset (std::log ((double) std::max (t.q, 0.01f)));
+        }
+
+        if (solo.band >= 0)
+        {
+            const auto& t = bands[(size_t) solo.band].target;
+            solo.logFreq.setTarget (std::log (clampFreqForSampleRate (t.freq, sampleRate)), smoothingSamples);
+            solo.logQ.setTarget (std::log ((double) std::max (t.q, 0.01f)), smoothingSamples);
+            solo.mix.setTarget (1.0, fadeSamples);
+        }
+    }
+
+    void Engine::processSolo (float* const* channels, const float (*input)[updateInterval],
+                              int numChannels, int start, int num) noexcept
+    {
+        if (solo.band < 0 || (solo.mix.current <= 0.0 && ! solo.mix.isRamping()))
+            return;
+
+        makeSoloFilter (solo.type, sampleRate, std::exp (solo.logFreq.current), std::exp (solo.logQ.current), solo.coeffs.data());
+
+        double mixGain[updateInterval];
+        {
+            Ramp m = solo.mix;
+            for (int i = 0; i < num; ++i)
+            {
+                m.advance (1);
+                mixGain[i] = m.current;
+            }
+        }
+
+        for (int ch = 0; ch < numChannels; ++ch)
+        {
+            auto* data = channels[ch] + start;
+            auto& st = solo.state[(size_t) ch];
+
+            for (int i = 0; i < num; ++i)
+            {
+                double y = input[ch][i];
+                for (int s = 0; s < numSoloSections; ++s)
+                    y = processSample (solo.coeffs[(size_t) s], st[(size_t) s], y);
+
+                data[i] = (float) (data[i] + (y - data[i]) * mixGain[i]);
+            }
+
+            for (auto& s : st)
+                if (! s.isFinite())
+                    s.reset();
+        }
+
+        solo.mix.advance (num);
+        solo.logFreq.advance (num);
+        solo.logQ.advance (num);
+
+        if (solo.mix.current <= 0.0 && ! solo.mix.isRamping() && soloTarget < 0)
+        {
+            solo.band = -1;   // fully faded out: back to bit-identical normal processing
+            solo.resetState();
         }
     }
 }

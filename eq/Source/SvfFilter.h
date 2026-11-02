@@ -82,6 +82,48 @@ namespace EQ
         return c;
     }
 
+    // Band-pass normalised to unity gain at 'freq': H(s) = k s / (s^2 + k s + 1).
+    inline SvfCoeffs makeBandPass (double sampleRate, double freq, double q)
+    {
+        auto c = makeCoeffs (FilterType::HighCut, sampleRate, freq, q, 0.0);   // same g, k, a1..a3
+        c.m0 = 0.0;  c.m1 = c.k;  c.m2 = 0.0;
+        return c;
+    }
+
+    // Solo / audition filter for a band: two SVF sections (24 dB/oct skirts).
+    //  * Bell, Notch .......... band-pass at the band frequency, each section's Q = the band's
+    //                           Q clamped to [0.75, 10]. Even the widest setting is >= 18 dB
+    //                           down two octaves away, so a wide bell doesn't just play everything.
+    //  * Low Shelf, Low Cut ... 4th-order Butterworth low-pass at the corner: the region the
+    //                           shelf changes / the content the cut removes.
+    //  * High Shelf, High Cut . 4th-order Butterworth high-pass at the corner.
+    constexpr int numSoloSections = 2;
+
+    inline void makeSoloFilter (FilterType type, double sampleRate, double freq, double q, SvfCoeffs* out)
+    {
+        constexpr double bwQ[] = { 0.54119610014619698, 1.3065629648763766 };
+
+        switch (type)
+        {
+            case FilterType::LowShelf:
+            case FilterType::LowCut:
+                for (int i = 0; i < numSoloSections; ++i)
+                    out[i] = makeCoeffs (FilterType::HighCut, sampleRate, freq, bwQ[i], 0.0);
+                break;
+            case FilterType::HighShelf:
+            case FilterType::HighCut:
+                for (int i = 0; i < numSoloSections; ++i)
+                    out[i] = makeCoeffs (FilterType::LowCut, sampleRate, freq, bwQ[i], 0.0);
+                break;
+            case FilterType::Bell:
+            case FilterType::Notch:
+            default:
+                for (int i = 0; i < numSoloSections; ++i)
+                    out[i] = makeBandPass (sampleRate, freq, std::clamp (q, 0.75, 10.0));
+                break;
+        }
+    }
+
     inline double processSample (const SvfCoeffs& c, SvfState& s, double v0) noexcept
     {
         const double v3 = v0 - s.ic2;

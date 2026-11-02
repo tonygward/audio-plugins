@@ -48,6 +48,12 @@ namespace EQ
 
         void process (float* const* channels, int numChannels, int numSamples) noexcept;
 
+        // Solo / audition: -1 = off. Call once per block (before process). While a band is
+        // soloed the output cross-fades (fadeSeconds) to the *input* filtered by that band's
+        // audition filter (see makeSoloFilter). Switching between soloed bands fades out and in.
+        void setSolo (int band) noexcept { soloTarget = band; }
+        bool isSoloActive() const noexcept { return solo.band >= 0 || solo.mix.current > 0.0; }
+
         double getSampleRate() const noexcept { return sampleRate; }
 
     private:
@@ -80,6 +86,21 @@ namespace EQ
             bool crossfading = false;
         };
 
+        struct Solo
+        {
+            int band = -1;                    // band whose filter is currently in use
+            Ramp mix;                         // 0 = normal output, 1 = soloed
+            Ramp logFreq, logQ;
+            FilterType type = FilterType::Bell;
+            std::array<SvfCoeffs, numSoloSections> coeffs {};
+            std::array<std::array<SvfState, numSoloSections>, maxChannels> state {};
+
+            void resetState() noexcept { for (auto& ch : state) for (auto& s : ch) s.reset(); }
+        };
+
+        void updateSolo() noexcept;
+        void processSolo (float* const* channels, const float (*input)[updateInterval], int numChannels, int start, int num) noexcept;
+
         void snapBand (Band&);
         void beginBlockForBand (Band&);
         void processBand (Band&, float* const* channels, int numChannels, int start, int num) noexcept;
@@ -88,5 +109,7 @@ namespace EQ
         int smoothingSamples = 960;
         int fadeSamples = 960;
         std::array<Band, numBands> bands;
+        Solo solo;
+        int soloTarget = -1;
     };
 }

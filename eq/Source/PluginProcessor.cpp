@@ -174,6 +174,9 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         engine.setBand (b, s);
     }
 
+    const int solo = soloBand.load (std::memory_order_relaxed);
+    engine.setSolo (solo >= 0 && solo < numBands && bandUsed[(size_t) solo].load (std::memory_order_relaxed) ? solo : -1);
+
     const int numCh = juce::jmin (numIn, EQ::Engine::maxChannels);
     const auto analyserMode = (SpectrumAnalyser::Mode) analyser.mode.load (std::memory_order_relaxed);
     const bool capture = analyser.activeViewers.load (std::memory_order_relaxed) > 0;
