@@ -6,7 +6,7 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 
 | Plugin | Folder | Formats |
 |---|---|---|
-| **TW Pro EQ**: parametric EQ with a spectrum analyser | [`eq/`](eq/) | VST3, Standalone |
+| **TW Pro EQ**: parametric EQ with a spectrum analyser | [`eq/`](eq/) | VST3, AU (macOS), Standalone |
 
 ---
 
@@ -31,7 +31,7 @@ Pre-built **Windows** binaries are on the [Releases page](https://github.com/ton
 2. Extract it and copy the `TW Pro EQ.vst3` folder into `C:\Program Files\Common Files\VST3`.
 3. Rescan plugins in your DAW.
 
-There's no pre-built Mac binary yet. Mac users need to build from source (see below).
+**macOS:** every CI run uploads a `TW-Pro-EQ-macOS-zip` artifact (VST3 + AU, universal) on the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml). It isn't signed or notarised, so after copying the plug-ins (see Install below) you may need to run `xattr -dr com.apple.quarantine` on them. Or build from source.
 
 ---
 
@@ -105,7 +105,7 @@ To install by hand instead, copy the `TW Pro EQ.vst3` folder into `C:\Program Fi
 
 ### macOS
 
-> ⚠️ The Mac build hasn't been tested yet. If something breaks, please open an issue.
+The Mac build (VST3, AU and Standalone, universal arm64 + x86_64) is built and tested on every push by the GitHub Actions workflow, including Apple's `auval` Audio Unit validation. It hasn't been checked by hand in Logic Pro yet.
 
 **Requirements:**
 
@@ -132,31 +132,25 @@ cmake --build build --config Release
 
 If you'd rather not use Xcode as the generator, `-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release` works too.
 
-The plugin ends up at:
+On a Mac the build produces both plug-in formats (AU is added automatically on Apple platforms):
 
 ```
 eq/build/ThreeBandEQ_artefacts/Release/VST3/TW Pro EQ.vst3
+eq/build/ThreeBandEQ_artefacts/Release/AU/TW Pro EQ.component
 ```
 
 #### Install
 
-Copy the plugin into your user VST3 folder (no admin rights needed):
+Copy the plug-ins into your user plug-in folders (no admin rights needed). **Logic Pro and GarageBand** load the **AU** (`.component`); most other DAWs load the VST3.
 
 ```sh
-mkdir -p ~/Library/Audio/Plug-Ins/VST3
-rm -rf ~/Library/Audio/Plug-Ins/VST3/"TW Pro EQ.vst3"
+mkdir -p ~/Library/Audio/Plug-Ins/VST3 ~/Library/Audio/Plug-Ins/Components
+rm -rf ~/Library/Audio/Plug-Ins/VST3/"TW Pro EQ.vst3" ~/Library/Audio/Plug-Ins/Components/"TW Pro EQ.component"
 cp -R build/ThreeBandEQ_artefacts/Release/VST3/"TW Pro EQ.vst3" ~/Library/Audio/Plug-Ins/VST3/
+cp -R build/ThreeBandEQ_artefacts/Release/AU/"TW Pro EQ.component" ~/Library/Audio/Plug-Ins/Components/
 ```
 
-Then rescan plugins in your DAW.
-
-**Logic Pro and GarageBand** only load **Audio Unit (AU)** plugins, not VST3. To build an AU as well, change the `FORMATS` line in `eq/CMakeLists.txt` to:
-
-```cmake
-FORMATS VST3 AU Standalone
-```
-
-After rebuilding, copy `build/ThreeBandEQ_artefacts/Release/AU/TW Pro EQ.component` into `~/Library/Audio/Plug-Ins/Components/`.
+Then rescan plugins in your DAW. If Logic doesn't list the AU straight away, run `killall -9 AudioComponentRegistrar` and reopen Logic. You can check the AU yourself with `auval -v aufx Eq3b Tnyw`.
 
 #### Run the tests
 
