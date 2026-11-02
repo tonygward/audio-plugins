@@ -59,6 +59,35 @@ jobs:
         shell: bash
         run: ${{ matrix.tests }}
 
+      - name: Validate the Audio Unit (auval)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          rm -rf ~/Library/Audio/Plug-Ins/Components/"TW Pro EQ.component"
+          cp -R eq/build/ThreeBandEQ_artefacts/Release/AU/"TW Pro EQ.component" ~/Library/Audio/Plug-Ins/Components/
+          # Make the component registrar pick up the new plug-in.
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 2
+          auval -a | grep -i "Tnyw" || true
+          auval -v aufx Eq3b Tnyw
+
+      - name: Zip macOS plug-ins (VST3 + AU)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p dist/"TW Pro EQ"
+          cp -R eq/build/ThreeBandEQ_artefacts/Release/VST3/"TW Pro EQ.vst3" dist/"TW Pro EQ"/
+          cp -R eq/build/ThreeBandEQ_artefacts/Release/AU/"TW Pro EQ.component" dist/"TW Pro EQ"/
+          ditto -c -k --keepParent dist/"TW Pro EQ" dist/TW-Pro-EQ-macOS.zip
+
+      - name: Upload macOS zip
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: TW-Pro-EQ-macOS-zip
+          path: dist/TW-Pro-EQ-macOS.zip
+
       - name: Upload plugin
         if: always()
         uses: actions/upload-artifact@v4
@@ -67,4 +96,5 @@ jobs:
           if-no-files-found: warn
           path: |
             eq/build/ThreeBandEQ_artefacts/Release/VST3/
+            eq/build/ThreeBandEQ_artefacts/Release/AU/
             eq/build/ThreeBandEQ_artefacts/Release/Standalone/
