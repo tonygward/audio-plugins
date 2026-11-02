@@ -16,6 +16,7 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 
 - Up to 24 bands: Bell, Low Shelf, High Shelf, Low Cut, High Cut and Notch
 - Low Cut and High Cut slopes of 6, 12, 18, 24, 36 or 48 dB/oct (Butterworth; raise Q for a resonant peak at the cutoff)
+- **Stereo modes per band:** Stereo, Left, Right, Mid or Side (a small L/R/M/S badge marks the node). The "Curve" selector shows the combined curve for one channel
 - Click-free parameter smoothing, undo/redo, and a response curve drawn from the real DSP coefficients
 - Pre/post spectrum analyser
 - **Solo a band:** Alt-click (and drag) a node to hear only the region it affects while the mouse is held, or latch it with the Solo button in the band panel or the right-click menu

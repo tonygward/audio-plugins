@@ -1477,6 +1477,227 @@ public:
     static void set (ThreeBandEQAudioProcessor& p, int band, Param prm, float v) { setBand (p, band, prm, v); }
 };
 
+//==============================================================================
+class StereoModeTests final : public juce::UnitTest
+{
+public:
+    StereoModeTests() : juce::UnitTest ("Stereo modes", "EQ") {}
+
+    static constexpr double fs = 48000.0;
+
+    // Runs separate L/R signals through an engine configured with 'bands'.
+    static void run (Engine& e, std::vector<float>& l, std::vector<float>& r, int block = 64)
+    {
+        for (size_t pos = 0; pos < l.size(); pos += (size_t) block)
+        {
+            const int num = (int) std::min ((size_t) block, l.size() - pos);
+            float* ch[] = { l.data() + pos, r.data() + pos };
+            e.process (ch, 2, num);
+        }
+    }
+
+    static Engine makeEngine (const std::vector<BandSettings>& bands)
+    {
+        Engine e;
+        e.prepare (fs);
+        for (int b = 0; b < numBands; ++b)
+            e.setBand (b, b < (int) bands.size() ? bands[(size_t) b] : BandSettings {});
+        e.snapToTargets();
+        return e;
+    }
+
+    static std::vector<float> sine (double f, double amp, size_t n, double phase = 0.0)
+    {
+        std::vector<float> x (n);
+        for (size_t i = 0; i < n; ++i)
+            x[i] = (float) (amp * std::sin (2.0 * pi * f * (double) i / fs + phase));
+        return x;
+    }
+
+    static double gainDb (const std::vector<float>& out, const std::vector<float>& in)
+    {
+        const size_t from = out.size() / 2;
+        return 20.0 * std::log10 (rms (out, from, out.size()) / rms (in, from, in.size()));
+    }
+
+    void runTest() override
+    {
+        const size_t n = (size_t) fs;   // 1 s
+
+        beginTest ("Mid-only +6 dB bell boosts mono-compatible (L=R) content on both channels");
+        {
+            auto e = makeEngine ({ { true, FilterType::Bell, 1000.0f, 6.0f, 1.0f, defaultSlope, StereoMode::Mid } });
+            auto in = sine (1000.0, 0.25, n);
+            auto l = in, r = in;
+            run (e, l, r);
+            expectWithinAbsoluteError (gainDb (l, in), 6.0, 0.05, "left +6 dB");
+            expectWithinAbsoluteError (gainDb (r, in), 6.0, 0.05, "right +6 dB");
+        }
+
+        beginTest ("Mid-only band leaves Side content alone");
+        {
+            auto e = makeEngine ({ { true, FilterType::Bell, 1000.0f, 6.0f, 1.0f, defaultSlope, StereoMode::Mid } });
+            auto in = sine (1000.0, 0.25, n);
+            auto l = in, r = in;
+            for (auto& v : r) v = -v;   // pure Side (L = -R)
+            const auto inR = r;
+            run (e, l, r);
+            expectWithinAbsoluteError (gainDb (l, in), 0.0, 0.01, "side-only signal unchanged (L)");
+            expectWithinAbsoluteError (gainDb (r, inR), 0.0, 0.01, "side-only signal unchanged (R)");
+        }
+
+        beginTest ("Side-only band has no effect on L=R input");
+        {
+            auto e = makeEngine ({ { true, FilterType::Bell, 1000.0f, 12.0f, 1.0f, defaultSlope, StereoMode::Side } });
+            std::mt19937 rng (4);
+            std::uniform_real_distribution<float> d (-0.5f, 0.5f);
+            std::vector<float> in (n);
+            for (auto& v : in) v = d (rng);
+            auto l = in, r = in;
+            run (e, l, r);
+            double err = 0.0;
+            for (size_t i = 0; i < n; ++i)
+                err = std::max ({ err, (double) std::abs (l[i] - in[i]), (double) std::abs (r[i] - in[i]) });
+            expectLessThan (err, 1.0e-6, "unchanged");
+
+            // And it does act on side content.
+            auto l2 = sine (1000.0, 0.25, n), r2 = l2;
+            for (auto& v : r2) v = -v;
+            const auto in2 = l2;
+            run (e, l2, r2);
+            expectWithinAbsoluteError (gainDb (l2, in2), 12.0, 0.1, "side content boosted");
+        }
+
+        beginTest ("Left-only band leaves the right channel bit-exact");
+        {
+            auto e = makeEngine ({ { true, FilterType::Bell, 1000.0f, 9.0f, 2.0f, defaultSlope, StereoMode::Left },
+                                   { true, FilterType::LowCut, 200.0f, 0.0f, defaultQ, 3, StereoMode::Left } });
+            std::mt19937 rng (8);
+            std::uniform_real_distribution<float> d (-0.5f, 0.5f);
+            std::vector<float> l (n), r (n);
+            for (auto& v : l) v = d (rng);
+            for (auto& v : r) v = d (rng);
+            const auto inL = l, inR = r;
+            run (e, l, r);
+            expect (r == inR, "right untouched");
+            expect (l != inL, "left processed");
+
+            auto e2 = makeEngine ({ { true, FilterType::Bell, 1000.0f, 9.0f, 2.0f, defaultSlope, StereoMode::Right } });
+            l = inL; r = inR;
+            run (e2, l, r);
+            expect (l == inL, "Right-only band leaves left untouched");
+        }
+
+        beginTest ("All bands in Stereo mode: identical to the plain cascade");
+        {
+            const std::vector<BandSettings> bands { { true, FilterType::Bell, 300.0f, 4.0f, 1.2f },
+                                                    { true, FilterType::HighShelf, 6000.0f, -3.0f, defaultQ },
+                                                    { true, FilterType::LowCut, 40.0f, 0.0f, defaultQ } };
+            auto e = makeEngine (bands);
+
+            std::vector<SvfCoeffs> c;
+            for (auto& s : bands)
+                c.push_back (makeCoeffs (s.type, fs, std::exp (std::log ((double) s.freq)), std::exp (std::log ((double) s.q)), s.gain));
+            std::vector<SvfState> sl (c.size()), sr (c.size());
+
+            std::mt19937 rng (9);
+            std::uniform_real_distribution<float> d (-0.5f, 0.5f);
+            std::vector<float> l (8192), r (8192);
+            for (auto& v : l) v = d (rng);
+            for (auto& v : r) v = d (rng);
+            auto refL = l, refR = r;
+            for (size_t i = 0; i < l.size(); ++i)
+                for (size_t k = 0; k < c.size(); ++k)
+                {
+                    refL[i] = (float) processSample (c[k], sl[k], (double) refL[i]);
+                    refR[i] = (float) processSample (c[k], sr[k], (double) refR[i]);
+                }
+
+            run (e, l, r);
+            expect (l == refL && r == refR, "bit-identical");
+        }
+
+        beginTest ("Mode changes while running: finite, no spikes");
+        for (double rate : { 44100.0, 96000.0 })
+        {
+            Engine e;
+            e.prepare (rate);
+            const int block = 64;
+            const size_t total = (size_t) (1.5 * rate);
+            std::vector<float> l (total), r (total);
+            for (size_t i = 0; i < total; ++i)
+            {
+                l[i] = (float) (0.25 * std::sin (2.0 * pi * 1000.0 * (double) i / rate));
+                r[i] = (float) (0.25 * std::sin (2.0 * pi * 1000.0 * (double) i / rate + 1.0));
+            }
+
+            int bi = 0;
+            for (size_t pos = 0; pos < total; pos += (size_t) block, ++bi)
+            {
+                // Change band 1's mode every 50 ms, band 2's every 7 blocks (faster than the fades).
+                e.setBand (0, { true, FilterType::Bell, 1000.0f, 12.0f, 1.0f, defaultSlope, stereoModeFromIndex ((int) (pos / (size_t) (0.05 * rate)) % numStereoModes) });
+                e.setBand (1, { true, FilterType::Bell, 1500.0f, -6.0f, 2.0f, defaultSlope, stereoModeFromIndex ((bi / 7) % numStereoModes) });
+                const int num = (int) std::min ((size_t) block, total - pos);
+                float* ch[] = { l.data() + pos, r.data() + pos };
+                e.process (ch, 2, num);
+            }
+
+            bool finite = true;
+            for (size_t i = 0; i < total; ++i)
+                finite = finite && std::isfinite (l[i]) && std::isfinite (r[i]);
+            expect (finite, "finite");
+
+            // Worst case: both bands at full boost on a channel, 1 kHz sine.
+            const double bound = 0.25 * 4.0 * 2.0 * pi * 1000.0 / rate;
+            expectLessThan (std::max (maxStep (l, 1, total), maxStep (r, 1, total)), bound * 1.1, "no step beyond the loudest steady state");
+        }
+
+        beginTest ("Mono bus treats every mode as Stereo");
+        {
+            auto e = makeEngine ({ { true, FilterType::Bell, 1000.0f, 6.0f, 1.0f, defaultSlope, StereoMode::Side } });
+            auto in = sine (1000.0, 0.25, n);
+            auto x = in;
+            for (size_t pos = 0; pos < n; pos += 64)
+            {
+                float* ch[] = { x.data() + pos };
+                e.process (ch, 1, (int) std::min ((size_t) 64, n - pos));
+            }
+            expectWithinAbsoluteError (gainDb (x, in), 6.0, 0.05, "mono: Side band acts like Stereo");
+        }
+
+        beginTest ("Legacy session loads with every band in Stereo; mode is undoable and saved");
+        {
+            ThreeBandEQAudioProcessor p;
+            setBand (p, 0, Param::Stereo, 3.0f);
+            auto state = p.apvts.copyState();
+            state.setProperty ("version", 2, nullptr);
+            for (int b = 0; b < numBands; ++b)
+                state.removeChild (state.getChildWithProperty ("id", paramId (b, Param::Stereo)), nullptr);
+            juce::MemoryBlock mb;
+            juce::AudioProcessor::copyXmlToBinary (*state.createXml(), mb);
+            p.setStateInformation (mb.getData(), (int) mb.getSize());
+
+            bool allStereo = true;
+            for (int b = 0; b < numBands; ++b)
+                allStereo = allStereo && (int) p.getBandValue (b, Param::Stereo) == 0;
+            expect (allStereo, "every band Stereo");
+
+            p.edits.setStereoMode (1, (int) StereoMode::Side);
+            expectEquals ((int) p.getBandValue (1, Param::Stereo), (int) StereoMode::Side);
+            p.edits.undo();
+            expectEquals ((int) p.getBandValue (1, Param::Stereo), 0, "undo");
+            p.edits.redo();
+
+            juce::MemoryBlock saved;
+            p.getStateInformation (saved);
+            ThreeBandEQAudioProcessor q;
+            q.setStateInformation (saved.getData(), (int) saved.getSize());
+            expectEquals ((int) q.getBandValue (1, Param::Stereo), (int) StereoMode::Side, "restored");
+        }
+    }
+};
+
+static StereoModeTests stereoModeTests;
 static PresetTests presetTests;
 static SoloTests soloTests;
 static SlopeTests slopeTests;
@@ -1487,6 +1708,63 @@ static SmoothingTests smoothingTests;
 static ProcessorTests processorTests;
 
 //==============================================================================
+// One benchmark table: all 24 bands used and set up by 'setup', static and with
+// 'automate' called for every band before every block.
+static void benchCase (const char* title,
+                       const std::function<void (ThreeBandEQAudioProcessor&, int band)>& setup,
+                       const std::function<void (ThreeBandEQAudioProcessor&, int band, int blockIndex)>& automate)
+{
+    constexpr double fs = 48000.0;
+    constexpr double seconds = 20.0;
+
+    std::printf ("\n%s\n", title);
+    std::printf ("%-7s %-6s %-10s %12s %12s %10s\n", "bands", "block", "mode", "us/block", "ns/sample", "% of RT");
+
+    for (int block : { 32, 128, 512 })
+        for (bool modulated : { false, true })
+        {
+            ThreeBandEQAudioProcessor p;
+            p.setRateAndBufferSizeDetails (fs, block);
+            p.prepareToPlay (fs, block);
+
+            for (int b = 0; b < numBands; ++b)
+            {
+                p.setBandUsed (b, true);
+                setup (p, b);
+            }
+
+            juce::AudioBuffer<float> buf (2, block);
+            juce::MidiBuffer midi;
+            std::mt19937 rng (7);
+            std::uniform_real_distribution<float> noise (-0.5f, 0.5f);
+            const int numBlocks = (int) (seconds * fs / block);
+
+            double best = 1.0e30;
+            for (int run = 0; run < 3; ++run)
+            {
+                double elapsed = 0.0;
+                for (int bi = 0; bi < numBlocks; ++bi)
+                {
+                    for (int ch = 0; ch < 2; ++ch)
+                        for (int n = 0; n < block; ++n)
+                            buf.setSample (ch, n, noise (rng));
+
+                    if (modulated)
+                        for (int b = 0; b < numBands; ++b)
+                            automate (p, b, bi);
+
+                    const auto t0 = juce::Time::getHighResolutionTicks();
+                    p.processBlock (buf, midi);
+                    elapsed += juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0);
+                }
+                best = std::min (best, elapsed);
+            }
+
+            std::printf ("%-7d %-6d %-10s %12.2f %12.2f %9.3f%%\n", numBands, block, modulated ? "automated" : "static",
+                         best / numBlocks * 1.0e6, best / (numBlocks * (double) block) * 1.0e9, best / seconds * 100.0);
+        }
+}
+
 static void runBenchmark()
 {
     constexpr double fs = 48000.0;
@@ -1547,61 +1825,33 @@ static void runBenchmark()
                              best / numBlocks * 1.0e6, best / (numBlocks * (double) block) * 1.0e9, best / seconds * 100.0);
             }
 
-    // Worst case for cut slopes: every band a 48 dB/oct Low Cut or High Cut.
-    std::printf ("\n24 cut bands at 48 dB/oct\n");
-    std::printf ("%-7s %-6s %-10s %12s %12s %10s\n", "bands", "block", "mode", "us/block", "ns/sample", "% of RT");
-    for (int block : { 32, 128, 512 })
-        for (bool modulated : { false, true })
-        {
-            ThreeBandEQAudioProcessor p;
-            p.setRateAndBufferSizeDetails (fs, block);
-            p.prepareToPlay (fs, block);
+    // Extra worst cases for features added later.
+    benchCase ("24 cut bands at 48 dB/oct",
+               [] (ThreeBandEQAudioProcessor& p, int b)
+               {
+                   setBand (p, b, Param::Type, (float) (b % 2 == 0 ? FilterType::LowCut : FilterType::HighCut));
+                   setBand (p, b, Param::Freq, b % 2 == 0 ? 20.0f + (float) b : 20000.0f - (float) b * 100.0f);
+                   setBand (p, b, Param::Slope, 5.0f);
+               },
+               [] (ThreeBandEQAudioProcessor& p, int b, int bi)   // frequency automation
+               {
+                   const float base = b % 2 == 0 ? 30.0f : 15000.0f;
+                   setBand (p, b, Param::Freq, base * (1.0f + 0.2f * std::sin ((float) bi * 0.05f + (float) b)));
+               });
 
-            for (int b = 0; b < numBands; ++b)
-            {
-                p.setBandUsed (b, true);
-                auto set = [&] (Param prm, float v) { auto* rp = p.getBandParam (b, prm); rp->setValueNotifyingHost (rp->convertTo0to1 (v)); };
-                set (Param::Type, (float) (b % 2 == 0 ? FilterType::LowCut : FilterType::HighCut));
-                set (Param::Freq, b % 2 == 0 ? 20.0f + (float) b : 20000.0f - (float) b * 100.0f);
-                set (Param::Slope, 5.0f);
-            }
-
-            juce::AudioBuffer<float> buf (2, block);
-            juce::MidiBuffer midi;
-            std::mt19937 rng (7);
-            std::uniform_real_distribution<float> noise (-0.5f, 0.5f);
-            const int numBlocks = (int) (seconds * fs / block);
-
-            double best = 1.0e30;
-            for (int run = 0; run < 3; ++run)
-            {
-                double elapsed = 0.0;
-                for (int bi = 0; bi < numBlocks; ++bi)
-                {
-                    for (int ch = 0; ch < 2; ++ch)
-                        for (int n = 0; n < block; ++n)
-                            buf.setSample (ch, n, noise (rng));
-
-                    if (modulated)   // continuous frequency automation on every band
-                        for (int b = 0; b < numBands; ++b)
-                        {
-                            auto* rp = p.getBandParam (b, Param::Freq);
-                            const float base = b % 2 == 0 ? 30.0f : 15000.0f;
-                            rp->setValueNotifyingHost (rp->convertTo0to1 (base * (1.0f + 0.2f * std::sin ((float) bi * 0.05f + (float) b))));
-                        }
-
-                    const auto t0 = juce::Time::getHighResolutionTicks();
-                    p.processBlock (buf, midi);
-                    elapsed += juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0);
-                }
-                best = std::min (best, elapsed);
-            }
-
-            std::printf ("%-7d %-6d %-10s %12.2f %12.2f %9.3f%%\n", numBands, block, modulated ? "automated" : "static",
-                         best / numBlocks * 1.0e6, best / (numBlocks * (double) block) * 1.0e9, best / seconds * 100.0);
-        }
+    benchCase ("24 bells, mixed stereo modes (S/L/R/M/S...)",
+               [] (ThreeBandEQAudioProcessor& p, int b)
+               {
+                   setBand (p, b, Param::Freq, 40.0f * std::pow (400.0f, (float) b / numBands));
+                   setBand (p, b, Param::Gain, 6.0f);
+                   setBand (p, b, Param::Q, 1.5f);
+                   setBand (p, b, Param::Stereo, (float) (b % numStereoModes));
+               },
+               [] (ThreeBandEQAudioProcessor& p, int b, int bi)   // gain automation
+               {
+                   setBand (p, b, Param::Gain, 6.0f * std::sin ((float) bi * 0.05f + (float) b));
+               });
 }
-
 struct ConsoleRunner final : juce::UnitTestRunner
 {
     void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); std::fflush (stdout); }

@@ -28,7 +28,7 @@ Suggested split: slopes plus output gain and bypass in one PR, and the build che
 ## Phase 2: Reach more users (v0.4)
 
 - [ ] **AU format and a tested macOS release.** Logic and GarageBand users can't load the plugin today.
-- [ ] **Stereo modes per band:** Stereo, Left, Right, Mid and Side. This is the biggest jump in usefulness for mastering and bus work, and it fits the per-channel SVF state the engine already has.
+- [x] **Stereo modes per band:** Stereo, Left, Right, Mid and Side. This is the biggest jump in usefulness for mastering and bus work, and it fits the per-channel SVF state the engine already has.
 
 ## Phase 3: Better analyser and workflow (v0.5)
 
