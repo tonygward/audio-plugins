@@ -12,7 +12,8 @@ namespace
 ThreeBandEQAudioProcessor::ThreeBandEQAudioProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+                          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+                          .withInput  ("Sidechain", juce::AudioChannelSet::stereo(), false)),   // analysed only
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
 {
     for (int b = 0; b < numBands; ++b)
@@ -136,7 +137,24 @@ bool ThreeBandEQAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
     if (out != juce::AudioChannelSet::stereo() && out != juce::AudioChannelSet::mono())
         return false;
 
-    return out == layouts.getMainInputChannelSet();
+    if (out != layouts.getMainInputChannelSet())
+        return false;
+
+    // Optional sidechain (analyser only): disabled, mono or stereo.
+    if (layouts.inputBuses.size() > 1)
+    {
+        const auto& sc = layouts.getChannelSet (true, 1);
+        if (! sc.isDisabled() && sc != juce::AudioChannelSet::mono() && sc != juce::AudioChannelSet::stereo())
+            return false;
+    }
+
+    return true;
+}
+
+bool ThreeBandEQAudioProcessor::isSidechainConnected() const
+{
+    auto* bus = getBus (true, 1);
+    return bus != nullptr && bus->isEnabled() && bus->getNumberOfChannels() > 0;
 }
 
 void ThreeBandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
@@ -157,8 +175,9 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 {
     juce::ScopedNoDenormals noDenormals;
 
-    const int numIn  = getTotalNumInputChannels();
-    const int numOut = getTotalNumOutputChannels();
+    // Main bus only: the sidechain (input bus 1) is analysed, never processed or output.
+    const int numIn  = getMainBusNumInputChannels();
+    const int numOut = getMainBusNumOutputChannels();
 
     for (int ch = numIn; ch < numOut; ++ch)
         buffer.clear (ch, 0, buffer.getNumSamples());
@@ -249,6 +268,21 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     }
 
     outputMeter.push (blockPeak);
+
+    // Sidechain: level for the UI, and the spectrum while a viewer shows it. It never
+    // touches the main channels.
+    if (isSidechainConnected())
+    {
+        const auto sc = getBusBuffer (buffer, true, 1);
+        const int numSc = juce::jmin (sc.getNumChannels(), 2);
+        float scPeak = 0.0f;
+        for (int c = 0; c < numSc; ++c)
+            scPeak = juce::jmax (scPeak, sc.getMagnitude (c, 0, sc.getNumSamples()));
+        sidechainMeter.push (scPeak);
+
+        if (capture && sidechainView.load (std::memory_order_relaxed) > 0)
+            sidechainAnalyser.push (sc.getArrayOfReadPointers(), numSc, sc.getNumSamples());
+    }
 }
 
 //==============================================================================
@@ -278,6 +312,7 @@ void ThreeBandEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     ui.setProperty ("selectedBand", selectedBand.load(), nullptr);
     ui.setProperty ("displayRange", displayRangeDb.load(), nullptr);
     ui.setProperty ("curveView", curveView.load(), nullptr);
+    ui.setProperty ("sidechainView", sidechainView.load(), nullptr);
     ui.setProperty ("analyserMode", analyser.mode.load(), nullptr);
     ui.setProperty ("editorWidth", editorWidth.load(), nullptr);
     ui.setProperty ("editorHeight", editorHeight.load(), nullptr);
@@ -334,6 +369,7 @@ void ThreeBandEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& sav
         selectedBand.store (juce::jlimit (-1, numBands - 1, (int) ui.getProperty ("selectedBand", 0)));
         displayRangeDb.store (juce::jlimit (6.0f, 30.0f, (float) ui.getProperty ("displayRange", 24.0f)));
         curveView.store (juce::jlimit (0, EQ::numStereoModes - 1, (int) ui.getProperty ("curveView", 0)));
+        sidechainView.store (juce::jlimit (0, 2, (int) ui.getProperty ("sidechainView", 0)));
         analyser.mode.store (juce::jlimit (0, 2, (int) ui.getProperty ("analyserMode", (int) SpectrumAnalyser::Mode::Post)));
         editorWidth.store  (juce::jlimit (760, 2000, (int) ui.getProperty ("editorWidth", 980)));
         editorHeight.store (juce::jlimit (440, 1200, (int) ui.getProperty ("editorHeight", 580)));

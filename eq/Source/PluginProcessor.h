@@ -91,6 +91,13 @@ public:
 
     SpectrumAnalyser analyser;   // mode is persisted with the UI state
 
+    // Sidechain analyser (input bus 1, disabled by default). Captured only while an
+    // editor shows it (analyser.activeViewers > 0 and sidechainView > 0).
+    SpectrumAnalyser sidechainAnalyser;
+    OutputMeter sidechainMeter;                // peak level, so the UI knows a signal is arriving
+    std::atomic<int> sidechainView { 0 };      // 0 off, 1 spectrum, 2 spectrum + overlap highlight (UI state)
+    bool isSidechainConnected() const;
+
     juce::AudioProcessorValueTreeState apvts;
     EQ::EditController edits { *this };
     EQ::PresetManager presets { *this };
