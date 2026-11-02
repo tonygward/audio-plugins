@@ -16,6 +16,7 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 - Low Cut and High Cut slopes of 6, 12, 18, 24, 36 or 48 dB/oct (Butterworth; raise Q for a resonant peak at the cutoff)
 - Click-free parameter smoothing, undo/redo, and a response curve drawn from the real DSP coefficients
 - Pre/post spectrum analyser
+- **Solo a band:** Alt-click (and drag) a node to hear only the region it affects while the mouse is held, or latch it with the Solo button in the band panel or the right-click menu
 - **Output gain** (±24 dB, double-click to reset) with a peak meter, peak hold and clip indicator (click the meter to clear it)
 - **Global bypass** that your DAW uses as its native bypass, with a smooth 20 ms cross-fade
 

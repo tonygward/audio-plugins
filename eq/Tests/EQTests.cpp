@@ -1149,6 +1149,138 @@ public:
     }
 };
 
+//==============================================================================
+class SoloTests final : public juce::UnitTest
+{
+public:
+    SoloTests() : juce::UnitTest ("Band solo", "EQ") {}
+
+    static constexpr double fs = 48000.0;
+    static constexpr int block = 256;
+
+    // Steady-state gain (dB) of the processor for a sine at f, with band 'solo' soloed.
+    static double soloGainDb (FilterType type, float freq, float q, float gain, double f, int solo = 1)
+    {
+        ThreeBandEQAudioProcessor p;
+        setBand (p, 1, Param::Type, (float) type);
+        setBand (p, 1, Param::Freq, freq);
+        setBand (p, 1, Param::Q, q);
+        setBand (p, 1, Param::Gain, gain);
+        p.soloBand = solo;
+        p.prepareToPlay (fs, block);
+
+        const int total = (int) (0.6 * fs);
+        auto sig = [f] (int n) { return (float) (0.25 * std::sin (2.0 * pi * f * n / fs)); };
+        const auto out = runProcessor (p, fs, block, total, sig, [] (int) {});
+        std::vector<float> in ((size_t) total);
+        for (int n = 0; n < total; ++n) in[(size_t) n] = sig (n);
+        return 20.0 * std::log10 (rms (out, (size_t) (0.3 * fs), out.size()) / rms (in, (size_t) (0.3 * fs), in.size()));
+    }
+
+    void runTest() override
+    {
+        beginTest ("Soloed bell: unity at the band frequency, >= 18 dB down two octaves away");
+        for (float q : { 0.1f, 0.707f, 2.0f, 8.0f })
+            for (float gain : { 0.0f, 9.0f, -15.0f })
+            {
+                const juce::String what = "Q " + juce::String (q) + ", gain " + juce::String (gain);
+                expectWithinAbsoluteError (soloGainDb (FilterType::Bell, 1000.0f, q, gain, 1000.0), 0.0, 0.5, "centre, " + what);
+                expectLessThan (soloGainDb (FilterType::Bell, 1000.0f, q, gain, 250.0), -18.0, "two octaves below, " + what);
+                expectLessThan (soloGainDb (FilterType::Bell, 1000.0f, q, gain, 4000.0), -18.0, "two octaves above, " + what);
+            }
+
+        beginTest ("Soloed shelves and cuts play the region they affect");
+        {
+            expectGreaterThan (soloGainDb (FilterType::LowShelf, 500.0f, 0.707f, 6.0f, 100.0), -1.0, "low shelf: lows pass");
+            expectLessThan (soloGainDb (FilterType::LowShelf, 500.0f, 0.707f, 6.0f, 2000.0), -18.0, "low shelf: highs removed");
+            expectGreaterThan (soloGainDb (FilterType::LowCut, 500.0f, 0.707f, 0.0f, 100.0), -1.0, "low cut: hear what is cut");
+            expectGreaterThan (soloGainDb (FilterType::HighShelf, 4000.0f, 0.707f, 6.0f, 12000.0), -1.0, "high shelf: highs pass");
+            expectLessThan (soloGainDb (FilterType::HighCut, 4000.0f, 0.707f, 0.0f, 1000.0), -18.0, "high cut: lows removed");
+        }
+
+        beginTest ("Releasing solo returns bit-identical normal processing");
+        {
+            ThreeBandEQAudioProcessor a, b;
+            for (auto* p : { &a, &b })
+            {
+                setBand (*p, 0, Param::Gain, 6.0f);
+                setBand (*p, 2, Param::Type, (float) FilterType::HighCut);
+                p->prepareToPlay (fs, block);
+            }
+
+            std::mt19937 rng (11);
+            std::uniform_real_distribution<float> dist (-0.4f, 0.4f);
+            const int total = (int) (1.0 * fs);
+            std::vector<float> in ((size_t) total);
+            for (auto& v : in) v = dist (rng);
+
+            const int on = (int) (0.2 * fs) / block * block, off = (int) (0.5 * fs) / block * block;
+            const auto outA = runProcessor (a, fs, block, total, [&] (int n) { return in[(size_t) n]; }, [&] (int n)
+            {
+                if (n == on)  a.soloBand = 0;
+                if (n == off) a.soloBand = -1;
+            });
+            const auto outB = runProcessor (b, fs, block, total, [&] (int n) { return in[(size_t) n]; }, [] (int) {});
+
+            bool differed = false;
+            for (int n = on + 2000; n < off; ++n)
+                differed = differed || outA[(size_t) n] != outB[(size_t) n];
+            expect (differed, "solo changed the output");
+
+            bool identical = true;
+            for (size_t n = (size_t) (off + (int) (0.03 * fs)); n < outA.size(); ++n)
+                identical = identical && outA[n] == outB[n];
+            expect (identical, "bit-identical once the fade-out has finished");
+
+            expectLessThan (maxStep (outA, (size_t) on - 10, (size_t) on + 2000), 0.85, "fade in bounded");
+        }
+
+        beginTest ("Solo fades smoothly, also when switching bands");
+        {
+            ThreeBandEQAudioProcessor p;
+            setBand (p, 0, Param::Freq, 300.0f);
+            setBand (p, 1, Param::Freq, 600.0f);
+            p.prepareToPlay (fs, block);
+
+            const int total = (int) (1.2 * fs);
+            const auto out = runProcessor (p, fs, block, total, [] (int n) { return (float) (0.25 * std::sin (2.0 * pi * 440.0 * n / fs)); },
+                                           [&] (int n)
+            {
+                if (n == 12288) p.soloBand = 0;
+                if (n == 24576) p.soloBand = 1;
+                if (n == 36864) p.soloBand = 0;
+                if (n == 37120) p.soloBand = 2;   // rapid switching while fading
+                if (n == 49152) p.soloBand = -1;
+            });
+
+            const double bound = 0.25 * 2.0 * pi * 440.0 / fs;   // the input sine's maximum step
+            expectLessThan (maxStep (out, 1, out.size()), bound * 1.3, "no clicks when soloing / switching / releasing");
+            expect (std::all_of (out.begin(), out.end(), [] (float v) { return std::isfinite (v); }), "finite");
+        }
+
+        beginTest ("Solo is transient: no undo entry, not saved, cleared when the editor closes");
+        {
+            ThreeBandEQAudioProcessor p;
+            p.soloBand = 1;
+            expect (! p.edits.getUndoManager().canUndo(), "no undo history");
+
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+            expect (! juce::String::fromUTF8 ((const char*) mb.getData(), (int) mb.getSize()).containsIgnoreCase ("solo"), "not in the state");
+
+            ThreeBandEQAudioProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expectEquals (q.soloBand.load(), -1, "a restored session is never soloed");
+
+            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+            p.soloBand = 2;
+            editor.reset();
+            expectEquals (p.soloBand.load(), -1, "closing the editor clears solo");
+        }
+    }
+};
+
+static SoloTests soloTests;
 static SlopeTests slopeTests;
 static OutputStageTests outputStageTests;
 static AnalyserTests analyserTests;
