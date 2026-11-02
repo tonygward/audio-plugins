@@ -1697,6 +1697,165 @@ public:
     }
 };
 
+//==============================================================================
+class SidechainTests final : public juce::UnitTest
+{
+public:
+    SidechainTests() : juce::UnitTest ("Sidechain analyser", "EQ") {}
+
+    using Set = juce::AudioChannelSet;
+
+    static juce::AudioProcessor::BusesLayout layout (Set in, Set out, std::optional<Set> sidechain)
+    {
+        juce::AudioProcessor::BusesLayout l;
+        l.inputBuses.add (in);
+        if (sidechain.has_value())
+            l.inputBuses.add (*sidechain);
+        l.outputBuses.add (out);
+        return l;
+    }
+
+    void runTest() override
+    {
+        constexpr double fs = 48000.0;
+        constexpr int block = 512;
+
+        beginTest ("Default layout is a plain stereo effect (sidechain disabled)");
+        {
+            ThreeBandEQAudioProcessor p;
+            expectEquals (p.getTotalNumInputChannels(), 2);
+            expectEquals (p.getTotalNumOutputChannels(), 2);
+            expect (p.getBus (true, 1) != nullptr && ! p.getBus (true, 1)->isEnabled(), "sidechain bus exists, disabled");
+            expect (! p.isSidechainConnected());
+        }
+
+        beginTest ("Bus layouts accepted / rejected");
+        {
+            ThreeBandEQAudioProcessor p;
+            const auto st = Set::stereo(), mo = Set::mono(), off = Set::disabled();
+            expect (p.checkBusesLayoutSupported (layout (st, st, off)), "stereo, sidechain off");
+            expect (p.checkBusesLayoutSupported (layout (st, st, mo)), "stereo, mono sidechain");
+            expect (p.checkBusesLayoutSupported (layout (st, st, st)), "stereo, stereo sidechain");
+            expect (p.checkBusesLayoutSupported (layout (mo, mo, st)), "mono, stereo sidechain");
+            expect (p.checkBusesLayoutSupported (layout (mo, mo, off)), "mono, sidechain off");
+            expect (p.isBusesLayoutSupported (layout (st, st, std::nullopt)), "host without the sidechain bus");
+            expect (! p.checkBusesLayoutSupported (layout (st, st, Set::create5point1())), "5.1 sidechain rejected");
+            expect (! p.checkBusesLayoutSupported (layout (st, mo, off)), "stereo in / mono out rejected");
+            expect (! p.checkBusesLayoutSupported (layout (Set::create5point1(), Set::create5point1(), off)), "5.1 main rejected");
+        }
+
+        beginTest ("The sidechain never reaches the output (bit-exact versus no sidechain)");
+        {
+            ThreeBandEQAudioProcessor withSc, without;
+            expect (withSc.setBusesLayout (layout (Set::stereo(), Set::stereo(), Set::stereo())), "sidechain layout set");
+            expect (withSc.isSidechainConnected());
+
+            for (auto* p : { &withSc, &without })
+            {
+                setBand (*p, 0, Param::Gain, 6.0f);
+                setBand (*p, 2, Param::Type, (float) FilterType::LowCut);
+                p->setRateAndBufferSizeDetails (fs, block);
+                p->prepareToPlay (fs, block);
+                p->analyser.activeViewers = 1;
+                p->sidechainView = 2;
+            }
+
+            std::mt19937 rng (12);
+            std::uniform_real_distribution<float> d (-0.5f, 0.5f);
+            juce::AudioBuffer<float> a (4, block), b (2, block);
+            juce::MidiBuffer midi;
+            bool identical = true;
+
+            for (int i = 0; i < 100; ++i)
+            {
+                for (int n = 0; n < block; ++n)
+                {
+                    const float l = d (rng), r = d (rng);
+                    a.setSample (0, n, l);  a.setSample (1, n, r);
+                    b.setSample (0, n, l);  b.setSample (1, n, r);
+                    a.setSample (2, n, 0.9f * std::sin ((float) n * 0.3f));   // loud sidechain
+                    a.setSample (3, n, d (rng));
+                }
+                withSc.processBlock (a, midi);
+                without.processBlock (b, midi);
+                for (int ch = 0; ch < 2; ++ch)
+                    for (int n = 0; n < block; ++n)
+                        identical = identical && a.getSample (ch, n) == b.getSample (ch, n);
+            }
+            expect (identical, "main output identical");
+            expectGreaterThan (withSc.sidechainMeter.readAndReset(), 0.5f, "sidechain level seen");
+        }
+
+        beginTest ("Sidechain analyser level and frequency calibration");
+        for (float ampDb : { 0.0f, -20.0f })
+        {
+            ThreeBandEQAudioProcessor p;
+            p.setBusesLayout (layout (Set::stereo(), Set::stereo(), Set::stereo()));
+            p.setRateAndBufferSizeDetails (fs, block);
+            p.prepareToPlay (fs, block);
+            p.analyser.activeViewers = 1;
+            p.analyser.mode = (int) SpectrumAnalyser::Mode::Post;
+            p.sidechainView = 1;
+
+            const double binHz = fs / SpectrumAnalyser::fftSize;
+            const double f = 171 * binHz;
+            const float amp = juce::Decibels::decibelsToGain (ampDb);
+            juce::AudioBuffer<float> buf (4, block);
+            juce::MidiBuffer midi;
+
+            for (int pos = 0; pos < SpectrumAnalyser::fftSize * 2; pos += block)
+            {
+                buf.clear();   // silent main input
+                for (int n = 0; n < block; ++n)
+                {
+                    const float v = amp * (float) std::sin (2.0 * pi * f * (pos + n) / fs);
+                    buf.setSample (2, n, v);
+                    buf.setSample (3, n, v);
+                }
+                p.processBlock (buf, midi);
+            }
+
+            p.sidechainAnalyser.update (1.0);
+            p.analyser.update (1.0);
+
+            int best = 1;
+            for (int bin = 1; bin < SpectrumAnalyser::numBins; ++bin)
+                if (p.sidechainAnalyser.getBinDb (bin) > p.sidechainAnalyser.getBinDb (best))
+                    best = bin;
+            expectEquals (best, 171, "peak in the right bin");
+            expectWithinAbsoluteError (p.sidechainAnalyser.getBinDb (171), ampDb, 0.05f, "level in dBFS");
+            expectLessThan (p.analyser.getLevelDb (f * 0.98, f * 1.02, fs), -100.0f, "main analyser doesn't see the sidechain");
+        }
+
+        beginTest ("No sidechain capture without a viewer; the setting is saved");
+        {
+            ThreeBandEQAudioProcessor p;
+            p.setBusesLayout (layout (Set::stereo(), Set::stereo(), Set::stereo()));
+            p.prepareToPlay (fs, block);
+            p.sidechainView = 1;
+            p.analyser.activeViewers = 0;
+            juce::AudioBuffer<float> buf (4, block);
+            juce::MidiBuffer midi;
+            for (int i = 0; i < 40; ++i)
+            {
+                for (int n = 0; n < block; ++n)
+                    buf.setSample (2, n, 0.5f * std::sin ((float) n * 0.1f));
+                p.processBlock (buf, midi);
+            }
+            p.sidechainAnalyser.update (1.0);
+            expectLessThan (p.sidechainAnalyser.getBinDb (100), -100.0f, "nothing captured");
+
+            p.sidechainView = 2;
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+            ThreeBandEQAudioProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expectEquals (q.sidechainView.load(), 2, "sidechain view restored");
+        }
+    }
+};
+
+static SidechainTests sidechainTests;
 static StereoModeTests stereoModeTests;
 static PresetTests presetTests;
 static SoloTests soloTests;

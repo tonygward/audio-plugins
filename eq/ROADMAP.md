@@ -32,7 +32,7 @@ Suggested split: slopes plus output gain and bypass in one PR, and the build che
 
 ## Phase 3: Better analyser and workflow (v0.5)
 
-- [ ] **Sidechain analyser.** Show a second track's spectrum to spot masking, for example kick against bass.
+- [x] **Sidechain analyser.** Show a second track's spectrum to spot masking, for example kick against bass.
 - [ ] **Analyser controls:** freeze, peak hold, tilt (4.5 dB/oct slope) and resolution/speed settings.
 - [ ] **Auto gain.** Optionally match output loudness so a boost doesn't just sound better because it's louder.
 - [ ] **Scale the whole curve.** One knob that scales every band's gain together.

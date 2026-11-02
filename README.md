@@ -18,7 +18,7 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 - Low Cut and High Cut slopes of 6, 12, 18, 24, 36 or 48 dB/oct (Butterworth; raise Q for a resonant peak at the cutoff)
 - **Stereo modes per band:** Stereo, Left, Right, Mid or Side (a small L/R/M/S badge marks the node). The "Curve" selector shows the combined curve for one channel
 - Click-free parameter smoothing, undo/redo, and a response curve drawn from the real DSP coefficients
-- Pre/post spectrum analyser
+- Pre/post spectrum analyser, plus an optional **sidechain spectrum** (orange) to spot masking: route another track to the sidechain input and pick "Sidechain: spectrum" or "+ overlap" (shades where both tracks are within 6 dB above -60 dBFS). The selector appears once the sidechain receives signal; the sidechain is never heard
 - **Solo a band:** Alt-click (and drag) a node to hear only the region it affects while the mouse is held, or latch it with the Solo button in the band panel or the right-click menu
 - **Output gain** (±24 dB, double-click to reset) with a peak meter, peak hold and clip indicator (click the meter to clear it)
 - **Global bypass** that your DAW uses as its native bypass, with a smooth 20 ms cross-fade
