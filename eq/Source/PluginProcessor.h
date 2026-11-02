@@ -6,6 +6,7 @@
 #include "EQParams.h"
 #include "EQEngine.h"
 #include "EQEditController.h"
+#include "PresetManager.h"
 #include "SpectrumAnalyser.h"
 
 class ThreeBandEQAudioProcessor : public juce::AudioProcessor
@@ -91,6 +92,10 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
     EQ::EditController edits { *this };
+    EQ::PresetManager presets { *this };
+
+    // The versioned state tree without UI state (sessions add the UI; presets drop bypass).
+    juce::ValueTree createPresetState();
 
     // For tests: build a state tree with every parameter set from 'saved' or its default.
     void restoreFromValueTree (const juce::ValueTree& saved);

@@ -253,7 +253,7 @@ juce::AudioProcessorEditor* ThreeBandEQAudioProcessor::createEditor()
     return new ThreeBandEQAudioProcessorEditor (*this);
 }
 
-void ThreeBandEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+juce::ValueTree ThreeBandEQAudioProcessor::createPresetState()
 {
     auto state = apvts.copyState();
     state.setProperty (versionId, stateVersion, nullptr);
@@ -262,8 +262,15 @@ void ThreeBandEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     for (int b = 0; b < numBands; ++b)
         slots.setProperty ("b" + juce::String (b + 1), isBandUsed (b), nullptr);
     state.appendChild (slots, nullptr);
+    return state;
+}
+
+void ThreeBandEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+{
+    auto state = createPresetState();
 
     juce::ValueTree ui (uiId);
+    presets.saveToUiState (ui);
     ui.setProperty ("selectedBand", selectedBand.load(), nullptr);
     ui.setProperty ("displayRange", displayRangeDb.load(), nullptr);
     ui.setProperty ("analyserMode", analyser.mode.load(), nullptr);
@@ -325,6 +332,8 @@ void ThreeBandEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& sav
         editorWidth.store  (juce::jlimit (760, 2000, (int) ui.getProperty ("editorWidth", 980)));
         editorHeight.store (juce::jlimit (440, 1200, (int) ui.getProperty ("editorHeight", 580)));
     }
+
+    presets.restoreFromUiState (ui);   // invalid tree -> no current preset
 
     if (juce::MessageManager::existsAndIsCurrentThread())
         edits.getUndoManager().clearUndoHistory();

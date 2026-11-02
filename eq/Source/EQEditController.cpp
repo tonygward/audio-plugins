@@ -25,6 +25,55 @@ namespace EQ
         {
             p->setValueNotifyingHost (p->convertTo0to1 (value));
         }
+
+        class PresetAction final : public juce::UndoableAction
+        {
+        public:
+            PresetAction (EditController& c, const PresetData& before, const PresetData& after)
+                : controller (c), beforeState (before), afterState (after) {}
+
+            bool perform() override { controller.applyPresetData (afterState);  return true; }
+            bool undo() override    { controller.applyPresetData (beforeState); return true; }
+            int getSizeInUnits() override { return numBands; }
+
+        private:
+            EditController& controller;
+            PresetData beforeState, afterState;
+        };
+    }
+
+    PresetData EditController::getPresetData() const
+    {
+        PresetData d;
+        for (int b = 0; b < numBands; ++b)
+            d.bands[(size_t) b] = getSnapshot (b);
+        d.outputGain = processor.getOutputGainParam()->convertFrom0to1 (processor.getOutputGainParam()->getValue());
+        return d;
+    }
+
+    void EditController::applyPresetData (const PresetData& d)
+    {
+        for (int b = 0; b < numBands; ++b)
+            applySnapshot (b, d.bands[(size_t) b]);
+
+        auto* out = processor.getOutputGainParam();
+        if (out->convertFrom0to1 (out->getValue()) != out->convertFrom0to1 (out->convertTo0to1 (d.outputGain)))
+        {
+            out->beginChangeGesture();
+            setParamValue (out, d.outputGain);
+            out->endChangeGesture();
+        }
+    }
+
+    void EditController::loadPreset (const PresetData& d, const juce::String& name)
+    {
+        if (isEditing())
+            endEdit();
+
+        const auto before = getPresetData();
+        const juce::String title = "Load preset " + name;
+        undoManager.beginNewTransaction (title);
+        undoManager.perform (new PresetAction (*this, before, d), title);
     }
 
     BandSnapshot EditController::getSnapshot (int band) const

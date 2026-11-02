@@ -23,6 +23,36 @@ namespace EQ
         bool operator!= (const BandSnapshot& o) const noexcept { return ! (*this == o); }
     };
 
+    // Everything a preset holds: all 24 bands plus the global sound-shaping parameters.
+    // (Not bypass, and no UI state.)
+    struct PresetData
+    {
+        std::array<BandSnapshot, numBands> bands {};
+        float outputGain = 0.0f;
+
+        // Same sound: unused bands only have to agree on being unused.
+        bool sameSound (const PresetData& o) const noexcept
+        {
+            if (std::abs (outputGain - o.outputGain) > 0.001f)
+                return false;
+
+            // Tolerant float compare: values go through the parameters' normalised ranges.
+            for (size_t b = 0; b < bands.size(); ++b)
+            {
+                const auto& x = bands[b];
+                const auto& y = o.bands[b];
+                if (x.used != y.used)
+                    return false;
+                if (x.used && (x.enabled != y.enabled || x.type != y.type || x.slope != y.slope
+                               || std::abs (x.freq - y.freq) > x.freq * 1.0e-4f
+                               || std::abs (x.gain - y.gain) > 0.005f
+                               || std::abs (x.q - y.q) > 0.005f))
+                    return false;
+            }
+            return true;
+        }
+    };
+
     // All user-driven edits go through here (message thread only), so that:
     //  * the host sees proper begin/end gestures (automation write / touch),
     //  * every drag / wheel burst / panel edit becomes exactly one undo step,
@@ -50,6 +80,11 @@ namespace EQ
         void setSlope (int band, int slopeIndex);
         void setEnabled (int band, bool enabled);
         void setValue (int band, Param p, float value);
+
+        // Whole-EQ state (presets). loadPreset is one undo transaction.
+        PresetData getPresetData() const;
+        void applyPresetData (const PresetData&);   // no undo; used by the undo action itself
+        void loadPreset (const PresetData&, const juce::String& name);
 
         juce::UndoManager& getUndoManager() noexcept { return undoManager; }
         bool undo();

@@ -19,7 +19,9 @@ set(EQ_SOURCES
     Source/EQEditController.cpp
     Source/EQDisplay.cpp
     Source/BandPanel.cpp
-    Source/SpectrumAnalyser.cpp)
+    Source/SpectrumAnalyser.cpp
+    Source/PresetManager.cpp
+    Source/PresetBar.cpp)
 
 set(EQ_DEFINITIONS
     JUCE_WEB_BROWSER=0
