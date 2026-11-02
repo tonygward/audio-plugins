@@ -2,7 +2,7 @@
 
 namespace
 {
-    constexpr int headerHeight = 44;
+    constexpr int row1Height = 40, row2Height = 32;   // two-row top strip
     constexpr int margin       = 12;
     constexpr float ranges[]   = { 12.0f, 24.0f, 30.0f };
 }
@@ -14,6 +14,7 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
     setWantsKeyboardFocus (true);
 
     addAndMakeVisible (display);
+    addAndMakeVisible (presetBar);
 
     undoButton.setTooltip ("Undo (Ctrl+Z)");
     redoButton.setTooltip ("Redo (Ctrl+Y / Ctrl+Shift+Z)");
@@ -123,6 +124,8 @@ void ThreeBandEQAudioProcessorEditor::timerCallback()
     undoButton.setTooltip (um.canUndo() ? "Undo " + um.getUndoDescription().toLowerCase() + " (Ctrl+Z)" : "Undo (Ctrl+Z)");
     redoButton.setTooltip (um.canRedo() ? "Redo " + um.getRedoDescription().toLowerCase() + " (Ctrl+Y)" : "Redo (Ctrl+Y)");
 
+    presetBar.refresh();
+
     bandCountLabel.setText (juce::String (processor.getNumUsedBands()) + " / " + juce::String (EQ::numBands) + " bands",
                             juce::dontSendNotification);
 
@@ -160,7 +163,7 @@ void ThreeBandEQAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (EQColours::background);
 
-    auto header = getLocalBounds().removeFromTop (headerHeight).reduced (margin, 0);
+    auto header = getLocalBounds().removeFromTop (row1Height).reduced (margin, 0);
     g.setColour (EQColours::text);
     g.setFont (EQColours::font (19.0f, true));
     g.drawText (juce::String (JucePlugin_Name).toUpperCase(), header, juce::Justification::centredLeft);
@@ -172,37 +175,38 @@ void ThreeBandEQAudioProcessorEditor::resized()
     processor.editorHeight.store (getHeight());
 
     auto area = getLocalBounds();
-    auto header = area.removeFromTop (headerHeight).reduced (margin, 9);
 
-    // Fixed slots, left to right. At narrow widths the hint, then the band count,
-    // give up their space so the output controls always stay visible.
-    constexpr int titleW = 130, countW = 100, undoW = 56, rangeW = 92, analyserW = 128;   // fits the 760 px minimum width
-    constexpr int outW = 104, meterW = 64, bypassW = 62;
-    constexpr int fixedW = titleW + undoW + 6 + undoW + 10 + rangeW + 6 + analyserW + 10 + outW + 6 + meterW + 6 + bypassW;
-    const bool showCount = header.getWidth() >= fixedW + countW;
+    // Row 1: title | presets | undo/redo | band count | hint
+    {
+        auto row = area.removeFromTop (row1Height).reduced (margin, 7);
+        row.removeFromLeft (130);   // title (painted)
+        presetBar.setBounds (row.removeFromLeft (300));
+        row.removeFromLeft (12);
+        undoButton.setBounds (row.removeFromLeft (56));
+        row.removeFromLeft (6);
+        redoButton.setBounds (row.removeFromLeft (56));
+        row.removeFromLeft (12);
 
-    header.removeFromLeft (titleW);
-    bandCountLabel.setVisible (showCount);
-    if (showCount)
-        bandCountLabel.setBounds (header.removeFromLeft (countW));
-    undoButton.setBounds (header.removeFromLeft (undoW));
-    header.removeFromLeft (6);
-    redoButton.setBounds (header.removeFromLeft (undoW));
-    header.removeFromLeft (10);
-    rangeBox.setBounds (header.removeFromLeft (rangeW));
-    header.removeFromLeft (6);
-    analyserBox.setBounds (header.removeFromLeft (analyserW));
-    header.removeFromLeft (10);
+        bandCountLabel.setVisible (row.getWidth() >= 90);
+        bandCountLabel.setBounds (row.removeFromLeft (juce::jmin (100, row.getWidth())));
+        row.removeFromLeft (8);
+        hintLabel.setVisible (row.getWidth() >= 220);
+        hintLabel.setBounds (row);
+    }
 
-    outputSlider.setBounds (header.removeFromLeft (outW));
-    header.removeFromLeft (6);
-    outputMeter.setBounds (header.removeFromLeft (meterW));
-    header.removeFromLeft (6);
-    bypassButton.setBounds (header.removeFromLeft (bypassW));
-    header.removeFromLeft (10);
+    // Row 2: display range | analyser ...   output gain | meter | bypass (right-aligned)
+    {
+        auto row = area.removeFromTop (row2Height).reduced (margin, 4).withTrimmedBottom (2);
+        rangeBox.setBounds (row.removeFromLeft (92));
+        row.removeFromLeft (6);
+        analyserBox.setBounds (row.removeFromLeft (132));
 
-    hintLabel.setVisible (header.getWidth() >= 220);
-    hintLabel.setBounds (header);
+        bypassButton.setBounds (row.removeFromRight (62));
+        row.removeFromRight (6);
+        outputMeter.setBounds (row.removeFromRight (64));
+        row.removeFromRight (6);
+        outputSlider.setBounds (row.removeFromRight (104));
+    }
 
     display.setBounds (area.reduced (margin, 0).withTrimmedBottom (margin));
 }

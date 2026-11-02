@@ -5,6 +5,7 @@
 #include "EQDisplay.h"
 #include "EQLookAndFeel.h"
 #include "OutputMeter.h"
+#include "PresetBar.h"
 
 class ThreeBandEQAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
@@ -24,6 +25,7 @@ private:
     juce::TooltipWindow tooltips { this, 600 };
 
     EQDisplay display;
+    PresetBar presetBar { processor };
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
     juce::ComboBox rangeBox, analyserBox;
     juce::Label bandCountLabel, hintLabel;
