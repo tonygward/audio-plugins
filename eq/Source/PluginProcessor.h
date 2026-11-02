@@ -54,9 +54,14 @@ public:
     juce::RangedAudioParameter* getBandParam (int band, EQ::Param p) const { return bandParams[(size_t) band][(size_t) p]; }
     float getBandValue (int band, EQ::Param p) const;   // denormalised (Hz, dB, Q, type index, 0/1)
 
+    // Tell the host that state outside the parameters changed (band added/removed,
+    // UI settings), so it marks the project as modified and saves it.
+    void notifyNonParameterStateChanged();
+
     // Persisted UI state
     std::atomic<int>   selectedBand { 0 };
     std::atomic<float> displayRangeDb { 24.0f };
+    std::atomic<int>   editorWidth { 980 }, editorHeight { 580 };
 
     SpectrumAnalyser analyser;   // mode is persisted with the UI state
 

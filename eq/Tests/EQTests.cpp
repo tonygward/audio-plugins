@@ -479,6 +479,9 @@ public:
             a.setBandUsed (1, false);
             a.selectedBand = 4;
             a.displayRangeDb = 12.0f;
+            a.analyser.mode = (int) SpectrumAnalyser::Mode::Pre;
+            a.editorWidth = 1234;
+            a.editorHeight = 777;
 
             juce::MemoryBlock mb;
             a.getStateInformation (mb);
@@ -496,6 +499,35 @@ public:
             expect (same, "all 24 bands (values, types, enabled, used) restored");
             expectEquals (b.selectedBand.load(), 4, "selected band restored");
             expectEquals (b.displayRangeDb.load(), 12.0f, "display range restored");
+            expectEquals (b.analyser.mode.load(), (int) SpectrumAnalyser::Mode::Pre, "analyser mode restored");
+            expectEquals (b.editorWidth.load(), 1234, "editor width restored");
+            expectEquals (b.editorHeight.load(), 777, "editor height restored");
+
+            // Automation stays on the right band: band 5's params keep their IDs and values.
+            expectWithinAbsoluteError (b.getBandValue (4, Param::Freq), 3000.0f, 0.1f, "band5_freq still band 5");
+            expect (b.apvts.getParameter ("band5_freq") == b.getBandParam (4, Param::Freq), "ID -> band mapping");
+        }
+
+        beginTest ("Adding / removing a band notifies the host of a state change");
+        {
+            struct Listener final : juce::AudioProcessorListener
+            {
+                int nonParamChanges = 0;
+                void audioProcessorParameterChanged (juce::AudioProcessor*, int, float) override {}
+                void audioProcessorChanged (juce::AudioProcessor*, const ChangeDetails& d) override
+                {
+                    nonParamChanges += d.nonParameterStateChanged ? 1 : 0;
+                }
+            } listener;
+
+            ThreeBandEQAudioProcessor p;
+            p.addListener (&listener);
+            p.edits.removeBand (0);
+            expectGreaterThan (listener.nonParamChanges, 0, "remove band flags state change");
+            const int afterRemove = listener.nonParamChanges;
+            p.edits.undo();
+            expectGreaterThan (listener.nonParamChanges, afterRemove, "undo remove flags state change");
+            p.removeListener (&listener);
         }
 
         beginTest ("Legacy v0.1 session loads with identical sound");
