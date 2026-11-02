@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <complex>
 #include "EQParams.h"
@@ -102,6 +103,148 @@ namespace EQ
     }
 
     inline double getMagnitudeDb (const SvfCoeffs& c, double freq, double sampleRate)
+    {
+        return 20.0 * std::log10 (std::max (getMagnitude (c, freq, sampleRate), 1.0e-12));
+    }
+
+    //==========================================================================
+    // A band's complete filter: one SVF for every type, or for Low Cut / High Cut a
+    // Butterworth cascade of an optional one-pole TPT stage (odd 6 dB part) followed by
+    // up to four SVF sections (48 dB/oct = order 8).
+    //
+    // Q on steep slopes: every section gets its Butterworth Q, and the user's Q scales
+    // only the last (highest-Q) section by Q / 0.707. So the default Q gives a maximally
+    // flat Butterworth response at every slope, and raising Q adds a resonant peak at
+    // the cutoff just as it does at 12 dB/oct. At 12 dB/oct this is exactly the old
+    // single-stage behaviour (the user's Q is used as is). The one-pole stage of the
+    // 6 dB/oct slope has no resonance, so Q does nothing there.
+    constexpr int maxSvfSections = 4;
+
+    struct OnePoleCoeffs
+    {
+        double G = 0.0;          // g / (1 + g), g = tan(pi f / fs)
+        bool highpass = true;
+    };
+
+    struct OnePoleState
+    {
+        double s = 0.0;
+    };
+
+    struct FilterCoeffs
+    {
+        std::array<SvfCoeffs, maxSvfSections> svf {};
+        int numSvf = 1;
+        bool hasOnePole = false;
+        OnePoleCoeffs onePole;
+
+        bool isSingleSvf() const noexcept { return numSvf == 1 && ! hasOnePole; }
+    };
+
+    struct FilterState
+    {
+        std::array<SvfState, maxSvfSections> svf {};
+        OnePoleState onePole;
+
+        void reset() noexcept
+        {
+            for (auto& s : svf) s.reset();
+            onePole.s = 0.0;
+        }
+
+        // Checks only the stages 'c' uses (unused stages stay at zero).
+        bool isFinite (const FilterCoeffs& c) const noexcept;
+    };
+
+    inline bool FilterState::isFinite (const FilterCoeffs& c) const noexcept
+    {
+        // Sum first: a single isfinite per stage set (NaN/inf propagate through the sum).
+        double sum = c.hasOnePole ? onePole.s : 0.0;
+        for (int i = 0; i < c.numSvf; ++i)
+            sum += svf[(size_t) i].ic1 + svf[(size_t) i].ic2;
+        return std::isfinite (sum);
+    }
+
+    // Butterworth section Q values for an order-N cascade (sections sorted by
+    // increasing Q; the one-pole stage, if N is odd, is not included).
+    inline int butterworthQs (int order, double* qs)
+    {
+        const int sections = order / 2;
+        for (int k = 0; k < sections; ++k)
+        {
+            const double theta = (order % 2 == 0) ? pi * (2.0 * k + 1.0) / (2.0 * order)
+                                                   : pi * (k + 1.0) / order;
+            qs[k] = 1.0 / (2.0 * std::cos (theta));   // theta grows with k, so Q increases
+        }
+        return sections;
+    }
+
+    inline FilterCoeffs makeFilter (FilterType type, double sampleRate, double freq, double q, double gainDb, int slopeIndex)
+    {
+        FilterCoeffs f;
+        const int order = typeHasSlope (type) ? slopeOrder (slopeIndex) : 2;
+
+        if (order == 2)
+        {
+            f.svf[0] = makeCoeffs (type, sampleRate, freq, q, gainDb);   // unchanged single-stage path
+            return f;
+        }
+
+        double qs[maxSvfSections] {};
+        f.numSvf = butterworthQs (order, qs);
+
+        const double userQ = std::clamp (q, 0.025, 100.0);
+        constexpr double butterworthQ2 = 0.70710678118654752;
+        for (int i = 0; i < f.numSvf; ++i)
+        {
+            const double sectionQ = (i == f.numSvf - 1) ? qs[i] * userQ / butterworthQ2 : qs[i];
+            f.svf[(size_t) i] = makeCoeffs (type, sampleRate, freq, sectionQ, 0.0);
+        }
+
+        f.hasOnePole = (order % 2) != 0;
+        if (f.hasOnePole)
+        {
+            const double g = std::tan (pi * clampFreqForSampleRate (freq, sampleRate) / sampleRate);
+            f.onePole.G = g / (1.0 + g);
+            f.onePole.highpass = (type == FilterType::LowCut);
+        }
+        return f;
+    }
+
+    inline double processOnePole (const OnePoleCoeffs& c, OnePoleState& s, double x) noexcept
+    {
+        const double v = (x - s.s) * c.G;
+        const double lp = v + s.s;
+        s.s = lp + v;
+        return c.highpass ? x - lp : lp;
+    }
+
+    inline double processFilter (const FilterCoeffs& c, FilterState& s, double x) noexcept
+    {
+        if (c.hasOnePole)
+            x = processOnePole (c.onePole, s.onePole, x);
+        for (int i = 0; i < c.numSvf; ++i)
+            x = processSample (c.svf[(size_t) i], s.svf[(size_t) i], x);
+        return x;
+    }
+
+    inline double getMagnitude (const FilterCoeffs& c, double freq, double sampleRate)
+    {
+        double m = 1.0;
+        for (int i = 0; i < c.numSvf; ++i)
+            m *= getMagnitude (c.svf[(size_t) i], freq, sampleRate);
+
+        if (c.hasOnePole)
+        {
+            // Bilinear transform of 1/(s+1) or s/(s+1), with s = j tan(pi f / fs) / g.
+            const double g = c.onePole.G / (1.0 - c.onePole.G);
+            const double t = std::tan (pi * std::min (freq, sampleRate * 0.4999) / sampleRate) / g;
+            m *= c.onePole.highpass ? t / std::sqrt (1.0 + t * t) : 1.0 / std::sqrt (1.0 + t * t);
+        }
+        return m;
+    }
+
+    inline double getMagnitudeDb (const FilterCoeffs& c, double freq, double sampleRate)
     {
         return 20.0 * std::log10 (std::max (getMagnitude (c, freq, sampleRate), 1.0e-12));
     }

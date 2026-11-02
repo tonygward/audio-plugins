@@ -36,6 +36,7 @@ namespace EQ
         s.freq    = processor.getBandValue (band, Param::Freq);
         s.gain    = processor.getBandValue (band, Param::Gain);
         s.q       = processor.getBandValue (band, Param::Q);
+        s.slope   = (int) std::lround (processor.getBandValue (band, Param::Slope));
         return s;
     }
 
@@ -55,6 +56,7 @@ namespace EQ
     {
         setParamWithGesture (band, Param::Enabled, s.enabled ? 1.0f : 0.0f);
         setParamWithGesture (band, Param::Type, (float) s.type);
+        setParamWithGesture (band, Param::Slope, (float) s.slope);
         setParamWithGesture (band, Param::Freq, s.freq);
         setParamWithGesture (band, Param::Gain, s.gain);
         setParamWithGesture (band, Param::Q, s.q);
@@ -110,7 +112,7 @@ namespace EQ
         if (! isEditing())
             return;
 
-        for (int p = 0; p < 5; ++p)
+        for (int p = 0; p < numBandParams; ++p)
             if (gestureOpen[(size_t) p])
                 processor.getBandParam (editBand, (Param) p)->endChangeGesture();
 
@@ -166,6 +168,14 @@ namespace EQ
         auto after = before;
         after.type = (int) type;
         commit (band, before, after, "Change filter type");
+    }
+
+    void EditController::setSlope (int band, int slopeIndex)
+    {
+        const auto before = getSnapshot (band);
+        auto after = before;
+        after.slope = juce::jlimit (0, numSlopes - 1, slopeIndex);
+        commit (band, before, after, "Change slope");
     }
 
     void EditController::setEnabled (int band, bool enabled)

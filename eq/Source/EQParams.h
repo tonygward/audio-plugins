@@ -40,13 +40,33 @@ namespace EQ
 
     inline bool defaultUsed (int band) { return band < numDefaultBands; }
 
-    enum class Param { Freq, Gain, Q, Type, Enabled };
+    // Cut slopes (Low Cut / High Cut only). Index 1 (12 dB/oct, one SVF stage) is the
+    // default and matches every session saved before slopes existed.
+    constexpr int numSlopes = 6;
+    constexpr int defaultSlope = 1;
+    constexpr int slopeOrders[numSlopes] = { 1, 2, 3, 4, 6, 8 };   // filter order = dB/oct / 6
+
+    inline const juce::StringArray& getSlopeNames()
+    {
+        static const juce::StringArray names { "6 dB/oct", "12 dB/oct", "18 dB/oct", "24 dB/oct", "36 dB/oct", "48 dB/oct" };
+        return names;
+    }
+
+    inline int slopeOrder (int slopeIndex) { return slopeOrders[juce::jlimit (0, numSlopes - 1, slopeIndex)]; }
+
+    inline bool typeHasSlope (FilterType t) { return t == FilterType::LowCut || t == FilterType::HighCut; }
+
+    // Per-band host parameters. Append new ones at the end: the index is used for
+    // fixed-size arrays and the ID suffix table below.
+    enum class Param { Freq, Gain, Q, Type, Enabled, Slope };
+    constexpr int numBandParams = 6;
 
     // IDs for bands 1-3 freq/gain/q are unchanged from v0.1 so automation and
     // saved sessions keep pointing at the same parameters.
     inline juce::String paramId (int band, Param p)
     {
-        static const char* const suffix[] = { "freq", "gain", "q", "type", "on" };
+        static const char* const suffix[] = { "freq", "gain", "q", "type", "on", "slope" };
+        static_assert (std::size (suffix) == (size_t) numBandParams);
         return "band" + juce::String (band + 1) + "_" + suffix[(int) p];
     }
 

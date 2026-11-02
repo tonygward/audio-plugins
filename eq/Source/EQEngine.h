@@ -12,6 +12,7 @@ namespace EQ
         float freq = 1000.0f;
         float gain = 0.0f;
         float q    = defaultQ;
+        int slope  = defaultSlope;        // index into slopeOrders (cut types only)
     };
 
     // Real-time EQ processor for up to 24 bands x 2 channels.
@@ -23,7 +24,7 @@ namespace EQ
     //    intermediate filter is a valid, stable SVF.
     //  * The SVF keeps integrator states, so small coefficient steps don't excite transients
     //    the way direct-form biquads can.
-    //  * Filter-type changes cross-fade between the old filter (frozen) and the new one.
+    //  * Filter-type and cut-slope changes cross-fade between the old filter (frozen) and the new one.
     //  * Enabling/disabling a band fades its wet contribution in or out.
     //  * Bands that are inactive and fully faded out cost (almost) nothing.
     //
@@ -67,11 +68,12 @@ namespace EQ
             bool initialised = false;
 
             FilterType type = FilterType::Bell;
+            int slope = defaultSlope;         // effective slope (always the default for non-cut types)
             Ramp logFreq, gainDb, logQ;
             bool coeffsDirty = true;
 
-            SvfCoeffs coeffs, prevCoeffs;
-            std::array<SvfState, maxChannels> state, prevState;
+            FilterCoeffs coeffs, prevCoeffs;
+            std::array<FilterState, maxChannels> state, prevState;
 
             Ramp wet;                 // 0 = bypassed, 1 = fully processed
             Ramp xfade;               // 0 = old filter, 1 = new filter

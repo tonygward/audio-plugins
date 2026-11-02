@@ -19,7 +19,7 @@ ThreeBandEQAudioProcessor::ThreeBandEQAudioProcessor()
     {
         bandUsed[(size_t) b].store (EQ::defaultUsed (b));
 
-        for (int p = 0; p < 5; ++p)
+        for (int p = 0; p < EQ::numBandParams; ++p)
         {
             const auto id = EQ::paramId (b, (EQ::Param) p);
             bandParams[(size_t) b][(size_t) p] = apvts.getParameter (id);
@@ -73,6 +73,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::c
 
         group->addChild (std::make_unique<juce::AudioParameterBool> (
             juce::ParameterID { EQ::paramId (b, Param::Enabled), 2 }, name + " On", true));
+
+        group->addChild (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { EQ::paramId (b, Param::Slope), 3 }, name + " Slope", EQ::getSlopeNames(), EQ::defaultSlope));
 
         layout.add (std::move (group));
     }
@@ -167,6 +170,7 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         s.freq   = raw[(size_t) Param::Freq]->load();
         s.gain   = EQ::typeHasGain (s.type) ? raw[(size_t) Param::Gain]->load() : 0.0f;
         s.q      = raw[(size_t) Param::Q]->load();
+        s.slope  = (int) std::lround (raw[(size_t) Param::Slope]->load());
         engine.setBand (b, s);
     }
 

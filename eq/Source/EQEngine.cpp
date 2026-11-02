@@ -62,9 +62,15 @@ namespace EQ
         }
     }
 
+    static int effectiveSlope (const BandSettings& s) noexcept
+    {
+        return typeHasSlope (s.type) ? juce::jlimit (0, numSlopes - 1, s.slope) : defaultSlope;
+    }
+
     void Engine::snapBand (Band& b)
     {
         b.type = b.target.type;
+        b.slope = effectiveSlope (b.target);
         b.logFreq.reset (std::log (clampFreqForSampleRate (b.target.freq, sampleRate)));
         b.gainDb.reset (b.target.gain);
         b.logQ.reset (std::log ((double) std::max (b.target.q, 0.01f)));
@@ -113,7 +119,9 @@ namespace EQ
     {
         // Start a pending type change once any previous cross-fade has finished,
         // so rapid type automation never drops a fade half-way through.
-        if (b.type != b.target.type && ! b.crossfading)
+        const int targetSlope = effectiveSlope (b.target);
+
+        if ((b.type != b.target.type || b.slope != targetSlope) && ! b.crossfading)
         {
             const bool audible = b.wet.current > 0.0 || b.wet.target > 0.0;
 
@@ -127,15 +135,17 @@ namespace EQ
             }
 
             b.type = b.target.type;
+            b.slope = targetSlope;
             b.coeffsDirty = true;
         }
 
         if (b.coeffsDirty || b.logFreq.isRamping() || b.gainDb.isRamping() || b.logQ.isRamping())
         {
-            b.coeffs = makeCoeffs (b.type, sampleRate,
+            b.coeffs = makeFilter (b.type, sampleRate,
                                    std::exp (b.logFreq.current),
                                    std::exp (b.logQ.current),
-                                   b.gainDb.current);
+                                   b.gainDb.current,
+                                   b.slope);
             b.coeffsDirty = false;
         }
     }
@@ -151,8 +161,16 @@ namespace EQ
                 auto* data = channels[ch] + start;
                 auto& st = b.state[(size_t) ch];
 
-                for (int i = 0; i < num; ++i)
-                    data[i] = (float) processSample (b.coeffs, st, (double) data[i]);
+                if (b.coeffs.isSingleSvf())   // every non-cut band and 12 dB/oct cuts
+                {
+                    for (int i = 0; i < num; ++i)
+                        data[i] = (float) processSample (b.coeffs.svf[0], st.svf[0], (double) data[i]);
+                }
+                else
+                {
+                    for (int i = 0; i < num; ++i)
+                        data[i] = (float) processFilter (b.coeffs, st, (double) data[i]);
+                }
             }
             return;
         }
@@ -178,11 +196,11 @@ namespace EQ
             for (int i = 0; i < num; ++i)
             {
                 const double x = data[i];
-                double y = processSample (b.coeffs, st, x);
+                double y = processFilter (b.coeffs, st, x);
 
                 if (b.crossfading)
                 {
-                    const double yOld = processSample (b.prevCoeffs, pst, x);
+                    const double yOld = processFilter (b.prevCoeffs, pst, x);
                     y = yOld + (y - yOld) * xfGain[i];
                 }
 
@@ -226,8 +244,8 @@ namespace EQ
                 // Never let a numerical problem latch into permanent NaN/inf output.
                 for (int ch = 0; ch < numChannels; ++ch)
                 {
-                    if (! b.state[(size_t) ch].isFinite())     b.state[(size_t) ch].reset();
-                    if (! b.prevState[(size_t) ch].isFinite()) b.prevState[(size_t) ch].reset();
+                    if (! b.state[(size_t) ch].isFinite (b.coeffs)) b.state[(size_t) ch].reset();
+                    if (b.crossfading && ! b.prevState[(size_t) ch].isFinite (b.prevCoeffs)) b.prevState[(size_t) ch].reset();
                 }
 
                 if (b.wet.current <= 0.0 && b.wet.target <= 0.0)

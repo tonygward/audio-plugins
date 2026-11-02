@@ -93,8 +93,8 @@ public:
 
 private:
     std::array<std::atomic<bool>, numBands> bandUsed;
-    std::array<std::array<juce::RangedAudioParameter*, 5>, numBands> bandParams {};
-    std::array<std::array<std::atomic<float>*, 5>, numBands> rawValues {};
+    std::array<std::array<juce::RangedAudioParameter*, EQ::numBandParams>, numBands> bandParams {};
+    std::array<std::array<std::atomic<float>*, EQ::numBandParams>, numBands> rawValues {};
 
     EQ::Engine engine;
 

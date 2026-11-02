@@ -12,12 +12,12 @@ namespace EQ
     struct BandSnapshot
     {
         bool used = false, enabled = true;
-        int type = 0;
+        int type = 0, slope = defaultSlope;
         float freq = 1000.0f, gain = 0.0f, q = defaultQ;
 
         bool operator== (const BandSnapshot& o) const noexcept
         {
-            return used == o.used && enabled == o.enabled && type == o.type
+            return used == o.used && enabled == o.enabled && type == o.type && slope == o.slope
                 && freq == o.freq && gain == o.gain && q == o.q;
         }
         bool operator!= (const BandSnapshot& o) const noexcept { return ! (*this == o); }
@@ -47,6 +47,7 @@ namespace EQ
         void removeBand (int band);
         void resetBand (int band);
         void setType (int band, FilterType type);
+        void setSlope (int band, int slopeIndex);
         void setEnabled (int band, bool enabled);
         void setValue (int band, Param p, float value);
 
@@ -64,6 +65,6 @@ namespace EQ
         int editBand = -1;
         juce::String editName;
         BandSnapshot editBefore;
-        std::array<bool, 5> gestureOpen {};
+        std::array<bool, numBandParams> gestureOpen {};
     };
 }
