@@ -1,0 +1,70 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Keep in step with the JUCE version the project is developed against (see README).
+  JUCE_VERSION: "9.0.5"
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (VS, x64)
+            os: windows-latest
+            configure: cmake -S eq -B eq/build -A x64 -DJUCE_DIR="${{ github.workspace }}/JUCE"
+            tests: eq/build/EQTests_artefacts/Release/EQTests.exe
+          - name: macOS (Xcode, universal)
+            os: macos-latest
+            configure: cmake -S eq -B eq/build -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DJUCE_DIR="${{ github.workspace }}/JUCE"
+            tests: eq/build/EQTests_artefacts/Release/EQTests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE ${{ env.JUCE_VERSION }}
+        id: juce-cache
+        uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-${{ env.JUCE_VERSION }}-${{ runner.os }}
+
+      - name: Check out JUCE ${{ env.JUCE_VERSION }}
+        if: steps.juce-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: ${{ env.JUCE_VERSION }}
+          path: JUCE
+
+      - name: Configure
+        shell: bash
+        run: ${{ matrix.configure }}
+
+      - name: Build (Release)
+        shell: bash
+        run: cmake --build eq/build --config Release --parallel 4
+
+      - name: Run EQTests
+        shell: bash
+        run: ${{ matrix.tests }}
+
+      - name: Upload plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TW-Pro-EQ-${{ runner.os }}
+          if-no-files-found: warn
+          path: |
+            eq/build/ThreeBandEQ_artefacts/Release/VST3/
+            eq/build/ThreeBandEQ_artefacts/Release/Standalone/

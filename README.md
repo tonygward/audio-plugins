@@ -1,5 +1,7 @@
 # audio-plugins
 
+[![Build](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml/badge.svg)](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml)
+
 Audio plugins built with [JUCE](https://juce.com) and CMake.
 
 | Plugin | Folder | Formats |
