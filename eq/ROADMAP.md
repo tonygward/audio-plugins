@@ -21,7 +21,7 @@ Small, low-risk changes that make the plugin usable on real mixes.
 - [x] **Steeper cut slopes.** Offer 6, 12, 18, 24, 36 and 48 dB/oct for Low Cut and High Cut by cascading SVF stages.
 - [x] **Solo a band.** Alt-click a node to hear only that band, using a band-pass around its frequency. This helps find problem frequencies.
 - [x] **Presets.** Save and load from a user folder, plus a few factory starting points (vocal clean-up, low-end tidy-up, air).
-- [ ] **Build checks on every push.** A GitHub Actions job that builds and runs `EQTests` on Windows and macOS.
+- [x] **Build checks on every push.** A GitHub Actions job that builds and runs `EQTests` on Windows and macOS.
 
 Suggested split: slopes plus output gain and bypass in one PR, and the build checks in a separate PR.
 
