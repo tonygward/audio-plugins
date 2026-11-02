@@ -51,6 +51,35 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
     };
     addAndMakeVisible (analyserBox);
 
+    // Output gain (bar slider, double-click resets to 0 dB) and global bypass.
+    outputAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
+        processor.apvts, EQ::outputGainId, outputSlider);
+    outputSlider.textFromValueFunction = [] (double db)
+    {
+        return "Out " + juce::String (db > 0.04 ? "+" : "") + juce::String (std::abs (db) < 0.05 ? 0.0 : db, 1) + " dB";
+    };
+    outputSlider.valueFromTextFunction = [] (const juce::String& t)
+    {
+        return t.trimCharactersAtStart ("Ou t").getDoubleValue();
+    };
+    outputSlider.setDoubleClickReturnValue (true, 0.0);
+    outputSlider.setTextBoxIsEditable (true);
+    outputSlider.setColour (juce::Slider::trackColourId, EQColours::totalCurve);
+    outputSlider.setColour (juce::Slider::textBoxTextColourId, EQColours::text);
+    outputSlider.setTooltip ("Output gain (double-click: 0 dB)");
+    outputSlider.updateText();
+    addAndMakeVisible (outputSlider);
+
+    bypassAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        processor.apvts, EQ::bypassId, bypassButton);
+    bypassButton.setClickingTogglesState (true);
+    bypassButton.setTooltip ("Bypass the whole EQ (smooth cross-fade)");
+    bypassButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffff9f43));
+    bypassButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
+    addAndMakeVisible (bypassButton);
+
+    addAndMakeVisible (outputMeter);
+
     bandCountLabel.setFont (EQColours::font (12.0f));
     bandCountLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (bandCountLabel);
@@ -69,7 +98,7 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
     setResizable (true, true);
     setResizeLimits (760, 440, 2000, 1200);
     setSize (savedWidth, savedHeight);
-    startTimerHz (10);
+    startTimerHz (30);
 }
 
 ThreeBandEQAudioProcessorEditor::~ThreeBandEQAudioProcessorEditor()
@@ -79,6 +108,13 @@ ThreeBandEQAudioProcessorEditor::~ThreeBandEQAudioProcessorEditor()
 
 void ThreeBandEQAudioProcessorEditor::timerCallback()
 {
+    const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    const double elapsed = lastMeterTime > 0.0 ? juce::jlimit (0.0, 0.5, now - lastMeterTime) : 0.0;
+    lastMeterTime = now;
+    outputMeter.update (processor.outputMeter.readAndReset(),
+                        processor.outputMeter.clipped.exchange (false, std::memory_order_relaxed),
+                        now, elapsed);
+
     auto& um = processor.edits.getUndoManager();
     undoButton.setEnabled (um.canUndo());
     redoButton.setEnabled (um.canRedo());
@@ -136,16 +172,34 @@ void ThreeBandEQAudioProcessorEditor::resized()
     auto area = getLocalBounds();
     auto header = area.removeFromTop (headerHeight).reduced (margin, 9);
 
-    header.removeFromLeft (130);   // title
-    bandCountLabel.setBounds (header.removeFromLeft (100));
-    undoButton.setBounds (header.removeFromLeft (56));
+    // Fixed slots, left to right. At narrow widths the hint, then the band count,
+    // give up their space so the output controls always stay visible.
+    constexpr int titleW = 130, countW = 100, undoW = 56, rangeW = 92, analyserW = 128;   // fits the 760 px minimum width
+    constexpr int outW = 104, meterW = 64, bypassW = 62;
+    constexpr int fixedW = titleW + undoW + 6 + undoW + 10 + rangeW + 6 + analyserW + 10 + outW + 6 + meterW + 6 + bypassW;
+    const bool showCount = header.getWidth() >= fixedW + countW;
+
+    header.removeFromLeft (titleW);
+    bandCountLabel.setVisible (showCount);
+    if (showCount)
+        bandCountLabel.setBounds (header.removeFromLeft (countW));
+    undoButton.setBounds (header.removeFromLeft (undoW));
     header.removeFromLeft (6);
-    redoButton.setBounds (header.removeFromLeft (56));
+    redoButton.setBounds (header.removeFromLeft (undoW));
     header.removeFromLeft (10);
-    rangeBox.setBounds (header.removeFromLeft (92));
+    rangeBox.setBounds (header.removeFromLeft (rangeW));
     header.removeFromLeft (6);
-    analyserBox.setBounds (header.removeFromLeft (132));
+    analyserBox.setBounds (header.removeFromLeft (analyserW));
     header.removeFromLeft (10);
+
+    outputSlider.setBounds (header.removeFromLeft (outW));
+    header.removeFromLeft (6);
+    outputMeter.setBounds (header.removeFromLeft (meterW));
+    header.removeFromLeft (6);
+    bypassButton.setBounds (header.removeFromLeft (bypassW));
+    header.removeFromLeft (10);
+
+    hintLabel.setVisible (header.getWidth() >= 220);
     hintLabel.setBounds (header);
 
     display.setBounds (area.reduced (margin, 0).withTrimmedBottom (margin));
