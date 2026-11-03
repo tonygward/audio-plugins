@@ -8,7 +8,7 @@ There is one self-contained prompt per item in [`../../ROADMAP.md`](../../ROADMA
 |---|---|
 | 05–20 (in [`done/`](done/)) | Done, merged into `main` |
 | [21 rename to Songsmith EQ](21-rename-songsmith.md) | Done in PR (roadmap/21-rename-songsmith), not yet merged |
-| [22 Windows installer](22-windows-installer.md) | To do, after 21 |
+| [22 Windows installer](22-windows-installer.md) | Done in PR (roadmap/22-windows-installer, stacked on 21), not yet merged |
 
 ## Run in waves, merging between waves
 
