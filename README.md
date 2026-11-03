@@ -35,7 +35,18 @@ Songsmith EQ, by Songsmith Studio, was called TW Pro EQ before v0.3. Sessions an
 
 ### Just want to use it?
 
-Pre-built **Windows** binaries are on the [Releases page](https://github.com/tonygward/audio-plugins/releases).
+Pre-built **Windows** downloads are on the [Releases page](https://github.com/tonygward/audio-plugins/releases).
+
+**Installer (recommended)**
+
+1. Download `Songsmith-EQ-<version>-win64-setup.exe` and run it.
+2. Windows SmartScreen will probably say it "protected your PC". The installer isn't code-signed (signing needs a paid certificate), so Windows doesn't recognise the publisher. Click **More info**, then **Run anyway**.
+3. Click through Setup. It installs the VST3 plugin into the standard VST3 folder and, if you leave it ticked, the standalone app. Close your DAW first: if the plugin is loaded, Setup stops and changes nothing.
+4. Rescan plugins in your DAW.
+
+Running a newer installer upgrades in place. Upgrading from TW Pro EQ? Setup removes the old `TW Pro EQ.vst3` for you, and your sessions and presets carry over. To uninstall, use **Settings → Apps → Installed apps → Songsmith EQ**. Your presets are kept.
+
+**Zip (manual install)**
 
 1. Download `Songsmith-EQ-<version>-win64.zip`.
 2. Extract it and copy the `Songsmith EQ.vst3` folder into `C:\Program Files\Common Files\VST3`. Upgrading from TW Pro EQ? Delete `TW Pro EQ.vst3` from that folder too. Your DAW sees it as the same plugin, so leaving it there lists the plugin twice.
@@ -110,6 +121,18 @@ To install by hand instead, copy the `Songsmith EQ.vst3` folder into `C:\Program
 .\build\EQTests_artefacts\Release\EQTests.exe          # unit tests
 .\build\EQTests_artefacts\Release\EQTests.exe --bench  # CPU benchmark
 ```
+
+#### Building the installer
+
+You need [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`). After a Release build, from the `eq` folder:
+
+```powershell
+.\installer\build-installer.ps1        # -> build\installer\Songsmith-EQ-<version>-win64-setup.exe
+.\installer\build-installer.ps1 -Zip   # also builds the manual-install zip
+.\installer\test-installer.ps1         # builds it, then installs, upgrades and uninstalls it inside a temp folder
+```
+
+The version comes from `project(... VERSION ...)` in `CMakeLists.txt`. The script is `installer\SongsmithEQ.iss`. The test never touches your real VST3 folder or presets. CI builds both files on every push (artifacts `Songsmith-EQ-Windows-setup` and `Songsmith-EQ-Windows-zip`), ready to attach to a release by hand.
 
 ---
 
