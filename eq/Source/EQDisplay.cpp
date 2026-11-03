@@ -120,6 +120,7 @@ void EQDisplay::timerCallback()
     check ((float) getWidth());
     check ((float) getHeight());
     check ((float) getDisplaySampleRate());
+    check ((float) processor.getOversamplingFactor());
 
     if (wheelBand >= 0 && juce::Time::getMillisecondCounter() - lastWheelTime > 400)
         endWheelEdit();
@@ -468,7 +469,9 @@ void EQDisplay::drawSidechain (juce::Graphics& g, juce::Rectangle<float> area)
 
 void EQDisplay::computeCurves (juce::Rectangle<float> area)
 {
-    const double sr = getDisplaySampleRate();
+    // Filters are designed at the oversampled rate when oversampling is on (both the
+    // zero-latency engine and the linear-phase FIR), so the curve is drawn from that too.
+    const double sr = getDisplaySampleRate() * processor.getOversamplingFactor();
     auto& c = curves;
 
     // Same coefficient function as the audio engine -> the curve is the actual response.

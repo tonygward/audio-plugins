@@ -27,7 +27,8 @@ private:
     EQDisplay display;
     PresetBar presetBar { processor };
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
-    juce::ComboBox rangeBox, analyserBox, curveViewBox, sidechainBox, phaseBox;
+    juce::ComboBox rangeBox, analyserBox, curveViewBox, sidechainBox, phaseBox, oversamplingBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> oversamplingAttachment;
     double lastSidechainSignal = -100.0;   // seconds; the sidechain selector shows while a signal is arriving
     juce::Label bandCountLabel, hintLabel;
 

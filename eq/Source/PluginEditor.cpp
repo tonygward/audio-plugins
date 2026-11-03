@@ -90,6 +90,14 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
     };
     addAndMakeVisible (phaseBox);
 
+    oversamplingBox.addItemList ({ "OS off", "OS 2x", "OS 4x" }, 1);
+    oversamplingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+        processor.apvts, EQ::oversamplingId, oversamplingBox);
+    oversamplingBox.setTooltip ("Oversampling: keeps high-frequency bells and shelves from 'cramping' near Nyquist "
+                                "at 44.1/48 kHz. Adds a few samples of latency in zero-latency mode; in linear-phase "
+                                "mode it only changes the design (no extra latency).");
+    addAndMakeVisible (oversamplingBox);
+
     analyserSettingsButton.setTooltip ("Analyser settings: freeze, peak hold, tilt, resolution, speed, range");
     analyserSettingsButton.onClick = [this] { showAnalyserMenu(); };
     addAndMakeVisible (analyserSettingsButton);
@@ -354,16 +362,18 @@ void ThreeBandEQAudioProcessorEditor::resized()
     // Row 1: title | presets | undo/redo | curve scale | phase mode | band count | hint
     {
         auto row = area.removeFromTop (row1Height).reduced (margin, 7);
-        row.removeFromLeft (112);   // title (painted)
-        presetBar.setBounds (row.removeFromLeft (240));
+        row.removeFromLeft (108);   // title (painted)
+        presetBar.setBounds (row.removeFromLeft (200));
         row.removeFromLeft (12);
-        undoButton.setBounds (row.removeFromLeft (56));
+        undoButton.setBounds (row.removeFromLeft (50));
         row.removeFromLeft (6);
-        redoButton.setBounds (row.removeFromLeft (56));
+        redoButton.setBounds (row.removeFromLeft (50));
         row.removeFromLeft (12);
-        scaleSlider.setBounds (row.removeFromLeft (100));
+        scaleSlider.setBounds (row.removeFromLeft (92));
         row.removeFromLeft (8);
         phaseBox.setBounds (row.removeFromLeft (118));
+        row.removeFromLeft (6);
+        oversamplingBox.setBounds (row.removeFromLeft (64));
         row.removeFromLeft (12);
 
         bandCountLabel.setVisible (row.getWidth() >= 90);
