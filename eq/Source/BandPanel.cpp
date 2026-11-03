@@ -33,7 +33,7 @@ namespace
 
 BandPanel::BandPanel (SongsmithEQAudioProcessor& p) : processor (p)
 {
-    title.setFont (EQColours::font (14.0f, true));
+    title.setFont (EQColours::font (EQColours::TextSize::title, EQColours::Weight::SemiBold));
     title.setJustificationType (juce::Justification::centredLeft);
     title.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (title);
@@ -73,8 +73,8 @@ BandPanel::BandPanel (SongsmithEQAudioProcessor& p) : processor (p)
     };
     addAndMakeVisible (stereoBox);
 
-    setupKnob (freqKnob, "FREQ", EQ::Param::Freq);
-    setupKnob (gainKnob, "GAIN", EQ::Param::Gain);
+    setupKnob (freqKnob, "Frequency", EQ::Param::Freq);
+    setupKnob (gainKnob, "Gain", EQ::Param::Gain);
     setupKnob (qKnob,    "Q",    EQ::Param::Q);
 
     freqKnob.slider.setRange (EQ::minFreq, EQ::maxFreq, 0.1);
@@ -92,6 +92,9 @@ BandPanel::BandPanel (SongsmithEQAudioProcessor& p) : processor (p)
     qKnob.slider.setDoubleClickReturnValue (true, EQ::defaultQ);
     qKnob.slider.textFromValueFunction = [] (double q) { return juce::String (q, q >= 10.0 ? 1 : 2); };
     qKnob.slider.valueFromTextFunction = [] (const juce::String& t) { return t.getDoubleValue(); };
+    qKnob.slider.setTooltip ("Q: how narrow the band is. Higher is narrower.");
+    freqKnob.slider.setTooltip ("Frequency: type Hz, kHz or a note name such as A2 or C#5");
+    gainKnob.slider.setTooltip ("Gain (double-click: 0 dB)");
 
     soloButton.setClickingTogglesState (true);
     soloButton.setTooltip ("Solo: hear only the region this band affects (Alt-click a node to audition momentarily)");
@@ -130,7 +133,7 @@ BandPanel::BandPanel (SongsmithEQAudioProcessor& p) : processor (p)
     addAndMakeVisible (dynButton);
 
     dynExternalButton.setClickingTogglesState (true);
-    dynExternalButton.setTooltip ("Detect from the sidechain input instead of the band's own signal");
+    dynExternalButton.setTooltip ("Side Chain: react to the level of the side chain input instead of the band's own signal");
     dynExternalButton.onClick = [this]
     {
         if (! updating && band >= 0)
@@ -138,10 +141,10 @@ BandPanel::BandPanel (SongsmithEQAudioProcessor& p) : processor (p)
     };
     addChildComponent (dynExternalButton);
 
-    setupKnob (thresholdKnob, "THRESH", EQ::Param::Threshold);
-    setupKnob (rangeKnob,     "RANGE",  EQ::Param::Range);
-    setupKnob (attackKnob,    "ATTACK", EQ::Param::Attack);
-    setupKnob (releaseKnob,   "RELEASE", EQ::Param::Release);
+    setupKnob (thresholdKnob, "Threshold", EQ::Param::Threshold);
+    setupKnob (rangeKnob,     "Range",     EQ::Param::Range);
+    setupKnob (attackKnob,    "Attack",    EQ::Param::Attack);
+    setupKnob (releaseKnob,   "Release",   EQ::Param::Release);
 
     auto dbText = [] (double db) { return (db > 0.0 ? "+" : "") + juce::String (db, 1) + " dB"; };
     auto msText = [] (double ms) { return juce::String (ms, ms < 10.0 ? 1 : 0) + " ms"; };
@@ -168,7 +171,7 @@ BandPanel::BandPanel (SongsmithEQAudioProcessor& p) : processor (p)
         k->label.setVisible (false);
     }
 
-    dynGainLabel.setFont (EQColours::font (11.0f, true));
+    dynGainLabel.setFont (EQColours::numbers (EQColours::TextSize::control, EQColours::Weight::SemiBold));
     dynGainLabel.setJustificationType (juce::Justification::centred);
     dynGainLabel.setTooltip ("Live dynamic gain change");
     addChildComponent (dynGainLabel);
@@ -191,7 +194,7 @@ void BandPanel::setupKnob (Knob& k, const juce::String& name, EQ::Param param)
     k.param = param;
 
     k.slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    k.slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 100, 16);
+    k.slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, knobTextWidth, knobTextHeight);
     k.slider.setScrollWheelEnabled (false);   // the graph's wheel handles Q; avoids undo spam
     k.slider.setVelocityBasedMode (false);
 
@@ -220,7 +223,7 @@ void BandPanel::setupKnob (Knob& k, const juce::String& name, EQ::Param param)
     addAndMakeVisible (k.slider);
 
     k.label.setText (name, juce::dontSendNotification);
-    k.label.setFont (EQColours::font (11.0f, true));
+    k.label.setFont (EQColours::font (EQColours::TextSize::control, EQColours::Weight::Medium));
     k.label.setJustificationType (juce::Justification::centred);
     k.label.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (k.label);
@@ -253,11 +256,11 @@ void BandPanel::refreshFromParams()
     const auto type = EQ::typeFromIndex ((int) std::lround (processor.getBandValue (band, EQ::Param::Type)));
     const bool enabled = processor.getBandValue (band, EQ::Param::Enabled) >= 0.5f;
 
-    title.setText ("BAND " + juce::String (band + 1), juce::dontSendNotification);
+    title.setText ("Band " + juce::String (band + 1), juce::dontSendNotification);
     title.setColour (juce::Label::textColourId, colour);
 
     powerButton.setToggleState (enabled, juce::dontSendNotification);
-    powerButton.setButtonText (enabled ? "ON" : "OFF");
+    powerButton.setButtonText (enabled ? "On" : "Off");
     powerButton.setColour (juce::TextButton::buttonOnColourId, colour.withAlpha (0.85f));
     powerButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
 
@@ -364,52 +367,52 @@ void BandPanel::paint (juce::Graphics& g)
 
 void BandPanel::resized()
 {
-    auto all = getLocalBounds().reduced (12, 8);
-    auto area = all.removeFromTop (panelHeight - 16);   // main row; the dynamics row is below
+    auto all = getLocalBounds().reduced (14, 10);
+    auto area = all.removeFromTop (panelHeight - 20);   // main row; the dynamics row is below
 
-    auto left = area.removeFromLeft (124);
-    auto top = left.removeFromTop (24);
-    powerButton.setBounds (top.removeFromRight (50));
+    auto left = area.removeFromLeft (leftColumnWidth);
+    auto top = left.removeFromTop (28);
+    powerButton.setBounds (top.removeFromRight (52));
     title.setBounds (top);
-    left.removeFromTop (5);
-    typeBox.setBounds (left.removeFromTop (24));
-    left.removeFromTop (5);
-    slopeBox.setBounds (left.removeFromTop (24));
-    left.removeFromTop (5);
-    stereoBox.setBounds (left.removeFromTop (24));
+    left.removeFromTop (6);
+    typeBox.setBounds (left.removeFromTop (26));
+    left.removeFromTop (6);
+    slopeBox.setBounds (left.removeFromTop (26));
+    left.removeFromTop (6);
+    stereoBox.setBounds (left.removeFromTop (26));
 
-    auto right = area.removeFromRight (64);
-    right = right.withSizeKeepingCentre (right.getWidth(), 4 * 22 + 3 * 4);
+    auto right = area.removeFromRight (rightColumnWidth);
+    right = right.withSizeKeepingCentre (right.getWidth(), 4 * 26 + 3 * 6);
     for (auto* b : { &dynButton, &soloButton, &resetButton, &deleteButton })
     {
-        b->setBounds (right.removeFromTop (22));
-        right.removeFromTop (4);
+        b->setBounds (right.removeFromTop (26));
+        right.removeFromTop (6);
     }
 
-    area.reduce (8, 0);
+    area.reduce (6, 0);
     const int kw = area.getWidth() / 3;
     for (auto* k : { &freqKnob, &gainKnob, &qKnob })
     {
         auto col = area.removeFromLeft (kw);
-        k->label.setBounds (col.removeFromTop (14));
+        k->label.setBounds (col.removeFromTop (knobLabelHeight));
         k->slider.setBounds (col);
     }
 
-    // Dynamics row: live gain + sidechain toggle on the left, then four knobs.
+    // Dynamics row: live gain + side chain toggle on the left, then four knobs.
     if (showDynamics)
     {
-        auto row = all.withTrimmedTop (4);
-        auto info = row.removeFromLeft (124);
-        dynGainLabel.setBounds (info.removeFromTop (24));
+        auto row = all.withTrimmedTop (6);
+        auto info = row.removeFromLeft (leftColumnWidth);
+        dynGainLabel.setBounds (info.removeFromTop (26));
         info.removeFromTop (6);
-        dynExternalButton.setBounds (info.removeFromTop (24).removeFromLeft (50));
+        dynExternalButton.setBounds (info.removeFromTop (26).removeFromLeft (100));
 
-        row.reduce (8, 0);
+        row.reduce (6, 0);
         const int w = row.getWidth() / 4;
         for (auto* k : { &thresholdKnob, &rangeKnob, &attackKnob, &releaseKnob })
         {
             auto col = row.removeFromLeft (w);
-            k->label.setBounds (col.removeFromTop (14));
+            k->label.setBounds (col.removeFromTop (knobLabelHeight));
             k->slider.setBounds (col);
         }
     }

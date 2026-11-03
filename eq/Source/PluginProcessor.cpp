@@ -113,7 +113,7 @@ SongsmithEQAudioProcessor::SongsmithEQAudioProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                          .withInput  ("Sidechain", juce::AudioChannelSet::stereo(), false)),   // analysed only
+                          .withInput  ("Side Chain", juce::AudioChannelSet::stereo(), false)),   // analysed only
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
 {
     for (int b = 0; b < numBands; ++b)
@@ -181,7 +181,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithEQAudioProcessor::c
             "band" + juce::String (b + 1), name, " | ");
 
         group->addChild (std::make_unique<juce::AudioParameterFloat> (
-            juce::ParameterID { EQ::paramId (b, Param::Freq), 1 }, name + " Freq", freqRange, EQ::defaultFreq (b),
+            juce::ParameterID { EQ::paramId (b, Param::Freq), 1 }, name + " Frequency", freqRange, EQ::defaultFreq (b),
             juce::AudioParameterFloatAttributes().withLabel ("Hz")));
 
         group->addChild (std::make_unique<juce::AudioParameterFloat> (
@@ -195,7 +195,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithEQAudioProcessor::c
             juce::ParameterID { EQ::paramId (b, Param::Type), 2 }, name + " Type", EQ::getTypeNames(), 0));
 
         group->addChild (std::make_unique<juce::AudioParameterBool> (
-            juce::ParameterID { EQ::paramId (b, Param::Enabled), 2 }, name + " On", true));
+            juce::ParameterID { EQ::paramId (b, Param::Enabled), 2 }, name + " Enabled", true));
 
         group->addChild (std::make_unique<juce::AudioParameterChoice> (
             juce::ParameterID { EQ::paramId (b, Param::Slope), 3 }, name + " Slope", EQ::getSlopeNames(), EQ::defaultSlope));
@@ -226,7 +226,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithEQAudioProcessor::c
             juce::ParameterID { EQ::paramId (b, Param::Release), 7 }, name + " Release", releaseRange, EQ::defaultReleaseMs,
             juce::AudioParameterFloatAttributes().withLabel ("ms")));
         group->addChild (std::make_unique<juce::AudioParameterBool> (
-            juce::ParameterID { EQ::paramId (b, Param::DynExternal), 7 }, name + " Dyn Sidechain", false));
+            juce::ParameterID { EQ::paramId (b, Param::DynExternal), 7 }, name + " Dynamic Side Chain", false));
 
         layout.add (std::move (group));
     }
