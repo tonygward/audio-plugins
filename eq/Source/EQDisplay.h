@@ -69,6 +69,7 @@ private:
     void drawSoloRegion (juce::Graphics&, juce::Rectangle<float> area, int band);
     int getSoloBand() const;
     bool isInCurveView (int band) const;
+    float getLiveDynamicDb (int band) const;
     float displayToStoredGain (float displayGainDb) const;   // undo the gain scale
 
     void showContextMenu (int band);
@@ -90,6 +91,7 @@ private:
         std::vector<bool> enabled;
         std::vector<bool> inView;                 // counted in the main curve for the current curve view
         std::vector<std::vector<float>> single;   // per entry in 'bands'
+        std::vector<std::vector<float>> live;     // dynamic bands: response at the live gain (else empty)
     } curves;
 
     int analyserTick = 0;

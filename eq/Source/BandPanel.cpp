@@ -119,7 +119,61 @@ BandPanel::BandPanel (ThreeBandEQAudioProcessor& p) : processor (p)
     };
     addAndMakeVisible (deleteButton);
 
-    for (auto* k : { &freqKnob, &gainKnob, &qKnob })
+    // Dynamic EQ: toggle plus a row of controls that is only shown while dynamics are on.
+    dynButton.setClickingTogglesState (true);
+    dynButton.setTooltip ("Dynamic EQ: the band's gain moves with the level in its own frequency region");
+    dynButton.onClick = [this]
+    {
+        if (! updating && band >= 0)
+            processor.edits.setDynamic (band, dynButton.getToggleState());
+    };
+    addAndMakeVisible (dynButton);
+
+    dynExternalButton.setClickingTogglesState (true);
+    dynExternalButton.setTooltip ("Detect from the sidechain input instead of the band's own signal");
+    dynExternalButton.onClick = [this]
+    {
+        if (! updating && band >= 0)
+            processor.edits.setValue (band, EQ::Param::DynExternal, dynExternalButton.getToggleState() ? 1.0f : 0.0f);
+    };
+    addChildComponent (dynExternalButton);
+
+    setupKnob (thresholdKnob, "THRESH", EQ::Param::Threshold);
+    setupKnob (rangeKnob,     "RANGE",  EQ::Param::Range);
+    setupKnob (attackKnob,    "ATTACK", EQ::Param::Attack);
+    setupKnob (releaseKnob,   "RELEASE", EQ::Param::Release);
+
+    auto dbText = [] (double db) { return (db > 0.0 ? "+" : "") + juce::String (db, 1) + " dB"; };
+    auto msText = [] (double ms) { return juce::String (ms, ms < 10.0 ? 1 : 0) + " ms"; };
+    auto number = [] (const juce::String& t) { return t.getDoubleValue(); };
+
+    thresholdKnob.slider.setRange (EQ::minThreshold, EQ::maxThreshold, 0.1);
+    thresholdKnob.slider.setDoubleClickReturnValue (true, EQ::defaultThreshold);
+    thresholdKnob.slider.textFromValueFunction = [] (double db) { return juce::String (db, 1) + " dB"; };
+    rangeKnob.slider.setRange (EQ::minRange, EQ::maxRange, 0.1);
+    rangeKnob.slider.setDoubleClickReturnValue (true, EQ::defaultRange);
+    rangeKnob.slider.textFromValueFunction = dbText;
+    attackKnob.slider.setRange (EQ::minAttackMs, EQ::maxAttackMs, 0.01);
+    attackKnob.slider.setSkewFactorFromMidPoint (5.0);
+    attackKnob.slider.setDoubleClickReturnValue (true, EQ::defaultAttackMs);
+    attackKnob.slider.textFromValueFunction = msText;
+    releaseKnob.slider.setRange (EQ::minReleaseMs, EQ::maxReleaseMs, 0.1);
+    releaseKnob.slider.setSkewFactorFromMidPoint (100.0);
+    releaseKnob.slider.setDoubleClickReturnValue (true, EQ::defaultReleaseMs);
+    releaseKnob.slider.textFromValueFunction = msText;
+    for (auto* k : { &thresholdKnob, &rangeKnob, &attackKnob, &releaseKnob })
+    {
+        k->slider.valueFromTextFunction = number;
+        k->slider.setVisible (false);
+        k->label.setVisible (false);
+    }
+
+    dynGainLabel.setFont (EQColours::font (11.0f, true));
+    dynGainLabel.setJustificationType (juce::Justification::centred);
+    dynGainLabel.setTooltip ("Live dynamic gain change");
+    addChildComponent (dynGainLabel);
+
+    for (auto* k : { &freqKnob, &gainKnob, &qKnob, &thresholdKnob, &rangeKnob, &attackKnob, &releaseKnob })
         k->slider.updateText();
 
     setSize (panelWidth, panelHeight);
@@ -177,7 +231,7 @@ void BandPanel::setBand (int newBand)
     if (newBand == band)
         return;
 
-    for (auto* k : { &freqKnob, &gainKnob, &qKnob })
+    for (auto* k : { &freqKnob, &gainKnob, &qKnob, &thresholdKnob, &rangeKnob, &attackKnob, &releaseKnob })
         if (k->dragging)
         {
             k->dragging = false;
@@ -230,7 +284,7 @@ void BandPanel::refreshFromParams()
     slopeBox.setEnabled (hasSlope);
     slopeBox.setAlpha (hasSlope ? 1.0f : 0.35f);
 
-    for (auto* k : { &freqKnob, &gainKnob, &qKnob })
+    for (auto* k : { &freqKnob, &gainKnob, &qKnob, &thresholdKnob, &rangeKnob, &attackKnob, &releaseKnob })
     {
         k->slider.setColour (juce::Slider::rotarySliderFillColourId, enabled ? colour : colour.withSaturation (0.1f));
         if (! k->dragging)
@@ -244,6 +298,40 @@ void BandPanel::refreshFromParams()
     gainKnob.slider.setEnabled (hasGain);
     gainKnob.slider.setAlpha (hasGain ? 1.0f : 0.35f);
     gainKnob.label.setAlpha (hasGain ? 1.0f : 0.35f);
+
+    // Dynamics: Bell and shelves only; the row is collapsed unless dynamics are on.
+    const bool dynParam = processor.getBandValue (band, EQ::Param::DynOn) >= 0.5f;
+    dynButton.setToggleState (dynParam, juce::dontSendNotification);
+    dynButton.setEnabled (hasGain);
+    dynButton.setAlpha (hasGain ? 1.0f : 0.35f);
+    dynButton.setColour (juce::TextButton::buttonOnColourId, colour.withAlpha (0.85f));
+    dynButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
+    dynExternalButton.setToggleState (processor.getBandValue (band, EQ::Param::DynExternal) >= 0.5f, juce::dontSendNotification);
+    dynExternalButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffff9f43));
+    dynExternalButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
+
+    const bool show = dynParam && hasGain;
+    if (show != showDynamics)
+    {
+        showDynamics = show;
+        for (auto* k : { &thresholdKnob, &rangeKnob, &attackKnob, &releaseKnob })
+        {
+            k->slider.setVisible (show);
+            k->label.setVisible (show);
+        }
+        dynExternalButton.setVisible (show);
+        dynGainLabel.setVisible (show);
+        setSize (panelWidth, getPreferredHeight());
+    }
+
+    if (show)
+    {
+        const float db = processor.dynamicGainDb[(size_t) band].load();
+        dynGainLabel.setText (juce::String (db > 0.05f ? "+" : "") + juce::String (std::abs (db) < 0.05f ? 0.0f : db, 1) + " dB",
+                              juce::dontSendNotification);
+        dynGainLabel.setColour (juce::Label::textColourId, std::abs (db) > 0.05f ? colour : EQColours::label);
+        dynExternalButton.setAlpha (processor.isSidechainConnected() ? 1.0f : 0.5f);
+    }
 }
 
 void BandPanel::paint (juce::Graphics& g)
@@ -257,7 +345,8 @@ void BandPanel::paint (juce::Graphics& g)
 
 void BandPanel::resized()
 {
-    auto area = getLocalBounds().reduced (12, 8);
+    auto all = getLocalBounds().reduced (12, 8);
+    auto area = all.removeFromTop (panelHeight - 16);   // main row; the dynamics row is below
 
     auto left = area.removeFromLeft (124);
     auto top = left.removeFromTop (24);
@@ -271,12 +360,12 @@ void BandPanel::resized()
     stereoBox.setBounds (left.removeFromTop (24));
 
     auto right = area.removeFromRight (64);
-    right = right.withSizeKeepingCentre (right.getWidth(), 3 * 24 + 2 * 5);
-    soloButton.setBounds (right.removeFromTop (24));
-    right.removeFromTop (5);
-    resetButton.setBounds (right.removeFromTop (24));
-    right.removeFromTop (5);
-    deleteButton.setBounds (right.removeFromTop (24));
+    right = right.withSizeKeepingCentre (right.getWidth(), 4 * 22 + 3 * 4);
+    for (auto* b : { &dynButton, &soloButton, &resetButton, &deleteButton })
+    {
+        b->setBounds (right.removeFromTop (22));
+        right.removeFromTop (4);
+    }
 
     area.reduce (8, 0);
     const int kw = area.getWidth() / 3;
@@ -285,5 +374,24 @@ void BandPanel::resized()
         auto col = area.removeFromLeft (kw);
         k->label.setBounds (col.removeFromTop (14));
         k->slider.setBounds (col);
+    }
+
+    // Dynamics row: live gain + sidechain toggle on the left, then four knobs.
+    if (showDynamics)
+    {
+        auto row = all.withTrimmedTop (4);
+        auto info = row.removeFromLeft (124);
+        dynGainLabel.setBounds (info.removeFromTop (24));
+        info.removeFromTop (6);
+        dynExternalButton.setBounds (info.removeFromTop (24).removeFromLeft (50));
+
+        row.reduce (8, 0);
+        const int w = row.getWidth() / 4;
+        for (auto* k : { &thresholdKnob, &rangeKnob, &attackKnob, &releaseKnob })
+        {
+            auto col = row.removeFromLeft (w);
+            k->label.setBounds (col.removeFromTop (14));
+            k->slider.setBounds (col);
+        }
     }
 }

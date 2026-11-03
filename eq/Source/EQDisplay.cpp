@@ -109,6 +109,8 @@ void EQDisplay::timerCallback()
     check ((float) processor.curveView.load());
     check (processor.showPianoStrip.load() ? 1.0f : 0.0f);
     check (processor.getGainScale());
+    for (int b = 0; b < EQ::numBands; ++b)
+        check (isUsed (b) ? getLiveDynamicDb (b) : 0.0f);
     check (processor.analyserTilt.load());
     check (processor.analyserTopDb.load());
     check (processor.analyserBottomDb.load());
@@ -521,7 +523,34 @@ void EQDisplay::computeCurves (juce::Rectangle<float> area)
                 c.total[i] += db;   // sum in dB = product of magnitudes
         }
 
+    // Dynamic bands: the response at the live gain (static curve + what the dynamics add).
+    c.live.assign (c.bands.size(), {});
+    for (size_t k = 0; k < c.bands.size(); ++k)
+    {
+        const int b = c.bands[k];
+        const float dyn = getLiveDynamicDb (b);
+        if (dyn == 0.0f || ! c.enabled[k])
+            continue;
+
+        const auto type = getType (b);
+        const auto live = EQ::makeFilter (type, sr, processor.getBandValue (b, EQ::Param::Freq), processor.getBandValue (b, EQ::Param::Q),
+                                          processor.getBandValue (b, EQ::Param::Gain) * processor.getGainScale() + dyn,
+                                          (int) std::lround (processor.getBandValue (b, EQ::Param::Slope)));
+        c.live[k].resize (n);
+        for (size_t i = 0; i < n; ++i)
+            c.live[k][i] = (float) EQ::getMagnitudeDb (live, freqs[i], sr);
+    }
+
     c.valid = true;
+}
+
+// Live dynamic gain of a band, or 0 when its dynamics are off (or it has no gain).
+float EQDisplay::getLiveDynamicDb (int band) const
+{
+    if (processor.getBandValue (band, EQ::Param::DynOn) < 0.5f || ! EQ::typeHasGain (getType (band)))
+        return 0.0f;
+    const float db = processor.dynamicGainDb[(size_t) band].load();
+    return std::abs (db) < 0.05f ? 0.0f : std::round (db * 10.0f) / 10.0f;   // 0.1 dB steps: fewer redraws
 }
 
 void EQDisplay::drawCurves (juce::Graphics& g, juce::Rectangle<float> area)
@@ -582,6 +611,29 @@ void EQDisplay::drawCurves (juce::Graphics& g, juce::Rectangle<float> area)
         }
     }
 
+    // Dynamic bands: shade between the static curve and the live one.
+    for (size_t k = 0; k < c.bands.size(); ++k)
+    {
+        if (c.live[k].empty())
+            continue;
+
+        juce::Path between;
+        for (size_t i = 0; i < n; ++i)
+        {
+            const float y = juce::jlimit (yMin, yMax, gainToY (c.single[k][i]));
+            if (i == 0) between.startNewSubPath (c.xs[i], y); else between.lineTo (c.xs[i], y);
+        }
+        for (size_t i = n; i-- > 0;)
+            between.lineTo (c.xs[i], juce::jlimit (yMin, yMax, gainToY (c.live[k][i])));
+        between.closeSubPath();
+
+        const auto colour = EQColours::band (c.bands[k]);
+        g.setColour (colour.withAlpha (0.3f));
+        g.fillPath (between);
+        g.setColour (colour.withAlpha (0.7f));
+        g.strokePath (makePath (c.live[k]), juce::PathStrokeType (1.0f));
+    }
+
     // Combined response of all enabled bands.
     const auto totalPath = makePath (c.total);
     g.setColour (EQColours::totalCurve.withAlpha (0.22f));
@@ -635,6 +687,18 @@ void EQDisplay::drawNodes (juce::Graphics& g)
         g.setColour (enabled ? juce::Colours::black.withAlpha (0.8f) : colour);
         g.setFont (EQColours::font (b >= 9 ? 9.0f : 10.0f, true));
         g.drawText (juce::String (b + 1), circle.expanded (2.0f), juce::Justification::centred, false);
+
+        // Dynamic gain indicator: a line from the node to where the live gain sits now.
+        if (const float dyn = getLiveDynamicDb (b); processor.getBandValue (b, EQ::Param::DynOn) >= 0.5f && EQ::typeHasGain (getType (b)))
+        {
+            const float yLive = gainToY (juce::jlimit (-getRange(), getRange(),
+                                                       processor.getBandValue (b, EQ::Param::Gain) * processor.getGainScale() + dyn));
+            g.setColour (colour);
+            g.drawLine (pos.x, pos.y, pos.x, yLive, 2.0f);
+            g.drawEllipse (juce::Rectangle<float> (7.0f, 7.0f).withCentre ({ pos.x, yLive }), 1.5f);
+            g.setFont (EQColours::font (8.5f, true));
+            g.drawText ("D", circle.translated (-r - 6.0f, -r).withSize (10.0f, 10.0f), juce::Justification::centred, false);
+        }
 
         // Stereo-mode badge (L, R, M, S) at the top right of the node.
         if (const int mode = (int) std::lround (processor.getBandValue (b, EQ::Param::Stereo)); mode != 0)
@@ -839,7 +903,7 @@ void EQDisplay::positionPanel()
 
     const auto area = getPlotArea();
     const auto pos = getNodePosition (b);
-    const float w = (float) BandPanel::panelWidth, h = (float) BandPanel::panelHeight;
+    const float w = (float) BandPanel::panelWidth, h = (float) panel.getPreferredHeight();
 
     const float x = juce::jlimit (area.getX() + 6.0f, juce::jmax (area.getX() + 6.0f, area.getRight() - w - 6.0f), pos.x - w * 0.5f);
     const bool nodeInLowerPart = pos.y > area.getBottom() - h - 30.0f;
@@ -874,6 +938,7 @@ void EQDisplay::showContextMenu (int band)
     }
     menu.addSeparator();
     menu.addItem (4, "Solo (audition)", true, processor.soloBand.load() == band);
+    menu.addItem (5, "Dynamic", EQ::typeHasGain (current), processor.getBandValue (band, EQ::Param::DynOn) >= 0.5f);
     menu.addItem (1, enabled ? "Bypass" : "Enable");
     menu.addItem (2, "Reset gain and Q");
     menu.addItem (3, "Delete band");
@@ -894,6 +959,8 @@ void EQDisplay::showContextMenu (int band)
                             else if (result == 1)    edits.setEnabled (band, ! enabled);
                             else if (result == 2)    edits.resetBand (band);
                             else if (result == 3)  { edits.removeBand (band); safe->setSelectedBand (-1); }
+                            else if (result == 5)
+                                edits.setDynamic (band, safe->processor.getBandValue (band, EQ::Param::DynOn) < 0.5f);
                             else if (result == 4)
                             {
                                 auto& solo = safe->processor.soloBand;
