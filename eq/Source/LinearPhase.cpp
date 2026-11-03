@@ -15,7 +15,8 @@ namespace EQ
         return base[juce::jlimit (0, numQualities - 1, quality)] * factor;
     }
 
-    std::unique_ptr<LinearPhaseDesign> LinearPhaseEQ::design (const LinearPhaseBands& bands, double sampleRate, int length, bool mono)
+    std::unique_ptr<LinearPhaseDesign> LinearPhaseEQ::design (const LinearPhaseBands& bands, double sampleRate, double designRate,
+                                                              int length, bool mono)
     {
         const int half = length / 2;
         const int order = juce::roundToInt (std::log2 ((double) length));
@@ -30,13 +31,13 @@ namespace EQ
             if (! b.active)
                 continue;
 
-            const auto coeffs = makeFilter (b.type, sampleRate, b.freq, b.q, typeHasGain (b.type) ? b.gain : 0.0f, b.slope);
+            const auto coeffs = makeFilter (b.type, designRate, b.freq, b.q, typeHasGain (b.type) ? b.gain : 0.0f, b.slope);
             const auto mode = mono ? StereoMode::Stereo : b.mode;
             anyMidSide = anyMidSide || isMidSide (mode);
 
             for (int k = 0; k <= half; ++k)
             {
-                const double m = getMagnitude (coeffs, k * sampleRate / length, sampleRate);
+                const double m = getMagnitude (coeffs, k * sampleRate / length, designRate);
                 switch (mode)
                 {
                     case StereoMode::Stereo: magL[(size_t) k] *= m; magR[(size_t) k] *= m; break;

@@ -67,7 +67,7 @@ bool ThreeBandEQAudioProcessor::updateLinearPhaseDesign (bool force)
     const bool mono = getMainBusNumInputChannels() < 2;
 
     // Cheap change detection over everything the design depends on.
-    std::size_t hash = std::hash<double>() (currentSampleRate) ^ ((std::size_t) length << 1) ^ (mono ? 0x9e37u : 0u);
+    std::size_t hash = std::hash<double>() (getDesignSampleRate()) ^ ((std::size_t) length << 1) ^ (mono ? 0x9e37u : 0u);
     for (const auto& b : bands)
         for (float v : { b.active ? 1.0f : 0.0f, (float) b.type, b.freq, b.q, b.gain, (float) b.slope, (float) b.mode })
             hash = hash * 1099511628211ull ^ std::hash<float>() (v);
@@ -76,14 +76,16 @@ bool ThreeBandEQAudioProcessor::updateLinearPhaseDesign (bool force)
         return false;
 
     lastDesignHash = hash;
-    linearPhase.submit (EQ::LinearPhaseEQ::design (bands, currentSampleRate, length, mono));
+    linearPhase.submit (EQ::LinearPhaseEQ::design (bands, currentSampleRate, getDesignSampleRate(), length, mono));
     designedLength.store (length);
     return true;
 }
 
 void ThreeBandEQAudioProcessor::updateLatencyNow()
 {
-    const int latency = isLinearPhaseSelected() ? getLinearPhaseLength() / 2 : 0;
+    // Linear phase designs at the oversampled rate without running the oversampler, so the
+    // two latencies never add up: it is either the FIR's or the oversampler's.
+    const int latency = isLinearPhaseSelected() ? getLinearPhaseLength() / 2 : oversamplerLatency[(size_t) getOversamplingIndex()];
     if (getLatencySamples() != latency)
         setLatencySamples (latency);
 }
@@ -130,6 +132,14 @@ ThreeBandEQAudioProcessor::ThreeBandEQAudioProcessor()
     phaseModeParam  = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (EQ::phaseModeId));
     lpQualityParam  = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (EQ::lpQualityId));
     jassert (phaseModeParam != nullptr && lpQualityParam != nullptr);
+    oversamplingParam = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (EQ::oversamplingId));
+    jassert (oversamplingParam != nullptr);
+
+    // Polyphase IIR half-band stages: low latency (minimum phase), integer latency so it can
+    // be reported exactly. Built here; prepareToPlay only sizes them.
+    using OS = juce::dsp::Oversampling<float>;
+    for (size_t k = 1; k < oversamplers.size(); ++k)
+        oversamplers[k] = std::make_unique<OS> ((size_t) EQ::Engine::maxChannels, k, OS::filterHalfBandPolyphaseIIR, true, true);
 
     lpDesigner = std::make_unique<LinearPhaseDesigner> (*this);
     lpDesigner->startThread (juce::Thread::Priority::low);
@@ -236,6 +246,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::c
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { EQ::lpQualityId, 8 }, "Linear Phase Quality", juce::StringArray { "Low", "Medium", "High" }, 1));
 
+    // Optional oversampling (v1.0). Off by default (identical to before).
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { EQ::oversamplingId, 9 }, "Oversampling", juce::StringArray { "Off", "2x", "4x" }, 0));
+
     // Loudness-matched output (v0.5). Applied before the output gain.
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { EQ::autoGainId, 5 }, "Auto Gain", false));
@@ -326,9 +340,22 @@ void ThreeBandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
     linearPhase.prepare (sampleRate, dryBuffer.getNumSamples());
     lpActive = isLinearPhaseSelected();
     lpLength = getLinearPhaseLength();
+
+    // Oversampling: size every stage for the chunk size now (no allocation later).
+    for (size_t k = 1; k < oversamplers.size(); ++k)
+    {
+        oversamplers[k]->initProcessing ((size_t) dryBuffer.getNumSamples());
+        oversamplers[k]->reset();
+        oversamplerLatency[k] = juce::roundToInt (oversamplers[k]->getLatencyInSamples());
+    }
+    sidechainUp.setSize (EQ::Engine::maxChannels, dryBuffer.getNumSamples() * 4, false, true, false);
+    osActive = lpActive ? 0 : getOversamplingIndex();
+    engine.prepare (sampleRate * (1 << osActive));
     modeFade.reset (sampleRate, 0.01);
     modeFade.setCurrentAndTargetValue (1.0f);
-    dryDelay.setSize (EQ::Engine::maxChannels, EQ::LinearPhaseEQ::firLength (EQ::LinearPhaseEQ::numQualities - 1, sampleRate) / 2 + 1,
+    dryDelay.setSize (EQ::Engine::maxChannels,
+                      juce::jmax (EQ::LinearPhaseEQ::firLength (EQ::LinearPhaseEQ::numQualities - 1, sampleRate) / 2,
+                                  oversamplerLatency[1], oversamplerLatency[2]) + 1,
                       false, true, false);
     dryDelay.clear();
     dryDelayPos = 0;
@@ -394,8 +421,11 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     }
     autoGainWasOn = agOn;
 
+    // Processing path: linear phase, or the zero-latency engine at 1x / 2x / 4x.
     const bool wantLP = isLinearPhaseSelected();
-    if (wantLP != lpActive)
+    const int wantOS = wantLP ? 0 : getOversamplingIndex();
+    auto pathChangePending = [&] { return wantLP != lpActive || wantOS != osActive; };
+    if (pathChangePending())
         modeFade.setTargetValue (0.0f);   // fade out; the path switches once silent
     float blockPeak = 0.0f;
 
@@ -409,13 +439,26 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
         if (capture && analyserMode == SpectrumAnalyser::Mode::Pre)
             analyser.push (ch, numCh, num);
-        // Phase-mode switch: once the fade-out has reached silence, change path and fade in.
-        if (wantLP != lpActive && modeFade.getCurrentValue() <= 0.0f && ! modeFade.isSmoothing())
+
+        // Path switch (phase mode or oversampling factor): once the fade-out has reached
+        // silence, change path and fade back in.
+        if (pathChangePending() && modeFade.getCurrentValue() <= 0.0f && ! modeFade.isSmoothing())
         {
             lpActive = wantLP;
             lpLength = getLinearPhaseLength();
-            if (lpActive) linearPhase.reset();
-            else          engine.reset();
+            if (lpActive)
+            {
+                linearPhase.reset();
+            }
+            else
+            {
+                if (wantOS != osActive)
+                    engine.prepare (currentSampleRate * (1 << wantOS));   // no allocation; bands re-snap
+                engine.reset();
+            }
+            osActive = wantOS;
+            if (osActive > 0)
+                oversamplers[(size_t) osActive]->reset();
             dryDelay.clear();
             dryDelayPos = 0;
             modeFade.setTargetValue (1.0f);
@@ -423,13 +466,13 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
         // The engine always runs, even when bypassed, so un-bypassing never glitches.
         const bool needDry = bypassMix.isSmoothing() || bypassMix.getTargetValue() > 0.0f;
-        if (lpActive)
+        const int pathLatency = lpActive ? (lpLength = getLinearPhaseLength()) / 2 : oversamplerLatency[(size_t) osActive];
+        if (pathLatency > 0)
         {
-            // Linear phase delays the output by lpLength / 2, so the bypass dry signal is
-            // delayed to match (the ring always runs, so it is valid whenever bypass engages).
-            lpLength = getLinearPhaseLength();
+            // The output is delayed by the path latency, so the bypass dry signal is delayed
+            // to match (the ring always runs, so it is valid whenever bypass engages).
             const int size = dryDelay.getNumSamples();
-            const int delay = juce::jmin (lpLength / 2, size - 1);
+            const int delay = juce::jmin (pathLatency, size - 1);
             for (int c = 0; c < numCh; ++c)
             {
                 auto* ring = dryDelay.getWritePointer (c);
@@ -460,7 +503,10 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         }
         else
         {
-            // Sidechain for dynamic bands set to external (same chunk offset as the main input).
+            const int factor = 1 << osActive;
+
+            // Sidechain for dynamic bands set to external, at the engine's rate (held for
+            // 'factor' samples when oversampling; the detector's band-pass removes the images).
             const float* scPtrs[EQ::Engine::maxChannels] = {};
             int numScCh = 0;
             if (isSidechainConnected())
@@ -468,11 +514,39 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                 auto scBus = getBusBuffer (buffer, true, 1);
                 numScCh = juce::jmin (scBus.getNumChannels(), EQ::Engine::maxChannels);
                 for (int c = 0; c < numScCh; ++c)
-                    scPtrs[c] = scBus.getReadPointer (c, pos);
+                {
+                    const float* src = scBus.getReadPointer (c, pos);
+                    if (factor == 1)
+                    {
+                        scPtrs[c] = src;
+                    }
+                    else
+                    {
+                        auto* up = sidechainUp.getWritePointer (c);
+                        for (int i = 0; i < num; ++i)
+                            for (int r = 0; r < factor; ++r)
+                                up[i * factor + r] = src[i];
+                        scPtrs[c] = up;
+                    }
+                }
             }
             engine.setSidechain (numScCh > 0 ? scPtrs : nullptr, numScCh);
 
-            engine.process (ch, numCh, num);
+            if (factor == 1)
+            {
+                engine.process (ch, numCh, num);
+            }
+            else
+            {
+                auto& os = *oversamplers[(size_t) osActive];
+                juce::dsp::AudioBlock<float> block (ch, (size_t) numCh, (size_t) num);
+                auto up = os.processSamplesUp (block);
+                float* upCh[EQ::Engine::maxChannels] = {};
+                for (int c = 0; c < numCh; ++c)
+                    upCh[c] = up.getChannelPointer ((size_t) c);
+                engine.process (upCh, numCh, (int) up.getNumSamples());
+                os.processSamplesDown (block);
+            }
         }
 
         if (modeFade.isSmoothing() || modeFade.getTargetValue() < 1.0f)

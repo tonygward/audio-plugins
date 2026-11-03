@@ -99,6 +99,7 @@ namespace EQ
     inline const char* const gainScaleId  = "gain_scale";
     inline const char* const phaseModeId  = "phase_mode";   // 0 zero latency, 1 linear phase
     inline const char* const lpQualityId  = "lp_quality";   // linear-phase FIR length: low, medium, high
+    inline const char* const oversamplingId = "oversampling"; // 0 off, 1 = 2x, 2 = 4x
 
     constexpr float minGainScale = -100.0f, maxGainScale = 200.0f;   // percent; 100 = as set
 

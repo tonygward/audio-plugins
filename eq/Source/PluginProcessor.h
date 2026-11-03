@@ -70,6 +70,9 @@ public:
     bool isLinearPhaseSelected() const noexcept { return phaseModeParam->getIndex() == 1; }
     int getLinearPhaseQuality() const noexcept  { return lpQualityParam->getIndex(); }
     int getLinearPhaseLength() const noexcept   { return EQ::LinearPhaseEQ::firLength (getLinearPhaseQuality(), currentSampleRate); }
+    int getOversamplingIndex() const noexcept   { return oversamplingParam->getIndex(); }
+    int getOversamplingFactor() const noexcept  { return 1 << getOversamplingIndex(); }
+    double getDesignSampleRate() const noexcept { return currentSampleRate * getOversamplingFactor(); }   // rate filters are designed at
     EQ::LinearPhaseBands gatherLinearPhaseBands() const;
     bool updateLinearPhaseDesign (bool force);   // designer thread (or tests): returns true if a design was submitted
     void designLinearPhaseNow() { updateLinearPhaseDesign (true); }
@@ -167,6 +170,15 @@ private:
     EQ::LinearPhaseEQ linearPhase;
     juce::AudioParameterChoice* phaseModeParam = nullptr;
     juce::AudioParameterChoice* lpQualityParam = nullptr;
+
+    // Oversampling (zero-latency path): polyphase IIR half-band stages for 2x and 4x, all
+    // prepared up front. Linear-phase mode instead designs its FIR from coefficients at the
+    // oversampled rate (same un-cramped response, no extra latency).
+    juce::AudioParameterChoice* oversamplingParam = nullptr;
+    std::array<std::unique_ptr<juce::dsp::Oversampling<float>>, 3> oversamplers;   // [1] 2x, [2] 4x
+    std::array<int, 3> oversamplerLatency {};
+    int osActive = 0;                          // audio thread: 0 off, 1 = 2x, 2 = 4x
+    juce::AudioBuffer<float> sidechainUp;      // sidechain held at the oversampled rate
     bool lpActive = false;                     // audio thread: path in use
     int lpLength = 8192;                       // FIR length in use (audio thread)
     std::atomic<int> designedLength { 0 };     // length of the last submitted design

@@ -56,7 +56,9 @@ namespace EQ
         // doubled at 88.2-96 kHz and quadrupled at 176.4-192 kHz (same time span).
         static int firLength (int quality, double sampleRate);
 
-        static std::unique_ptr<LinearPhaseDesign> design (const LinearPhaseBands&, double sampleRate, int length, bool mono);
+        // designRate: the rate the band filters are designed at (sampleRate x oversampling
+        // factor), so the FIR reproduces the un-cramped oversampled response.
+        static std::unique_ptr<LinearPhaseDesign> design (const LinearPhaseBands&, double sampleRate, double designRate, int length, bool mono);
 
         void prepare (double sampleRate, int maxBlockSize);
         void reset();
