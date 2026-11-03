@@ -32,6 +32,8 @@ ThreeBandEQAudioProcessor::ThreeBandEQAudioProcessor()
     outputGainParam = apvts.getParameter (EQ::outputGainId);
     outputGainRaw   = apvts.getRawParameterValue (EQ::outputGainId);
     bypassParam     = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (EQ::bypassId));
+    autoGainParam   = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (EQ::autoGainId));
+    jassert (autoGainParam != nullptr);
     jassert (outputGainParam != nullptr && outputGainRaw != nullptr && bypassParam != nullptr);
 
     dryBuffer.setSize (EQ::Engine::maxChannels, 512, false, true);   // resized in prepareToPlay; zeroed
@@ -93,6 +95,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::c
 
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { EQ::bypassId, 3 }, "Bypass", false));
+
+    // Loudness-matched output (v0.5). Applied before the output gain.
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { EQ::autoGainId, 5 }, "Auto Gain", false));
 
     return layout;
 }
@@ -169,6 +175,11 @@ void ThreeBandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
     outputGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (outputGainRaw->load()));
     bypassMix.reset (sampleRate, bypassFadeSeconds);
     bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
+
+    autoGain.prepare (sampleRate);
+    autoGainSmoothed.reset (sampleRate, autoGainSmoothingSeconds);
+    autoGainSmoothed.setCurrentAndTargetValue ((float) juce::Decibels::decibelsToGain (autoGainParam->get() ? autoGain.getCorrectionDb() : 0.0));
+    autoGainWasOn = autoGainParam->get();
 }
 
 void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -210,6 +221,14 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     const int total = buffer.getNumSamples();
     const int chunk = juce::jmax (1, dryBuffer.getNumSamples());
+
+    const bool agOn = autoGainParam->get();
+    if (agOn && ! autoGainWasOn)
+    {
+        autoGain.reset();              // fresh measurement window
+        autoGain.setCorrectionDb (0.0);   // start from unity and glide to the match
+    }
+    autoGainWasOn = agOn;
     float blockPeak = 0.0f;
 
     for (int pos = 0; pos < total; pos += chunk)
@@ -229,7 +248,38 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             for (int c = 0; c < numCh; ++c)
                 juce::FloatVectorOperations::copy (dryBuffer.getWritePointer (c), ch[c], num);
 
+        if (agOn)
+            autoGain.measureInput (ch, numCh, num);
+
         engine.process (ch, numCh, num);
+
+        // Auto gain: compare the EQ's output with its input, then apply the smoothed
+        // correction before the output gain. Off and settled = untouched (bit-exact).
+        if (agOn)
+        {
+            autoGain.measureOutput (ch, numCh, num);
+            autoGain.advance (num);
+            autoGainSmoothed.setTargetValue ((float) juce::Decibels::decibelsToGain (autoGain.getCorrectionDb()));
+        }
+        else
+        {
+            autoGainSmoothed.setTargetValue (1.0f);
+        }
+
+        if (autoGainSmoothed.isSmoothing())
+        {
+            for (int i = 0; i < num; ++i)
+            {
+                const float g = autoGainSmoothed.getNextValue();
+                for (int c = 0; c < numCh; ++c)
+                    ch[c][i] *= g;
+            }
+        }
+        else if (const float g = autoGainSmoothed.getTargetValue(); g != 1.0f)
+        {
+            for (int c = 0; c < numCh; ++c)
+                juce::FloatVectorOperations::multiply (ch[c], g, num);
+        }
 
         if (outputGain.isSmoothing() || bypassMix.isSmoothing())
         {
@@ -268,6 +318,7 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     }
 
     outputMeter.push (blockPeak);
+    autoGainAppliedDb.store (juce::Decibels::gainToDecibels (autoGainSmoothed.getCurrentValue(), -100.0f), std::memory_order_relaxed);
 
     // Sidechain: level for the UI, and the spectrum while a viewer shows it. It never
     // touches the main channels.

@@ -8,6 +8,7 @@
 #include "EQEditController.h"
 #include "PresetManager.h"
 #include "SpectrumAnalyser.h"
+#include "AutoGain.h"
 
 class ThreeBandEQAudioProcessor : public juce::AudioProcessor
 {
@@ -61,6 +62,10 @@ public:
 
     juce::AudioProcessorParameter* getBypassParameter() const override { return bypassParam; }
     juce::RangedAudioParameter* getOutputGainParam() const noexcept { return outputGainParam; }
+
+    // Auto gain: the correction currently applied (dB), for the UI.
+    std::atomic<float> autoGainAppliedDb { 0.0f };
+    bool isAutoGainOn() const noexcept { return autoGainParam->get(); }
 
     // Output peak meter, written by the audio thread and read (and reset) by the editor.
     struct OutputMeter
@@ -124,6 +129,11 @@ private:
     // Global output stage: per-sample output gain, then a dry/processed cross-fade for bypass.
     juce::RangedAudioParameter* outputGainParam = nullptr;
     juce::AudioParameterBool*   bypassParam = nullptr;
+    juce::AudioParameterBool*   autoGainParam = nullptr;
+    EQ::AutoGain autoGain;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> autoGainSmoothed { 1.0f };
+    bool autoGainWasOn = false;
+    static constexpr double autoGainSmoothingSeconds = 0.25;
     std::atomic<float>* outputGainRaw = nullptr;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> outputGain { 1.0f };
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix { 0.0f };   // 1 = fully bypassed

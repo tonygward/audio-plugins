@@ -87,6 +87,7 @@ namespace EQ
     // Global (non-band) host parameters.
     inline const char* const outputGainId = "output_gain";
     inline const char* const bypassId     = "bypass";
+    inline const char* const autoGainId   = "auto_gain";
 
     constexpr float minOutputGain = -24.0f, maxOutputGain = 24.0f;
 }
