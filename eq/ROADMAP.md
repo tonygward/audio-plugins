@@ -33,6 +33,7 @@ Suggested split: slopes plus output gain and bypass in one PR, and the build che
 - [x] **Stereo modes per band:** Stereo, Left, Right, Mid and Side. This is the biggest jump in usefulness for mastering and bus work, and it fits the per-channel SVF state the engine already has.
 - [x] **Rename to Songsmith EQ** (by Songsmith Studio), ready for a Songsmith family of plugins such as Songsmith Analogue EQ. Plugin codes stay the same, so sessions and presets carry over.
 - [x] **Windows installer.** An unsigned Inno Setup `Setup.exe` that installs the VST3 (and optionally the standalone app), upgrades in place, and uninstalls cleanly without touching user presets. Built on CI next to the release zip.
+- [ ] **macOS installer.** An unsigned `.pkg` (built with `pkgbuild`/`productbuild`) that installs the VST3, AU and standalone app system-wide, upgrades in place, removes the old TW Pro EQ bundles, and comes with an uninstall script that leaves user presets alone. Built and tested on CI next to the macOS zip.
 
 ## Phase 3: Better analyser and workflow (v0.5)
 
@@ -62,4 +63,4 @@ Each of these is a project on its own. Do them in this order:
 ## Out of scope
 
 - CLAP format
-- Code-signing the installer (an unsigned installer is fine; SmartScreen's warning is documented)
+- Code-signing the installers, and macOS notarisation (unsigned installers are fine; the SmartScreen and Gatekeeper warnings are documented)
