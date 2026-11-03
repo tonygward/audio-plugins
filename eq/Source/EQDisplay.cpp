@@ -5,8 +5,8 @@
 
 namespace
 {
-    constexpr float rightGutter  = 34.0f;   // dB labels
-    constexpr float bottomGutter = 18.0f;   // frequency labels
+    constexpr float rightGutter  = 36.0f;   // dB labels
+    constexpr float bottomGutter = 20.0f;   // frequency labels
     constexpr float gainPad      = 12.0f;   // keeps the outer gain lines inside the plot
 
     juce::String formatFreq (float hz)
@@ -295,7 +295,9 @@ void EQDisplay::paint (juce::Graphics& g)
 
 void EQDisplay::drawGrid (juce::Graphics& g, juce::Rectangle<float> area)
 {
-    g.setFont (EQColours::font (11.0f));
+    const auto labelFont = juce::Font (EQColours::numbers (EQColours::TextSize::gridLabel));
+    g.setFont (labelFont);
+    float lastLabelRight = area.getX() - 100.0f;   // labels that would overlap are dropped, never shortened
 
     for (float decade = 10.0f; decade <= 10000.0f; decade *= 10.0f)
     {
@@ -312,11 +314,17 @@ void EQDisplay::drawGrid (juce::Graphics& g, juce::Rectangle<float> area)
 
             if (labelled && f > EQ::minFreq)
             {
-                const juce::String text = f >= 1000.0f ? juce::String (juce::roundToInt (f / 1000.0f)) + "k"
+                const juce::String text = f >= 1000.0f ? juce::String (juce::roundToInt (f / 1000.0f)) + " kHz"
                                                        : juce::String (juce::roundToInt (f));
-                g.setColour (EQColours::label);
-                g.drawText (text, juce::Rectangle<float> (x - 20.0f, area.getBottom() + 2.0f, 40.0f, bottomGutter - 4.0f),
-                            juce::Justification::centred, false);
+                const float w = juce::GlyphArrangement::getStringWidth (labelFont, text) + 2.0f;
+                const auto box = juce::Rectangle<float> (x - w * 0.5f, area.getBottom() + 2.0f, w, bottomGutter - 4.0f)
+                                     .withX (juce::jmin (x - w * 0.5f, area.getRight() - w));   // 20 kHz stays inside
+                if (box.getX() >= lastLabelRight + 6.0f)
+                {
+                    g.setColour (EQColours::label);
+                    g.drawText (text, box, juce::Justification::centred, false);
+                    lastLabelRight = box.getRight();
+                }
             }
         }
     }
@@ -379,8 +387,8 @@ void EQDisplay::drawAnalyser (juce::Graphics& g, juce::Rectangle<float> area)
     }
 
     // dBFS labels on the left edge, every 15 dB inside the range.
-    g.setFont (EQColours::font (10.0f));
-    g.setColour (EQColours::label.withAlpha (0.55f));
+    g.setFont (EQColours::numbers (EQColours::TextSize::gridLabel));
+    g.setColour (EQColours::label);   // 4.5:1 on the plot; lighter weight and size set it apart
     for (int db = (int) std::floor (topDb / 15.0f) * 15 - 15; db > bottomDb + 5.0f; db -= 15)
     {
         const float y = toY ((float) db);
@@ -391,7 +399,8 @@ void EQDisplay::drawAnalyser (juce::Graphics& g, juce::Rectangle<float> area)
     if (an.isFrozen())
     {
         g.setColour (juce::Colour (0xff5aa9ff));
-        g.drawText ("FROZEN", juce::Rectangle<float> (area.getX() + 40.0f, area.getY() + 6.0f, 80.0f, 14.0f),
+        g.setFont (EQColours::font (EQColours::TextSize::control, EQColours::Weight::SemiBold));
+        g.drawText ("Frozen", juce::Rectangle<float> (area.getX() + 44.0f, area.getY() + 6.0f, 80.0f, 16.0f),
                     juce::Justification::centredLeft, false);
     }
 
@@ -688,7 +697,7 @@ void EQDisplay::drawNodes (juce::Graphics& g)
         g.drawEllipse (circle, isSel ? 2.0f : 1.0f);
 
         g.setColour (enabled ? juce::Colours::black.withAlpha (0.8f) : colour);
-        g.setFont (EQColours::font (b >= 9 ? 9.0f : 10.0f, true));
+        g.setFont (EQColours::numbers (EQColours::TextSize::small, EQColours::Weight::SemiBold));
         g.drawText (juce::String (b + 1), circle.expanded (2.0f), juce::Justification::centred, false);
 
         // Dynamic gain indicator: a line from the node to where the live gain sits now.
@@ -699,20 +708,22 @@ void EQDisplay::drawNodes (juce::Graphics& g)
             g.setColour (colour);
             g.drawLine (pos.x, pos.y, pos.x, yLive, 2.0f);
             g.drawEllipse (juce::Rectangle<float> (7.0f, 7.0f).withCentre ({ pos.x, yLive }), 1.5f);
-            g.setFont (EQColours::font (8.5f, true));
-            g.drawText ("D", circle.translated (-r - 6.0f, -r).withSize (10.0f, 10.0f), juce::Justification::centred, false);
+            // No letter on the node: the line and ring show it's dynamic, and the hover readout says so.
         }
 
-        // Stereo-mode badge (L, R, M, S) at the top right of the node.
+        // Stereo mode (Left, Right, Mid, Side) in a small pill under the node.
         if (const int mode = (int) std::lround (processor.getBandValue (b, EQ::Param::Stereo)); mode != 0)
         {
-            const auto badge = juce::Rectangle<float> (11.0f, 11.0f).withCentre (circle.getTopRight().translated (-1.0f, 1.0f));
-            g.setColour (EQColours::background);
-            g.fillEllipse (badge);
+            const auto pillFont = juce::Font (EQColours::font (EQColours::TextSize::small, EQColours::Weight::Medium));
+            const auto& text = EQ::getStereoModeNames()[mode];
+            const float w = juce::GlyphArrangement::getStringWidth (pillFont, text) + 10.0f, h = 16.0f;
+            const auto pill = juce::Rectangle<float> (w, h).withCentre ({ pos.x, circle.getBottom() + 4.0f + h * 0.5f });
+            g.setColour (EQColours::background.withAlpha (0.92f));
+            g.fillRoundedRectangle (pill, h * 0.5f);
             g.setColour (colour);
-            g.drawEllipse (badge, 1.0f);
-            g.setFont (EQColours::font (8.5f, true));
-            g.drawText (juce::String::charToString ("SLRMS"[mode]), badge, juce::Justification::centred, false);
+            g.drawRoundedRectangle (pill.reduced (0.5f), h * 0.5f, 1.0f);
+            g.setFont (pillFont);
+            g.drawText (text, pill, juce::Justification::centred, false);
         }
 
         if (dim)
@@ -733,6 +744,8 @@ void EQDisplay::drawTooltip (juce::Graphics& g, juce::Rectangle<float> area, int
     juce::String line1 = "Band " + juce::String (band + 1) + "  " + EQ::getTypeNames()[(int) type];
     if (EQ::typeHasSlope (type))
         line1 << "  " << EQ::getSlopeNames()[(int) std::lround (processor.getBandValue (band, EQ::Param::Slope))];
+    if (EQ::typeHasGain (type) && processor.getBandValue (band, EQ::Param::DynOn) >= 0.5f)
+        line1 << "  Dynamic";
     if (! isEnabled (band))
         line1 << "  (bypassed)";
     if (const int mode = (int) std::lround (processor.getBandValue (band, EQ::Param::Stereo)); mode != 0)
@@ -745,14 +758,14 @@ void EQDisplay::drawTooltip (juce::Graphics& g, juce::Rectangle<float> area, int
         const float stored = processor.getBandValue (band, EQ::Param::Gain), scale = processor.getGainScale();
         line2 << "   " << formatGain (stored);
         if (scale != 1.0f)
-            line2 << " (x" << juce::String (juce::roundToInt (scale * 100.0f)) << "% = " << formatGain (stored * scale) << ")";
+            line2 << " (at " << juce::String (juce::roundToInt (scale * 100.0f)) << "% scale: " << formatGain (stored * scale) << ")";
     }
     line2 << "   Q " << juce::String (processor.getBandValue (band, EQ::Param::Q), 2);
 
-    const auto font = juce::Font (EQColours::font (12.0f));
+    const auto font = juce::Font (EQColours::numbers (EQColours::TextSize::control));
     const float w = juce::jmax (juce::GlyphArrangement::getStringWidth (font, line1),
                                 juce::GlyphArrangement::getStringWidth (font, line2)) + 20.0f;
-    const float h = 38.0f;
+    const float h = 42.0f;
 
     const auto pos = getNodePosition (band);
     float y = pos.y - nodeRadius - h - 14.0f;
@@ -797,8 +810,8 @@ void EQDisplay::drawSoloRegion (juce::Graphics& g, juce::Rectangle<float> area, 
     }
 
     g.setColour (colour);
-    g.setFont (EQColours::font (12.0f, true));
-    g.drawText ("SOLO  Band " + juce::String (band + 1), area.reduced (10.0f, 8.0f).removeFromTop (16.0f),
+    g.setFont (EQColours::font (EQColours::TextSize::control, EQColours::Weight::SemiBold));
+    g.drawText ("Solo: Band " + juce::String (band + 1), area.reduced (10.0f, 8.0f).removeFromTop (18.0f),
                 juce::Justification::centredLeft, false);
 }
 
@@ -807,7 +820,7 @@ void EQDisplay::drawSoloRegion (juce::Graphics& g, juce::Rectangle<float> area, 
 // in that band's colour, and every C is labelled.
 void EQDisplay::drawPianoStrip (juce::Graphics& g, juce::Rectangle<float> area)
 {
-    constexpr float stripHeight = 14.0f;
+    constexpr float stripHeight = 17.0f;
     const auto strip = area.withTop (area.getBottom() - stripHeight);
     const int first = EQ::Notes::freqToNote (EQ::minFreq).midi, last = EQ::Notes::freqToNote (EQ::maxFreq).midi;
 
@@ -818,7 +831,7 @@ void EQDisplay::drawPianoStrip (juce::Graphics& g, juce::Rectangle<float> area)
     g.fillRect (strip);
 
     const double halfStep = std::pow (2.0, 1.0 / 24.0);
-    g.setFont (EQColours::font (8.5f, true));
+    g.setFont (EQColours::font (EQColours::TextSize::gridLabel, EQColours::Weight::Medium));
 
     for (int pass = 0; pass < 2; ++pass)   // white keys first, then the black keys on top
         for (int m = first; m <= last; ++m)
@@ -881,7 +894,7 @@ void EQDisplay::showDisplayMenu()
 void EQDisplay::drawEmptyHint (juce::Graphics& g, juce::Rectangle<float> area)
 {
     g.setColour (EQColours::label);
-    g.setFont (EQColours::font (14.0f));
+    g.setFont (EQColours::font (15.0f));
     g.drawText ("Double-click to add a band", area.withTrimmedTop (area.getHeight() * 0.3f).withHeight (24.0f),
                 juce::Justification::centred, false);
 }

@@ -19,9 +19,11 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    static constexpr int panelWidth  = 520;
-    static constexpr int panelHeight = 128;          // without the dynamics row
-    static constexpr int dynamicsRowHeight = 84;
+    static constexpr int panelWidth  = 640;
+    static constexpr int panelHeight = 150;          // without the dynamics row
+    static constexpr int dynamicsRowHeight = 104;
+    static constexpr int knobTextWidth = 130, knobTextHeight = 20, knobLabelHeight = 18;
+    static constexpr int leftColumnWidth = 150, rightColumnWidth = 92;
     int getPreferredHeight() const noexcept { return panelHeight + (showDynamics ? dynamicsRowHeight : 0); }
 
     std::function<void()> onBandRemoved;
@@ -44,11 +46,11 @@ private:
     bool updating = false;
 
     juce::Label title;
-    juce::TextButton powerButton { "ON" };
+    juce::TextButton powerButton { "On" };
     juce::ComboBox typeBox, slopeBox, stereoBox;
     Knob freqKnob, gainKnob, qKnob;
     Knob thresholdKnob, rangeKnob, attackKnob, releaseKnob;   // dynamics row (shown while dynamics are on)
-    juce::TextButton dynButton { "Dyn" }, dynExternalButton { "SC" };
+    juce::TextButton dynButton { "Dynamic" }, dynExternalButton { "Side Chain" };
     juce::Label dynGainLabel;
     bool showDynamics = false;
     juce::TextButton resetButton { "Reset" }, deleteButton { "Delete" }, soloButton { "Solo" };

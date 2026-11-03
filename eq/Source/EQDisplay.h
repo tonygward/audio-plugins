@@ -106,7 +106,7 @@ private:
     int wheelBand = -1;
     juce::uint32 lastWheelTime = 0;
 
-    static constexpr float nodeRadius = 7.0f;
+    static constexpr float nodeRadius = 9.0f;   // fits a two-digit band number at 12 px
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EQDisplay)
 };

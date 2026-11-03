@@ -72,12 +72,24 @@ juce_add_plugin(SongsmithEQ
     # so it is off by default. Enable with -DEQ_COPY_PLUGIN=ON from an elevated shell.
     COPY_PLUGIN_AFTER_BUILD     ${EQ_COPY_PLUGIN})
 
+# Embedded UI font: Inter (SIL Open Font License 1.1, see Resources/Fonts/OFL.txt), so the
+# editor looks the same on Windows and macOS. Header EQBinaryData.h, namespace EQBinaryData.
+juce_add_binary_data(SongsmithEQFonts
+    HEADER_NAME EQBinaryData.h
+    NAMESPACE   EQBinaryData
+    SOURCES
+        Resources/Fonts/Inter-Regular.ttf
+        Resources/Fonts/Inter-Medium.ttf
+        Resources/Fonts/Inter-SemiBold.ttf)
+set_target_properties(SongsmithEQFonts PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 target_sources(SongsmithEQ PRIVATE ${EQ_SOURCES})
 target_include_directories(SongsmithEQ PRIVATE Source)
 target_compile_definitions(SongsmithEQ PUBLIC ${EQ_DEFINITIONS})
 
 target_link_libraries(SongsmithEQ
     PRIVATE
+        SongsmithEQFonts
         juce::juce_audio_utils
         juce::juce_audio_processors
         juce::juce_dsp
@@ -105,6 +117,7 @@ if(EQ_BUILD_TESTS)
 
     target_link_libraries(EQTests
         PRIVATE
+            SongsmithEQFonts
             juce::juce_audio_utils
             juce::juce_audio_processors
             juce::juce_dsp

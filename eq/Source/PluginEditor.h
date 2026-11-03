@@ -17,6 +17,12 @@ public:
     void resized() override;
     bool keyPressed (const juce::KeyPress&) override;
 
+    // The analyser settings menu (the "..." button). Public so tests can check its wording.
+    juce::PopupMenu createAnalyserMenu();
+
+    // Reads a typed output gain: "Output +1.5 dB", "+1.5", "-3 dB" or "2".
+    static double parseOutputGainText (const juce::String&);
+
 private:
     void timerCallback() override;
 
@@ -36,10 +42,12 @@ private:
     juce::Slider outputSlider { juce::Slider::LinearBar, juce::Slider::TextBoxLeft };
     juce::Slider scaleSlider { juce::Slider::LinearBar, juce::Slider::TextBoxLeft };
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> scaleAttachment;
-    juce::TextButton bypassButton { "Bypass" }, autoGainButton { "AG" };
+    juce::TextButton bypassButton { "Bypass" }, autoGainButton { "Auto Gain" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoGainAttachment;
     juce::TextButton analyserSettingsButton { "..." };   // analyser settings popup
     void showAnalyserMenu();
+    static juce::FontOptions titleFont();
+    juce::Rectangle<int> titleBounds;   // the product name, painted
     OutputMeterDisplay outputMeter;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
