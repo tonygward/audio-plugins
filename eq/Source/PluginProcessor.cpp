@@ -9,6 +9,97 @@ namespace
 }
 
 //==============================================================================
+// Rebuilds the linear-phase FIRs in the background, at most every 40 ms, only while
+// linear phase is selected and only when the EQ actually changed.
+struct ThreeBandEQAudioProcessor::LinearPhaseDesigner final : juce::Thread
+{
+    explicit LinearPhaseDesigner (ThreeBandEQAudioProcessor& p) : juce::Thread ("TW Pro EQ linear phase"), processor (p) {}
+
+    void run() override
+    {
+        while (! threadShouldExit())
+        {
+            processor.updateLinearPhaseDesign (false);
+            wait (40);
+        }
+    }
+
+    ThreeBandEQAudioProcessor& processor;
+};
+
+ThreeBandEQAudioProcessor::~ThreeBandEQAudioProcessor()
+{
+    stopTimer();
+    if (lpDesigner != nullptr)
+        lpDesigner->stopThread (2000);
+}
+
+EQ::LinearPhaseBands ThreeBandEQAudioProcessor::gatherLinearPhaseBands() const
+{
+    using EQ::Param;
+    EQ::LinearPhaseBands bands;
+    const float scale = getGainScale();
+
+    for (int b = 0; b < numBands; ++b)
+    {
+        auto& lb = bands[(size_t) b];
+        lb.active = isBandUsed (b) && getBandValue (b, Param::Enabled) >= 0.5f;
+        lb.type   = EQ::typeFromIndex ((int) std::lround (getBandValue (b, Param::Type)));
+        lb.freq   = getBandValue (b, Param::Freq);
+        lb.q      = getBandValue (b, Param::Q);
+        lb.gain   = getBandValue (b, Param::Gain) * scale;
+        lb.slope  = (int) std::lround (getBandValue (b, Param::Slope));
+        lb.mode   = EQ::stereoModeFromIndex ((int) std::lround (getBandValue (b, Param::Stereo)));
+    }
+    return bands;
+}
+
+bool ThreeBandEQAudioProcessor::updateLinearPhaseDesign (bool force)
+{
+    const std::lock_guard<std::mutex> lock (designMutex);
+    linearPhase.collectGarbage();
+
+    if (! force && ! isLinearPhaseSelected())
+        return false;
+
+    const auto bands = gatherLinearPhaseBands();
+    const int length = getLinearPhaseLength();
+    const bool mono = getMainBusNumInputChannels() < 2;
+
+    // Cheap change detection over everything the design depends on.
+    std::size_t hash = std::hash<double>() (currentSampleRate) ^ ((std::size_t) length << 1) ^ (mono ? 0x9e37u : 0u);
+    for (const auto& b : bands)
+        for (float v : { b.active ? 1.0f : 0.0f, (float) b.type, b.freq, b.q, b.gain, (float) b.slope, (float) b.mode })
+            hash = hash * 1099511628211ull ^ std::hash<float>() (v);
+
+    if (! force && hash == lastDesignHash && designedLength.load() == length)
+        return false;
+
+    lastDesignHash = hash;
+    linearPhase.submit (EQ::LinearPhaseEQ::design (bands, currentSampleRate, length, mono));
+    designedLength.store (length);
+    return true;
+}
+
+void ThreeBandEQAudioProcessor::updateLatencyNow()
+{
+    const int latency = isLinearPhaseSelected() ? getLinearPhaseLength() / 2 : 0;
+    if (getLatencySamples() != latency)
+        setLatencySamples (latency);
+}
+
+void ThreeBandEQAudioProcessor::timerCallback()
+{
+    updateLatencyNow();
+}
+
+double ThreeBandEQAudioProcessor::getTailLengthSeconds() const
+{
+    // Linear phase: the latency plus the second half of the FIR.
+    return isLinearPhaseSelected() ? getLinearPhaseLength() / currentSampleRate : 0.0;
+}
+
+//==============================================================================
 ThreeBandEQAudioProcessor::ThreeBandEQAudioProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
@@ -36,6 +127,13 @@ ThreeBandEQAudioProcessor::ThreeBandEQAudioProcessor()
     gainScaleParam  = apvts.getParameter (EQ::gainScaleId);
     gainScaleRaw    = apvts.getRawParameterValue (EQ::gainScaleId);
     jassert (gainScaleParam != nullptr && gainScaleRaw != nullptr);
+    phaseModeParam  = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (EQ::phaseModeId));
+    lpQualityParam  = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (EQ::lpQualityId));
+    jassert (phaseModeParam != nullptr && lpQualityParam != nullptr);
+
+    lpDesigner = std::make_unique<LinearPhaseDesigner> (*this);
+    lpDesigner->startThread (juce::Thread::Priority::low);
+    startTimerHz (10);
     jassert (autoGainParam != nullptr);
     jassert (outputGainParam != nullptr && outputGainRaw != nullptr && bypassParam != nullptr);
 
@@ -132,6 +230,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::c
         juce::NormalisableRange<float> (EQ::minGainScale, EQ::maxGainScale, 0.1f), 100.0f,
         juce::AudioParameterFloatAttributes().withLabel ("%")));
 
+    // Linear-phase mode (v1.0). Zero latency (the existing engine) is the default.
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { EQ::phaseModeId, 8 }, "Phase Mode", juce::StringArray { "Zero latency", "Linear phase" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { EQ::lpQualityId, 8 }, "Linear Phase Quality", juce::StringArray { "Low", "Medium", "High" }, 1));
+
     // Loudness-matched output (v0.5). Applied before the output gain.
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { EQ::autoGainId, 5 }, "Auto Gain", false));
@@ -216,6 +320,21 @@ void ThreeBandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
     autoGainSmoothed.reset (sampleRate, autoGainSmoothingSeconds);
     autoGainSmoothed.setCurrentAndTargetValue ((float) juce::Decibels::decibelsToGain (autoGainParam->get() ? autoGain.getCorrectionDb() : 0.0));
     autoGainWasOn = autoGainParam->get();
+
+    // Linear phase: everything sized for the longest FIR at this rate up front.
+    currentSampleRate = sampleRate;
+    linearPhase.prepare (sampleRate, dryBuffer.getNumSamples());
+    lpActive = isLinearPhaseSelected();
+    lpLength = getLinearPhaseLength();
+    modeFade.reset (sampleRate, 0.01);
+    modeFade.setCurrentAndTargetValue (1.0f);
+    dryDelay.setSize (EQ::Engine::maxChannels, EQ::LinearPhaseEQ::firLength (EQ::LinearPhaseEQ::numQualities - 1, sampleRate) / 2 + 1,
+                      false, true, false);
+    dryDelay.clear();
+    dryDelayPos = 0;
+    updateLatencyNow();
+    if (lpActive)
+        designLinearPhaseNow();
 }
 
 void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -274,6 +393,10 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         autoGain.setCorrectionDb (0.0);   // start from unity and glide to the match
     }
     autoGainWasOn = agOn;
+
+    const bool wantLP = isLinearPhaseSelected();
+    if (wantLP != lpActive)
+        modeFade.setTargetValue (0.0f);   // fade out; the path switches once silent
     float blockPeak = 0.0f;
 
     for (int pos = 0; pos < total; pos += chunk)
@@ -286,29 +409,79 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
         if (capture && analyserMode == SpectrumAnalyser::Mode::Pre)
             analyser.push (ch, numCh, num);
+        // Phase-mode switch: once the fade-out has reached silence, change path and fade in.
+        if (wantLP != lpActive && modeFade.getCurrentValue() <= 0.0f && ! modeFade.isSmoothing())
+        {
+            lpActive = wantLP;
+            lpLength = getLinearPhaseLength();
+            if (lpActive) linearPhase.reset();
+            else          engine.reset();
+            dryDelay.clear();
+            dryDelayPos = 0;
+            modeFade.setTargetValue (1.0f);
+        }
 
         // The engine always runs, even when bypassed, so un-bypassing never glitches.
         const bool needDry = bypassMix.isSmoothing() || bypassMix.getTargetValue() > 0.0f;
-        if (needDry)
+        if (lpActive)
+        {
+            // Linear phase delays the output by lpLength / 2, so the bypass dry signal is
+            // delayed to match (the ring always runs, so it is valid whenever bypass engages).
+            lpLength = getLinearPhaseLength();
+            const int size = dryDelay.getNumSamples();
+            const int delay = juce::jmin (lpLength / 2, size - 1);
+            for (int c = 0; c < numCh; ++c)
+            {
+                auto* ring = dryDelay.getWritePointer (c);
+                auto* dry = dryBuffer.getWritePointer (c);
+                int w = dryDelayPos;
+                for (int i = 0; i < num; ++i)
+                {
+                    const float delayed = ring[(w - delay + size) % size];
+                    ring[w] = ch[c][i];
+                    dry[i] = delayed;
+                    w = (w + 1) % size;
+                }
+            }
+            dryDelayPos = (dryDelayPos + num) % size;
+        }
+        else if (needDry)
+        {
             for (int c = 0; c < numCh; ++c)
                 juce::FloatVectorOperations::copy (dryBuffer.getWritePointer (c), ch[c], num);
+        }
 
         if (agOn)
             autoGain.measureInput (ch, numCh, num);
 
-        // Sidechain for dynamic bands set to external (same chunk offset as the main input).
-        const float* scPtrs[EQ::Engine::maxChannels] = {};
-        int numScCh = 0;
-        if (isSidechainConnected())
+        if (lpActive)
         {
-            auto scBus = getBusBuffer (buffer, true, 1);
-            numScCh = juce::jmin (scBus.getNumChannels(), EQ::Engine::maxChannels);
-            for (int c = 0; c < numScCh; ++c)
-                scPtrs[c] = scBus.getReadPointer (c, pos);
+            linearPhase.process (ch, numCh, num);   // dynamics and solo need the zero-latency engine
         }
-        engine.setSidechain (numScCh > 0 ? scPtrs : nullptr, numScCh);
+        else
+        {
+            // Sidechain for dynamic bands set to external (same chunk offset as the main input).
+            const float* scPtrs[EQ::Engine::maxChannels] = {};
+            int numScCh = 0;
+            if (isSidechainConnected())
+            {
+                auto scBus = getBusBuffer (buffer, true, 1);
+                numScCh = juce::jmin (scBus.getNumChannels(), EQ::Engine::maxChannels);
+                for (int c = 0; c < numScCh; ++c)
+                    scPtrs[c] = scBus.getReadPointer (c, pos);
+            }
+            engine.setSidechain (numScCh > 0 ? scPtrs : nullptr, numScCh);
 
-        engine.process (ch, numCh, num);
+            engine.process (ch, numCh, num);
+        }
+
+        if (modeFade.isSmoothing() || modeFade.getTargetValue() < 1.0f)
+            for (int i = 0; i < num; ++i)
+            {
+                const float g = modeFade.getNextValue();
+                for (int c = 0; c < numCh; ++c)
+                    ch[c][i] *= g;
+            }
 
         // Auto gain: compare the EQ's output with its input, then apply the smoothed
         // correction before the output gain. Off and settled = untouched (bit-exact).

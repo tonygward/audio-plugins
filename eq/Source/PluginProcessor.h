@@ -3,21 +3,23 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <array>
 #include <atomic>
+#include <mutex>
 #include "EQParams.h"
 #include "EQEngine.h"
 #include "EQEditController.h"
 #include "PresetManager.h"
 #include "SpectrumAnalyser.h"
 #include "AutoGain.h"
+#include "LinearPhase.h"
 
-class ThreeBandEQAudioProcessor : public juce::AudioProcessor
+class ThreeBandEQAudioProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
     static constexpr int numBands = EQ::numBands;
     static constexpr int stateVersion = 2;   // 1 = v0.1 (3 fixed bell bands), 2 = 24-band bank
 
     ThreeBandEQAudioProcessor();
-    ~ThreeBandEQAudioProcessor() override = default;
+    ~ThreeBandEQAudioProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -32,7 +34,7 @@ public:
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
+    double getTailLengthSeconds() const override;
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -63,6 +65,16 @@ public:
     juce::AudioProcessorParameter* getBypassParameter() const override { return bypassParam; }
     juce::RangedAudioParameter* getOutputGainParam() const noexcept { return outputGainParam; }
     juce::RangedAudioParameter* getGainScaleParam() const noexcept  { return gainScaleParam; }
+
+    // Linear-phase mode
+    bool isLinearPhaseSelected() const noexcept { return phaseModeParam->getIndex() == 1; }
+    int getLinearPhaseQuality() const noexcept  { return lpQualityParam->getIndex(); }
+    int getLinearPhaseLength() const noexcept   { return EQ::LinearPhaseEQ::firLength (getLinearPhaseQuality(), currentSampleRate); }
+    EQ::LinearPhaseBands gatherLinearPhaseBands() const;
+    bool updateLinearPhaseDesign (bool force);   // designer thread (or tests): returns true if a design was submitted
+    void designLinearPhaseNow() { updateLinearPhaseDesign (true); }
+    bool isLinearPhaseReady() const { return linearPhase.isReady (getLinearPhaseLength()); }
+    void updateLatencyNow();                     // what the timer does: report the latency of the selected mode
 
     // Scale the whole curve: multiplier (1 = 100 %) on every gain band's dB gain.
     float getGainScale() const noexcept
@@ -146,6 +158,26 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> autoGainSmoothed { 1.0f };
     bool autoGainWasOn = false;
     static constexpr double autoGainSmoothingSeconds = 0.25;
+
+    // Linear-phase mode (see LinearPhase.h). The designer thread rebuilds the FIRs when the
+    // EQ changes (at most every 40 ms); the message-thread timer keeps the reported latency
+    // in step; the audio thread fades out, switches path, and fades back in on a mode change.
+    struct LinearPhaseDesigner;
+    std::unique_ptr<LinearPhaseDesigner> lpDesigner;
+    EQ::LinearPhaseEQ linearPhase;
+    juce::AudioParameterChoice* phaseModeParam = nullptr;
+    juce::AudioParameterChoice* lpQualityParam = nullptr;
+    bool lpActive = false;                     // audio thread: path in use
+    int lpLength = 8192;                       // FIR length in use (audio thread)
+    std::atomic<int> designedLength { 0 };     // length of the last submitted design
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> modeFade { 1.0f };
+    juce::AudioBuffer<float> dryDelay;         // delays the bypass dry signal to match the latency
+    int dryDelayPos = 0;
+    std::size_t lastDesignHash = 0;
+    std::mutex designMutex;                    // designer thread vs. direct calls (never the audio thread)
+    double currentSampleRate = 48000.0;
+
+    void timerCallback() override;
     std::atomic<float>* outputGainRaw = nullptr;
     juce::RangedAudioParameter* gainScaleParam = nullptr;
     std::atomic<float>* gainScaleRaw = nullptr;

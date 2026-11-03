@@ -97,6 +97,8 @@ namespace EQ
     inline const char* const bypassId     = "bypass";
     inline const char* const autoGainId   = "auto_gain";
     inline const char* const gainScaleId  = "gain_scale";
+    inline const char* const phaseModeId  = "phase_mode";   // 0 zero latency, 1 linear phase
+    inline const char* const lpQualityId  = "lp_quality";   // linear-phase FIR length: low, medium, high
 
     constexpr float minGainScale = -100.0f, maxGainScale = 200.0f;   // percent; 100 = as set
 
