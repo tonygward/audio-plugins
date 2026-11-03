@@ -18,18 +18,18 @@ Songsmith EQ, by Songsmith Studio, was called TW Pro EQ before v0.3. Sessions an
 
 - Up to 24 bands: Bell, Low Shelf, High Shelf, Low Cut, High Cut and Notch
 - Low Cut and High Cut slopes of 6, 12, 18, 24, 36 or 48 dB/oct (Butterworth; raise Q for a resonant peak at the cutoff)
-- **Oversampling** (top bar: OS off / 2x / 4x): stops high-frequency bells and shelves from "cramping" near Nyquist at 44.1/48 kHz. It adds a few samples of reported latency in zero-latency mode; in linear-phase mode it only changes the filter design
-- **Linear-phase mode** (top bar): "Linear: low / medium / high" for mastering. It adds latency (at 44.1/48 kHz about 43-46, 85-93 or 171-186 ms), which is reported to your DAW for compensation. Dynamic EQ and solo need zero-latency mode
-- **Dynamic EQ per band** (Bell and shelves): turn on **Dyn** in the band panel for threshold, range (±24 dB), attack and release; the band's gain moves with the level in its own frequency region, or with the sidechain (**SC**). The graph shades the live curve and the node shows where the gain sits now
-- **Stereo modes per band:** Stereo, Left, Right, Mid or Side (a small L/R/M/S badge marks the node). The "Curve" selector shows the combined curve for one channel
+- **Oversampling** (top bar: "Oversampling: off / 2× / 4×"): stops high-frequency bells and shelves from "cramping" near Nyquist at 44.1/48 kHz. It adds a few samples of reported latency in zero-latency mode; in linear-phase mode it only changes the filter design
+- **Linear-phase mode** (top bar): "Linear phase: low / medium / high" for mastering. It adds latency (at 44.1/48 kHz about 43-46, 85-93 or 171-186 ms), which is reported to your DAW for compensation. Dynamic EQ and solo need zero-latency mode
+- **Dynamic EQ per band** (Bell and shelves): turn on **Dynamic** in the band panel for threshold, range (±24 dB), attack and release; the band's gain moves with the level in its own frequency region, or with the side chain (**Side Chain**). The graph shades the live curve and the node shows where the gain sits now
+- **Stereo modes per band:** Stereo, Left, Right, Mid or Side (a small "Left", "Right", "Mid" or "Side" label sits under the node). The "Curve" selector shows the combined curve for one channel
 - Click-free parameter smoothing, undo/redo, and a response curve drawn from the real DSP coefficients
 - **Scale** (top bar): scales every band's gain together, -100 % to +200 % (0 % = flat, negative inverts; cuts and notches are unaffected). Double-click for 100 %. It's automatable and stored in presets
-- Pre/post spectrum analyser with settings (the `...` button): freeze, peak hold (click the graph to reset), tilt 0/3/4.5/6 dB/oct, 2048/4096/8192-point resolution, slow/medium/fast speed and dBFS range. Plus an optional **sidechain spectrum** (orange) to spot masking: route another track to the sidechain input and pick "Sidechain: spectrum" or "+ overlap" (shades where both tracks are within 6 dB above -60 dBFS). The selector appears once the sidechain receives signal; the sidechain is never heard
+- Spectrum analyser, before or after the EQ ("Analyser: before EQ" / "after EQ"), with settings (the `...` button): freeze, peak hold (click the graph to reset), tilt 0/3/4.5/6 dB/oct, resolution low/medium/high (2048, 4096 or 8192 points), slow/medium/fast speed and dBFS range. Plus an optional **side chain spectrum** (orange) to spot masking: route another track to the side chain input and pick "Side Chain: spectrum" or "Side Chain: spectrum and overlap" (shades where both tracks are within 6 dB above -60 dBFS). The selector appears once the side chain receives signal; the side chain is never heard
 - **Notes:** frequencies show the nearest note and cents (`440 Hz · A4 +0¢`); type note names such as `A2`, `C#5` or `Eb3` into the frequency field; hold Ctrl (Cmd on macOS) while dragging to snap to semitones; right-click the empty graph to show a piano strip along the frequency axis
 - **Solo a band:** Alt-click (and drag) a node to hear only the region it affects while the mouse is held, or latch it with the Solo button in the band panel or the right-click menu
 - **Output gain** (±24 dB, double-click to reset) with a peak meter, peak hold and clip indicator (click the meter to clear it)
 - **Global bypass** that your DAW uses as its native bypass, with a smooth 20 ms cross-fade
-- **Auto gain** (AG button): matches the output loudness to the input (K-weighted, 2 s window, ±12 dB, frozen on silence) so you judge EQ moves at equal loudness; the button shows the correction
+- **Auto Gain** (top bar): matches the output loudness to the input (K-weighted, 2 s window, ±12 dB, frozen on silence) so you judge EQ moves at equal loudness; the button shows the correction, for example "Auto Gain +1.2 dB"
 - **Starting points** (in the preset menu): 11 templates for common sources: lead vocal, backing vocals, spoken word, acoustic guitar body, electric guitar, electric guitar bus, bass guitar, drum bus, snare, reverb return and a five-zone teaching layout. They're based on advice from Joe Gilder's [Home Studio Corner](https://homestudiocorner.com) videos, and they aren't endorsed by him. They work the way he does: cuts before boosts, small moves, "only if needed" bands loaded but switched off, and output gain set so turning the EQ on and off compares tone, not loudness. Hover over the preset name for a one-line hint. Treat the frequencies as places to start listening, and move each band to what you hear in the mix
 - **Presets:** 8 factory presets plus your own presets, saved as `.sspreset` files in `%APPDATA%\Songsmith Studio\Songsmith EQ\Presets` (Windows) or `~/Library/Songsmith Studio/Songsmith EQ/Presets` (macOS). Presets saved by TW Pro EQ (`.twpreset`) still load: the first time you open the preset menu or use the preset arrows, they're copied from the old `TW Pro EQ\Presets` folder, which is left as it was. Use the arrows and the menu in the top bar; `*` means the settings differ from the loaded preset. Loading a preset is one undo step.
 
@@ -205,3 +205,9 @@ Then rescan plugins in your DAW. If Logic doesn't list the AU straight away, run
 - **The DAW doesn't see the plugin:** check the install path, then force a full rescan in the DAW.
 - **CMake can't find JUCE:** check that `-DJUCE_DIR` points at the folder that contains JUCE's own `CMakeLists.txt`. If you change it, delete the `build` folder and configure again.
 - **The install script says the plugin is in use:** close the DAW and run it again.
+
+---
+
+### Fonts
+
+The editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold, v4.1) by The Inter Project Authors, embedded in the plugin so Windows and macOS look the same. Inter is licensed under the SIL Open Font License 1.1; the licence is in [`eq/Resources/Fonts/OFL.txt`](eq/Resources/Fonts/OFL.txt).
