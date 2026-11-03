@@ -1,0 +1,3 @@
+# Shell scripts and the macOS installer files run on macOS: always LF, whatever core.autocrlf says.
+*.sh text eol=lf
+eq/installer/macos/** text eol=lf
