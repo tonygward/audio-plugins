@@ -1290,7 +1290,7 @@ public:
     struct TempFolder
     {
         juce::File dir = juce::File::getSpecialLocation (juce::File::tempDirectory)
-                             .getChildFile ("TWProEQ-tests-" + juce::String::toHexString (juce::Random::getSystemRandom().nextInt64()));
+                             .getChildFile ("SongsmithEQ-tests-" + juce::String::toHexString (juce::Random::getSystemRandom().nextInt64()));
         TempFolder()  { dir.createDirectory(); }
         ~TempFolder() { dir.deleteRecursively(); }
     };
@@ -1329,7 +1329,7 @@ public:
 
             juce::String error;
             expect (p.presets.saveAs ("Round trip", error), error);
-            expect (tmp.dir.getChildFile ("Round trip.twpreset").existsAsFile(), "file written");
+            expect (tmp.dir.getChildFile ("Round trip.sspreset").existsAsFile(), "file written as .sspreset");
 
             // Scramble, then load.
             for (int b = 0; b < numBands; ++b)
@@ -1359,7 +1359,7 @@ public:
             p.getBypassParameter()->setValueNotifyingHost (1.0f);
             juce::String error;
             expect (p.presets.saveAs ("UI", error));
-            const auto text = tmp.dir.getChildFile ("UI.twpreset").loadFileAsString();
+            const auto text = tmp.dir.getChildFile ("UI.sspreset").loadFileAsString();
             expect (! text.contains ("editorWidth") && ! text.contains ("analyserMode"), "no UI state");
             expect (! text.contains ("\"bypass\""), "no bypass");
             expect (text.contains ("version"), "versioned");
@@ -3289,6 +3289,272 @@ public:
     }
 };
 
+//==============================================================================
+// Task 21: TW Pro EQ -> Songsmith EQ. Sessions, presets and plugin identity carry over.
+class RenameTests final : public juce::UnitTest
+{
+public:
+    RenameTests() : juce::UnitTest ("Rename to Songsmith EQ", "EQ") {}
+
+    using TempFolder = PresetTests::TempFolder;
+
+    static void writePreset (SongsmithEQAudioProcessor& p, const juce::File& file, float band1Gain)
+    {
+        setBand (p, 0, Param::Gain, band1Gain);
+        auto state = p.createPresetState();
+        if (auto xml = state.createXml())
+            xml->writeTo (file);
+    }
+
+    void runTest() override
+    {
+        beginTest ("Names and plugin codes");
+        {
+            expectEquals (juce::String (JucePlugin_Name), juce::String ("Songsmith EQ"));
+            expectEquals (juce::String (JucePlugin_Manufacturer), juce::String ("Songsmith Studio"));
+            // Never change these: they are the VST3 class ID / AU identity existing sessions look for.
+            expectEquals (juce::String (EQ_MANUFACTURER_CODE), juce::String ("Tnyw"), "manufacturer code unchanged");
+            expectEquals (juce::String (EQ_PLUGIN_CODE), juce::String ("Eq3b"), "plugin code unchanged");
+        }
+
+        beginTest ("A session saved by TW Pro EQ 0.2.0 opens with identical settings");
+        {
+            const auto fixture = juce::File (EQ_TEST_FIXTURES).getChildFile ("tw-pro-eq-0.2.0-session.b64");
+            expect (fixture.existsAsFile(), "fixture present: " + fixture.getFullPathName());
+
+            juce::MemoryBlock mb;
+            expect (mb.fromBase64Encoding (fixture.loadFileAsString().trim()), "fixture decodes");
+            const auto xml = juce::AudioProcessor::getXmlFromBinary (mb.getData(), (int) mb.getSize());
+            expect (xml != nullptr, "fixture holds plugin state");
+            if (xml == nullptr)
+                return;
+
+            SongsmithEQAudioProcessor p;
+            p.setStateInformation (mb.getData(), (int) mb.getSize());
+
+            int checked = 0, nonDefault = 0;
+            juce::String diffs;
+            for (auto* child : xml->getChildWithTagNameIterator ("PARAM"))
+            {
+                const auto id = child->getStringAttribute ("id");
+                const auto saved = (float) child->getDoubleAttribute ("value");
+                auto* rp = p.apvts.getParameter (id);
+                if (rp == nullptr)
+                {
+                    diffs << id << " missing; ";
+                    continue;
+                }
+                const float now = rp->convertFrom0to1 (rp->getValue());
+                if (std::abs (now - saved) > 1.0e-4f * std::max (1.0f, std::abs (saved)))
+                    diffs << id << ": " << saved << " -> " << now << "; ";
+                nonDefault += std::abs (rp->getValue() - rp->getDefaultValue()) > 1.0e-6f ? 1 : 0;
+                ++checked;
+            }
+            expect (diffs.isEmpty(), "every parameter round-trips: " + diffs);
+            expectEquals (checked, p.getParameters().size(), "the session holds every parameter");
+            expectGreaterThan (nonDefault, checked * 3 / 4, "the fixture really moves the parameters off their defaults");
+
+            bool slots = true;
+            for (int b = 0; b < numBands; ++b)
+                slots = slots && p.isBandUsed (b) == ((b % 3) != 1);
+            expect (slots, "used/unused band slots restored");
+            expectEquals (p.selectedBand.load(), 5, "UI state restored");
+            expectEquals (p.editorWidth.load(), 1111);
+            expectEquals (p.editorHeight.load(), 666);
+
+            // Saving again writes the same parameter values back.
+            juce::MemoryBlock again;
+            p.getStateInformation (again);
+            SongsmithEQAudioProcessor q;
+            q.setStateInformation (again.getData(), (int) again.getSize());
+            bool same = true;
+            for (int i = 0; i < p.getParameters().size(); ++i)
+                same = same && std::abs (p.getParameters()[i]->getValue() - q.getParameters()[i]->getValue()) < 1.0e-6f;
+            expect (same, "re-saved session is identical");
+        }
+
+        beginTest ("Default preset folders");
+        {
+            const auto now = PresetManager::getDefaultUserFolder();
+            const auto old = PresetManager::getLegacyUserFolder();
+            expect (now.getFullPathName().endsWith (juce::File::addTrailingSeparator ("Songsmith Studio") + "Songsmith EQ"
+                                                    + juce::File::getSeparatorString() + "Presets"), now.getFullPathName());
+            expect (old.getFullPathName().endsWith (juce::File::addTrailingSeparator ("TW Pro EQ") + "Presets"), old.getFullPathName());
+            expect (now.getParentDirectory().getParentDirectory().getParentDirectory()
+                        == old.getParentDirectory().getParentDirectory(), "both under the same application-data folder");
+            const auto realAppData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+            expect (! now.isAChildOf (realAppData) && ! old.isAChildOf (realAppData), "tests never use the real folders");
+        }
+
+        beginTest ("Old presets folder and no new folder: presets are copied, the old folder is untouched");
+        {
+            TempFolder tmp;
+            const auto legacy = tmp.dir.getChildFile ("TW Pro EQ").getChildFile ("Presets");
+            const auto target = tmp.dir.getChildFile ("Songsmith Studio").getChildFile ("Songsmith EQ").getChildFile ("Presets");
+            legacy.createDirectory();
+
+            SongsmithEQAudioProcessor writer;
+            writePreset (writer, legacy.getChildFile ("Vocal.twpreset"), -4.0f);
+            writePreset (writer, legacy.getChildFile ("Bass.twpreset"), 2.5f);
+            const auto vocalText = legacy.getChildFile ("Vocal.twpreset").loadFileAsString();
+
+            SongsmithEQAudioProcessor p;
+            p.presets.setUserFolder (target, legacy);
+            const auto list = p.presets.getUserPresets();
+
+            expectEquals ((int) list.size(), 2, "both old presets listed");
+            expect (target.getChildFile ("Vocal.twpreset").existsAsFile() && target.getChildFile ("Bass.twpreset").existsAsFile(),
+                    "copied into the new folder");
+            expectEquals (target.getChildFile ("Vocal.twpreset").loadFileAsString(), vocalText, "copied byte for byte");
+            expect (legacy.getChildFile ("Vocal.twpreset").existsAsFile() && legacy.getChildFile ("Bass.twpreset").existsAsFile(),
+                    "old folder left in place");
+            expectEquals (legacy.getChildFile ("Vocal.twpreset").loadFileAsString(), vocalText, "old files unchanged");
+            expectEquals (target.getParentDirectory().findChildFiles (juce::File::findDirectories, false).size(), 1,
+                          "no temporary folder left behind");
+
+            juce::String error;
+            for (auto& e : list)
+                expect (e.file.isAChildOf (target) && p.presets.load (e, error), "loads from the new folder: " + e.name + " " + error);
+
+            // Deleting a preset later must not bring it back: migration only happens once.
+            target.getChildFile ("Bass.twpreset").deleteFile();
+            SongsmithEQAudioProcessor again;
+            again.presets.setUserFolder (target, legacy);
+            expectEquals ((int) again.presets.getUserPresets().size(), 1, "no second copy once the new folder exists");
+        }
+
+        beginTest ("Both folders exist: nothing is copied or overwritten");
+        {
+            TempFolder tmp;
+            const auto legacy = tmp.dir.getChildFile ("old");
+            const auto target = tmp.dir.getChildFile ("new");
+            legacy.createDirectory();
+            target.createDirectory();
+            legacy.getChildFile ("Old only.twpreset").replaceWithText ("<PARAMETERS/>");
+            legacy.getChildFile ("Same.twpreset").replaceWithText ("old");
+            target.getChildFile ("Same.twpreset").replaceWithText ("new");
+
+            expect (! PresetManager::migrateLegacyFolder (legacy, target), "nothing to do");
+
+            SongsmithEQAudioProcessor p;
+            p.presets.setUserFolder (target, legacy);
+            expectEquals ((int) p.presets.getUserPresets().size(), 1);
+            expect (! target.getChildFile ("Old only.twpreset").exists(), "nothing copied");
+            expectEquals (target.getChildFile ("Same.twpreset").loadFileAsString(), juce::String ("new"), "nothing overwritten");
+        }
+
+        beginTest ("Neither folder exists: the new folder works and starts empty");
+        {
+            TempFolder tmp;
+            const auto legacy = tmp.dir.getChildFile ("old");
+            const auto target = tmp.dir.getChildFile ("Songsmith Studio").getChildFile ("Songsmith EQ").getChildFile ("Presets");
+
+            SongsmithEQAudioProcessor p;
+            p.presets.setUserFolder (target, legacy);
+            expect (p.presets.getUserPresets().empty(), "empty");
+            expect (! legacy.exists(), "old folder not created");
+
+            juce::String error;
+            expect (p.presets.saveAs ("First", error), error);
+            expect (target.getChildFile ("First.sspreset").existsAsFile(), "saves into the new folder as .sspreset");
+            expectEquals ((int) p.presets.getUserPresets().size(), 1);
+        }
+
+        beginTest ("A legacy path that isn't a folder is ignored");
+        {
+            TempFolder tmp;
+            const auto notAFolder = tmp.dir.getChildFile ("TW Pro EQ");
+            notAFolder.replaceWithText ("not a folder");
+            const auto target = tmp.dir.getChildFile ("new");
+            expect (! PresetManager::migrateLegacyFolder (notAFolder, target));
+            expect (! target.exists(), "no folder created");
+        }
+
+        beginTest (".twpreset and .sspreset files are both listed and both load");
+        {
+            TempFolder tmp;
+            SongsmithEQAudioProcessor writer;
+            writePreset (writer, tmp.dir.getChildFile ("From TW Pro EQ.twpreset"), -6.0f);
+            writePreset (writer, tmp.dir.getChildFile ("From Songsmith.sspreset"), 3.0f);
+            tmp.dir.getChildFile ("Not a preset.txt").replaceWithText ("ignored");
+
+            SongsmithEQAudioProcessor p;
+            p.presets.setUserFolder (tmp.dir);
+            const auto list = p.presets.getUserPresets();
+            expectEquals ((int) list.size(), 2, "both extensions listed, other files ignored");
+
+            for (auto& e : list)
+            {
+                juce::String error;
+                expect (p.presets.load (e, error), e.name + ": " + error);
+                const float expected = e.file.hasFileExtension (PresetManager::legacyFileExtension) ? -6.0f : 3.0f;
+                expectWithinAbsoluteError (p.getBandValue (0, Param::Gain), expected, 0.01f, e.name);
+            }
+        }
+
+        beginTest ("Saving over a .twpreset updates it in place; new presets are .sspreset");
+        {
+            TempFolder tmp;
+            SongsmithEQAudioProcessor writer;
+            writePreset (writer, tmp.dir.getChildFile ("Vocal.twpreset"), -6.0f);
+
+            SongsmithEQAudioProcessor p;
+            p.presets.setUserFolder (tmp.dir);
+            juce::String error;
+            expect (p.presets.load (p.presets.getUserPresets().front(), error), error);
+            setBand (p, 0, Param::Gain, 1.5f);
+            expect (p.presets.saveAs (p.presets.getCurrent().name, error), error);   // what "Save" does
+
+            expect (! tmp.dir.getChildFile ("Vocal.sspreset").exists(), "no second 'Vocal'");
+            expectEquals ((int) p.presets.getUserPresets().size(), 1);
+            expect (p.presets.canSaveInPlace() && p.presets.getCurrent().file == tmp.dir.getChildFile ("Vocal.twpreset"),
+                    "current preset is still the .twpreset file");
+
+            SongsmithEQAudioProcessor q;
+            q.presets.setUserFolder (tmp.dir);
+            expect (q.presets.load (q.presets.getUserPresets().front(), error), error);
+            expectWithinAbsoluteError (q.getBandValue (0, Param::Gain), 1.5f, 0.01f, "the .twpreset holds the new settings");
+
+            expect (p.presets.saveAs ("Another", error), error);
+            expect (tmp.dir.getChildFile ("Another.sspreset").existsAsFile(), "new names save as .sspreset");
+        }
+
+        beginTest ("A session pointing at a preset in the old folder uses the migrated copy");
+        {
+            TempFolder tmp;
+            const auto legacy = tmp.dir.getChildFile ("old");
+            const auto target = tmp.dir.getChildFile ("new");
+            legacy.createDirectory();
+            SongsmithEQAudioProcessor writer;
+            writePreset (writer, legacy.getChildFile ("Mix.twpreset"), 2.0f);
+
+            SongsmithEQAudioProcessor p;
+            p.presets.setUserFolder (target, legacy);
+            juce::ValueTree ui ("UI");
+            ui.setProperty ("presetName", "Mix", nullptr);
+            ui.setProperty ("presetFactory", -1, nullptr);
+            ui.setProperty ("presetFile", legacy.getChildFile ("Mix.twpreset").getFullPathName(), nullptr);
+
+            p.presets.restoreFromUiState (ui);
+            expect (p.presets.getCurrent().file == legacy.getChildFile ("Mix.twpreset"), "before migration: the old file");
+            expect (! target.exists(), "restoring a session never writes");
+
+            p.presets.getUserPresets();   // first use migrates
+            p.presets.restoreFromUiState (ui);
+            expect (p.presets.getCurrent().file == target.getChildFile ("Mix.twpreset"), "after migration: the copy");
+        }
+
+        beginTest ("Messages use the new name");
+        {
+            PresetData d;
+            juce::String error;
+            expect (! PresetManager::decode (juce::ValueTree ("SOMETHING"), d, error));
+            expect (error.contains ("Songsmith EQ") && ! error.contains ("TW Pro"), error);
+        }
+    }
+};
+
+static RenameTests renameTests;
 static StartingPointTests startingPointTests;
 static OversamplingTests oversamplingTests;
 static LinearPhaseTests linearPhaseTests;
@@ -3548,6 +3814,13 @@ struct ConsoleRunner final : juce::UnitTestRunner
 int main (int argc, char* argv[])
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
+
+    // No test may touch the real user preset folders (or migrate the real old ones):
+    // point the default locations at a throwaway folder for the whole run.
+    const auto appData = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                             .getNonexistentChildFile ("SongsmithEQ-tests-appdata", {}, false);
+    PresetManager::setDefaultFoldersRootForTesting (appData);
+    struct Cleanup { juce::File dir; ~Cleanup() { dir.deleteRecursively(); } } cleanup { appData };
 
     for (int i = 1; i < argc; ++i)
         if (juce::String (argv[i]) == "--bench")

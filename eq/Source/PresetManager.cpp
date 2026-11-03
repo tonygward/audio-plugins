@@ -128,10 +128,75 @@ namespace EQ
     }
 
     //==========================================================================
+    namespace
+    {
+        juce::File& testingRoot()
+        {
+            static juce::File root;
+            return root;
+        }
+
+        juce::File appDataRoot()
+        {
+            return testingRoot() != juce::File() ? testingRoot()
+                                                 : juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+        }
+    }
+
     juce::File PresetManager::getDefaultUserFolder()
     {
-        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                   .getChildFile ("TW Pro EQ").getChildFile ("Presets");
+        // Vendor folder first, so later Songsmith plugins sit alongside.
+        return appDataRoot().getChildFile (JucePlugin_Manufacturer)
+                            .getChildFile (JucePlugin_Name)
+                            .getChildFile ("Presets");
+    }
+
+    juce::File PresetManager::getLegacyUserFolder()
+    {
+        return appDataRoot().getChildFile ("TW Pro EQ").getChildFile ("Presets");   // legacy: TW Pro EQ's folder
+    }
+
+    void PresetManager::setDefaultFoldersRootForTesting (const juce::File& root) { testingRoot() = root; }
+
+    void PresetManager::setUserFolder (const juce::File& f, const juce::File& legacy)
+    {
+        userFolder = f;
+        legacyFolder = legacy;
+        migrationChecked = false;
+    }
+
+    juce::File PresetManager::getUserFolder() const
+    {
+        migrateIfNeeded();
+        return userFolder;
+    }
+
+    void PresetManager::migrateIfNeeded() const
+    {
+        if (migrationChecked)
+            return;
+        migrationChecked = true;
+
+        if (legacyFolder != juce::File())
+            migrateLegacyFolder (legacyFolder, userFolder);
+    }
+
+    bool PresetManager::migrateLegacyFolder (const juce::File& legacy, const juce::File& target)
+    {
+        if (target.exists() || ! legacy.isDirectory())
+            return false;
+
+        const auto parent = target.getParentDirectory();
+        if (! parent.isDirectory() && ! parent.createDirectory())
+            return false;
+
+        // Copy next to the target, then rename: a failure never leaves a half-filled target.
+        const auto temp = parent.getNonexistentChildFile (target.getFileName() + "-migrating", {}, false);
+        if (legacy.copyDirectoryTo (temp) && temp.moveFileTo (target))
+            return true;
+
+        temp.deleteRecursively();
+        return false;
     }
 
     int PresetManager::getNumFactoryPresets()                 { return (int) factoryPresets().size(); }
@@ -174,11 +239,14 @@ namespace EQ
     //==========================================================================
     std::vector<PresetManager::Entry> PresetManager::getUserPresets() const
     {
+        migrateIfNeeded();
+
         std::vector<Entry> list;
         if (! userFolder.isDirectory())
             return list;
 
-        auto files = userFolder.findChildFiles (juce::File::findFiles, false, juce::String ("*") + fileExtension);
+        auto files = userFolder.findChildFiles (juce::File::findFiles, false,
+                                                juce::String ("*") + fileExtension + ";*" + legacyFileExtension);
         files.sort();
         for (auto& f : files)
             list.push_back ({ f.getFileNameWithoutExtension(), -1, f });
@@ -200,7 +268,7 @@ namespace EQ
     {
         if (! state.isValid() || ! state.hasType ("PARAMETERS"))
         {
-            error = "This file is not a TW Pro EQ preset.";
+            error = juce::String ("This file is not a ") + JucePlugin_Name + " preset.";
             return false;
         }
 
@@ -295,13 +363,20 @@ namespace EQ
             return false;
         }
 
+        migrateIfNeeded();   // copy old presets in before creating the folder, or they'd never be
+
         if (! userFolder.isDirectory() && ! userFolder.createDirectory())
         {
             error = "Could not create the preset folder:\n" + userFolder.getFullPathName();
             return false;
         }
 
-        const auto file = userFolder.getChildFile (name + fileExtension);
+        // Overwriting a preset saved by TW Pro EQ keeps its .twpreset file, so "Save" updates
+        // that preset in place instead of adding a second preset with the same name.
+        auto file = userFolder.getChildFile (name + fileExtension);
+        if (const auto legacy = userFolder.getChildFile (name + legacyFileExtension);
+            ! file.existsAsFile() && legacy.existsAsFile())
+            file = legacy;
         auto state = processor.createPresetState();
         state.removeChild (state.getChildWithProperty ("id", bypassId), nullptr);   // a preset never bypasses
         const auto xml = state.createXml();
@@ -395,6 +470,14 @@ namespace EQ
 
         const juce::String path = ui.getProperty ("presetFile", juce::String());
         if (! current.isFactory() && juce::File::isAbsolutePath (path))
+        {
             current.file = juce::File (path);
+
+            // Legacy: a session saved by TW Pro EQ points into the old presets folder. Use the
+            // migrated copy if there is one (read-only check: this can run on any thread).
+            if (legacyFolder != juce::File() && current.file.isAChildOf (legacyFolder))
+                if (const auto copy = userFolder.getChildFile (current.file.getRelativePathFrom (legacyFolder)); copy.existsAsFile())
+                    current.file = copy;
+        }
     }
 }

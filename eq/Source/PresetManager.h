@@ -20,7 +20,10 @@ namespace EQ
     class PresetManager
     {
     public:
-        static constexpr const char* fileExtension = ".twpreset";
+        // New saves use fileExtension. Presets saved by TW Pro EQ (<= v0.2) use
+        // legacyFileExtension; they are still listed and loaded.
+        static constexpr const char* fileExtension = ".sspreset";
+        static constexpr const char* legacyFileExtension = ".twpreset";   // legacy: TW Pro EQ
 
         struct Entry
         {
@@ -33,10 +36,30 @@ namespace EQ
 
         explicit PresetManager (SongsmithEQAudioProcessor& p) : processor (p) {}
 
-        // %APPDATA%/TW Pro EQ/Presets on Windows, ~/Library/TW Pro EQ/Presets on macOS.
+        // %APPDATA%/Songsmith Studio/Songsmith EQ/Presets on Windows,
+        // ~/Library/Songsmith Studio/Songsmith EQ/Presets on macOS.
         static juce::File getDefaultUserFolder();
-        juce::File getUserFolder() const { return userFolder; }
-        void setUserFolder (const juce::File& f) { userFolder = f; }   // tests
+
+        // Legacy: where TW Pro EQ (<= v0.2) kept user presets (%APPDATA%/TW Pro EQ/Presets).
+        static juce::File getLegacyUserFolder();
+
+        // Tests: redirect both default folders under 'root', so no test ever touches the
+        // real user folders. An empty File restores the real locations.
+        static void setDefaultFoldersRootForTesting (const juce::File& root);
+
+        // The user folder, after the one-off legacy copy (see migrateLegacyFolder).
+        juce::File getUserFolder() const;
+
+        // Tests: use 'f' as the user folder and 'legacy' as the old folder to migrate from
+        // (empty = no migration).
+        void setUserFolder (const juce::File& f, const juce::File& legacy = {});
+
+        // If 'target' doesn't exist and 'legacy' is a folder, copies (never moves) the
+        // legacy folder's contents into 'target'; the legacy folder is left as it is, so an
+        // older build still finds its presets. Copies into a temporary sibling first and
+        // renames it, so a failed copy leaves no 'target' (an empty preset list) rather
+        // than a half-copied one. Returns true if anything was copied. Message thread only.
+        static bool migrateLegacyFolder (const juce::File& legacy, const juce::File& target);
 
         // Factory presets
         static int getNumFactoryPresets();
@@ -74,9 +97,12 @@ namespace EQ
 
     private:
         void setCurrent (const Entry&, const PresetData& applied);
+        void migrateIfNeeded() const;
 
         SongsmithEQAudioProcessor& processor;
         juce::File userFolder { getDefaultUserFolder() };
+        juce::File legacyFolder { getLegacyUserFolder() };
+        mutable bool migrationChecked = false;
         Entry current;
         std::unique_ptr<PresetData> currentData;   // resolved lazily after a session restore
         bool resolveAttempted = false;

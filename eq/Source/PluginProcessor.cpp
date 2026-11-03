@@ -1,6 +1,13 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+// Hosts identify the plugin by these codes (VST3 class ID, AU aufx Eq3b Tnyw). They must
+// never change, or saved sessions stop finding the plugin. See eq/CMakeLists.txt.
+#if defined (JucePlugin_ManufacturerCode) && defined (JucePlugin_PluginCode)
+static_assert (JucePlugin_ManufacturerCode == 0x546e7977 /* 'Tnyw' */ && JucePlugin_PluginCode == 0x45713362 /* 'Eq3b' */,
+               "PLUGIN_MANUFACTURER_CODE / PLUGIN_CODE changed: existing sessions would no longer load");
+#endif
+
 namespace
 {
     const juce::Identifier slotsId  ("BANDSLOTS");
@@ -13,7 +20,7 @@ namespace
 // linear phase is selected and only when the EQ actually changed.
 struct SongsmithEQAudioProcessor::LinearPhaseDesigner final : juce::Thread
 {
-    explicit LinearPhaseDesigner (SongsmithEQAudioProcessor& p) : juce::Thread ("TW Pro EQ linear phase"), processor (p) {}
+    explicit LinearPhaseDesigner (SongsmithEQAudioProcessor& p) : juce::Thread (juce::String (JucePlugin_Name) + " linear phase"), processor (p) {}
 
     void run() override
     {

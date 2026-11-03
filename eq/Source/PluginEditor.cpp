@@ -4,6 +4,7 @@ namespace
 {
     constexpr int row1Height = 40, row2Height = 32;   // two-row top strip
     constexpr int margin       = 12;
+    constexpr int titleWidth   = 108;
     constexpr float ranges[]   = { 12.0f, 24.0f, 30.0f };
 }
 
@@ -349,7 +350,9 @@ void SongsmithEQAudioProcessorEditor::paint (juce::Graphics& g)
     auto header = getLocalBounds().removeFromTop (row1Height).reduced (margin, 0);
     g.setColour (EQColours::text);
     g.setFont (EQColours::font (17.0f, true));
-    g.drawText (juce::String (JucePlugin_Name).toUpperCase(), header, juce::Justification::centredLeft);
+    // The title has a fixed slot (see resized()); squeeze a longer product name to fit it.
+    g.drawFittedText (juce::String (JucePlugin_Name).toUpperCase(), header.withWidth (titleWidth),
+                      juce::Justification::centredLeft, 1, 0.8f);
 }
 
 void SongsmithEQAudioProcessorEditor::resized()
@@ -362,7 +365,7 @@ void SongsmithEQAudioProcessorEditor::resized()
     // Row 1: title | presets | undo/redo | curve scale | phase mode | band count | hint
     {
         auto row = area.removeFromTop (row1Height).reduced (margin, 7);
-        row.removeFromLeft (108);   // title (painted)
+        row.removeFromLeft (titleWidth);   // title (painted)
         presetBar.setBounds (row.removeFromLeft (200));
         row.removeFromLeft (12);
         undoButton.setBounds (row.removeFromLeft (50));
