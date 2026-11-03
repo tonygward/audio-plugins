@@ -6,9 +6,8 @@ There is one self-contained prompt per item in [`../../ROADMAP.md`](../../ROADMA
 
 | Prompt | Status |
 |---|---|
-| 05–20 (in [`done/`](done/)) | Done, merged into `main` |
-| [21 rename to Songsmith EQ](21-rename-songsmith.md) | Done in PR (roadmap/21-rename-songsmith), not yet merged |
-| [22 Windows installer](22-windows-installer.md) | Done in PR (roadmap/22-windows-installer, stacked on 21), not yet merged |
+| 05–22 (in [`done/`](done/)) | Done, merged into `main` (21 and 22 shipped in v0.3.0) |
+| [23 macOS installer](23-macos-installer.md) | To do |
 
 ## Run in waves, merging between waves
 
@@ -23,6 +22,7 @@ Every prompt branches from the latest `main`. Tasks in the same wave are mostly 
 | 5 | 18 linear phase, **then** 19 oversampling | Both change latency reporting. Run them one at a time. |
 | 6 | 20 starting-point templates | |
 | 7 | 21 rename to Songsmith EQ, **then** 22 Windows installer | One at a time: 22 uses the names, paths and presets folder that 21 introduces. |
+| 8 | 23 macOS installer | Follows 22's Windows installer. Built and tested on the macOS CI job, since the dev machine is Windows. |
 
 ## Conflict hotspots
 
