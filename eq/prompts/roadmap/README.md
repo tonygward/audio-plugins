@@ -13,6 +13,7 @@ Every prompt branches from the latest `main`. Tasks in the same wave are mostly 
 | 3 | 12 sidechain analyser · 13 analyser controls | Both change `SpectrumAnalyser`. Run them one after the other, or expect conflicts. |
 | 4 | 17 dynamic EQ | Large. Can use 12's sidechain bus. |
 | 5 | 18 linear phase, **then** 19 oversampling | Both change latency reporting. Run them one at a time. |
+| 6 | 20 starting-point templates · 21 Windows installer | Independent: 20 changes presets, 21 changes packaging and CI only. |
 
 ## Conflict hotspots
 
