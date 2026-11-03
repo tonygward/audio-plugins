@@ -804,7 +804,7 @@ void SongsmithEQAudioProcessor::saveMachineUiScale (float scale)
 void SongsmithEQAudioProcessor::setUiScale (float scale)
 {
     scale = EQ::EditorSize::snapUiScale (scale);
-    if (scale == uiScale.load())
+    if (std::abs (scale - uiScale.load()) < 1.0e-4f)
         return;
 
     uiScale.store (scale);

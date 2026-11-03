@@ -276,7 +276,7 @@ void EQDisplay::paint (juce::Graphics& g)
         if (const int solo = getSoloBand(); solo >= 0)
             drawSoloRegion (g, area, solo);
 
-        if (! curves.valid || curvesScale != physicalScale)
+        if (! curves.valid || std::abs (curvesScale - physicalScale) > 1.0e-4f)
         {
             computeCurves (area);
             curvesScale = physicalScale;
