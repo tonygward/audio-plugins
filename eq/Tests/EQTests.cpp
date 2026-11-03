@@ -4384,6 +4384,22 @@ static int renderScreenshots (const juce::File& folder, float scale)
         p.edits.setValue (dyn, Param::Range, -4.0f);
         add (FilterType::HighShelf, 10000.0f, 1.5f, 0.71f);
 
+        // A 1 kHz tone at about -8 dBFS, so the output meter shows a level.
+        {
+            juce::AudioBuffer<float> buffer (2, 512);
+            juce::MidiBuffer midi;
+            for (int block = 0; block < 8; ++block)
+            {
+                for (int i = 0; i < 512; ++i)
+                {
+                    const float v = 0.4f * std::sin (juce::MathConstants<float>::twoPi * 1000.0f * (float) (block * 512 + i) / 48000.0f);
+                    buffer.setSample (0, i, v);
+                    buffer.setSample (1, i, v);
+                }
+                p.processBlock (buffer, midi);
+            }
+        }
+
         p.uiScale = uiScale;
         p.editorWidth = width;
         p.editorHeight = height;
