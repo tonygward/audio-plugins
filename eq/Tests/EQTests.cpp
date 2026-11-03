@@ -9,6 +9,8 @@
 #include "EQEngine.h"
 #include "SvfFilter.h"
 #include "NoteNames.h"
+#include "EQDisplay.h"
+#include "PluginEditor.h"
 
 using namespace EQ;
 
@@ -3554,6 +3556,215 @@ public:
     }
 };
 
+//==============================================================================
+// Task 24: every word on screen is spelled out, and the embedded font is used.
+class WordingAndFontTests final : public juce::UnitTest
+{
+public:
+    WordingAndFontTests() : juce::UnitTest ("Plain wording and fonts", "EQ") {}
+
+    // Returns the first banned token in 'text', or an empty string.
+    // Banned: SC, AG, OS, Dyn, FREQ, THRESH, Sidechain, the word "Out", and any standalone single
+    // capital letter other than Q. Allowed: units, note names (A4, C#5: one token with the
+    // digit), and key names after a '+' in shortcuts (Ctrl+Z).
+    static juce::String findBanned (const juce::String& text)
+    {
+        static const juce::StringArray banned { "SC", "AG", "OS", "Dyn", "FREQ", "THRESH", "Sidechain", "Out" };
+
+        juce::String token;
+        juce::juce_wchar before = 0;   // the character before the current token
+        juce::juce_wchar previous = 0;
+
+        auto check = [&]() -> juce::String
+        {
+            if (token.isEmpty())
+                return {};
+            if (banned.contains (token))
+                return token;
+            if (token.length() == 1 && juce::CharacterFunctions::isUpperCase (token[0]) && token != "Q" && before != '+')
+                return token;
+            return {};
+        };
+
+        for (auto c : text)
+        {
+            if (juce::CharacterFunctions::isLetterOrDigit (c) || c == '#')
+            {
+                if (token.isEmpty())
+                    before = previous;
+                token << juce::String::charToString (c);
+            }
+            else
+            {
+                if (auto bad = check(); bad.isNotEmpty())
+                    return bad;
+                token.clear();
+            }
+            previous = c;
+        }
+        return check();
+    }
+
+    static void collect (juce::Component& c, juce::StringArray& out)
+    {
+        if (auto* tip = dynamic_cast<juce::SettableTooltipClient*> (&c))
+            out.add (tip->getTooltip());
+        if (auto* b = dynamic_cast<juce::Button*> (&c))
+            out.add (b->getButtonText());
+        if (auto* l = dynamic_cast<juce::Label*> (&c))
+            out.add (l->getText());
+        if (auto* box = dynamic_cast<juce::ComboBox*> (&c))
+            for (int i = 0; i < box->getNumItems(); ++i)
+                out.add (box->getItemText (i));
+        if (auto* s = dynamic_cast<juce::Slider*> (&c))
+            out.add (s->getTextFromValue (s->getValue()));
+
+        for (auto* child : c.getChildren())
+            collect (*child, out);
+    }
+
+    static void collect (const juce::PopupMenu& menu, juce::StringArray& out)
+    {
+        for (juce::PopupMenu::MenuItemIterator it (menu); it.next();)
+        {
+            out.add (it.getItem().text);
+            if (auto* sub = it.getItem().subMenu.get())
+                collect (*sub, out);
+        }
+    }
+
+    void runTest() override
+    {
+        beginTest ("The abbreviation check itself");
+        {
+            expectEquals (findBanned ("SC"), juce::String ("SC"));
+            expectEquals (findBanned ("AG +1.2"), juce::String ("AG"));
+            expectEquals (findBanned ("OS 2x"), juce::String ("OS"));
+            expectEquals (findBanned ("Out +0.0 dB"), juce::String ("Out"));
+            expectEquals (findBanned ("Sidechain: spectrum"), juce::String ("Sidechain"));
+            expectEquals (findBanned ("D"), juce::String ("D"));
+            expectEquals (findBanned ("THRESH"), juce::String ("THRESH"));
+            expect (findBanned ("Q").isEmpty());
+            expect (findBanned ("Undo (Ctrl+Z)").isEmpty());
+            expect (findBanned ("440 Hz " + juce::String::charToString (0x00b7) + " A4 +0").isEmpty());
+            expect (findBanned ("C#5, Eb3, 48 dB/oct, -60 dBFS, 10 ms, Oversampling: 2x").isEmpty());
+            expect (findBanned ("Output +1.5 dB").isEmpty());
+        }
+
+        beginTest ("No abbreviations anywhere in the editor");
+        {
+            SongsmithEQAudioProcessor p;
+            p.prepareToPlay (48000.0, 512);
+            setParam (p, "auto_gain", 1.0f);
+            const int dyn = p.edits.addBand (2500.0f, -2.0f, FilterType::Bell);
+            p.edits.setDynamic (dyn, true);
+            p.edits.setStereoMode (dyn, 3);
+
+            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+            for (auto* child : editor->getChildren())
+                if (auto* display = dynamic_cast<EQDisplay*> (child))
+                    display->setSelectedBand (dyn);
+
+            juce::StringArray texts;
+            collect (*editor, texts);
+            if (auto* ed = dynamic_cast<SongsmithEQAudioProcessorEditor*> (editor.get()))
+                collect (ed->createAnalyserMenu(), texts);
+
+            for (auto* prm : p.getParameters())
+                texts.add (prm->getName (100));
+            for (bool input : { true, false })
+                for (int i = 0; i < p.getBusCount (input); ++i)
+                    texts.add (p.getBus (input, i)->getName());
+
+            expectGreaterThan (texts.size(), 100, "found the editor's text");
+            for (auto& t : texts)
+                expect (findBanned (t).isEmpty(), "abbreviation \"" + findBanned (t) + "\" in \"" + t + "\"");
+
+            expect (texts.contains ("Side Chain"), "the side chain button says Side Chain");
+            expect (texts.contains ("Dynamic"), "the dynamic button says Dynamic");
+            expect (texts.contains ("Threshold") && texts.contains ("Frequency"), "knob labels are spelled out");
+            expect (texts.contains ("Side Chain: spectrum and overlap"));
+            expect (texts.contains ("Auto Gain 0.0 dB"), "auto gain shows its correction with the unit");
+            expect (texts.contains ("Output +0.0 dB") || texts.contains ("Output 0.0 dB"));
+            expect (texts.contains ("Band 1 Frequency") && texts.contains ("Band 1 Enabled")
+                    && texts.contains ("Band 1 Dynamic Side Chain"), "parameter display names");
+        }
+
+        beginTest ("Typed output gain accepts the label or a bare number");
+        {
+            expectWithinAbsoluteError (SongsmithEQAudioProcessorEditor::parseOutputGainText ("Output +1.5 dB"), 1.5, 1.0e-9);
+            expectWithinAbsoluteError (SongsmithEQAudioProcessorEditor::parseOutputGainText ("-3 dB"), -3.0, 1.0e-9);
+            expectWithinAbsoluteError (SongsmithEQAudioProcessorEditor::parseOutputGainText ("2"), 2.0, 1.0e-9);
+            expectWithinAbsoluteError (SongsmithEQAudioProcessorEditor::parseOutputGainText ("Output -12.0 dB"), -12.0, 1.0e-9);
+        }
+
+        beginTest ("Embedded font, tabular figures and minimum sizes");
+        {
+            for (auto w : { EQColours::Weight::Regular, EQColours::Weight::Medium, EQColours::Weight::SemiBold })
+            {
+                auto tf = EQColours::typeface (w);
+                expect (tf != nullptr, "typeface loaded");
+                if (tf != nullptr)
+                    expect (tf->getName().startsWith ("Inter"), "embedded Inter, got " + tf->getName());
+            }
+            expect (EQColours::typeface (EQColours::Weight::Regular) == EQColours::typeface (EQColours::Weight::Regular),
+                    "loaded once and shared");
+
+            // Tabular figures: every digit has the same advance.
+            const juce::Font numbers (EQColours::numbers (13.0f));
+            const float one = juce::GlyphArrangement::getStringWidth (numbers, "1111"),
+                        eight = juce::GlyphArrangement::getStringWidth (numbers, "8888");
+            expectWithinAbsoluteError (one, eight, 0.01f, "tabular digits don't jitter");
+
+            SongsmithEQAudioProcessor p;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+            auto& lf = editor->getLookAndFeel();
+            std::function<void (juce::Component&)> walk = [&] (juce::Component& c)
+            {
+                if (auto* l = dynamic_cast<juce::Label*> (&c); l != nullptr && l->getText().isNotEmpty())
+                    expectGreaterOrEqual (lf.getLabelFont (*l).getHeight(), EQColours::TextSize::small, "label " + l->getText());
+                if (auto* box = dynamic_cast<juce::ComboBox*> (&c))
+                    expectGreaterOrEqual (lf.getComboBoxFont (*box).getHeight(), EQColours::TextSize::control);
+                if (auto* b = dynamic_cast<juce::TextButton*> (&c))
+                    expectGreaterOrEqual (lf.getTextButtonFont (*b, b->getHeight()).getHeight(), EQColours::TextSize::control,
+                                          "button " + b->getButtonText());
+                for (auto* child : c.getChildren())
+                    walk (*child);
+            };
+            walk (*editor);
+        }
+
+        beginTest ("Top-bar text fits at the minimum editor size");
+        {
+            SongsmithEQAudioProcessor p;
+            setParam (p, "auto_gain", 1.0f);
+            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+            editor->setSize (760, 440);
+            auto& lf = editor->getLookAndFeel();
+
+            std::vector<juce::Rectangle<int>> placed;
+            for (auto* c : editor->getChildren())
+            {
+                if (! c->isVisible() || dynamic_cast<EQDisplay*> (c) != nullptr || dynamic_cast<juce::TooltipWindow*> (c) != nullptr)
+                    continue;
+                expect (editor->getLocalBounds().contains (c->getBounds()), "inside the editor");
+                for (auto& r : placed)
+                    expect (! r.intersects (c->getBounds()), "top-bar controls don't overlap");
+                placed.push_back (c->getBounds());
+
+                if (auto* box = dynamic_cast<juce::ComboBox*> (c))
+                    for (int i = 0; i < box->getNumItems(); ++i)
+                        expectLessOrEqual (juce::GlyphArrangement::getStringWidth (lf.getComboBoxFont (*box), box->getItemText (i)),
+                                           (float) box->getWidth() - 30.0f, "fits: " + box->getItemText (i));
+                if (auto* b = dynamic_cast<juce::TextButton*> (c))
+                    expectLessOrEqual (juce::GlyphArrangement::getStringWidth (lf.getTextButtonFont (*b, b->getHeight()), b->getButtonText()),
+                                       (float) b->getWidth() - 8.0f, "fits: " + b->getButtonText());
+            }
+        }
+    }
+};
+
+static WordingAndFontTests wordingAndFontTests;
 static RenameTests renameTests;
 static StartingPointTests startingPointTests;
 static OversamplingTests oversamplingTests;
@@ -3806,6 +4017,63 @@ static void runBenchmark()
                    setBand (p, b, Param::Gain, 6.0f * std::sin ((float) bi * 0.05f + (float) b));
                });
 }
+//==============================================================================
+// EQTests --screenshots <folder> [--scale 2]
+// Renders the editor (the same component the standalone app and the plug-ins show) with a
+// fixed scene: a low cut, a Mid-only bell, a dynamic bell with its band panel open and a
+// high shelf. Saves PNGs at the default and the minimum editor size. Used for the UI PRs'
+// before/after pictures; works headless, so CI can make Retina (--scale 2) shots on macOS.
+static int renderScreenshots (const juce::File& folder, float scale)
+{
+    folder.createDirectory();
+
+    auto shoot = [&] (int width, int height, const juce::String& name)
+    {
+        SongsmithEQAudioProcessor p;
+        p.prepareToPlay (48000.0, 512);
+        for (int b = 0; b < numBands; ++b)   // a fresh instance starts with three bands
+            if (p.isBandUsed (b))
+                p.edits.removeBand (b);
+
+        auto add = [&] (FilterType type, float freq, float gain, float q)
+        {
+            const int b = p.edits.addBand (freq, gain, type);
+            p.edits.setValue (b, Param::Q, q);
+            return b;
+        };
+        const int cut = add (FilterType::LowCut, 70.0f, 0.0f, 0.71f);
+        p.edits.setSlope (cut, 3);
+        const int mid = add (FilterType::Bell, 280.0f, -3.5f, 1.2f);
+        p.edits.setStereoMode (mid, 3);   // Mid
+        const int dyn = add (FilterType::Bell, 2600.0f, -2.0f, 2.0f);
+        p.edits.setDynamic (dyn, true);
+        p.edits.setValue (dyn, Param::Range, -4.0f);
+        add (FilterType::HighShelf, 10000.0f, 1.5f, 0.71f);
+
+        p.editorWidth = width;
+        p.editorHeight = height;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+        editor->setSize (width, height);
+
+        for (auto* child : editor->getChildren())
+            if (auto* display = dynamic_cast<EQDisplay*> (child))
+                display->setSelectedBand (dyn);
+
+        const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, scale);
+        const auto file = folder.getChildFile (name + (scale != 1.0f ? "@" + juce::String (scale, 0) + "x" : juce::String()) + ".png");
+        file.deleteFile();
+        juce::FileOutputStream out (file);
+        juce::PNGImageFormat().writeImageToStream (image, out);
+        std::printf ("%s\n", file.getFullPathName().toRawUTF8());
+        p.releaseResources();
+    };
+
+    SongsmithEQAudioProcessor defaults;
+    shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "default-size");
+    shoot (760, 440, "minimum-size");
+    return 0;
+}
+
 struct ConsoleRunner final : juce::UnitTestRunner
 {
     void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); std::fflush (stdout); }
@@ -3823,11 +4091,23 @@ int main (int argc, char* argv[])
     struct Cleanup { juce::File dir; ~Cleanup() { dir.deleteRecursively(); } } cleanup { appData };
 
     for (int i = 1; i < argc; ++i)
+    {
         if (juce::String (argv[i]) == "--bench")
         {
             runBenchmark();
             return 0;
         }
+
+        if (juce::String (argv[i]) == "--screenshots" && i + 1 < argc)
+        {
+            float scale = 1.0f;
+            for (int j = 1; j + 1 < argc; ++j)
+                if (juce::String (argv[j]) == "--scale")
+                    scale = juce::String (argv[j + 1]).getFloatValue();
+            return renderScreenshots (juce::File::getCurrentWorkingDirectory().getChildFile (argv[i + 1]),
+                                      juce::jlimit (1.0f, 4.0f, scale));
+        }
+    }
 
     ConsoleRunner runner;
     runner.setAssertOnFailure (false);
