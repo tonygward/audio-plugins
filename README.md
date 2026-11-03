@@ -7,6 +7,7 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 | Plugin | Folder | Formats |
 |---|---|---|
 | **Songsmith EQ**: parametric EQ with a spectrum analyser | [`eq/`](eq/) | VST3, AU (macOS), Standalone |
+| **Songsmith Analog Compressor** (in development): FET feedback compressor inspired by the 1176LN | [`fet/`](fet/) | VST3, AU (macOS), Standalone |
 
 ---
 
