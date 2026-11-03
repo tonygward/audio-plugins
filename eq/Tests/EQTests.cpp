@@ -447,7 +447,7 @@ public:
         beginTest ("Parameter identities");
         {
             ThreeBandEQAudioProcessor p;
-            constexpr int numGlobalParams = 3;   // output_gain, bypass, auto_gain
+            constexpr int numGlobalParams = 4;   // output_gain, bypass, auto_gain, gain_scale
             expectEquals (p.getParameters().size(), numBands * numBandParams + numGlobalParams, "24 bands x per-band parameters + globals");
 
             juce::StringArray ids;
@@ -2187,6 +2187,139 @@ public:
     }
 };
 
+//==============================================================================
+class GainScaleTests final : public juce::UnitTest
+{
+public:
+    GainScaleTests() : juce::UnitTest ("Scale the whole curve", "EQ") {}
+
+    static constexpr double fs = 48000.0;
+    static constexpr int block = 256;
+
+    // Steady-state processor gain (dB) at f with a single band and the given scale.
+    static double measure (FilterType type, float freq, float gain, float scalePct, double f)
+    {
+        ThreeBandEQAudioProcessor p;
+        for (int b = 1; b < numBands; ++b)
+            p.setBandUsed (b, false);
+        setBand (p, 0, Param::Type, (float) type);
+        setBand (p, 0, Param::Freq, freq);
+        setBand (p, 0, Param::Gain, gain);
+        setBand (p, 0, Param::Q, 1.0f);
+        setParam (p, "gain_scale", scalePct);
+        p.prepareToPlay (fs, block);
+
+        const int total = (int) (0.5 * fs);
+        auto sig = [f] (int n) { return (float) (0.25 * std::sin (2.0 * pi * f * n / fs)); };
+        const auto out = runProcessor (p, fs, block, total, sig, [] (int) {});
+        std::vector<float> in ((size_t) total);
+        for (int n = 0; n < total; ++n) in[(size_t) n] = sig (n);
+        return 20.0 * std::log10 (rms (out, (size_t) total / 2, out.size()) / rms (in, (size_t) total / 2, in.size()));
+    }
+
+    void runTest() override
+    {
+        beginTest ("0 % flattens bells and shelves; cuts and notches stay active");
+        {
+            expectWithinAbsoluteError (measure (FilterType::Bell, 1000.0f, 12.0f, 0.0f, 1000.0), 0.0, 0.01, "bell flat");
+            expectWithinAbsoluteError (measure (FilterType::LowShelf, 300.0f, 9.0f, 0.0f, 100.0), 0.0, 0.01, "low shelf flat");
+            expectWithinAbsoluteError (measure (FilterType::HighShelf, 3000.0f, -9.0f, 0.0f, 10000.0), 0.0, 0.01, "high shelf flat");
+            expectLessThan (measure (FilterType::LowCut, 400.0f, 0.0f, 0.0f, 100.0), -20.0, "low cut still cuts");
+            expectLessThan (measure (FilterType::Notch, 1000.0f, 0.0f, 0.0f, 1000.0), -20.0, "notch still notches");
+        }
+
+        beginTest ("50 % halves, -100 % inverts, 200 % doubles a +12 dB bell");
+        {
+            expectWithinAbsoluteError (measure (FilterType::Bell, 1000.0f, 12.0f, 50.0f, 1000.0), 6.0, 0.05, "50 %");
+            expectWithinAbsoluteError (measure (FilterType::Bell, 1000.0f, 12.0f, -100.0f, 1000.0), -12.0, 0.05, "-100 %");
+            expectWithinAbsoluteError (measure (FilterType::Bell, 1000.0f, 6.0f, 200.0f, 1000.0), 12.0, 0.05, "200 %");
+        }
+
+        beginTest ("100 % is bit-identical to the plain engine; stored gains are unchanged");
+        {
+            ThreeBandEQAudioProcessor p;
+            setBand (p, 0, Param::Gain, 7.5f);
+            setBand (p, 1, Param::Gain, -4.0f);
+            setBand (p, 2, Param::Type, (float) FilterType::HighShelf);
+            setBand (p, 2, Param::Gain, 3.0f);
+            p.prepareToPlay (fs, block);
+
+            Engine e;
+            e.prepare (fs);
+            for (int b = 0; b < numBands; ++b)
+            {
+                BandSettings s;
+                s.active = p.isBandUsed (b);
+                s.type = typeFromIndex ((int) p.getBandValue (b, Param::Type));
+                s.freq = p.getBandValue (b, Param::Freq);
+                s.gain = typeHasGain (s.type) ? p.getBandValue (b, Param::Gain) : 0.0f;
+                s.q = p.getBandValue (b, Param::Q);
+                e.setBand (b, s);
+            }
+
+            std::mt19937 rng (15);
+            std::uniform_real_distribution<float> d (-0.5f, 0.5f);
+            std::vector<float> in ((size_t) (0.5 * fs));
+            for (auto& v : in) v = d (rng);
+            const auto out = runProcessor (p, fs, block, (int) in.size(), [&] (int n) { return in[(size_t) n]; }, [] (int) {});
+
+            auto l = in, r = in;
+            for (size_t pos = 0; pos < l.size(); pos += block)
+            {
+                float* ch[] = { l.data() + pos, r.data() + pos };
+                e.process (ch, 2, (int) std::min ((size_t) block, l.size() - pos));
+            }
+            expect (out == l, "identical");
+
+            setParam (p, "gain_scale", 30.0f);
+            expectEquals (p.getBandValue (0, Param::Gain), 7.5f, "stored gain untouched by the scale");
+        }
+
+        beginTest ("Rapid automation of the scale stays finite and smooth");
+        {
+            ThreeBandEQAudioProcessor p;
+            for (int b = 0; b < 3; ++b)
+                setBand (p, b, Param::Gain, 6.0f);   // bells at 100 Hz, 1 kHz, 8 kHz
+            p.prepareToPlay (fs, block);
+
+            std::mt19937 rng (16);
+            const int total = (int) (2.0 * fs);
+            const auto out = runProcessor (p, fs, 64, total, [] (int n) { return (float) (0.1 * std::sin (2.0 * pi * 1000.0 * n / fs)); },
+                                           [&] (int) { setParam (p, "gain_scale", -100.0f + (float) (rng() % 3001) * 0.1f); });
+
+            expect (std::all_of (out.begin(), out.end(), [] (float v) { return std::isfinite (v); }), "finite");
+            // Worst case +12 dB (200 % of +6) on a 1 kHz sine of 0.1.
+            const double bound = 0.1 * std::pow (10.0, 12.0 / 20.0) * 2.0 * pi * 1000.0 / fs;
+            expectLessThan (maxStep (out, 1, out.size()), bound * 1.5, "bounded slope (no clicks)");
+        }
+
+        beginTest ("Saved, stored in presets, legacy sessions load at 100 %");
+        {
+            ThreeBandEQAudioProcessor p;
+            setParam (p, "gain_scale", 42.0f);
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+            ThreeBandEQAudioProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expectWithinAbsoluteError (q.getGainScale(), 0.42f, 1.0e-4f, "restored");
+
+            const auto data = q.edits.getPresetData();
+            expectWithinAbsoluteError (data.gainScale, 42.0f, 0.01f, "in the preset data");
+            ThreeBandEQAudioProcessor r;
+            r.edits.loadPreset (data, "test");
+            expectWithinAbsoluteError (r.getGainScale(), 0.42f, 1.0e-4f, "preset load applies the scale");
+
+            auto state = q.apvts.copyState();
+            state.removeChild (state.getChildWithProperty ("id", "gain_scale"), nullptr);
+            juce::MemoryBlock old;
+            juce::AudioProcessor::copyXmlToBinary (*state.createXml(), old);
+            q.setStateInformation (old.getData(), (int) old.getSize());
+            expectEquals (q.getGainScale(), 1.0f, "older session: exactly 100 %");
+        }
+    }
+};
+
+static GainScaleTests gainScaleTests;
 static AutoGainTests autoGainTests;
 static AnalyserControlTests analyserControlTests;
 static SidechainTests sidechainTests;
