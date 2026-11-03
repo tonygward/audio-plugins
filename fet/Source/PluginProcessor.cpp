@@ -3,6 +3,13 @@
 
 using namespace FET;
 
+namespace
+{
+    // Exactly 1.0f at 0 dB, whatever the platform's pow() rounding (fast-math builds on macOS
+    // return 0.99999994 for pow (10, 0)), so default settings stay bit-exact.
+    float dbToGain (float db) noexcept { return db == 0.0f ? 1.0f : juce::Decibels::decibelsToGain (db); }
+}
+
 SongsmithAnalogCompressorProcessor::SongsmithAnalogCompressorProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
@@ -65,8 +72,8 @@ void SongsmithAnalogCompressorProcessor::prepareToPlay (double sampleRate, int s
     outputGain.reset (sampleRate, gainSmoothingSeconds);
     bypassMix.reset (sampleRate, bypassFadeSeconds);
 
-    inputGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (inputDb->load()));
-    outputGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (outputDb->load()));
+    inputGain.setCurrentAndTargetValue (dbToGain (inputDb->load()));
+    outputGain.setCurrentAndTargetValue (dbToGain (outputDb->load()));
     bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
     dry.setSize (juce::jmax (1, getTotalNumOutputChannels()), juce::jmax (1, samplesPerBlock), false, false, true);
@@ -85,8 +92,8 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
     if (n == 0 || numCh == 0)
         return;
 
-    inputGain.setTargetValue (juce::Decibels::decibelsToGain (inputDb->load()));
-    outputGain.setTargetValue (juce::Decibels::decibelsToGain (outputDb->load()));
+    inputGain.setTargetValue (dbToGain (inputDb->load()));
+    outputGain.setTargetValue (dbToGain (outputDb->load()));
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
     // Fully bypassed and settled: leave the buffer untouched (bit-exact pass-through).
@@ -104,12 +111,18 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
         for (int c = 0; c < numCh; ++c)
             dry.copyFrom (c, 0, buffer, c, 0, n);
 
+    const bool unity = ! inputGain.isSmoothing() && ! outputGain.isSmoothing()
+                       && inputGain.getTargetValue() == 1.0f && outputGain.getTargetValue() == 1.0f;
+
     // Shell: input drive and output trim only. The compressor engine arrives in step 2.
-    for (int i = 0; i < n; ++i)
+    if (! unity)
     {
-        const float g = inputGain.getNextValue() * outputGain.getNextValue();
-        for (int c = 0; c < numCh; ++c)
-            buffer.getWritePointer (c)[i] *= g;
+        for (int i = 0; i < n; ++i)
+        {
+            const float g = inputGain.getNextValue() * outputGain.getNextValue();
+            for (int c = 0; c < numCh; ++c)
+                buffer.getWritePointer (c)[i] *= g;
+        }
     }
 
     if (fading)
