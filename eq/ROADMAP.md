@@ -36,7 +36,7 @@ Suggested split: slopes plus output gain and bypass in one PR, and the build che
 - [x] **Analyser controls:** freeze, peak hold, tilt (4.5 dB/oct slope) and resolution/speed settings.
 - [x] **Auto gain.** Optionally match output loudness so a boost doesn't just sound better because it's louder.
 - [x] **Scale the whole curve.** One knob that scales every band's gain together.
-- [ ] **Piano-roll frequency labels** and note snapping while dragging.
+- [x] **Piano-roll frequency labels** and note snapping while dragging.
 
 ## Phase 4: The big DSP features (v1.0)
 

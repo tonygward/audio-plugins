@@ -8,6 +8,7 @@
 #include "PluginProcessor.h"
 #include "EQEngine.h"
 #include "SvfFilter.h"
+#include "NoteNames.h"
 
 using namespace EQ;
 
@@ -2319,6 +2320,102 @@ public:
     }
 };
 
+//==============================================================================
+class NoteTests final : public juce::UnitTest
+{
+public:
+    NoteTests() : juce::UnitTest ("Note labels", "EQ") {}
+
+    void runTest() override
+    {
+        using namespace EQ::Notes;
+
+        beginTest ("Frequency <-> note + cents round-trips over 20 Hz - 20 kHz");
+        {
+            double worst = 0.0;
+            bool centsInRange = true;
+            for (int i = 0; i <= 2000; ++i)
+            {
+                const double f = 20.0 * std::pow (1000.0, i / 2000.0);
+                const auto n = freqToNote (f);
+                centsInRange = centsInRange && n.cents >= -50.0 - 1e-9 && n.cents <= 50.0 + 1e-9;
+                const double back = midiToFreq (n.midi) * std::pow (2.0, n.cents / 1200.0);
+                worst = std::max (worst, std::abs (back - f) / f);
+            }
+            expectLessThan (worst, 1.0e-12, "relative round-trip error");
+            expect (centsInRange, "cents within +-50");
+
+            expectEquals (formatNote (440.0), juce::String ("A4 +0") + juce::String::charToString (0x00a2));
+            expectEquals (noteName (60), juce::String ("C4"));
+            expectEquals (noteName (0), juce::String ("C-1"));
+            expectEquals (noteName (127), juce::String ("G9"));
+            expectEquals (freqToNote (1000.0).midi, 83, "1 kHz is nearest B5");
+            expectWithinAbsoluteError (freqToNote (1000.0).cents, 21.31, 0.01, "1 kHz is B5 +21 cents");
+        }
+
+        beginTest ("Note-name parsing: sharps, flats, octaves -1..9, garbage rejected");
+        {
+            auto near = [this] (const char* text, double hz)
+            {
+                const auto v = parseNote (text);
+                expect (v.has_value(), juce::String ("parses ") + text);
+                if (v) expectWithinAbsoluteError (*v, hz, hz * 1.0e-9, text);
+            };
+
+            near ("A4", 440.0);
+            near ("a4", 440.0);
+            near (" A2 ", 110.0);
+            near ("C#5", midiToFreq (73));
+            near ("Db5", midiToFreq (73));
+            near ("Eb3", midiToFreq (51));
+            near ("D#3", midiToFreq (51));
+            near ("B#3", midiToFreq (60));   // = C4
+            near ("Cb4", midiToFreq (59));   // = B3
+            near ("C-1", midiToFreq (0));
+            near ("Bb-1", midiToFreq (10));
+            near ("G9", midiToFreq (127));
+            near ("B9", midiToFreq (131));
+
+            for (const char* bad : { "", "A", "4", "H4", "A#", "Ab", "Abc", "A10", "C-2", "C--1", "A4x", "#4", "A 4", "1kHz", "-" })
+                expect (! parseNote (bad).has_value(), juce::String ("rejects \"") + bad + "\"");
+        }
+
+        beginTest ("Snapping lands exactly on the semitone frequency");
+        {
+            expectEquals (snapToSemitone (450.0), 440.0, "450 Hz -> A4");
+            expectEquals (snapToSemitone (1000.0), midiToFreq (83), "1 kHz -> B5");
+            expectEquals (snapToSemitone (61.0), midiToFreq (35), "61 Hz -> B1");
+            expectEquals (snapToSemitone (midiToFreq (64)), midiToFreq (64), "already on a semitone");
+
+            for (int i = 0; i < 500; ++i)
+            {
+                const double f = 20.0 * std::pow (1000.0, i / 500.0);
+                const double s = snapToSemitone (f);
+                expectLessOrEqual (std::abs (1200.0 * std::log2 (s / f)), 50.0 + 1e-9, "within half a semitone");
+            }
+
+            // The frequency parameter is continuous, so a snapped value is stored exactly
+            // (to float precision) instead of being rounded to a 0.1 Hz grid.
+            ThreeBandEQAudioProcessor p;
+            const float snapped = (float) snapToSemitone (1000.0);
+            setBand (p, 0, Param::Freq, snapped);
+            expectWithinAbsoluteError (p.getBandValue (0, Param::Freq), snapped, snapped * 1.0e-6f, "stored as the semitone frequency");
+        }
+
+        beginTest ("Piano strip setting is saved with the UI state");
+        {
+            ThreeBandEQAudioProcessor p;
+            p.showPianoStrip = true;
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+            ThreeBandEQAudioProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expect (q.showPianoStrip.load(), "restored");
+        }
+    }
+};
+
+static NoteTests noteTests;
 static GainScaleTests gainScaleTests;
 static AutoGainTests autoGainTests;
 static AnalyserControlTests analyserControlTests;
