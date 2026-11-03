@@ -42,8 +42,11 @@ public:
     juce::AudioProcessorParameter* getBypassParameter() const override { return bypassParam; }
 
     // Current (denormalised) parameter values, read lock-free.
-    float getThresholdDb() const noexcept { return thresholdRaw->load (std::memory_order_relaxed); }
-    float getCeilingDb() const noexcept   { return ceilingRaw->load (std::memory_order_relaxed); }
+    // Threshold and ceiling sit on a 0.01 dB grid. The normalised round trip can leave a tiny
+    // error (-6.7e-7 instead of 0 on Apple clang), so snap here: 0 dB is exactly 0 (unity gain).
+    static float snapDb (float db) noexcept { return (float) (std::round ((double) db * 100.0) / 100.0); }
+    float getThresholdDb() const noexcept { return snapDb (thresholdRaw->load (std::memory_order_relaxed)); }
+    float getCeilingDb() const noexcept   { return snapDb (ceilingRaw->load (std::memory_order_relaxed)); }
     float getReleaseMs() const noexcept   { return releaseRaw->load (std::memory_order_relaxed); }
     bool isBypassed() const noexcept      { return bypassParam->get(); }
 

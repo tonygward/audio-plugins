@@ -143,8 +143,8 @@ public:
             expectWithinAbsoluteError (range (Max::releaseId).start, 0.01f, 1.0e-6f, "release from 0.01 ms");
             expectWithinAbsoluteError (range (Max::releaseId).end, 1000.0f, 1.0e-3f, "release to 1000 ms");
 
-            expectEquals (getParam (p, Max::thresholdId), 0.0f, "threshold default 0 dB");
-            expectEquals (getParam (p, Max::ceilingId), 0.0f, "ceiling default 0 dB");
+            expectEquals (p.getThresholdDb(), 0.0f, "threshold default exactly 0 dB");
+            expectEquals (p.getCeilingDb(), 0.0f, "ceiling default exactly 0 dB");
             expectWithinAbsoluteError (getParam (p, Max::releaseId), 1.0f, 1.0e-6f, "release default 1 ms");
             expect (! p.isBypassed(), "bypass off");
 
