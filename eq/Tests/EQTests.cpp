@@ -2415,6 +2415,283 @@ public:
     }
 };
 
+//==============================================================================
+class DynamicEqTests final : public juce::UnitTest
+{
+public:
+    DynamicEqTests() : juce::UnitTest ("Dynamic EQ", "EQ") {}
+
+    static constexpr double fs = 48000.0;
+
+    static BandSettings dynBell (float staticGain, float threshold, float range, float attack = 10.0f, float release = 150.0f)
+    {
+        BandSettings s;
+        s.active = true;
+        s.type = FilterType::Bell;
+        s.freq = 1000.0f;
+        s.gain = staticGain;
+        s.q = 1.0f;
+        s.dynOn = true;
+        s.threshold = threshold;
+        s.range = range;
+        s.attackMs = attack;
+        s.releaseMs = release;
+        return s;
+    }
+
+    // Steady-state gain (dB) at f for a sine of 'amp' through band 0.
+    static double steadyGainDb (const BandSettings& s, double f, double amp, double seconds = 1.5)
+    {
+        Engine e;
+        e.prepare (fs);
+        e.setBand (0, s);
+        for (int b = 1; b < numBands; ++b) e.setBand (b, BandSettings {});
+        e.snapToTargets();
+
+        const int total = (int) (seconds * fs);
+        std::vector<float> l ((size_t) total), r;
+        for (int n = 0; n < total; ++n)
+            l[(size_t) n] = (float) (amp * std::sin (2.0 * pi * f * n / fs));
+        const auto in = l;
+        r = l;
+        for (int pos = 0; pos < total; pos += 64)
+        {
+            float* ch[] = { l.data() + pos, r.data() + pos };
+            e.process (ch, 2, std::min (64, total - pos));
+        }
+        const size_t from = (size_t) (total * 2 / 3);
+        return 20.0 * std::log10 (rms (l, from, l.size()) / rms (in, from, in.size()));
+    }
+
+    // Time (s) for the dynamic gain to cover 63.2 % of the way from 'from' to its final value
+    // after the signal steps at t = 0.
+    static double timeConstant (const std::vector<float>& dyn, double from, double to, int stepIndex, int hop)
+    {
+        const double target = from + (to - from) * (1.0 - std::exp (-1.0));
+        for (size_t i = (size_t) stepIndex; i < dyn.size(); ++i)
+            if ((to < from && dyn[i] <= target) || (to > from && dyn[i] >= target))
+                return (double) ((int) i - stepIndex) * hop / fs;
+        return -1.0;
+    }
+
+    void runTest() override
+    {
+        beginTest ("Below the threshold: the static response");
+        {
+            expectWithinAbsoluteError (steadyGainDb (dynBell (3.0f, -10.0f, -6.0f), 1000.0, 0.0316), 3.0, 0.05, "+3 dB static, -30 dBFS tone, threshold -10");
+            expectWithinAbsoluteError (steadyGainDb (dynBell (0.0f, -20.0f, 12.0f), 1000.0, 0.01), 0.0, 0.05, "upward range, quiet tone");
+        }
+
+        beginTest ("Above the threshold: static gain + range");
+        {
+            expectWithinAbsoluteError (steadyGainDb (dynBell (3.0f, -30.0f, -6.0f), 1000.0, 0.5), -3.0, 0.3, "+3 static, -6 range");
+            expectWithinAbsoluteError (steadyGainDb (dynBell (0.0f, -40.0f, -12.0f), 1000.0, 0.5), -12.0, 0.3, "de-esser style -12");
+            expectWithinAbsoluteError (steadyGainDb (dynBell (2.0f, -30.0f, 6.0f), 1000.0, 0.5), 8.0, 0.3, "upward +6");
+
+            // Shelves use a low-/high-pass detector over the region they act on.
+            BandSettings shelf = dynBell (0.0f, -30.0f, -6.0f);
+            shelf.type = FilterType::LowShelf;
+            shelf.freq = 200.0f;
+            expectWithinAbsoluteError (steadyGainDb (shelf, 50.0, 0.5), -6.0, 0.4, "low shelf on a loud 50 Hz tone");
+            expectWithinAbsoluteError (steadyGainDb (shelf, 50.0, 0.003), 0.0, 0.05, "low shelf, quiet 50 Hz tone");
+        }
+
+        beginTest ("Attack and release timing within +-20 %");
+        for (auto [attack, release] : { std::pair { 20.0f, 200.0f }, std::pair { 5.0f, 80.0f } })
+        {
+            Engine e;
+            e.prepare (fs);
+            e.setBand (0, dynBell (0.0f, -40.0f, -12.0f, attack, release));
+            for (int b = 1; b < numBands; ++b) e.setBand (b, BandSettings {});
+            e.snapToTargets();
+
+            constexpr int hop = 16;
+            const int onAt = (int) (0.2 * fs) / hop, offAt = (int) (1.4 * fs) / hop, total = (int) (2.8 * fs) / hop;
+            std::vector<float> dyn ((size_t) total), l (hop), r (hop);
+            for (int k = 0; k < total; ++k)
+            {
+                for (int i = 0; i < hop; ++i)
+                {
+                    const int n = k * hop + i;
+                    l[(size_t) i] = r[(size_t) i] = (k >= onAt && k < offAt) ? (float) (0.5 * std::sin (2.0 * pi * 1000.0 * n / fs)) : 0.0f;
+                }
+                float* ch[] = { l.data(), r.data() };
+                e.process (ch, 2, hop);
+                dyn[(size_t) k] = e.getDynamicGainDb (0);
+            }
+
+            const double att = timeConstant (dyn, 0.0, -12.0, onAt, hop);
+            const double rel = timeConstant (dyn, dyn[(size_t) offAt - 1], 0.0, offAt, hop);
+            expectWithinAbsoluteError (att * 1000.0, (double) attack, attack * 0.2, "attack " + juce::String (attack) + " ms");
+            expectWithinAbsoluteError (rel * 1000.0, (double) release, release * 0.2, "release " + juce::String (release) + " ms");
+        }
+
+        beginTest ("Dynamics off is bit-identical (whatever the dynamic settings)");
+        {
+            BandSettings plain { true, FilterType::Bell, 800.0f, 5.0f, 1.5f };
+            BandSettings off = plain;
+            off.dynOn = false;
+            off.threshold = -55.0f;
+            off.range = 18.0f;
+            off.attackMs = 0.1f;
+            off.dynExternal = true;
+
+            std::mt19937 rng (17);
+            std::uniform_real_distribution<float> d (-0.7f, 0.7f);
+            std::vector<float> in (16384);
+            for (auto& v : in) v = d (rng);
+
+            auto run = [&] (const BandSettings& s)
+            {
+                Engine e;
+                e.prepare (fs);
+                e.setBand (0, s);
+                for (int b = 1; b < numBands; ++b) e.setBand (b, BandSettings {});
+                auto l = in, r = in;
+                for (size_t pos = 0; pos < l.size(); pos += 128)
+                {
+                    float* ch[] = { l.data() + pos, r.data() + pos };
+                    e.process (ch, 2, 128);
+                }
+                return l;
+            };
+            expect (run (plain) == run (off), "identical");
+        }
+
+        beginTest ("External (sidechain) detection");
+        {
+            Engine e;
+            e.prepare (fs);
+            auto s = dynBell (0.0f, -30.0f, -9.0f);
+            s.dynExternal = true;
+            e.setBand (0, s);
+            for (int b = 1; b < numBands; ++b) e.setBand (b, BandSettings {});
+            e.snapToTargets();
+
+            std::vector<float> l (64), r (64), sl (64);
+            const float* sc[] = { sl.data(), sl.data() };
+            for (int k = 0; k < (int) (1.0 * fs) / 64; ++k)
+            {
+                for (int i = 0; i < 64; ++i)
+                {
+                    const int n = k * 64 + i;
+                    l[(size_t) i] = r[(size_t) i] = (float) (0.003 * std::sin (2.0 * pi * 1000.0 * n / fs));   // quiet main
+                    sl[(size_t) i] = (float) (0.5 * std::sin (2.0 * pi * 1000.0 * n / fs));                       // loud key
+                }
+                e.setSidechain (sc, 2);
+                float* ch[] = { l.data(), r.data() };
+                e.process (ch, 2, 64);
+            }
+            expectWithinAbsoluteError (e.getDynamicGainDb (0), -9.0f, 0.3f, "the sidechain drives the gain");
+
+            e.setSidechain (nullptr, 0);   // no sidechain: falls back to the band's own (quiet) input
+            for (int k = 0; k < (int) (2.0 * fs) / 64; ++k)
+            {
+                for (int i = 0; i < 64; ++i)
+                    l[(size_t) i] = r[(size_t) i] = (float) (0.003 * std::sin (2.0 * pi * 1000.0 * (k * 64 + i) / fs));
+                float* ch[] = { l.data(), r.data() };
+                e.process (ch, 2, 64);
+            }
+            expectWithinAbsoluteError (e.getDynamicGainDb (0), 0.0f, 0.1f, "fallback to internal: below threshold");
+        }
+
+        beginTest ("Extreme settings and rapid automation stay finite");
+        for (double rate : { 44100.0, 192000.0 })
+        {
+            Engine e;
+            e.prepare (rate);
+            std::mt19937 rng (99);
+            std::uniform_real_distribution<float> u (0.0f, 1.0f);
+            std::vector<float> l (32), r (32);
+            bool finite = true;
+            float peak = 0.0f;
+
+            for (int k = 0; k < (int) (2.0 * rate) / 32; ++k)
+            {
+                for (int b = 0; b < 6; ++b)
+                {
+                    BandSettings s;
+                    s.active = true;
+                    s.type = typeFromIndex ((int) (u (rng) * 3.0f) % 3);   // bell / shelves
+                    s.freq = minFreq * std::pow (maxFreq / minFreq, u (rng));
+                    s.gain = -30.0f + 60.0f * u (rng);
+                    s.q = minQ * std::pow (maxQ / minQ, u (rng));
+                    s.dynOn = u (rng) > 0.2f;
+                    s.dynExternal = u (rng) > 0.5f;
+                    s.threshold = -60.0f * u (rng);
+                    s.range = -24.0f + 48.0f * u (rng);
+                    s.attackMs = u (rng) > 0.5f ? 0.1f : 100.0f * u (rng);
+                    s.releaseMs = 10.0f + 990.0f * u (rng);
+                    e.setBand (b, s);
+                }
+                for (int i = 0; i < 32; ++i)
+                    l[(size_t) i] = r[(size_t) i] = 0.9f * (u (rng) * 2.0f - 1.0f);
+                const float* sc[] = { l.data(), r.data() };
+                e.setSidechain (sc, 2);
+                float* ch[] = { l.data(), r.data() };
+                e.process (ch, 2, 32);
+                for (float v : l) { finite = finite && std::isfinite (v); peak = std::max (peak, std::abs (v)); }
+            }
+            expect (finite, "finite at " + juce::String (rate));
+            juce::ignoreUnused (peak);   // stacked +48 dB bands may legitimately be huge; stability is checked below
+
+            // Stop automating, return to neutral, feed silence: everything must decay away.
+            for (int b = 0; b < 6; ++b)
+                e.setBand (b, BandSettings { true, FilterType::Bell, 1000.0f, 0.0f, 1.0f });
+            e.setSidechain (nullptr, 0);
+            float tail = 0.0f;
+            for (int k = 0; k < (int) (3.0 * rate) / 32; ++k)
+            {
+                std::fill (l.begin(), l.end(), 0.0f);
+                std::fill (r.begin(), r.end(), 0.0f);
+                float* ch[] = { l.data(), r.data() };
+                e.process (ch, 2, 32);
+                if (k > (int) (2.5 * rate) / 32)
+                    for (float v : l) tail = std::max (tail, std::abs (v));
+            }
+            expectLessThan (tail, 1.0e-6f, "decays to silence at " + juce::String (rate));
+        }
+
+        beginTest ("Legacy session loads with dynamics off; dynamic settings are undoable and saved");
+        {
+            ThreeBandEQAudioProcessor p;
+            setBand (p, 0, Param::DynOn, 1.0f);
+            setBand (p, 0, Param::Threshold, -12.0f);
+            auto state = p.apvts.copyState();
+            state.setProperty ("version", 2, nullptr);
+            for (int b = 0; b < numBands; ++b)
+                for (auto prm : { Param::DynOn, Param::Threshold, Param::Range, Param::Attack, Param::Release, Param::DynExternal })
+                    state.removeChild (state.getChildWithProperty ("id", paramId (b, prm)), nullptr);
+            juce::MemoryBlock mb;
+            juce::AudioProcessor::copyXmlToBinary (*state.createXml(), mb);
+            p.setStateInformation (mb.getData(), (int) mb.getSize());
+
+            bool allOff = true;
+            for (int b = 0; b < numBands; ++b)
+                allOff = allOff && p.getBandValue (b, Param::DynOn) == 0.0f
+                                && std::abs (p.getBandValue (b, Param::Threshold) - defaultThreshold) < 0.01f;
+            expect (allOff, "dynamics off, defaults");
+
+            p.edits.setDynamic (1, true);
+            p.edits.setValue (1, Param::Range, -9.0f);
+            expect (p.getBandValue (1, Param::DynOn) == 1.0f);
+            p.edits.undo();
+            p.edits.undo();
+            expect (p.getBandValue (1, Param::DynOn) == 0.0f, "undo dynamic on");
+            p.edits.redo();
+            p.edits.redo();
+
+            juce::MemoryBlock saved;
+            p.getStateInformation (saved);
+            ThreeBandEQAudioProcessor q;
+            q.setStateInformation (saved.getData(), (int) saved.getSize());
+            expect (q.getBandValue (1, Param::DynOn) == 1.0f, "restored on");
+            expectWithinAbsoluteError (q.getBandValue (1, Param::Range), -9.0f, 0.01f, "restored range");
+        }
+    }
+};
+
+static DynamicEqTests dynamicEqTests;
 static NoteTests noteTests;
 static GainScaleTests gainScaleTests;
 static AutoGainTests autoGainTests;
@@ -2435,7 +2712,8 @@ static ProcessorTests processorTests;
 // 'automate' called for every band before every block.
 static void benchCase (const char* title,
                        const std::function<void (ThreeBandEQAudioProcessor&, int band)>& setup,
-                       const std::function<void (ThreeBandEQAudioProcessor&, int band, int blockIndex)>& automate)
+                       const std::function<void (ThreeBandEQAudioProcessor&, int band, int blockIndex)>& automate,
+                       const std::vector<int>& blockSizes = { 32, 128, 512 })
 {
     constexpr double fs = 48000.0;
     constexpr double seconds = 20.0;
@@ -2443,7 +2721,7 @@ static void benchCase (const char* title,
     std::printf ("\n%s\n", title);
     std::printf ("%-7s %-6s %-10s %12s %12s %10s\n", "bands", "block", "mode", "us/block", "ns/sample", "% of RT");
 
-    for (int block : { 32, 128, 512 })
+    for (int block : blockSizes)
         for (bool modulated : { false, true })
         {
             ThreeBandEQAudioProcessor p;
@@ -2574,6 +2852,24 @@ static void runBenchmark()
                {
                    setBand (p, b, Param::Gain, 6.0f * std::sin ((float) bi * 0.05f + (float) b));
                });
+
+    benchCase ("24 dynamic bands (bells/shelves, all compressing), 64-sample blocks",
+               [] (ThreeBandEQAudioProcessor& p, int b)
+               {
+                   setBand (p, b, Param::Type, (float) (b % 3));   // bell, low shelf, high shelf
+                   setBand (p, b, Param::Freq, 40.0f * std::pow (400.0f, (float) b / numBands));
+                   setBand (p, b, Param::Gain, 3.0f);
+                   setBand (p, b, Param::Q, 1.5f);
+                   setBand (p, b, Param::DynOn, 1.0f);
+                   setBand (p, b, Param::Threshold, -40.0f);   // noise at -6 dBFS: always active
+                   setBand (p, b, Param::Range, -6.0f);
+                   setBand (p, b, Param::Attack, 1.0f);
+               },
+               [] (ThreeBandEQAudioProcessor& p, int b, int bi)
+               {
+                   setBand (p, b, Param::Threshold, -40.0f + 10.0f * std::sin ((float) bi * 0.05f + (float) b));
+               },
+               { 64 });
 
     benchCase ("24 bells, auto gain on",
                [] (ThreeBandEQAudioProcessor& p, int b)

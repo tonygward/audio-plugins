@@ -42,7 +42,7 @@ Suggested split: slopes plus output gain and bypass in one PR, and the build che
 
 Each of these is a project on its own. Do them in this order:
 
-1. [ ] **Dynamic EQ per band:** threshold, ratio, attack and release, with an option to use the sidechain. The engine's ramped-parameter design already suits gain changing over time.
+1. [x] **Dynamic EQ per band:** threshold, ratio, attack and release, with an option to use the sidechain. The engine's ramped-parameter design already suits gain changing over time.
 2. [ ] **Linear-phase mode.** This needs FFT convolution, latency reporting to the host, and a rework of the tail and latency handling.
 3. [ ] **Optional oversampling** for high-frequency bells near Nyquist at 44.1/48 kHz, with latency reported to the host.
 
