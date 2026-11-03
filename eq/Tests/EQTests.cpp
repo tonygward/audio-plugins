@@ -3169,13 +3169,15 @@ public:
 
         beginTest ("The starting points are listed after the original factory presets");
         {
-            expectEquals ((int) list.size(), 11);
+            expectEquals ((int) list.size(), 13);
             const int firstTemplate = list.empty() ? 0 : list.front();
             expectEquals (firstTemplate, 8, "the 8 original presets keep their indices");
             for (size_t k = 0; k < list.size(); ++k)
                 expectEquals (list[k], firstTemplate + (int) k, "templates are contiguous");
         }
 
+        // Exception (task 26): index 6 was renamed from "Acoustic guitar" to "Bright acoustic" and its
+        // 2.5 kHz boost became a cut (see "Renamed presets" below). Its band fields are still classic.
         beginTest ("The original factory presets are unchanged by the new band fields");
         {
             for (int i = 0; i < 8; ++i)
@@ -3274,9 +3276,113 @@ public:
                 float boosts = 0.0f, cuts = 0.0f;
                 for (const auto& s : d.bands)
                     if (s.used && s.enabled)
+                    {
                         (s.gain > 0.0f ? boosts : cuts) += std::abs (s.gain);
+                        if (s.dynOn)   // dynamic bands count by their range
+                            (s.range > 0.0f ? boosts : cuts) += std::abs (s.range);
+                    }
                 expectLessOrEqual (boosts, cuts, presetName);
             }
+        }
+
+        beginTest ("Acoustic guitar: three cuts and a boost, with Tony's dynamic band");
+        {
+            const int index = 11;
+            expectEquals (PresetManager::getFactoryName (index), juce::String ("Acoustic guitar"));
+            expectEquals (PresetManager::getFactoryUsedBands (index), 5);
+            const auto d = PresetManager::getFactoryPreset (index);
+
+            struct Expected { FilterType type; float freq, gain, q; bool enabled, dynamic; float range; };
+            const Expected expected[] = {
+                { FilterType::LowCut,    50.0f,    0.0f, defaultQ, true, false,  0.0f },
+                { FilterType::Bell,      150.0f,  -3.0f, 1.4f,     true, false,  0.0f },
+                { FilterType::Bell,      500.0f,  -1.5f, 2.0f,     true, false,  0.0f },
+                { FilterType::Bell,      1800.0f,  0.0f, 4.0f,     true, true,  -2.5f },
+                { FilterType::HighShelf, 10000.0f, 1.5f, defaultQ, true, false,  0.0f },
+            };
+            for (int b = 0; b < 5; ++b)
+            {
+                const auto& s = d.bands[(size_t) b];
+                const auto& e = expected[b];
+                const auto what = "band " + juce::String (b + 1);
+                expect (s.type == (int) e.type, what + " type");
+                expectWithinAbsoluteError (s.freq, e.freq, 0.01f, what + " frequency");
+                expectWithinAbsoluteError (s.gain, e.gain, 0.01f, what + " gain");
+                expectWithinAbsoluteError (s.q, e.q, 0.01f, what + " Q");
+                expect (s.enabled == e.enabled, what + " is on");
+                expect (s.dynOn == e.dynamic, what + " dynamic");
+                if (e.dynamic)
+                    expectWithinAbsoluteError (s.range, e.range, 0.01f, what + " range");
+            }
+            expectEquals (d.bands[0].slope, 1, "low cut 12 dB/oct");
+
+            expectEquals (PresetManager::getFactoryName (19), juce::String ("Acoustic guitar in a full mix"));
+            expectEquals (PresetManager::getFactoryName (20), juce::String ("Acoustic guitar pickup"));
+            expect (PresetManager::getFactoryPreset (19).bands[1].dynOn, "full mix: dynamic boom band");
+            expect (PresetManager::getFactoryPreset (20).bands[1].dynOn, "pickup: dynamic quack band");
+        }
+
+        beginTest ("Acoustic guitar's 2 kHz band: still on normal playing, cuts on loud strums");
+        {
+            // Pink noise stands in for a strummed guitar: -20 dBFS RMS ~ normal playing on a
+            // well-recorded track, -6 dBFS RMS ~ the loudest strums.
+            auto deepestCut = [this] (float rmsDb)
+            {
+                AutoGainTests::Pink calibrate;
+                double sum = 0.0;
+                for (int n = 0; n < 48000; ++n) { const double v = calibrate.next(); sum += v * v; }
+                const float scale = juce::Decibels::decibelsToGain (rmsDb) / (float) std::sqrt (sum / 48000.0);
+
+                SongsmithEQAudioProcessor p;
+                juce::String error;
+                expect (p.presets.load ({ PresetManager::getFactoryName (11), 11, {} }, error), error);
+                p.prepareToPlay (48000.0, block);
+                AutoGainTests::Pink pink;
+                float deepest = 0.0f;
+                runProcessor (p, 48000.0, block, 3 * 48000, [&] (int) { return pink.next() * scale; },
+                              [&] (int n) { if (n > 48000) deepest = juce::jmin (deepest, p.dynamicGainDb[3].load()); });
+                return deepest;
+            };
+
+            const float normal = deepestCut (-20.0f), loud = deepestCut (-6.0f);
+            logMessage ("  deepest dynamic cut: " + juce::String (normal, 2) + " dB at -20 dBFS RMS, "
+                        + juce::String (loud, 2) + " dB at -6 dBFS RMS");
+            expectGreaterThan (normal, -0.5f, "normal playing is left alone");
+            expectLessThan (loud, -1.0f, "loud strums get cut");
+            expectGreaterOrEqual (loud, -2.5f, "never more than the range");
+        }
+
+        beginTest ("Renamed presets: old sessions still show the right preset");
+        {
+            auto restore = [] (const juce::String& savedName, int index)
+            {
+                SongsmithEQAudioProcessor p;
+                juce::ValueTree ui ("UI");
+                ui.setProperty ("presetName", savedName, nullptr);
+                ui.setProperty ("presetFactory", index, nullptr);
+                p.presets.restoreFromUiState (ui);
+                return p.presets.getCurrent();
+            };
+
+            const auto body = restore ("Acoustic guitar body", 11);
+            expectEquals (body.factoryIndex, 11);
+            expectEquals (body.name, juce::String ("Acoustic guitar"), "old template name at its old index");
+
+            const auto classic = restore ("Acoustic guitar", 6);
+            expectEquals (classic.factoryIndex, 6);
+            expectEquals (classic.name, juce::String ("Bright acoustic"), "the classic preset at index 6");
+
+            const auto current = restore ("Acoustic guitar", 11);
+            expectEquals (current.name, juce::String ("Acoustic guitar"));
+
+            // The renamed classic preset loads at index 6, with a cut (not a boost) at 2.5 kHz.
+            expectEquals (PresetManager::getFactoryName (6), juce::String ("Bright acoustic"));
+            expect (! PresetManager::isStartingPoint (6));
+            SongsmithEQAudioProcessor p;
+            juce::String error;
+            expect (p.presets.load ({ PresetManager::getFactoryName (6), 6, {} }, error), error);
+            expectEquals (p.presets.getCurrent().factoryIndex, 6);
+            expectWithinAbsoluteError (PresetManager::getFactoryPreset (6).bands[2].gain, -1.5f, 0.01f);
         }
 
         beginTest ("Every template has a short usage hint");
