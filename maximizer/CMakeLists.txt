@@ -14,7 +14,8 @@ option(MAX_BUILD_TESTS "Build the MaximizerTests console app (DSP tests + benchm
 
 set(MAX_SOURCES
     Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp)
+    Source/PluginEditor.cpp
+    Source/BrickwallLimiter.cpp)
 
 set(MAX_DEFINITIONS
     JUCE_WEB_BROWSER=0

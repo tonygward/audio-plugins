@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "MaxParams.h"
+#include "BrickwallLimiter.h"
 
 class SongsmithMaximiserAudioProcessor : public juce::AudioProcessor
 {
@@ -15,6 +16,7 @@ public:
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
+    void reset() override;   // clears the look-ahead delay and the gain envelope
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     using AudioProcessor::processBlock;
@@ -26,7 +28,7 @@ public:
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
+    double getTailLengthSeconds() const override { return (double) getLatencySamples() / juce::jmax (1.0, getSampleRate()); }
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -60,6 +62,13 @@ public:
 
     static constexpr double bypassFadeSeconds = 0.02;
 
+    // Meters, written by the audio thread after every block and read (and reset) by the UI.
+    // Peaks are linear; gain reduction is the deepest limiter gain since the last read, in dB.
+    std::atomic<float> inputPeak { 0.0f }, outputPeak { 0.0f }, gainReductionDb { 0.0f };   // GR: positive dB
+    static float readAndReset (std::atomic<float>& meter, float resetTo = 0.0f) noexcept { return meter.exchange (resetTo, std::memory_order_relaxed); }
+
+    const Max::BrickwallLimiter& getLimiter() const noexcept { return limiter; }
+
 private:
     std::atomic<float>* thresholdRaw = nullptr;
     std::atomic<float>* ceilingRaw = nullptr;
@@ -69,6 +78,18 @@ private:
     // Bypass: a short linear cross-fade between the processed and the dry signal.
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix { 0.0f };   // 1 = fully bypassed
     juce::AudioBuffer<float> dryBuffer;
+
+    Max::BrickwallLimiter limiter;
+
+    // The dry signal for bypass, delayed by the limiter latency so bypass stays time-aligned.
+    juce::AudioBuffer<float> dryDelay;
+    int dryDelayPos = 0;
+
+    static void pushPeak (std::atomic<float>& meter, float peak) noexcept
+    {
+        float prev = meter.load (std::memory_order_relaxed);
+        while (peak > prev && ! meter.compare_exchange_weak (prev, peak, std::memory_order_relaxed)) {}
+    }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SongsmithMaximiserAudioProcessor)
 };
