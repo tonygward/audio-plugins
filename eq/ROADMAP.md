@@ -45,7 +45,7 @@ Suggested split: slopes plus output gain and bypass in one PR, and the build che
 - [x] **Starting-point templates.** One per common source (vocals, guitars, bass, drums, reverb returns), based on Joe Gilder's EQ advice: cut first, small moves, "only if needed" bands loaded bypassed, and loudness-matched.
 - [ ] **Review the starting points.** Rebuild the acoustic guitar templates from Joe's full "three cuts and a boost" video and Tony's own acoustic mixes, add "in a full mix" and "pickup" variants, and audit the rest with every band's source written down in `eq/docs/starting-points.md`.
 - [x] **Plain wording and better fonts.** No abbreviations anywhere (`SC` becomes `Side Chain`, `AG` becomes `Auto Gain`, and so on), an embedded open-licence font so Windows and macOS match, and readable text sizes.
-- [ ] **Higher-resolution, scalable UI.** A bigger default size, up to 4K, a UI size setting from 75% to 200%, a proportional layout, and sharp drawing at any display scaling.
+- [x] **Higher-resolution, scalable UI.** A bigger default size, up to 4K, a UI size setting from 75% to 200%, a proportional layout, and sharp drawing at any display scaling.
 
 ## Phase 4: The big DSP features (v1.0)
 

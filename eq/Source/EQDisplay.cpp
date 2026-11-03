@@ -216,7 +216,7 @@ juce::Point<float> EQDisplay::getNodePosition (int band, bool clampToView) const
 
 int EQDisplay::hitTestNode (juce::Point<float> pos) const
 {
-    const float radius = nodeRadius + 5.0f;
+    const float radius = hitRadius;
     const int selected = getSelectedBand();
 
     // Overlapping nodes: the selected one wins, otherwise the nearest.
@@ -250,6 +250,7 @@ double EQDisplay::getDisplaySampleRate() const
 //==============================================================================
 void EQDisplay::paint (juce::Graphics& g)
 {
+    physicalScale = juce::jlimit (0.25f, 8.0f, g.getInternalContext().getPhysicalPixelScaleFactor());
     const auto area = getPlotArea();
 
     g.fillAll (EQColours::background);
@@ -275,8 +276,11 @@ void EQDisplay::paint (juce::Graphics& g)
         if (const int solo = getSoloBand(); solo >= 0)
             drawSoloRegion (g, area, solo);
 
-        if (! curves.valid)
+        if (! curves.valid || std::abs (curvesScale - physicalScale) > 1.0e-4f)
+        {
             computeCurves (area);
+            curvesScale = physicalScale;
+        }
         drawCurves (g, area);
     }
 
@@ -310,7 +314,7 @@ void EQDisplay::drawGrid (juce::Graphics& g, juce::Rectangle<float> area)
             const float x = freqToX (f);
             const bool labelled = (m == 1 || m == 2 || m == 5);
             g.setColour (labelled ? EQColours::gridMajor : EQColours::gridMinor);
-            g.drawVerticalLine (juce::roundToInt (x), area.getY(), area.getBottom());
+            verticalLine (g, x, area.getY(), area.getBottom());
 
             if (labelled && f > EQ::minFreq)
             {
@@ -330,7 +334,7 @@ void EQDisplay::drawGrid (juce::Graphics& g, juce::Rectangle<float> area)
     }
 
     g.setColour (EQColours::gridMajor);
-    g.drawVerticalLine (juce::roundToInt (freqToX (20000.0f)) - 1, area.getY(), area.getBottom());
+    verticalLine (g, freqToX (20000.0f) - hairline(), area.getY(), area.getBottom());
 
     const int range = juce::roundToInt (getRange());
     const int step = range <= 12 ? 3 : 6;
@@ -339,7 +343,7 @@ void EQDisplay::drawGrid (juce::Graphics& g, juce::Rectangle<float> area)
     {
         const float y = gainToY ((float) db);
         g.setColour (db == 0 ? EQColours::zeroLine : EQColours::gridMajor);
-        g.drawHorizontalLine (juce::roundToInt (y), area.getX(), area.getRight());
+        horizontalLine (g, y, area.getX(), area.getRight());
 
         const juce::String text = db > 0 ? "+" + juce::String (db) : juce::String (db);
         g.setColour (db == 0 ? EQColours::text : EQColours::label);
@@ -360,11 +364,16 @@ void EQDisplay::drawAnalyser (juce::Graphics& g, juce::Rectangle<float> area)
     const float yTop = area.getY() + gainPad, yBottom = area.getBottom();
     auto toY = [&] (float db) { return juce::jlimit (yTop, yBottom, juce::jmap (db, topDb, bottomDb, yTop, yBottom)); };
 
+    // One point per physical pixel, or per two from 1.5x scaling up (the prompt allows either;
+    // two keeps the paint time at 4K / Retina no slower than before). Each point still
+    // averages one design unit of spectrum.
+    const float sampleStep = (physicalScale >= 1.5f ? 2.0f : 1.0f) / physicalScale;
+
     juce::Path fill, peakLine;
     fill.startNewSubPath (area.getX(), yBottom);
     bool anything = false, anyPeak = false;
 
-    for (float x = area.getX(); x <= area.getRight(); x += 1.0f)
+    for (float x = area.getX(); x <= area.getRight(); x += sampleStep)
     {
         const double f0 = xToFreq (x - 0.5f), f1 = xToFreq (x + 0.5f);
         const float t = SpectrumAnalyser::tiltDb (f0, f1, tilt);
@@ -414,13 +423,13 @@ void EQDisplay::drawAnalyser (juce::Graphics& g, juce::Rectangle<float> area)
                                                  juce::Colour (0x10a8b4c8), 0.0f, yBottom, false));
         g.fillPath (fill);
         g.setColour (juce::Colour (0x60c0c8d8));
-        g.strokePath (line, juce::PathStrokeType (1.0f));
+        g.strokePath (line, juce::PathStrokeType (stroke (1.0f)));
     }
 
     if (anyPeak)
     {
         g.setColour (juce::Colour (0x90e4e7ec));
-        g.strokePath (peakLine, juce::PathStrokeType (0.8f));
+        g.strokePath (peakLine, juce::PathStrokeType (stroke (0.8f)));
     }
 }
 
@@ -446,7 +455,8 @@ void EQDisplay::drawSidechain (juce::Graphics& g, juce::Rectangle<float> area)
     juce::Path line;
     bool started = false, anything = false;
 
-    for (float x = area.getX(); x <= area.getRight(); x += 1.0f)
+    const float sampleStep = (physicalScale >= 1.5f ? 2.0f : 1.0f) / physicalScale;   // as drawAnalyser
+    for (float x = area.getX(); x <= area.getRight(); x += sampleStep)
     {
         const double f0 = xToFreq (x - 0.5f), f1 = xToFreq (x + 0.5f);
         const float tilt = tiltDbPerOct * (float) std::log2 (std::sqrt (f0 * f1) / 1000.0);
@@ -473,7 +483,7 @@ void EQDisplay::drawSidechain (juce::Graphics& g, juce::Rectangle<float> area)
         return;
 
     g.setColour (colour.withAlpha (0.85f));
-    g.strokePath (line, juce::PathStrokeType (1.3f));
+    g.strokePath (line, juce::PathStrokeType (stroke (1.3f)));
 }
 
 void EQDisplay::computeCurves (juce::Rectangle<float> area)
@@ -508,7 +518,8 @@ void EQDisplay::computeCurves (juce::Rectangle<float> area)
     // Sample every pixel, plus each band's exact centre frequency so that narrow
     // notches / high-Q peaks are never missed between pixels.
     c.xs.clear();
-    for (float x = area.getX(); x <= area.getRight(); x += 1.0f)
+    const float sampleStep = (physicalScale >= 1.5f ? 2.0f : 1.0f) / physicalScale;   // per physical pixel, per two from 1.5x
+    for (float x = area.getX(); x <= area.getRight(); x += sampleStep)
         c.xs.push_back (x);
     for (int b : c.bands)
     {
@@ -607,19 +618,19 @@ void EQDisplay::drawCurves (juce::Graphics& g, juce::Rectangle<float> area)
             g.setColour (colour.withAlpha (enabled ? 0.85f : 0.4f));
 
             if (enabled)
-                g.strokePath (line, juce::PathStrokeType (1.4f));
+                g.strokePath (line, juce::PathStrokeType (stroke (1.4f)));
             else
             {
                 juce::Path dashed;
                 const float dashes[] = { 4.0f, 4.0f };
-                juce::PathStrokeType (1.2f).createDashedStroke (dashed, line, dashes, 2);
+                juce::PathStrokeType (stroke (1.2f)).createDashedStroke (dashed, line, dashes, 2);
                 g.fillPath (dashed);
             }
         }
         else if (enabled)
         {
             g.setColour (colour.withAlpha ((band == hoveredBand ? 0.6f : 0.22f) * (c.inView[k] ? 1.0f : 0.35f)));
-            g.strokePath (makePath (c.single[k]), juce::PathStrokeType (1.0f));
+            g.strokePath (makePath (c.single[k]), juce::PathStrokeType (stroke (1.0f)));
         }
     }
 
@@ -643,7 +654,7 @@ void EQDisplay::drawCurves (juce::Graphics& g, juce::Rectangle<float> area)
         g.setColour (colour.withAlpha (0.3f));
         g.fillPath (between);
         g.setColour (colour.withAlpha (0.7f));
-        g.strokePath (makePath (c.live[k]), juce::PathStrokeType (1.0f));
+        g.strokePath (makePath (c.live[k]), juce::PathStrokeType (stroke (1.0f)));
     }
 
     // Combined response of all enabled bands.
@@ -857,7 +868,7 @@ void EQDisplay::drawPianoStrip (juce::Graphics& g, juce::Rectangle<float> area)
             if (! black)
             {
                 g.setColour (juce::Colour (0x40000000));
-                g.drawVerticalLine (juce::roundToInt (x0), strip.getY(), strip.getBottom());
+                verticalLine (g, x0, strip.getY(), strip.getBottom());
             }
 
             if (pc == 0 && x1 - x0 >= 3.0f && m % 12 == 0)
@@ -1192,4 +1203,17 @@ bool EQDisplay::keyPressed (const juce::KeyPress& key)
         return true;
     }
     return false;   // let the editor handle undo/redo etc.
+}
+
+//==============================================================================
+// Grid lines on whole physical pixels (1 px up to 1.75x scaling, then 2, ...), so they stay
+// sharp at 125 % / 150 % / 175 % instead of smearing across two pixels.
+void EQDisplay::verticalLine (juce::Graphics& g, float x, float top, float bottom) const
+{
+    g.fillRect (juce::Rectangle<float> (snapToPixel (x), top, hairline(), bottom - top));
+}
+
+void EQDisplay::horizontalLine (juce::Graphics& g, float y, float left, float right) const
+{
+    g.fillRect (juce::Rectangle<float> (left, snapToPixel (y), right - left, hairline()));
 }

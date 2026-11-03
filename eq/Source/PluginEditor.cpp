@@ -15,15 +15,19 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     setLookAndFeel (&lookAndFeel);
     setWantsKeyboardFocus (true);
 
-    addAndMakeVisible (display);
-    addAndMakeVisible (presetBar);
+    content.onPaint  = [this] (juce::Graphics& g) { paintContent (g); };
+    content.onResize = [this] { layoutContent(); };
+    addAndMakeVisible (content);
+
+    content.addAndMakeVisible (display);
+    content.addAndMakeVisible (presetBar);
 
     undoButton.setTooltip ("Undo (Ctrl+Z)");
     redoButton.setTooltip ("Redo (Ctrl+Y / Ctrl+Shift+Z)");
     undoButton.onClick = [this] { processor.edits.undo(); };
     redoButton.onClick = [this] { processor.edits.redo(); };
-    addAndMakeVisible (undoButton);
-    addAndMakeVisible (redoButton);
+    content.addAndMakeVisible (undoButton);
+    content.addAndMakeVisible (redoButton);
 
     for (int i = 0; i < 3; ++i)
         rangeBox.addItem (juce::String::charToString (0x00b1) + juce::String ((int) ranges[i]) + " dB", i + 1);
@@ -37,7 +41,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
             processor.notifyNonParameterStateChanged();
         }
     };
-    addAndMakeVisible (rangeBox);
+    content.addAndMakeVisible (rangeBox);
 
     analyserBox.addItemList ({ "Analyser off", "Analyser: before EQ", "Analyser: after EQ" }, 1);
     analyserBox.setTooltip ("Spectrum analyser: show the input (before EQ) or the output (after EQ)");
@@ -52,7 +56,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
             display.repaint();
         }
     };
-    addAndMakeVisible (analyserBox);
+    content.addAndMakeVisible (analyserBox);
 
     curveViewBox.addItemList ({ "Curve: all bands", "Curve: Left", "Curve: Right", "Curve: Mid", "Curve: Side" }, 1);
     curveViewBox.setTooltip ("Which channel the combined curve shows: Stereo bands plus the bands set to that channel");
@@ -65,7 +69,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
             processor.notifyNonParameterStateChanged();
         }
     };
-    addAndMakeVisible (curveViewBox);
+    content.addAndMakeVisible (curveViewBox);
 
     // Phase mode + linear-phase quality in one selector (two host parameters).
     phaseBox.addItemList ({ "Zero latency", "Linear phase: low", "Linear phase: medium", "Linear phase: high" }, 1);
@@ -90,7 +94,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
             set (processor.apvts.getParameter (EQ::lpQualityId), (float) (i - 1));
         set (processor.apvts.getParameter (EQ::phaseModeId), i > 0 ? 1.0f : 0.0f);
     };
-    addAndMakeVisible (phaseBox);
+    content.addAndMakeVisible (phaseBox);
 
     oversamplingBox.addItemList ({ "Oversampling: off",
                                    "Oversampling: 2" + juce::String::charToString (0x00d7),    // multiplication sign
@@ -100,11 +104,11 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     oversamplingBox.setTooltip ("Oversampling: keeps high-frequency bells and shelves from 'cramping' near Nyquist "
                                 "at 44.1/48 kHz. Adds a few samples of latency in zero-latency mode; in linear-phase "
                                 "mode it only changes the design (no extra latency).");
-    addAndMakeVisible (oversamplingBox);
+    content.addAndMakeVisible (oversamplingBox);
 
-    analyserSettingsButton.setTooltip ("Analyser settings: freeze, peak hold, tilt, resolution, speed, range");
+    analyserSettingsButton.setTooltip ("Settings: analyser (freeze, peak hold, tilt, resolution, speed, range) and interface size");
     analyserSettingsButton.onClick = [this] { showAnalyserMenu(); };
-    addAndMakeVisible (analyserSettingsButton);
+    content.addAndMakeVisible (analyserSettingsButton);
 
     sidechainBox.addItemList ({ "Side Chain: off", "Side Chain: spectrum", "Side Chain: spectrum and overlap" }, 1);
     sidechainBox.setTooltip ("Show the side chain input's spectrum (orange). \"Spectrum and overlap\" also shades frequencies where "
@@ -120,7 +124,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
             display.repaint();
         }
     };
-    addChildComponent (sidechainBox);
+    content.addChildComponent (sidechainBox);
 
     // Output gain (bar slider, double-click resets to 0 dB) and global bypass.
     outputAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
@@ -139,7 +143,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     outputSlider.setColour (juce::Slider::textBoxTextColourId, EQColours::text);
     outputSlider.setTooltip ("Output gain (double-click: 0 dB)");
     outputSlider.updateText();
-    addAndMakeVisible (outputSlider);
+    content.addAndMakeVisible (outputSlider);
 
     bypassAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         processor.apvts, EQ::bypassId, bypassButton);
@@ -147,9 +151,9 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     bypassButton.setTooltip ("Bypass the whole EQ (smooth cross-fade)");
     bypassButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffff9f43));
     bypassButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
-    addAndMakeVisible (bypassButton);
+    content.addAndMakeVisible (bypassButton);
 
-    addAndMakeVisible (outputMeter);
+    content.addAndMakeVisible (outputMeter);
 
     // Scale the whole curve (double-click: 100 %).
     scaleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
@@ -166,7 +170,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     scaleSlider.setTooltip ("Scale every band's gain together: 0 % = flat, 100 % = as set, negative inverts "
                             "(cuts and notches are unaffected). Double-click: 100 %");
     scaleSlider.updateText();
-    addAndMakeVisible (scaleSlider);
+    content.addAndMakeVisible (scaleSlider);
 
     autoGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         processor.apvts, EQ::autoGainId, autoGainButton);
@@ -175,11 +179,11 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
                                "so a boost isn't judged better just because it's louder. Applied before the output gain.");
     autoGainButton.setColour (juce::TextButton::buttonOnColourId, EQColours::totalCurve.withAlpha (0.85f));
     autoGainButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
-    addAndMakeVisible (autoGainButton);
+    content.addAndMakeVisible (autoGainButton);
 
     bandCountLabel.setFont (EQColours::numbers (EQColours::TextSize::control));
     bandCountLabel.setJustificationType (juce::Justification::centredLeft);
-    addAndMakeVisible (bandCountLabel);
+    content.addAndMakeVisible (bandCountLabel);
 
     hintLabel.setText ("Double-click: add or reset a band.  Drag: frequency and gain (Shift: fine, Ctrl: snap to notes).  "
                        "Mouse wheel: Q.  Alt-click: solo.  Right-click: menu.  Delete key: remove.",
@@ -187,15 +191,17 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     hintLabel.setFont (EQColours::font (EQColours::TextSize::small));
     hintLabel.setJustificationType (juce::Justification::centredRight);
     hintLabel.setColour (juce::Label::textColourId, EQColours::label);   // full colour: 4.5:1 contrast
-    addAndMakeVisible (hintLabel);
+    content.addAndMakeVisible (hintLabel);
 
     timerCallback();
 
-    // Read the saved size first: setResizeLimits() may call resized(), which overwrites it.
+    // Read the saved size first: setting the limits may call resized(), which overwrites it.
     const int savedWidth = processor.editorWidth.load(), savedHeight = processor.editorHeight.load();
+    setConstrainer (&constrainer);
+    updateResizeLimits();
     setResizable (true, true);
-    setResizeLimits (760, 440, 2000, 1200);
-    setSize (savedWidth, savedHeight);
+    const auto size = EQ::EditorSize::constrain (savedWidth, savedHeight, processor.uiScale.load());
+    setSize (size.x, size.y);
     startTimerHz (30);
 }
 
@@ -300,6 +306,13 @@ juce::PopupMenu SongsmithEQAudioProcessorEditor::createAnalyserMenu()
     menu.addSubMenu ("Range top", top);
     menu.addSubMenu ("Range floor", bottom);
 
+    juce::PopupMenu uiSize;
+    for (int i = 0; i < EQ::EditorSize::numUiScales; ++i)
+        uiSize.addItem (70 + i, juce::String (juce::roundToInt (EQ::EditorSize::uiScales[i] * 100.0f)) + "%", true,
+                        std::abs (processor.uiScale.load() - EQ::EditorSize::uiScales[i]) < 0.01f);
+    menu.addSeparator();
+    menu.addSubMenu ("Interface size", uiSize);   // "UI size" in the task; spelled out per task 24
+
     return menu;
 }
 
@@ -324,6 +337,11 @@ void SongsmithEQAudioProcessorEditor::showAnalyserMenu()
                             else if (r >= 40 && r < 43) p.setAnalyserSpeed (r - 40);
                             else if (r >= 50 && r < 53) p.analyserTopDb.store (tops[r - 50]);
                             else if (r >= 60 && r < 63) p.analyserBottomDb.store (bottoms[r - 60]);
+                            else if (r >= 70 && r < 70 + EQ::EditorSize::numUiScales)
+                            {
+                                safe->setUiScale (EQ::EditorSize::uiScales[r - 70]);   // saves and notifies itself
+                                return;
+                            }
 
                             if (r != 1)   // freeze is transient and not saved
                                 p.notifyNonParameterStateChanged();
@@ -352,7 +370,7 @@ bool SongsmithEQAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
     return false;
 }
 
-void SongsmithEQAudioProcessorEditor::paint (juce::Graphics& g)
+void SongsmithEQAudioProcessorEditor::paintContent (juce::Graphics& g)
 {
     g.fillAll (EQColours::background);
 
@@ -405,10 +423,8 @@ namespace
     }
 }
 
-void SongsmithEQAudioProcessorEditor::resized()
+void SongsmithEQAudioProcessorEditor::layoutContent()
 {
-    processor.editorWidth.store (getWidth());
-    processor.editorHeight.store (getHeight());
 
     // Three rows, so every label fits spelled out at the minimum width (760 px):
     //   1: title | presets | undo | redo | scale ............ band count | bypass
@@ -416,7 +432,7 @@ void SongsmithEQAudioProcessorEditor::resized()
     //   3: display range | analyser | settings | curve view | side chain ...... hint
     // Widths come from the text in the embedded font, so nothing is cut short. Optional
     // items (band count, hint) are hidden when there's no room for them.
-    auto area = getLocalBounds();
+    auto area = content.getLocalBounds();
     constexpr int gap = 8;
 
     {
@@ -470,4 +486,68 @@ void SongsmithEQAudioProcessorEditor::resized()
     }
 
     display.setBounds (area.reduced (margin, 0).withTrimmedBottom (margin));
+}
+
+//==============================================================================
+void SongsmithEQAudioProcessorEditor::paint (juce::Graphics& g)
+{
+    g.fillAll (EQColours::background);   // under the content (rounding can leave a pixel)
+}
+
+void SongsmithEQAudioProcessorEditor::resized()
+{
+    processor.editorWidth.store (getWidth());
+    processor.editorHeight.store (getHeight());
+
+    // Layout step: on large windows, controls and text step up in size too (in 1/8 steps, so
+    // they don't creep while dragging), but more slowly than the window, so the graph gets
+    // most of the extra room. 1 up to 1.25x the default window, at most 1.75 (a 4K window
+    // at 100 %).
+    const float uiScale = processor.uiScale.load();
+    const float ratio = juce::jmin ((float) getWidth()  / ((float) EQ::EditorSize::defaultWidth  * uiScale),
+                                    (float) getHeight() / ((float) EQ::EditorSize::defaultHeight * uiScale));
+    layoutStep = juce::jlimit (1.0f, 1.75f, std::floor ((1.0f + (ratio - 1.0f) * 0.5f) * 8.0f) / 8.0f);
+    contentScale = uiScale * layoutStep;
+
+    content.setTransform (juce::AffineTransform::scale (contentScale));
+    content.setBounds (0, 0, juce::roundToInt ((float) getWidth() / contentScale),
+                             juce::roundToInt ((float) getHeight() / contentScale));
+}
+
+void SongsmithEQAudioProcessorEditor::updateResizeLimits()
+{
+    const float s = processor.uiScale.load();
+    constrainer.uiScale = s;
+    constrainer.setSizeLimits (juce::jmin (EQ::EditorSize::maxWidth,  juce::roundToInt ((float) EQ::EditorSize::minWidth  * s)),
+                               juce::jmin (EQ::EditorSize::maxHeight, juce::roundToInt ((float) EQ::EditorSize::minHeight * s)),
+                               EQ::EditorSize::maxWidth, EQ::EditorSize::maxHeight);
+}
+
+void SongsmithEQAudioProcessorEditor::Constrainer::checkBounds (juce::Rectangle<int>& bounds, const juce::Rectangle<int>& previous,
+                                                                const juce::Rectangle<int>& limits,
+                                                                bool top, bool left, bool bottom, bool right)
+{
+    ComponentBoundsConstrainer::checkBounds (bounds, previous, limits, top, left, bottom, right);
+
+    // Then the aspect-ratio range, keeping the edge that isn't being dragged where it is.
+    const auto size = EQ::EditorSize::constrain (bounds.getWidth(), bounds.getHeight(), uiScale);
+    if (left) bounds.setLeft (bounds.getRight() - size.x); else bounds.setWidth (size.x);
+    if (top)  bounds.setTop (bounds.getBottom() - size.y); else bounds.setHeight (size.y);
+}
+
+void SongsmithEQAudioProcessorEditor::setUiScale (float scale)
+{
+    const float before = processor.uiScale.load();
+    processor.setUiScale (scale);
+    const float after = processor.uiScale.load();
+
+    updateResizeLimits();
+
+    // Same design size (same layout), so the window grows or shrinks with the UI size.
+    const auto size = EQ::EditorSize::constrain (juce::roundToInt ((float) getWidth()  * after / before),
+                                                 juce::roundToInt ((float) getHeight() * after / before), after);
+    if (size.x != getWidth() || size.y != getHeight())
+        setSize (size.x, size.y);
+    else
+        resized();
 }
