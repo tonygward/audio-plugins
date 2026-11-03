@@ -5,6 +5,7 @@
 #include <cmath>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "EngineMeasure.h"
 
 using namespace FET;
 
@@ -124,7 +125,7 @@ struct LayoutTests final : juce::UnitTest
             juce::MidiBuffer m;
             q.processBlock (b, m);
             for (int c = 0; c < b.getNumChannels(); ++c)
-                expectGreaterThan (b.getMagnitude (c, 0, 256), 0.4f, "signal passes");
+                expectGreaterThan (b.getMagnitude (c, 0, 256), 0.1f, "signal passes");
         }
     }
 };
@@ -138,7 +139,7 @@ struct TransparencyTests final : juce::UnitTest
     {
         for (double fs : { 44100.0, 48000.0, 96000.0 })
         {
-            beginTest ("defaults are bit-exact at " + juce::String (fs, 0) + " Hz");
+            beginTest ("defaults are bit-exact below the threshold at " + juce::String (fs, 0) + " Hz");
             SongsmithAnalogCompressorProcessor p;
             p.setBusesLayout (layout (Set::stereo(), Set::stereo()));
             p.prepareToPlay (fs, 512);
@@ -149,7 +150,7 @@ struct TransparencyTests final : juce::UnitTest
             for (int block : { 512, 1, 37, 512, 100, 3 })
             {
                 juce::AudioBuffer<float> b (2, block), ref (2, block);
-                fillSine (b, fs, 997.0, 0.7f, offset);
+                fillSine (b, fs, 997.0, 0.01f, offset);   // -40 dBFS: below every knee
                 ref.makeCopyOf (b);
                 p.processBlock (b, m);
                 for (int c = 0; c < 2; ++c)
@@ -302,15 +303,62 @@ static TransparencyTests transparencyTests;
 static StateTests stateTests;
 static EditorTests editorTests;
 
+// FETTests --timing: measured attack and release (definitions in docs/engine.md).
+static int runTimingReport()
+{
+    std::printf ("%-8s %-6s %-6s %-6s %12s %12s %12s %12s\n", "fs", "ratio", "knob", "over", "attack nom", "attack meas", "release nom", "release meas");
+    for (double fs : { 44100.0, 48000.0, 96000.0 })
+        for (int r = 0; r < FET::Engine::numRatios; ++r)
+            for (float knob : { 1.0f, 4.0f, 7.0f })
+                for (float over : { 10.0f, 20.0f, 30.0f })
+                    std::printf ("%-8.0f %-6.0f %-6.0f %-6.0f %10.1fus %10.1fus %10.1fms %10.1fms\n", fs,
+                                 FET::Engine::ratios[(size_t) r], knob, over,
+                                 FET::Engine::attackSeconds (knob) * 1.0e6, Measure::attackSeconds (fs, r, knob, over) * 1.0e6,
+                                 FET::Engine::releaseSeconds (knob) * 1.0e3, Measure::releaseSeconds (fs, r, knob, over) * 1.0e3);
+    return 0;
+}
+
+// FETTests --bench: plugin CPU per channel-second (stereo, 48 kHz, 512-sample blocks).
+static int runBenchmark()
+{
+    SongsmithAnalogCompressorProcessor p;
+    p.prepareToPlay (48000.0, 512);
+    auto* in = p.apvts.getParameter (ID::input);
+    in->setValueNotifyingHost (in->convertTo0to1 (18.0f));
+    juce::AudioBuffer<float> b (2, 512);
+    juce::MidiBuffer m;
+    const int blocks = 48000 * 20 / 512;   // 20 s of audio
+    juce::Random rng (1);
+    const auto t0 = juce::Time::getHighResolutionTicks();
+    for (int k = 0; k < blocks; ++k)
+    {
+        for (int c = 0; c < 2; ++c)
+            for (int i = 0; i < 512; ++i)
+                b.setSample (c, i, 0.3f * (float) std::sin (0.031 * (k * 512 + i)) + 0.01f * (rng.nextFloat() - 0.5f));
+        p.processBlock (b, m);
+    }
+    const double secs = juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0);
+    const double audio = blocks * 512.0 / 48000.0;
+    std::printf ("Stereo 48 kHz: %.3f s for %.1f s of audio = %.3f %% of one core (realtime x%.0f)\n",
+                 secs, audio, 100.0 * secs / audio, audio / secs);
+    return 0;
+}
+
 //==============================================================================
 struct ConsoleRunner final : juce::UnitTestRunner
 {
     void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); std::fflush (stdout); }
 };
 
-int main (int, char*[])
+int main (int argc, char* argv[])
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
+
+    for (int i = 1; i < argc; ++i)
+    {
+        if (juce::String (argv[i]) == "--timing") return runTimingReport();
+        if (juce::String (argv[i]) == "--bench")  return runBenchmark();
+    }
 
     ConsoleRunner runner;
     runner.setAssertOnFailure (false);

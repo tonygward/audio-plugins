@@ -34,6 +34,10 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     grOffAttachment      = std::make_unique<ButtonAttachment> (proc.apvts, ID::grOff, grOff);
     bypassAttachment     = std::make_unique<ButtonAttachment> (proc.apvts, ID::bypass, bypass);
 
+    grLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (grLabel);
+    startTimerHz (30);
+
     setSize (620, 260);
 }
 
@@ -49,7 +53,7 @@ void SongsmithAnalogCompressorEditor::paint (juce::Graphics& g)
 void SongsmithAnalogCompressorEditor::resized()
 {
     auto area = getLocalBounds().reduced (12);
-    area.removeFromTop (20);
+    grLabel.setBounds (area.removeFromTop (20).removeFromRight (200));
 
     auto buttons = area.removeFromBottom (32);
     for (auto* b : { &allButtons, &grOff, &bypass })
@@ -66,4 +70,12 @@ void SongsmithAnalogCompressorEditor::resized()
     auto col = area;
     ratioLabel.setBounds (col.removeFromTop (20));
     ratio.setBounds (col.removeFromTop (28).reduced (4, 0));
+}
+
+void SongsmithAnalogCompressorEditor::timerCallback()
+{
+    // Debug readout: instant attack, ~300 ms fall, so short peaks stay readable.
+    const float gr = proc.takeGainReductionDb();
+    grDisplayDb = gr > grDisplayDb ? gr : grDisplayDb * 0.9f + gr * 0.1f;
+    grLabel.setText ("GR " + juce::String (-grDisplayDb, 1) + " dB", juce::dontSendNotification);
 }

@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "FETParams.h"
+#include "FETEngine.h"
 
 class SongsmithAnalogCompressorProcessor : public juce::AudioProcessor
 {
@@ -42,6 +43,10 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    // Gain reduction for the meter: the largest GR (dB, positive) since the last call.
+    float takeGainReductionDb() noexcept { return engine.takePeakGainReductionDb(); }
+    const FET::Engine& getEngine() const noexcept { return engine; }
+
     static inline const juce::Identifier versionId { "stateVersion" };
 
 private:
@@ -50,8 +55,16 @@ private:
     juce::AudioParameterBool* bypassParam = nullptr;
     std::atomic<float>* inputDb  = nullptr;
     std::atomic<float>* outputDb = nullptr;
+    std::atomic<float>* attackKnob = nullptr;
+    std::atomic<float>* releaseKnob = nullptr;
+    std::atomic<float>* ratioIndex = nullptr;
+    std::atomic<float>* grOffParam = nullptr;
 
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> inputGain { 1.0f }, outputGain { 1.0f };
+    FET::Engine engine;
+
+    using Smoothed = juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative>;
+    static void applyGain (juce::AudioBuffer<float>&, int numCh, int n, Smoothed&) noexcept;
+    Smoothed inputGain { 1.0f }, outputGain { 1.0f };
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix { 0.0f };   // 1 = fully bypassed
     juce::AudioBuffer<float> dry;
 

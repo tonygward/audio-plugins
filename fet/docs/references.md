@@ -76,3 +76,5 @@ These are our own decisions. Later steps add rows.
 | Attack "OFF" is its own automatable switch, **Gain Reduction Off** (`grOff`), not a knob position. | The knob keeps its setting when the switch is toggled, and automation can use the switch on its own. |
 | All Buttons is its own switch (`allButtons`), separate from Ratio. | The selected ratio is kept when All Buttons is switched off again. |
 | Host bypass is a dedicated `bypass` parameter with a 20 ms cross-fade, as in Songsmith EQ. | Matches the EQ. It is distinct from Gain Reduction Off, which keeps the coloured path. |
+| Engine (step 2): zero-delay feedback loop, stereo max-linked, log knob taper, ratio thresholds -19.5/-17/-15.5/-13.8 dBFS with 10/8/7/6 dB knees, 20:1 calibrated to 1 dB GR at -18 dBFS RMS. | See [engine.md](engine.md). Follows published topology (UG pp. 7-10) and published direction (higher ratio, higher threshold; soft knee: UM p. 21). The numbers are ours. |
+| The 1176SA attack-doubling and knob interaction when linked are not modelled. | One plugin instance links internally with shared controls. |
