@@ -95,7 +95,9 @@ component() {
     pkgbuild --analyze --root "$root" "$plist" >/dev/null
     local i=0
     while /usr/libexec/PlistBuddy -c "Print :$i" "$plist" >/dev/null 2>&1; do
-        /usr/libexec/PlistBuddy -c "Set :$i:BundleIsRelocatable false" "$plist"
+        # Set the key if pkgbuild wrote it, add it if it didn't.
+        /usr/libexec/PlistBuddy -c "Set :$i:BundleIsRelocatable false" "$plist" 2>/dev/null ||
+            /usr/libexec/PlistBuddy -c "Add :$i:BundleIsRelocatable bool false" "$plist"
         /usr/libexec/PlistBuddy -c "Set :$i:BundleOverwriteAction upgrade" "$plist" 2>/dev/null ||
             /usr/libexec/PlistBuddy -c "Add :$i:BundleOverwriteAction string upgrade" "$plist"
         i=$((i + 1))

@@ -98,7 +98,7 @@ done
 check "no .DS_Store or AppleDouble files in any payload" \
     test -z "$(find "$work/expanded" \( -name .DS_Store -o -name '._*' \) -print -quit)"
 
-installer -pkg "$pkg" -showChoicesXML > "$work/choices.xml" 2>/dev/null
+installer -pkg "$pkg" -target / -showChoicesXML > "$work/choices.xml" 2>/dev/null
 for c in vst3 au app; do
     check "choice '$c' offered" grep -q "<string>$c</string>" "$work/choices.xml"
 done
@@ -146,7 +146,8 @@ check "stale file from the old version is gone" absent "$VST3/Contents/Resources
 check "unrelated plug-in untouched" test -d "$UNRELATED"
 check "preset file untouched" test "$(shasum "$preset_file" 2>/dev/null)" = "$preset_hash"
 check "everything installed is owned by root" test -z "$(find "$VST3" "$AU" "$APP" ! -user root -print -quit)"
-check "everything installed has group wheel" test -z "$(find "$VST3" "$AU" "$APP" ! -group wheel -print -quit)"
+check "everything installed has group wheel (or admin, which Installer may use in /Applications)" \
+    test -z "$(find "$VST3" "$AU" "$APP" ! -group wheel ! -group admin -print -quit)"
 check "nothing world-writable" test -z "$(find "$VST3" "$AU" "$APP" -perm -o+w ! -type l -print -quit)"
 check "no quarantine attributes" bash -c "! xattr -r '$VST3' '$AU' '$APP' 2>/dev/null | grep -q com.apple.quarantine"
 for id in $IDS; do check "receipt recorded: $id" receipt "$id"; done
