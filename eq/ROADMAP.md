@@ -37,6 +37,7 @@ Suggested split: slopes plus output gain and bypass in one PR, and the build che
 - [x] **Auto gain.** Optionally match output loudness so a boost doesn't just sound better because it's louder.
 - [x] **Scale the whole curve.** One knob that scales every band's gain together.
 - [x] **Piano-roll frequency labels** and note snapping while dragging.
+- [x] **Starting-point templates.** One per common source (vocals, guitars, bass, drums, reverb returns), based on Joe Gilder's EQ advice: cut first, small moves, "only if needed" bands loaded bypassed, and loudness-matched.
 
 ## Phase 4: The big DSP features (v1.0)
 

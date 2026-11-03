@@ -10,6 +10,9 @@ namespace EQ
             FilterType type;
             float freq, gain, q;
             int slope = defaultSlope;
+            bool enabled = true;          // false: used but bypassed ("only if needed")
+            bool dynOn = false;
+            float threshold = defaultThreshold, range = defaultRange;
         };
 
         struct FactoryPreset
@@ -17,7 +20,23 @@ namespace EQ
             const char* name;
             std::vector<FactoryBand> bands;
             float outputGain = 0.0f;
+            const char* hint = nullptr;   // one-line usage hint, shown as the preset bar tooltip
+            bool startingPoint = false;   // listed under "Starting points"
         };
+
+        // Starting-point templates. Based on the EQ advice in Joe Gilder's Home Studio
+        // Corner videos (see README): subtractive first, small moves, "only if needed"
+        // moves loaded bypassed, and output gain set so the template is loudness-matched
+        // on pink noise (K-weighted, bypassed bands off). Q: wide ~0.8, medium ~1.4, narrow 5-8.
+        FactoryBand off (FactoryBand b) { b.enabled = false; return b; }
+
+        FactoryBand dynamic (FactoryBand b, float threshold, float range)
+        {
+            b.dynOn = true;
+            b.threshold = threshold;
+            b.range = range;
+            return b;
+        }
 
         const std::vector<FactoryPreset>& factoryPresets()
         {
@@ -46,6 +65,55 @@ namespace EQ
                                        { T::HighShelf, 9000.0f, 2.0f, defaultQ } } },
                 { "De-mud", { { T::Bell, 300.0f, -4.0f, 1.0f },
                               { T::Bell, 500.0f, -2.0f, 2.0f } } },
+
+                // ---- Starting points (append only: keeps the indices above stable) ----
+                { "Lead vocal", { { T::LowCut, 120.0f, 0.0f, defaultQ, 1 },
+                                  { T::Bell, 200.0f, -3.0f, 0.9f },
+                                  dynamic ({ T::Bell, 2600.0f, -2.0f, 6.0f }, -30.0f, -4.0f),
+                                  off ({ T::HighShelf, 10000.0f, 2.0f, defaultQ }) },
+                  0.7f, "Move the 200 Hz cut to the mud you hear. Air shelf is off: only if still dark.", true },
+                { "Backing vocals", { { T::LowShelf, 200.0f, -4.0f, defaultQ },
+                                      { T::Bell, 500.0f, -3.0f, 0.8f },
+                                      { T::HighShelf, 8000.0f, 2.5f, defaultQ } },
+                  -0.2f, "For the BV bus: thin the lows and mids, then set how much top end they need.", true },
+                { "Spoken word", { { T::LowCut, 100.0f, 0.0f, defaultQ, 1 },
+                                   { T::Bell, 200.0f, -3.0f, 0.9f },
+                                   { T::Bell, 2600.0f, -2.0f, 6.0f } },
+                  0.7f, "Cut rumble and mud; keep the 2.6 kHz dip only if loud words whistle.", true },
+                { "Acoustic guitar body", { off ({ T::LowCut, 45.0f, 0.0f, defaultQ, 1 }),
+                                            { T::Bell, 170.0f, -3.0f, 1.4f },
+                                            { T::Bell, 1800.0f, -1.5f, 1.4f },
+                                            off ({ T::HighShelf, 8000.0f, 1.5f, defaultQ }) },
+                  0.4f, "Find the body thump between 150 and 200 Hz by ear. Dip it; don't remove it.", true },
+                { "Electric guitar", { { T::LowCut, 80.0f, 0.0f, defaultQ, 1 },
+                                       { T::Bell, 175.0f, -2.5f, 1.2f },
+                                       { T::Bell, 2500.0f, -2.0f, 0.9f } },
+                  0.9f, "Tone comes from the recording. Trim 150-200 Hz mud and 2-3 kHz bite if needed.", true },
+                // Breaks the "boosts <= cuts" rule on purpose: the 360 Hz warmth boost is the move.
+                { "Electric guitar bus", { { T::Bell, 360.0f, 1.5f, 0.8f },
+                                           off ({ T::Bell, 3440.0f, -7.5f, 8.0f }) },
+                  -0.2f, "360 Hz adds warmth without mud. Notch is off: sweep it onto a whistle if any.", true },
+                { "Bass guitar", { { T::Bell, 130.0f, -3.0f, 1.4f },
+                                   { T::Bell, 50.0f, 2.0f, 0.9f },
+                                   off ({ T::Bell, 2000.0f, 1.5f, 1.0f }) },
+                  0.0f, "Pull down the 120-150 Hz mud first. Click band is off: only if notes get lost.", true },
+                { "Drum bus", { { T::Bell, 360.0f, -4.0f, 0.8f },
+                                off ({ T::LowShelf, 80.0f, 2.0f, defaultQ }),
+                                off ({ T::Bell, 130.0f, -3.0f, 5.0f }),
+                                { T::Bell, 3000.0f, 1.5f, 1.0f } },
+                  0.0f, "Cut the boxiness around 360-400 Hz. Extra bands are off: use them only if needed.", true },
+                { "Snare", { { T::Bell, 190.0f, -3.0f, 1.4f },
+                             { T::LowShelf, 200.0f, 2.0f, defaultQ } },
+                  0.0f, "Cut the thick spot just below 200 Hz; the shelf then adds a more even low end.", true },
+                { "Reverb return", { { T::LowCut, 200.0f, 0.0f, defaultQ, 2 },
+                                     off ({ T::Bell, 4800.0f, -3.0f, 1.4f }) },
+                  0.6f, "Put it after the reverb. Raise the cut towards 500 Hz if the mix still feels muddy.", true },
+                { "Five-zone start", { { T::Bell, 50.0f, 0.0f, 0.9f },
+                                       { T::Bell, 160.0f, 0.0f, 0.9f },
+                                       { T::Bell, 550.0f, 0.0f, 0.9f },
+                                       { T::Bell, 2600.0f, 0.0f, 0.9f },
+                                       { T::Bell, 10000.0f, 0.0f, 0.9f } },
+                  0.0f, "Lows, low mids, mids, high mids, highs: find the zone that's too loud, turn it down.", true },
             };
             return presets;
         }
@@ -69,6 +137,13 @@ namespace EQ
     int PresetManager::getNumFactoryPresets()                 { return (int) factoryPresets().size(); }
     juce::String PresetManager::getFactoryName (int index)    { return factoryPresets()[(size_t) index].name; }
     int PresetManager::getFactoryUsedBands (int index)        { return (int) factoryPresets()[(size_t) index].bands.size(); }
+    bool PresetManager::isStartingPoint (int index)           { return factoryPresets()[(size_t) index].startingPoint; }
+
+    juce::String PresetManager::getFactoryHint (int index)
+    {
+        const auto* h = factoryPresets()[(size_t) index].hint;
+        return h != nullptr ? juce::String (juce::CharPointer_UTF8 (h)) : juce::String();
+    }
 
     PresetData PresetManager::getFactoryPreset (int index)
     {
@@ -82,12 +157,15 @@ namespace EQ
         {
             auto& s = d.bands[i];
             s.used = true;
-            s.enabled = true;
+            s.enabled = f.bands[i].enabled;
             s.type = (int) f.bands[i].type;
             s.freq = f.bands[i].freq;
             s.gain = typeHasGain (f.bands[i].type) ? f.bands[i].gain : 0.0f;
             s.q = f.bands[i].q;
             s.slope = f.bands[i].slope;
+            s.dynOn = f.bands[i].dynOn;
+            s.threshold = f.bands[i].threshold;
+            s.range = f.bands[i].range;
         }
         d.outputGain = f.outputGain;
         return d;
