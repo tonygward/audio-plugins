@@ -447,7 +447,7 @@ public:
         beginTest ("Parameter identities");
         {
             ThreeBandEQAudioProcessor p;
-            constexpr int numGlobalParams = 2;   // output_gain, bypass
+            constexpr int numGlobalParams = 3;   // output_gain, bypass, auto_gain
             expectEquals (p.getParameters().size(), numBands * numBandParams + numGlobalParams, "24 bands x per-band parameters + globals");
 
             juce::StringArray ids;
@@ -2027,6 +2027,167 @@ public:
     }
 };
 
+//==============================================================================
+class AutoGainTests final : public juce::UnitTest
+{
+public:
+    AutoGainTests() : juce::UnitTest ("Auto gain", "EQ") {}
+
+    static constexpr double fs = 48000.0;
+    static constexpr int block = 512;
+
+    // Paul Kellet's pink noise filter over white noise.
+    struct Pink
+    {
+        std::mt19937 rng { 1234 };
+        std::uniform_real_distribution<float> d { -1.0f, 1.0f };
+        float b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+        float next()
+        {
+            const float w = d (rng);
+            b0 = 0.99886f * b0 + w * 0.0555179f;  b1 = 0.99332f * b1 + w * 0.0750759f;
+            b2 = 0.96900f * b2 + w * 0.1538520f;  b3 = 0.86650f * b3 + w * 0.3104856f;
+            b4 = 0.55000f * b4 + w * 0.5329522f;  b5 = -0.7616f * b5 - w * 0.0168980f;
+            const float out = b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362f;
+            b6 = w * 0.115926f;
+            return out * 0.05f;
+        }
+    };
+
+    // K-weighted loudness (dB) of a mono signal over [from, to).
+    static double loudness (const std::vector<float>& x, size_t from, size_t to)
+    {
+        KWeighting k;
+        k.prepare (fs);
+        double e = 0.0;
+        for (size_t i = 0; i < to; ++i)
+        {
+            const double y = k.process (x[i]);
+            if (i >= from) e += y * y;
+        }
+        return -0.691 + 10.0 * std::log10 (e / (double) (to - from));
+    }
+
+    static void setup (ThreeBandEQAudioProcessor& p, bool autoGainOn)
+    {
+        setBand (p, 0, Param::Gain, 0.0f);
+        setBand (p, 1, Param::Gain, 6.0f);    // broad +6 dB bell at 1 kHz
+        setBand (p, 1, Param::Q, 0.5f);
+        setBand (p, 2, Param::Gain, 0.0f);
+        setParam (p, "auto_gain", autoGainOn ? 1.0f : 0.0f);
+        p.prepareToPlay (fs, block);
+    }
+
+    void runTest() override
+    {
+        beginTest ("A broad +6 dB bell on pink noise is loudness-matched within 0.5 dB");
+        {
+            for (bool on : { false, true })
+            {
+                ThreeBandEQAudioProcessor p;
+                setup (p, on);
+                Pink pink;
+                const int total = (int) (8.0 * fs);
+                std::vector<float> in ((size_t) total);
+                for (auto& v : in) v = pink.next();
+                const auto out = runProcessor (p, fs, block, total, [&] (int n) { return in[(size_t) n]; }, [] (int) {});
+
+                const size_t from = (size_t) (5.0 * fs);
+                const double diff = loudness (out, from, out.size()) - loudness (in, from, in.size());
+                if (on)
+                {
+                    expectWithinAbsoluteError (diff, 0.0, 0.5, "matched loudness");
+                    expectLessThan (p.autoGainAppliedDb.load(), -1.0f, "a cut was applied");
+                }
+                else
+                {
+                    expectGreaterThan (diff, 2.0, "without auto gain the boost is louder");
+                }
+            }
+        }
+
+        beginTest ("Silence produces no gain drift");
+        {
+            ThreeBandEQAudioProcessor p;
+            setup (p, true);
+            const auto silent = runProcessor (p, fs, block, (int) (4.0 * fs), [] (int) { return 0.0f; }, [] (int) {});
+            expectEquals (p.autoGainAppliedDb.load(), 0.0f, "no correction from silence");
+            expect (std::all_of (silent.begin(), silent.end(), [] (float v) { return v == 0.0f; }), "silence stays silent");
+
+            Pink pink;
+            runProcessor (p, fs, block, (int) (5.0 * fs), [&] (int) { return pink.next(); }, [] (int) {});
+            const float settled = p.autoGainAppliedDb.load();
+            expectLessThan (settled, -1.0f, "correction after programme material");
+
+            runProcessor (p, fs, block, (int) (6.0 * fs), [] (int) { return 0.0f; }, [] (int) {});
+            expectWithinAbsoluteError (p.autoGainAppliedDb.load(), settled, 0.25f, "frozen during silence");
+
+            // Very quiet input (below -60 dB) also doesn't move it.
+            runProcessor (p, fs, block, (int) (4.0 * fs), [&] (int) { return pink.next() * 1.0e-4f; }, [] (int) {});
+            expectWithinAbsoluteError (p.autoGainAppliedDb.load(), settled, 0.25f, "frozen below -60 dB");
+        }
+
+        beginTest ("Auto gain off is bit-identical (including after it was used)");
+        {
+            ThreeBandEQAudioProcessor a, b;
+            setup (a, false);
+            setup (b, true);
+            Pink pinkA, pinkB;
+            const int total = (int) (6.0 * fs);
+            const int offAt = (int) (3.0 * fs) / block * block;
+            const auto outA = runProcessor (a, fs, block, total, [&] (int) { return pinkA.next(); }, [] (int) {});
+            const auto outB = runProcessor (b, fs, block, total, [&] (int) { return pinkB.next(); }, [&] (int n)
+            {
+                if (n == offAt) setParam (b, "auto_gain", 0.0f);
+            });
+
+            bool identical = true;
+            for (size_t i = (size_t) offAt + (size_t) fs; i < outA.size(); ++i)
+                identical = identical && outA[i] == outB[i];
+            expect (identical, "identical once auto gain is off and its fade has finished");
+            expectEquals (b.autoGainAppliedDb.load(), 0.0f, "unity after switching off");
+        }
+
+        beginTest ("On/off transitions are smooth");
+        {
+            ThreeBandEQAudioProcessor p;
+            setup (p, false);
+            const int total = (int) (10.0 * fs);
+            const auto out = runProcessor (p, fs, block, total, [] (int n) { return (float) (0.2 * std::sin (2.0 * pi * 1000.0 * n / fs)); },
+                                           [&] (int n)
+            {
+                if (n == (int) (1.0 * fs) / block * block) setParam (p, "auto_gain", 1.0f);
+                if (n == (int) (6.0 * fs) / block * block) setParam (p, "auto_gain", 0.0f);
+            });
+            const double loud = maxStep (out, (size_t) (0.5 * fs), (size_t) (0.95 * fs));
+            expectLessThan (maxStep (out, (size_t) (0.95 * fs), out.size()), loud * 1.02, "never steps beyond the uncorrected signal");
+            expect (std::all_of (out.begin(), out.end(), [] (float v) { return std::isfinite (v); }), "finite");
+
+            const double corrected = rms (out, (size_t) (4.5 * fs), (size_t) (5.5 * fs));
+            expectWithinAbsoluteError (20.0 * std::log10 (corrected / (0.2 / std::sqrt (2.0))), 0.0, 0.5, "1 kHz tone level matched");
+        }
+
+        beginTest ("Auto gain is saved with the session; legacy sessions load with it off");
+        {
+            ThreeBandEQAudioProcessor p;
+            setParam (p, "auto_gain", 1.0f);
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+            ThreeBandEQAudioProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expect (q.isAutoGainOn(), "restored");
+
+            auto state = q.apvts.copyState();
+            state.removeChild (state.getChildWithProperty ("id", "auto_gain"), nullptr);
+            juce::MemoryBlock old;
+            juce::AudioProcessor::copyXmlToBinary (*state.createXml(), old);
+            q.setStateInformation (old.getData(), (int) old.getSize());
+            expect (! q.isAutoGainOn(), "older session: off");
+        }
+    }
+};
+
+static AutoGainTests autoGainTests;
 static AnalyserControlTests analyserControlTests;
 static SidechainTests sidechainTests;
 static StereoModeTests stereoModeTests;
@@ -2180,6 +2341,20 @@ static void runBenchmark()
                    setBand (p, b, Param::Stereo, (float) (b % numStereoModes));
                },
                [] (ThreeBandEQAudioProcessor& p, int b, int bi)   // gain automation
+               {
+                   setBand (p, b, Param::Gain, 6.0f * std::sin ((float) bi * 0.05f + (float) b));
+               });
+
+    benchCase ("24 bells, auto gain on",
+               [] (ThreeBandEQAudioProcessor& p, int b)
+               {
+                   if (b == 0)
+                       setParam (p, "auto_gain", 1.0f);
+                   setBand (p, b, Param::Freq, 40.0f * std::pow (400.0f, (float) b / numBands));
+                   setBand (p, b, Param::Gain, 6.0f);
+                   setBand (p, b, Param::Q, 1.5f);
+               },
+               [] (ThreeBandEQAudioProcessor& p, int b, int bi)
                {
                    setBand (p, b, Param::Gain, 6.0f * std::sin ((float) bi * 0.05f + (float) b));
                });
