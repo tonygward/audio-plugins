@@ -114,6 +114,15 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
 
     addAndMakeVisible (outputMeter);
 
+    autoGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        processor.apvts, EQ::autoGainId, autoGainButton);
+    autoGainButton.setClickingTogglesState (true);
+    autoGainButton.setTooltip ("Auto gain: match the output loudness to the input (K-weighted, 2 s window, +-12 dB), "
+                               "so a boost isn't judged better just because it's louder. Applied before the output gain.");
+    autoGainButton.setColour (juce::TextButton::buttonOnColourId, EQColours::totalCurve.withAlpha (0.85f));
+    autoGainButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
+    addAndMakeVisible (autoGainButton);
+
     bandCountLabel.setFont (EQColours::font (12.0f));
     bandCountLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (bandCountLabel);
@@ -158,6 +167,17 @@ void ThreeBandEQAudioProcessorEditor::timerCallback()
     redoButton.setTooltip (um.canRedo() ? "Redo " + um.getRedoDescription().toLowerCase() + " (Ctrl+Y)" : "Redo (Ctrl+Y)");
 
     presetBar.refresh();
+
+    {
+        juce::String agText ("AG");
+        if (processor.isAutoGainOn())
+        {
+            const float db = processor.autoGainAppliedDb.load();
+            agText << " " << (db > 0.05f ? "+" : "") << juce::String (std::abs (db) < 0.05f ? 0.0f : db, 1);
+        }
+        if (autoGainButton.getButtonText() != agText)
+            autoGainButton.setButtonText (agText);
+    }
 
     bandCountLabel.setText (juce::String (processor.getNumUsedBands()) + " / " + juce::String (EQ::numBands) + " bands",
                             juce::dontSendNotification);
@@ -301,24 +321,27 @@ void ThreeBandEQAudioProcessorEditor::resized()
         hintLabel.setBounds (row);
     }
 
-    // Row 2: display range | analyser ...   output gain | meter | bypass (right-aligned)
+    // Row 2: display range | analyser | settings | curve view | sidechain ...
+    //        ... auto gain | output gain | meter | bypass (right-aligned). Fits 760 px.
     {
         auto row = area.removeFromTop (row2Height).reduced (margin, 4).withTrimmedBottom (2);
-        rangeBox.setBounds (row.removeFromLeft (84));
+        rangeBox.setBounds (row.removeFromLeft (76));
         row.removeFromLeft (6);
-        analyserBox.setBounds (row.removeFromLeft (126));
+        analyserBox.setBounds (row.removeFromLeft (120));
         row.removeFromLeft (4);
         analyserSettingsButton.setBounds (row.removeFromLeft (28));
         row.removeFromLeft (6);
-        curveViewBox.setBounds (row.removeFromLeft (104));
+        curveViewBox.setBounds (row.removeFromLeft (92));
         row.removeFromLeft (6);
-        sidechainBox.setBounds (row.removeFromLeft (128));
+        sidechainBox.setBounds (row.removeFromLeft (116));
 
-        bypassButton.setBounds (row.removeFromRight (62));
+        bypassButton.setBounds (row.removeFromRight (56));
         row.removeFromRight (6);
-        outputMeter.setBounds (row.removeFromRight (64));
+        outputMeter.setBounds (row.removeFromRight (52));
         row.removeFromRight (6);
-        outputSlider.setBounds (row.removeFromRight (98));
+        outputSlider.setBounds (row.removeFromRight (92));
+        row.removeFromRight (6);
+        autoGainButton.setBounds (row.removeFromRight (64));
     }
 
     display.setBounds (area.reduced (margin, 0).withTrimmedBottom (margin));
