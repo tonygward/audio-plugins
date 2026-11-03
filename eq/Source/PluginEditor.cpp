@@ -114,6 +114,23 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
 
     addAndMakeVisible (outputMeter);
 
+    // Scale the whole curve (double-click: 100 %).
+    scaleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
+        processor.apvts, EQ::gainScaleId, scaleSlider);
+    scaleSlider.textFromValueFunction = [] (double pct) { return "Scale " + juce::String (juce::roundToInt (pct)) + "%"; };
+    scaleSlider.valueFromTextFunction = [] (const juce::String& t)
+    {
+        return t.retainCharacters ("-0123456789.").getDoubleValue();
+    };
+    scaleSlider.setDoubleClickReturnValue (true, 100.0);
+    scaleSlider.setTextBoxIsEditable (true);
+    scaleSlider.setColour (juce::Slider::trackColourId, EQColours::band (3));
+    scaleSlider.setColour (juce::Slider::textBoxTextColourId, EQColours::text);
+    scaleSlider.setTooltip ("Scale every band's gain together: 0 % = flat, 100 % = as set, negative inverts "
+                            "(cuts and notches are unaffected). Double-click: 100 %");
+    scaleSlider.updateText();
+    addAndMakeVisible (scaleSlider);
+
     autoGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         processor.apvts, EQ::autoGainId, autoGainButton);
     autoGainButton.setClickingTogglesState (true);
@@ -303,7 +320,7 @@ void ThreeBandEQAudioProcessorEditor::resized()
 
     auto area = getLocalBounds();
 
-    // Row 1: title | presets | undo/redo | band count | hint
+    // Row 1: title | presets | undo/redo | curve scale | band count | hint
     {
         auto row = area.removeFromTop (row1Height).reduced (margin, 7);
         row.removeFromLeft (130);   // title (painted)
@@ -312,6 +329,8 @@ void ThreeBandEQAudioProcessorEditor::resized()
         undoButton.setBounds (row.removeFromLeft (56));
         row.removeFromLeft (6);
         redoButton.setBounds (row.removeFromLeft (56));
+        row.removeFromLeft (12);
+        scaleSlider.setBounds (row.removeFromLeft (100));
         row.removeFromLeft (12);
 
         bandCountLabel.setVisible (row.getWidth() >= 90);

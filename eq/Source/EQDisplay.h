@@ -65,6 +65,7 @@ private:
     void drawSoloRegion (juce::Graphics&, juce::Rectangle<float> area, int band);
     int getSoloBand() const;
     bool isInCurveView (int band) const;
+    float displayToStoredGain (float displayGainDb) const;   // undo the gain scale
 
     void showContextMenu (int band);
     void positionPanel();

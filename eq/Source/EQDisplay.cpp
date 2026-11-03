@@ -106,6 +106,7 @@ void EQDisplay::timerCallback()
     check ((float) processor.selectedBand.load());
     check ((float) getSoloBand());
     check ((float) processor.curveView.load());
+    check (processor.getGainScale());
     check (processor.analyserTilt.load());
     check (processor.analyserTopDb.load());
     check (processor.analyserBottomDb.load());
@@ -188,10 +189,19 @@ float EQDisplay::yToGain (float y) const
     return juce::jlimit (-r, r, juce::jmap (y, area.getY() + gainPad, area.getBottom() - gainPad, r, -r));
 }
 
+float EQDisplay::displayToStoredGain (float displayGainDb) const
+{
+    const float scale = processor.getGainScale();
+    if (std::abs (scale) < 0.01f)
+        return 0.0f;
+    return juce::jlimit (EQ::minGain, EQ::maxGain, displayGainDb / scale);
+}
+
 juce::Point<float> EQDisplay::getNodePosition (int band, bool clampToView) const
 {
     const float freq = processor.getBandValue (band, EQ::Param::Freq);
-    float gain = EQ::typeHasGain (getType (band)) ? processor.getBandValue (band, EQ::Param::Gain) : 0.0f;
+    // Nodes sit on the *scaled* gain (what you hear), see the gain_scale parameter.
+    float gain = EQ::typeHasGain (getType (band)) ? processor.getBandValue (band, EQ::Param::Gain) * processor.getGainScale() : 0.0f;
 
     if (clampToView)
         gain = juce::jlimit (-getRange(), getRange(), gain);
@@ -469,7 +479,7 @@ void EQDisplay::computeCurves (juce::Rectangle<float> area)
         coeffs.push_back (EQ::makeFilter (type, sr,
                                           processor.getBandValue (b, EQ::Param::Freq),
                                           processor.getBandValue (b, EQ::Param::Q),
-                                          EQ::typeHasGain (type) ? processor.getBandValue (b, EQ::Param::Gain) : 0.0f,
+                                          EQ::typeHasGain (type) ? processor.getBandValue (b, EQ::Param::Gain) * processor.getGainScale() : 0.0f,
                                           (int) std::lround (processor.getBandValue (b, EQ::Param::Slope))));
         c.bands.push_back (b);
         c.enabled.push_back (isEnabled (b));
@@ -658,7 +668,12 @@ void EQDisplay::drawTooltip (juce::Graphics& g, juce::Rectangle<float> area, int
 
     juce::String line2 = formatFreq (processor.getBandValue (band, EQ::Param::Freq));
     if (EQ::typeHasGain (type))
-        line2 << "   " << formatGain (processor.getBandValue (band, EQ::Param::Gain));
+    {
+        const float stored = processor.getBandValue (band, EQ::Param::Gain), scale = processor.getGainScale();
+        line2 << "   " << formatGain (stored);
+        if (scale != 1.0f)
+            line2 << " (x" << juce::String (juce::roundToInt (scale * 100.0f)) << "% = " << formatGain (stored * scale) << ")";
+    }
     line2 << "   Q " << juce::String (processor.getBandValue (band, EQ::Param::Q), 2);
 
     const auto font = juce::Font (EQColours::font (12.0f));
@@ -900,7 +915,12 @@ void EQDisplay::mouseDrag (const juce::MouseEvent& e)
         gainTouched = true;
 
     if (gainTouched && EQ::typeHasGain (getType (draggingBand)))
-        processor.edits.setParam (EQ::Param::Gain, yToGain (target.y));
+    {
+        // The node shows the scaled gain; store the unscaled value. At ~0 % scale every
+        // gain draws at 0 dB, so a vertical drag has nothing to act on.
+        if (std::abs (processor.getGainScale()) > 0.01f)
+            processor.edits.setParam (EQ::Param::Gain, displayToStoredGain (yToGain (target.y)));
+    }
 
     positionPanel();
     repaint();
@@ -938,7 +958,7 @@ void EQDisplay::mouseDoubleClick (const juce::MouseEvent& e)
     }
     else if (getPlotArea().contains (e.position))
     {
-        const int band = processor.edits.addBand (xToFreq (e.position.x), yToGain (e.position.y), EQ::FilterType::Bell);
+        const int band = processor.edits.addBand (xToFreq (e.position.x), displayToStoredGain (yToGain (e.position.y)), EQ::FilterType::Bell);
         if (band >= 0)
             setSelectedBand (band);
     }

@@ -33,6 +33,8 @@ private:
 
     // Global output stage
     juce::Slider outputSlider { juce::Slider::LinearBar, juce::Slider::TextBoxLeft };
+    juce::Slider scaleSlider { juce::Slider::LinearBar, juce::Slider::TextBoxLeft };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> scaleAttachment;
     juce::TextButton bypassButton { "Bypass" }, autoGainButton { "AG" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoGainAttachment;
     juce::TextButton analyserSettingsButton { "..." };   // analyser settings popup
