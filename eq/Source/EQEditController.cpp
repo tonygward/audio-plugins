@@ -25,6 +25,60 @@ namespace EQ
         {
             p->setValueNotifyingHost (p->convertTo0to1 (value));
         }
+
+        class PresetAction final : public juce::UndoableAction
+        {
+        public:
+            PresetAction (EditController& c, const PresetData& before, const PresetData& after)
+                : controller (c), beforeState (before), afterState (after) {}
+
+            bool perform() override { controller.applyPresetData (afterState);  return true; }
+            bool undo() override    { controller.applyPresetData (beforeState); return true; }
+            int getSizeInUnits() override { return numBands; }
+
+        private:
+            EditController& controller;
+            PresetData beforeState, afterState;
+        };
+    }
+
+    PresetData EditController::getPresetData() const
+    {
+        PresetData d;
+        for (int b = 0; b < numBands; ++b)
+            d.bands[(size_t) b] = getSnapshot (b);
+        d.outputGain = processor.getOutputGainParam()->convertFrom0to1 (processor.getOutputGainParam()->getValue());
+        d.gainScale  = processor.getGainScaleParam()->convertFrom0to1 (processor.getGainScaleParam()->getValue());
+        return d;
+    }
+
+    void EditController::applyPresetData (const PresetData& d)
+    {
+        for (int b = 0; b < numBands; ++b)
+            applySnapshot (b, d.bands[(size_t) b]);
+
+        auto setGlobal = [] (juce::RangedAudioParameter* p, float value)
+        {
+            if (p->convertFrom0to1 (p->getValue()) == p->convertFrom0to1 (p->convertTo0to1 (value)))
+                return;
+            p->beginChangeGesture();
+            setParamValue (p, value);
+            p->endChangeGesture();
+        };
+
+        setGlobal (processor.getOutputGainParam(), d.outputGain);
+        setGlobal (processor.getGainScaleParam(), d.gainScale);
+    }
+
+    void EditController::loadPreset (const PresetData& d, const juce::String& name)
+    {
+        if (isEditing())
+            endEdit();
+
+        const auto before = getPresetData();
+        const juce::String title = "Load preset " + name;
+        undoManager.beginNewTransaction (title);
+        undoManager.perform (new PresetAction (*this, before, d), title);
     }
 
     BandSnapshot EditController::getSnapshot (int band) const
@@ -36,6 +90,14 @@ namespace EQ
         s.freq    = processor.getBandValue (band, Param::Freq);
         s.gain    = processor.getBandValue (band, Param::Gain);
         s.q       = processor.getBandValue (band, Param::Q);
+        s.slope   = (int) std::lround (processor.getBandValue (band, Param::Slope));
+        s.stereo  = (int) std::lround (processor.getBandValue (band, Param::Stereo));
+        s.dynOn       = processor.getBandValue (band, Param::DynOn) >= 0.5f;
+        s.dynExternal = processor.getBandValue (band, Param::DynExternal) >= 0.5f;
+        s.threshold   = processor.getBandValue (band, Param::Threshold);
+        s.range       = processor.getBandValue (band, Param::Range);
+        s.attack      = processor.getBandValue (band, Param::Attack);
+        s.release     = processor.getBandValue (band, Param::Release);
         return s;
     }
 
@@ -55,6 +117,14 @@ namespace EQ
     {
         setParamWithGesture (band, Param::Enabled, s.enabled ? 1.0f : 0.0f);
         setParamWithGesture (band, Param::Type, (float) s.type);
+        setParamWithGesture (band, Param::Slope, (float) s.slope);
+        setParamWithGesture (band, Param::Stereo, (float) s.stereo);
+        setParamWithGesture (band, Param::Threshold, s.threshold);
+        setParamWithGesture (band, Param::Range, s.range);
+        setParamWithGesture (band, Param::Attack, s.attack);
+        setParamWithGesture (band, Param::Release, s.release);
+        setParamWithGesture (band, Param::DynExternal, s.dynExternal ? 1.0f : 0.0f);
+        setParamWithGesture (band, Param::DynOn, s.dynOn ? 1.0f : 0.0f);
         setParamWithGesture (band, Param::Freq, s.freq);
         setParamWithGesture (band, Param::Gain, s.gain);
         setParamWithGesture (band, Param::Q, s.q);
@@ -110,7 +180,7 @@ namespace EQ
         if (! isEditing())
             return;
 
-        for (int p = 0; p < 5; ++p)
+        for (int p = 0; p < numBandParams; ++p)
             if (gestureOpen[(size_t) p])
                 processor.getBandParam (editBand, (Param) p)->endChangeGesture();
 
@@ -166,6 +236,30 @@ namespace EQ
         auto after = before;
         after.type = (int) type;
         commit (band, before, after, "Change filter type");
+    }
+
+    void EditController::setSlope (int band, int slopeIndex)
+    {
+        const auto before = getSnapshot (band);
+        auto after = before;
+        after.slope = juce::jlimit (0, numSlopes - 1, slopeIndex);
+        commit (band, before, after, "Change slope");
+    }
+
+    void EditController::setStereoMode (int band, int mode)
+    {
+        const auto before = getSnapshot (band);
+        auto after = before;
+        after.stereo = juce::jlimit (0, numStereoModes - 1, mode);
+        commit (band, before, after, "Change stereo mode");
+    }
+
+    void EditController::setDynamic (int band, bool on)
+    {
+        const auto before = getSnapshot (band);
+        auto after = before;
+        after.dynOn = on;
+        commit (band, before, after, on ? "Dynamic on" : "Dynamic off");
     }
 
     void EditController::setEnabled (int band, bool enabled)

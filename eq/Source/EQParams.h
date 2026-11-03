@@ -40,13 +40,68 @@ namespace EQ
 
     inline bool defaultUsed (int band) { return band < numDefaultBands; }
 
-    enum class Param { Freq, Gain, Q, Type, Enabled };
+    // Cut slopes (Low Cut / High Cut only). Index 1 (12 dB/oct, one SVF stage) is the
+    // default and matches every session saved before slopes existed.
+    constexpr int numSlopes = 6;
+    constexpr int defaultSlope = 1;
+    constexpr int slopeOrders[numSlopes] = { 1, 2, 3, 4, 6, 8 };   // filter order = dB/oct / 6
+
+    inline const juce::StringArray& getSlopeNames()
+    {
+        static const juce::StringArray names { "6 dB/oct", "12 dB/oct", "18 dB/oct", "24 dB/oct", "36 dB/oct", "48 dB/oct" };
+        return names;
+    }
+
+    inline int slopeOrder (int slopeIndex) { return slopeOrders[juce::jlimit (0, numSlopes - 1, slopeIndex)]; }
+
+    inline bool typeHasSlope (FilterType t) { return t == FilterType::LowCut || t == FilterType::HighCut; }
+
+    // Per-band host parameters. Append new ones at the end: the index is used for
+    // fixed-size arrays and the ID suffix table below.
+    // Per-band stereo processing. Stereo (default) processes both channels; Mid/Side bands
+    // run on an M/S-encoded signal (M = (L+R)/2, S = (L-R)/2).
+    enum class StereoMode { Stereo = 0, Left, Right, Mid, Side };
+    constexpr int numStereoModes = 5;
+
+    inline const juce::StringArray& getStereoModeNames()
+    {
+        static const juce::StringArray names { "Stereo", "Left", "Right", "Mid", "Side" };
+        return names;
+    }
+
+    inline StereoMode stereoModeFromIndex (int i) { return static_cast<StereoMode> (juce::jlimit (0, numStereoModes - 1, i)); }
+    inline bool isMidSide (StereoMode m) { return m == StereoMode::Mid || m == StereoMode::Side; }
+
+    enum class Param { Freq, Gain, Q, Type, Enabled, Slope, Stereo,
+                       DynOn, Threshold, Range, Attack, Release, DynExternal };
+    constexpr int numBandParams = 13;
+
+    // Dynamic EQ parameter ranges and defaults (dynamics off by default).
+    constexpr float minThreshold = -60.0f, maxThreshold = 0.0f, defaultThreshold = -30.0f;
+    constexpr float minRange = -24.0f, maxRange = 24.0f, defaultRange = -6.0f;
+    constexpr float minAttackMs = 0.1f, maxAttackMs = 100.0f, defaultAttackMs = 10.0f;
+    constexpr float minReleaseMs = 10.0f, maxReleaseMs = 1000.0f, defaultReleaseMs = 150.0f;
 
     // IDs for bands 1-3 freq/gain/q are unchanged from v0.1 so automation and
     // saved sessions keep pointing at the same parameters.
     inline juce::String paramId (int band, Param p)
     {
-        static const char* const suffix[] = { "freq", "gain", "q", "type", "on" };
+        static const char* const suffix[] = { "freq", "gain", "q", "type", "on", "slope", "stereo",
+                                              "dyn_on", "threshold", "range", "attack", "release", "dyn_ext" };
+        static_assert (std::size (suffix) == (size_t) numBandParams);
         return "band" + juce::String (band + 1) + "_" + suffix[(int) p];
     }
+
+    // Global (non-band) host parameters.
+    inline const char* const outputGainId = "output_gain";
+    inline const char* const bypassId     = "bypass";
+    inline const char* const autoGainId   = "auto_gain";
+    inline const char* const gainScaleId  = "gain_scale";
+    inline const char* const phaseModeId  = "phase_mode";   // 0 zero latency, 1 linear phase
+    inline const char* const lpQualityId  = "lp_quality";   // linear-phase FIR length: low, medium, high
+    inline const char* const oversamplingId = "oversampling"; // 0 off, 1 = 2x, 2 = 4x
+
+    constexpr float minGainScale = -100.0f, maxGainScale = 200.0f;   // percent; 100 = as set
+
+    constexpr float minOutputGain = -24.0f, maxOutputGain = 24.0f;
 }

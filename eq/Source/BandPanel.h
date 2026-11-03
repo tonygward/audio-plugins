@@ -19,8 +19,10 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    static constexpr int panelWidth  = 470;
-    static constexpr int panelHeight = 104;
+    static constexpr int panelWidth  = 520;
+    static constexpr int panelHeight = 128;          // without the dynamics row
+    static constexpr int dynamicsRowHeight = 84;
+    int getPreferredHeight() const noexcept { return panelHeight + (showDynamics ? dynamicsRowHeight : 0); }
 
     std::function<void()> onBandRemoved;
 
@@ -43,9 +45,13 @@ private:
 
     juce::Label title;
     juce::TextButton powerButton { "ON" };
-    juce::ComboBox typeBox;
+    juce::ComboBox typeBox, slopeBox, stereoBox;
     Knob freqKnob, gainKnob, qKnob;
-    juce::TextButton resetButton { "Reset" }, deleteButton { "Delete" };
+    Knob thresholdKnob, rangeKnob, attackKnob, releaseKnob;   // dynamics row (shown while dynamics are on)
+    juce::TextButton dynButton { "Dyn" }, dynExternalButton { "SC" };
+    juce::Label dynGainLabel;
+    bool showDynamics = false;
+    juce::TextButton resetButton { "Reset" }, deleteButton { "Delete" }, soloButton { "Solo" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BandPanel)
 };

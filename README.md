@@ -1,14 +1,34 @@
 # audio-plugins
 
+[![Build](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml/badge.svg)](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml)
+
 Audio plugins built with [JUCE](https://juce.com) and CMake.
 
 | Plugin | Folder | Formats |
 |---|---|---|
-| **TW Pro EQ**: parametric EQ with a spectrum analyser | [`eq/`](eq/) | VST3, Standalone |
+| **TW Pro EQ**: parametric EQ with a spectrum analyser | [`eq/`](eq/) | VST3, AU (macOS), Standalone |
 
 ---
 
 ## TW Pro EQ
+
+### Features
+
+- Up to 24 bands: Bell, Low Shelf, High Shelf, Low Cut, High Cut and Notch
+- Low Cut and High Cut slopes of 6, 12, 18, 24, 36 or 48 dB/oct (Butterworth; raise Q for a resonant peak at the cutoff)
+- **Oversampling** (top bar: OS off / 2x / 4x): stops high-frequency bells and shelves from "cramping" near Nyquist at 44.1/48 kHz. It adds a few samples of reported latency in zero-latency mode; in linear-phase mode it only changes the filter design
+- **Linear-phase mode** (top bar): "Linear: low / medium / high" for mastering. It adds latency (at 44.1/48 kHz about 43-46, 85-93 or 171-186 ms), which is reported to your DAW for compensation. Dynamic EQ and solo need zero-latency mode
+- **Dynamic EQ per band** (Bell and shelves): turn on **Dyn** in the band panel for threshold, range (±24 dB), attack and release; the band's gain moves with the level in its own frequency region, or with the sidechain (**SC**). The graph shades the live curve and the node shows where the gain sits now
+- **Stereo modes per band:** Stereo, Left, Right, Mid or Side (a small L/R/M/S badge marks the node). The "Curve" selector shows the combined curve for one channel
+- Click-free parameter smoothing, undo/redo, and a response curve drawn from the real DSP coefficients
+- **Scale** (top bar): scales every band's gain together, -100 % to +200 % (0 % = flat, negative inverts; cuts and notches are unaffected). Double-click for 100 %. It's automatable and stored in presets
+- Pre/post spectrum analyser with settings (the `...` button): freeze, peak hold (click the graph to reset), tilt 0/3/4.5/6 dB/oct, 2048/4096/8192-point resolution, slow/medium/fast speed and dBFS range. Plus an optional **sidechain spectrum** (orange) to spot masking: route another track to the sidechain input and pick "Sidechain: spectrum" or "+ overlap" (shades where both tracks are within 6 dB above -60 dBFS). The selector appears once the sidechain receives signal; the sidechain is never heard
+- **Notes:** frequencies show the nearest note and cents (`440 Hz · A4 +0¢`); type note names such as `A2`, `C#5` or `Eb3` into the frequency field; hold Ctrl (Cmd on macOS) while dragging to snap to semitones; right-click the empty graph to show a piano strip along the frequency axis
+- **Solo a band:** Alt-click (and drag) a node to hear only the region it affects while the mouse is held, or latch it with the Solo button in the band panel or the right-click menu
+- **Output gain** (±24 dB, double-click to reset) with a peak meter, peak hold and clip indicator (click the meter to clear it)
+- **Global bypass** that your DAW uses as its native bypass, with a smooth 20 ms cross-fade
+- **Auto gain** (AG button): matches the output loudness to the input (K-weighted, 2 s window, ±12 dB, frozen on silence) so you judge EQ moves at equal loudness; the button shows the correction
+- **Presets:** 8 factory starting points plus your own presets, saved as `.twpreset` files in `%APPDATA%\TW Pro EQ\Presets` (Windows) or `~/Library/TW Pro EQ/Presets` (macOS). Use the arrows and the menu in the top bar; `*` means the settings differ from the loaded preset. Loading a preset is one undo step.
 
 ### Just want to use it?
 
@@ -18,7 +38,7 @@ Pre-built **Windows** binaries are on the [Releases page](https://github.com/ton
 2. Extract it and copy the `TW Pro EQ.vst3` folder into `C:\Program Files\Common Files\VST3`.
 3. Rescan plugins in your DAW.
 
-There's no pre-built Mac binary yet. Mac users need to build from source (see below).
+**macOS:** every CI run uploads a `TW-Pro-EQ-macOS-zip` artifact (VST3 + AU, universal) on the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml). It isn't signed or notarised, so after copying the plug-ins (see Install below) you may need to run `xattr -dr com.apple.quarantine` on them. Or build from source.
 
 ---
 
@@ -92,7 +112,7 @@ To install by hand instead, copy the `TW Pro EQ.vst3` folder into `C:\Program Fi
 
 ### macOS
 
-> ⚠️ The Mac build hasn't been tested yet. If something breaks, please open an issue.
+The Mac build (VST3, AU and Standalone, universal arm64 + x86_64) is built and tested on every push by the GitHub Actions workflow, including Apple's `auval` Audio Unit validation. It hasn't been checked by hand in Logic Pro yet.
 
 **Requirements:**
 
@@ -119,31 +139,25 @@ cmake --build build --config Release
 
 If you'd rather not use Xcode as the generator, `-G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release` works too.
 
-The plugin ends up at:
+On a Mac the build produces both plug-in formats (AU is added automatically on Apple platforms):
 
 ```
 eq/build/ThreeBandEQ_artefacts/Release/VST3/TW Pro EQ.vst3
+eq/build/ThreeBandEQ_artefacts/Release/AU/TW Pro EQ.component
 ```
 
 #### Install
 
-Copy the plugin into your user VST3 folder (no admin rights needed):
+Copy the plug-ins into your user plug-in folders (no admin rights needed). **Logic Pro and GarageBand** load the **AU** (`.component`); most other DAWs load the VST3.
 
 ```sh
-mkdir -p ~/Library/Audio/Plug-Ins/VST3
-rm -rf ~/Library/Audio/Plug-Ins/VST3/"TW Pro EQ.vst3"
+mkdir -p ~/Library/Audio/Plug-Ins/VST3 ~/Library/Audio/Plug-Ins/Components
+rm -rf ~/Library/Audio/Plug-Ins/VST3/"TW Pro EQ.vst3" ~/Library/Audio/Plug-Ins/Components/"TW Pro EQ.component"
 cp -R build/ThreeBandEQ_artefacts/Release/VST3/"TW Pro EQ.vst3" ~/Library/Audio/Plug-Ins/VST3/
+cp -R build/ThreeBandEQ_artefacts/Release/AU/"TW Pro EQ.component" ~/Library/Audio/Plug-Ins/Components/
 ```
 
-Then rescan plugins in your DAW.
-
-**Logic Pro and GarageBand** only load **Audio Unit (AU)** plugins, not VST3. To build an AU as well, change the `FORMATS` line in `eq/CMakeLists.txt` to:
-
-```cmake
-FORMATS VST3 AU Standalone
-```
-
-After rebuilding, copy `build/ThreeBandEQ_artefacts/Release/AU/TW Pro EQ.component` into `~/Library/Audio/Plug-Ins/Components/`.
+Then rescan plugins in your DAW. If Logic doesn't list the AU straight away, run `killall -9 AudioComponentRegistrar` and reopen Logic. You can check the AU yourself with `auval -v aufx Eq3b Tnyw`.
 
 #### Run the tests
 

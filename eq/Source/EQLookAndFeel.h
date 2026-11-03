@@ -64,6 +64,35 @@ public:
         return juce::Font (EQColours::font (juce::jmin (15.0f, (float) buttonHeight * 0.6f), true));
     }
 
+    // Compact bar sliders (top-bar output gain): bipolar ranges fill from zero.
+    void drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
+                           float sliderPos, float minSliderPos, float maxSliderPos,
+                           juce::Slider::SliderStyle style, juce::Slider& slider) override
+    {
+        if (style != juce::Slider::LinearBar)
+        {
+            LookAndFeel_V4::drawLinearSlider (g, x, y, width, height, sliderPos, minSliderPos, maxSliderPos, style, slider);
+            return;
+        }
+
+        const auto r = juce::Rectangle<int> (x, y, width, height).toFloat();
+        g.setColour (EQColours::panel);
+        g.fillRoundedRectangle (r, 4.0f);
+
+        const bool bipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
+        const float zeroX = bipolar ? (float) slider.getPositionOfValue (0.0) : r.getX();
+        const float from = juce::jmin (zeroX, sliderPos), to = juce::jmax (zeroX, sliderPos);
+
+        if (to - from > 0.5f)
+        {
+            g.setColour (slider.findColour (juce::Slider::trackColourId).withAlpha (slider.isEnabled() ? 0.55f : 0.2f));
+            g.fillRect (juce::Rectangle<float> (from, r.getY() + 1.0f, to - from, r.getHeight() - 2.0f));
+        }
+
+        g.setColour (EQColours::panelEdge);
+        g.drawRoundedRectangle (r.reduced (0.5f), 4.0f, 1.0f);
+    }
+
     void drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
                            float sliderPos, float startAngle, float endAngle,
                            juce::Slider& slider) override

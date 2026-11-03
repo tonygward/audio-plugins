@@ -14,6 +14,9 @@
 //  Wheel over node ............. Q (Shift = fine)
 //  Double-click node ........... reset gain and Q
 //  Right-click node ............ context menu
+//  Alt-click / Alt-drag node ... solo (audition) the band while held
+//  Ctrl (Cmd) while dragging ... snap the frequency to the nearest semitone
+//  Right-click empty space ..... display menu (piano strip)
 //  Delete / Backspace .......... remove selected band
 class EQDisplay : public juce::Component, private juce::Timer
 {
@@ -55,11 +58,19 @@ private:
 
     void drawGrid (juce::Graphics&, juce::Rectangle<float> area);
     void drawAnalyser (juce::Graphics&, juce::Rectangle<float> area);
+    void drawSidechain (juce::Graphics&, juce::Rectangle<float> area);
     void computeCurves (juce::Rectangle<float> area);
     void drawCurves (juce::Graphics&, juce::Rectangle<float> area);
     void drawNodes (juce::Graphics&);
     void drawTooltip (juce::Graphics&, juce::Rectangle<float> area, int band);
     void drawEmptyHint (juce::Graphics&, juce::Rectangle<float> area);
+    void drawPianoStrip (juce::Graphics&, juce::Rectangle<float> area);
+    void showDisplayMenu();
+    void drawSoloRegion (juce::Graphics&, juce::Rectangle<float> area, int band);
+    int getSoloBand() const;
+    bool isInCurveView (int band) const;
+    float getLiveDynamicDb (int band) const;
+    float displayToStoredGain (float displayGainDb) const;   // undo the gain scale
 
     void showContextMenu (int band);
     void positionPanel();
@@ -78,7 +89,9 @@ private:
         std::vector<float> xs, total;
         std::vector<int> bands;                   // used bands, in order
         std::vector<bool> enabled;
+        std::vector<bool> inView;                 // counted in the main curve for the current curve view
         std::vector<std::vector<float>> single;   // per entry in 'bands'
+        std::vector<std::vector<float>> live;     // dynamic bands: response at the live gain (else empty)
     } curves;
 
     int analyserTick = 0;
@@ -86,6 +99,8 @@ private:
     int hoveredBand  = -1;
     int draggingBand = -1;
     bool dragFine = false, gainTouched = false;
+    bool momentarySolo = false;     // Alt-drag audition in progress
+    int soloBeforeMomentary = -1;   // latched solo to restore on release
     juce::Point<float> anchorMouse, anchorNode;
 
     int wheelBand = -1;

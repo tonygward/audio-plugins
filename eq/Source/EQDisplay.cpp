@@ -1,6 +1,7 @@
 #include "EQDisplay.h"
 #include "EQLookAndFeel.h"
 #include "SvfFilter.h"
+#include "NoteNames.h"
 
 namespace
 {
@@ -50,6 +51,23 @@ EQ::FilterType EQDisplay::getType (int band) const
     return EQ::typeFromIndex ((int) std::lround (processor.getBandValue (band, EQ::Param::Type)));
 }
 
+int EQDisplay::getSoloBand() const
+{
+    const int b = processor.soloBand.load();
+    return isUsed (b) ? b : -1;
+}
+
+// Curve view: 0 = all bands (the combined curve as before), otherwise one channel
+// (1 Left, 2 Right, 3 Mid, 4 Side): Stereo bands plus the bands set to that channel.
+// It's a per-channel view of each band's own response, not a full L/R <-> M/S
+// cross-model, so e.g. a Mid band is not shown in the Left view.
+bool EQDisplay::isInCurveView (int band) const
+{
+    const int view = processor.curveView.load();
+    const int mode = (int) std::lround (processor.getBandValue (band, EQ::Param::Stereo));
+    return view == 0 || mode == 0 || mode == view || processor.getMainBusNumInputChannels() < 2;
+}
+
 int EQDisplay::getSelectedBand() const
 {
     const int b = processor.selectedBand.load();
@@ -67,25 +85,42 @@ void EQDisplay::setSelectedBand (int band)
 // (UI edits, host automation, undo/redo, state restore).
 void EQDisplay::timerCallback()
 {
-    const size_t needed = (size_t) EQ::numBands * 6 + 3;
-    if (lastValues.size() != needed)
-        lastValues.assign (needed, -12345.0f);
+    // Grows to fit on the first tick (a fixed count once overran the vector).
+    if (lastValues.empty())
+        lastValues.reserve ((size_t) EQ::numBands * (EQ::numBandParams + 1) + 16);
 
     bool changed = false;
     size_t i = 0;
-    auto check = [&] (float v) { if (lastValues[i] != v) { lastValues[i] = v; changed = true; } ++i; };
+    auto check = [&] (float v)
+    {
+        if (i == lastValues.size()) { lastValues.push_back (v); changed = true; }
+        else if (lastValues[i] != v) { lastValues[i] = v; changed = true; }
+        ++i;
+    };
 
     for (int b = 0; b < EQ::numBands; ++b)
     {
-        for (int p = 0; p < 5; ++p)
+        for (int p = 0; p < EQ::numBandParams; ++p)
             check (processor.getBandValue (b, (EQ::Param) p));
         check (processor.isBandUsed (b) ? 1.0f : 0.0f);
     }
     check ((float) processor.selectedBand.load());
+    check ((float) getSoloBand());
+    check ((float) processor.curveView.load());
+    check (processor.showPianoStrip.load() ? 1.0f : 0.0f);
+    check (processor.getGainScale());
+    for (int b = 0; b < EQ::numBands; ++b)
+        check (isUsed (b) ? getLiveDynamicDb (b) : 0.0f);
+    check (processor.analyserTilt.load());
+    check (processor.analyserTopDb.load());
+    check (processor.analyserBottomDb.load());
+    check (processor.analyser.isFrozen() ? 1.0f : 0.0f);
+    check (processor.analyser.isPeakHold() ? 1.0f : 0.0f);
     check (processor.displayRangeDb.load());
     check ((float) getWidth());
     check ((float) getHeight());
     check ((float) getDisplaySampleRate());
+    check ((float) processor.getOversamplingFactor());
 
     if (wheelBand >= 0 && juce::Time::getMillisecondCounter() - lastWheelTime > 400)
         endWheelEdit();
@@ -95,6 +130,10 @@ void EQDisplay::timerCallback()
     {
         const bool on = processor.analyser.mode.load() != (int) SpectrumAnalyser::Mode::Off;
         if (processor.analyser.update (juce::Time::getMillisecondCounterHiRes() * 0.001) && on)
+            repaint();
+
+        if (processor.sidechainView.load() > 0 && processor.isSidechainConnected()
+            && processor.sidechainAnalyser.update (juce::Time::getMillisecondCounterHiRes() * 0.001))
             repaint();
     }
 
@@ -155,10 +194,19 @@ float EQDisplay::yToGain (float y) const
     return juce::jlimit (-r, r, juce::jmap (y, area.getY() + gainPad, area.getBottom() - gainPad, r, -r));
 }
 
+float EQDisplay::displayToStoredGain (float displayGainDb) const
+{
+    const float scale = processor.getGainScale();
+    if (std::abs (scale) < 0.01f)
+        return 0.0f;
+    return juce::jlimit (EQ::minGain, EQ::maxGain, displayGainDb / scale);
+}
+
 juce::Point<float> EQDisplay::getNodePosition (int band, bool clampToView) const
 {
     const float freq = processor.getBandValue (band, EQ::Param::Freq);
-    float gain = EQ::typeHasGain (getType (band)) ? processor.getBandValue (band, EQ::Param::Gain) : 0.0f;
+    // Nodes sit on the *scaled* gain (what you hear), see the gain_scale parameter.
+    float gain = EQ::typeHasGain (getType (band)) ? processor.getBandValue (band, EQ::Param::Gain) * processor.getGainScale() : 0.0f;
 
     if (clampToView)
         gain = juce::jlimit (-getRange(), getRange(), gain);
@@ -211,12 +259,21 @@ void EQDisplay::paint (juce::Graphics& g)
 
     drawGrid (g, area);
 
+    if (processor.showPianoStrip.load())
+        drawPianoStrip (g, area);
+
     {
         juce::Graphics::ScopedSaveState state (g);
         g.reduceClipRegion (area.toNearestInt());
 
         if (processor.analyser.mode.load() != (int) SpectrumAnalyser::Mode::Off)
             drawAnalyser (g, area);
+
+        if (processor.sidechainView.load() > 0 && processor.isSidechainConnected())
+            drawSidechain (g, area);
+
+        if (const int solo = getSoloBand(); solo >= 0)
+            drawSoloRegion (g, area, solo);
 
         if (! curves.valid)
             computeCurves (area);
@@ -287,64 +344,141 @@ void EQDisplay::drawGrid (juce::Graphics& g, juce::Rectangle<float> area)
 // A +4.5 dB/octave tilt (pivot 1 kHz) makes pink noise / typical mixes read flat.
 void EQDisplay::drawAnalyser (juce::Graphics& g, juce::Rectangle<float> area)
 {
-    constexpr float topDb = 0.0f, bottomDb = -90.0f, tiltDbPerOct = 4.5f;
+    const float topDb = processor.analyserTopDb.load(), bottomDb = processor.analyserBottomDb.load();
+    const float tilt = processor.analyserTilt.load();
 
     const auto& an = processor.analyser;
     const double sr = getDisplaySampleRate();
     const float yTop = area.getY() + gainPad, yBottom = area.getBottom();
+    auto toY = [&] (float db) { return juce::jlimit (yTop, yBottom, juce::jmap (db, topDb, bottomDb, yTop, yBottom)); };
 
-    juce::Path fill;
+    juce::Path fill, peakLine;
     fill.startNewSubPath (area.getX(), yBottom);
-    bool anything = false;
+    bool anything = false, anyPeak = false;
 
     for (float x = area.getX(); x <= area.getRight(); x += 1.0f)
     {
         const double f0 = xToFreq (x - 0.5f), f1 = xToFreq (x + 0.5f);
-        const double fc = std::sqrt (f0 * f1);
+        const float t = SpectrumAnalyser::tiltDb (f0, f1, tilt);
         float db = an.getLevelDb (f0, f1, sr);
 
         if (db > SpectrumAnalyser::floorDb + 1.0f)
         {
             anything = true;
-            db += tiltDbPerOct * (float) std::log2 (fc / 1000.0);
+            db += t;
         }
+        fill.lineTo (x, toY (db));
 
-        fill.lineTo (x, juce::jlimit (yTop, yBottom, juce::jmap (db, topDb, bottomDb, yTop, yBottom)));
+        if (an.isPeakHold())
+        {
+            const float peak = an.getPeakLevelDb (f0, f1, sr);
+            anyPeak = anyPeak || peak > SpectrumAnalyser::floorDb + 1.0f;
+            if (x == area.getX()) peakLine.startNewSubPath (x, toY (peak + t));
+            else                  peakLine.lineTo (x, toY (peak + t));
+        }
     }
 
-    // dBFS labels on the left edge.
+    // dBFS labels on the left edge, every 15 dB inside the range.
     g.setFont (EQColours::font (10.0f));
     g.setColour (EQColours::label.withAlpha (0.55f));
-    for (int db = -15; db >= -75; db -= 15)
+    for (int db = (int) std::floor (topDb / 15.0f) * 15 - 15; db > bottomDb + 5.0f; db -= 15)
     {
-        const float y = juce::jmap ((float) db, topDb, bottomDb, yTop, yBottom);
+        const float y = toY ((float) db);
         g.drawText (juce::String (db), juce::Rectangle<float> (area.getX() + 4.0f, y - 7.0f, 30.0f, 14.0f),
                     juce::Justification::centredLeft, false);
+    }
+
+    if (an.isFrozen())
+    {
+        g.setColour (juce::Colour (0xff5aa9ff));
+        g.drawText ("FROZEN", juce::Rectangle<float> (area.getX() + 40.0f, area.getY() + 6.0f, 80.0f, 14.0f),
+                    juce::Justification::centredLeft, false);
+    }
+
+    if (anything)
+    {
+        juce::Path line (fill);
+        fill.lineTo (area.getRight(), yBottom);
+        fill.closeSubPath();
+
+        g.setGradientFill (juce::ColourGradient (juce::Colour (0x40a8b4c8), 0.0f, yTop,
+                                                 juce::Colour (0x10a8b4c8), 0.0f, yBottom, false));
+        g.fillPath (fill);
+        g.setColour (juce::Colour (0x60c0c8d8));
+        g.strokePath (line, juce::PathStrokeType (1.0f));
+    }
+
+    if (anyPeak)
+    {
+        g.setColour (juce::Colour (0x90e4e7ec));
+        g.strokePath (peakLine, juce::PathStrokeType (0.8f));
+    }
+}
+
+// Sidechain spectrum (orange) on the analyser's dBFS scale and tilt. With view 2 the
+// overlap ("collision") regions are shaded: frequencies where both this track's
+// spectrum (pre or post, whatever the analyser shows) and the sidechain are above
+// -60 dBFS and within 6 dB of each other, i.e. where they compete for the same space.
+void EQDisplay::drawSidechain (juce::Graphics& g, juce::Rectangle<float> area)
+{
+    const float topDb = processor.analyserTopDb.load(), bottomDb = processor.analyserBottomDb.load();
+    const float tiltDbPerOct = processor.analyserTilt.load();
+    constexpr float overlapFloorDb = -60.0f, overlapWithinDb = 6.0f;
+
+    const auto& sc = processor.sidechainAnalyser;
+    const auto& main = processor.analyser;
+    const bool mainOn = main.mode.load() != (int) SpectrumAnalyser::Mode::Off;
+    const bool showOverlap = processor.sidechainView.load() >= 2 && mainOn;
+
+    const double sr = getDisplaySampleRate();
+    const float yTop = area.getY() + gainPad, yBottom = area.getBottom();
+    const juce::Colour colour (0xffff9f43);
+
+    juce::Path line;
+    bool started = false, anything = false;
+
+    for (float x = area.getX(); x <= area.getRight(); x += 1.0f)
+    {
+        const double f0 = xToFreq (x - 0.5f), f1 = xToFreq (x + 0.5f);
+        const float tilt = tiltDbPerOct * (float) std::log2 (std::sqrt (f0 * f1) / 1000.0);
+        const float scDb = sc.getLevelDb (f0, f1, sr);
+        anything = anything || scDb > SpectrumAnalyser::floorDb + 1.0f;
+
+        const float y = juce::jlimit (yTop, yBottom, juce::jmap (scDb + tilt, topDb, bottomDb, yTop, yBottom));
+        if (! started) { line.startNewSubPath (x, y); started = true; }
+        else           line.lineTo (x, y);
+
+        if (showOverlap)
+        {
+            const float mainDb = main.getLevelDb (f0, f1, sr);
+            if (scDb > overlapFloorDb && mainDb > overlapFloorDb && std::abs (scDb - mainDb) <= overlapWithinDb)
+            {
+                const float yLow = juce::jlimit (yTop, yBottom, juce::jmap (juce::jmin (scDb, mainDb) + tilt, topDb, bottomDb, yTop, yBottom));
+                g.setColour (juce::Colour (0x38ff4d4d));
+                g.fillRect (x - 0.5f, yLow, 1.0f, yBottom - yLow);
+            }
+        }
     }
 
     if (! anything)
         return;
 
-    juce::Path line (fill);
-    fill.lineTo (area.getRight(), yBottom);
-    fill.closeSubPath();
-
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0x40a8b4c8), 0.0f, yTop,
-                                             juce::Colour (0x10a8b4c8), 0.0f, yBottom, false));
-    g.fillPath (fill);
-    g.setColour (juce::Colour (0x60c0c8d8));
-    g.strokePath (line, juce::PathStrokeType (1.0f));
+    g.setColour (colour.withAlpha (0.85f));
+    g.strokePath (line, juce::PathStrokeType (1.3f));
 }
 
 void EQDisplay::computeCurves (juce::Rectangle<float> area)
 {
-    const double sr = getDisplaySampleRate();
+    // Filters are designed at the oversampled rate when oversampling is on (both the
+    // zero-latency engine and the linear-phase FIR), so the curve is drawn from that too.
+    const double sr = getDisplaySampleRate() * processor.getOversamplingFactor();
     auto& c = curves;
 
     // Same coefficient function as the audio engine -> the curve is the actual response.
-    std::vector<EQ::SvfCoeffs> coeffs;
+    std::vector<EQ::FilterCoeffs> coeffs;
     c.bands.clear();
     c.enabled.clear();
+    c.inView.clear();
 
     for (int b = 0; b < EQ::numBands; ++b)
     {
@@ -352,12 +486,14 @@ void EQDisplay::computeCurves (juce::Rectangle<float> area)
             continue;
 
         const auto type = getType (b);
-        coeffs.push_back (EQ::makeCoeffs (type, sr,
+        coeffs.push_back (EQ::makeFilter (type, sr,
                                           processor.getBandValue (b, EQ::Param::Freq),
                                           processor.getBandValue (b, EQ::Param::Q),
-                                          EQ::typeHasGain (type) ? processor.getBandValue (b, EQ::Param::Gain) : 0.0f));
+                                          EQ::typeHasGain (type) ? processor.getBandValue (b, EQ::Param::Gain) * processor.getGainScale() : 0.0f,
+                                          (int) std::lround (processor.getBandValue (b, EQ::Param::Slope))));
         c.bands.push_back (b);
         c.enabled.push_back (isEnabled (b));
+        c.inView.push_back (isInCurveView (b));
     }
 
     // Sample every pixel, plus each band's exact centre frequency so that narrow
@@ -386,11 +522,38 @@ void EQDisplay::computeCurves (juce::Rectangle<float> area)
         {
             const float db = (float) EQ::getMagnitudeDb (coeffs[k], freqs[i], sr);
             c.single[k][i] = db;
-            if (c.enabled[k])
+            if (c.enabled[k] && c.inView[k])
                 c.total[i] += db;   // sum in dB = product of magnitudes
         }
 
+    // Dynamic bands: the response at the live gain (static curve + what the dynamics add).
+    c.live.assign (c.bands.size(), {});
+    for (size_t k = 0; k < c.bands.size(); ++k)
+    {
+        const int b = c.bands[k];
+        const float dyn = getLiveDynamicDb (b);
+        if (dyn == 0.0f || ! c.enabled[k])
+            continue;
+
+        const auto type = getType (b);
+        const auto live = EQ::makeFilter (type, sr, processor.getBandValue (b, EQ::Param::Freq), processor.getBandValue (b, EQ::Param::Q),
+                                          processor.getBandValue (b, EQ::Param::Gain) * processor.getGainScale() + dyn,
+                                          (int) std::lround (processor.getBandValue (b, EQ::Param::Slope)));
+        c.live[k].resize (n);
+        for (size_t i = 0; i < n; ++i)
+            c.live[k][i] = (float) EQ::getMagnitudeDb (live, freqs[i], sr);
+    }
+
     c.valid = true;
+}
+
+// Live dynamic gain of a band, or 0 when its dynamics are off (or it has no gain).
+float EQDisplay::getLiveDynamicDb (int band) const
+{
+    if (processor.getBandValue (band, EQ::Param::DynOn) < 0.5f || ! EQ::typeHasGain (getType (band)))
+        return 0.0f;
+    const float db = processor.dynamicGainDb[(size_t) band].load();
+    return std::abs (db) < 0.05f ? 0.0f : std::round (db * 10.0f) / 10.0f;   // 0.1 dB steps: fewer redraws
 }
 
 void EQDisplay::drawCurves (juce::Graphics& g, juce::Rectangle<float> area)
@@ -446,9 +609,32 @@ void EQDisplay::drawCurves (juce::Graphics& g, juce::Rectangle<float> area)
         }
         else if (enabled)
         {
-            g.setColour (colour.withAlpha (band == hoveredBand ? 0.6f : 0.22f));
+            g.setColour (colour.withAlpha ((band == hoveredBand ? 0.6f : 0.22f) * (c.inView[k] ? 1.0f : 0.35f)));
             g.strokePath (makePath (c.single[k]), juce::PathStrokeType (1.0f));
         }
+    }
+
+    // Dynamic bands: shade between the static curve and the live one.
+    for (size_t k = 0; k < c.bands.size(); ++k)
+    {
+        if (c.live[k].empty())
+            continue;
+
+        juce::Path between;
+        for (size_t i = 0; i < n; ++i)
+        {
+            const float y = juce::jlimit (yMin, yMax, gainToY (c.single[k][i]));
+            if (i == 0) between.startNewSubPath (c.xs[i], y); else between.lineTo (c.xs[i], y);
+        }
+        for (size_t i = n; i-- > 0;)
+            between.lineTo (c.xs[i], juce::jlimit (yMin, yMax, gainToY (c.live[k][i])));
+        between.closeSubPath();
+
+        const auto colour = EQColours::band (c.bands[k]);
+        g.setColour (colour.withAlpha (0.3f));
+        g.fillPath (between);
+        g.setColour (colour.withAlpha (0.7f));
+        g.strokePath (makePath (c.live[k]), juce::PathStrokeType (1.0f));
     }
 
     // Combined response of all enabled bands.
@@ -462,9 +648,15 @@ void EQDisplay::drawCurves (juce::Graphics& g, juce::Rectangle<float> area)
 void EQDisplay::drawNodes (juce::Graphics& g)
 {
     const int selected = getSelectedBand();
+    const int solo = getSoloBand();
 
     auto drawNode = [&] (int b)
     {
+        // While soloing, every other node is dimmed.
+        const bool dim = solo >= 0 && b != solo;
+        if (dim)
+            g.beginTransparencyLayer (0.3f);
+
         const auto pos = getNodePosition (b);
         const auto colour = EQColours::band (b);
         const bool isSel = (b == selected);
@@ -498,6 +690,33 @@ void EQDisplay::drawNodes (juce::Graphics& g)
         g.setColour (enabled ? juce::Colours::black.withAlpha (0.8f) : colour);
         g.setFont (EQColours::font (b >= 9 ? 9.0f : 10.0f, true));
         g.drawText (juce::String (b + 1), circle.expanded (2.0f), juce::Justification::centred, false);
+
+        // Dynamic gain indicator: a line from the node to where the live gain sits now.
+        if (const float dyn = getLiveDynamicDb (b); processor.getBandValue (b, EQ::Param::DynOn) >= 0.5f && EQ::typeHasGain (getType (b)))
+        {
+            const float yLive = gainToY (juce::jlimit (-getRange(), getRange(),
+                                                       processor.getBandValue (b, EQ::Param::Gain) * processor.getGainScale() + dyn));
+            g.setColour (colour);
+            g.drawLine (pos.x, pos.y, pos.x, yLive, 2.0f);
+            g.drawEllipse (juce::Rectangle<float> (7.0f, 7.0f).withCentre ({ pos.x, yLive }), 1.5f);
+            g.setFont (EQColours::font (8.5f, true));
+            g.drawText ("D", circle.translated (-r - 6.0f, -r).withSize (10.0f, 10.0f), juce::Justification::centred, false);
+        }
+
+        // Stereo-mode badge (L, R, M, S) at the top right of the node.
+        if (const int mode = (int) std::lround (processor.getBandValue (b, EQ::Param::Stereo)); mode != 0)
+        {
+            const auto badge = juce::Rectangle<float> (11.0f, 11.0f).withCentre (circle.getTopRight().translated (-1.0f, 1.0f));
+            g.setColour (EQColours::background);
+            g.fillEllipse (badge);
+            g.setColour (colour);
+            g.drawEllipse (badge, 1.0f);
+            g.setFont (EQColours::font (8.5f, true));
+            g.drawText (juce::String::charToString ("SLRMS"[mode]), badge, juce::Justification::centred, false);
+        }
+
+        if (dim)
+            g.endTransparencyLayer();
     };
 
     for (int b = 0; b < EQ::numBands; ++b)
@@ -512,12 +731,22 @@ void EQDisplay::drawTooltip (juce::Graphics& g, juce::Rectangle<float> area, int
 {
     const auto type = getType (band);
     juce::String line1 = "Band " + juce::String (band + 1) + "  " + EQ::getTypeNames()[(int) type];
+    if (EQ::typeHasSlope (type))
+        line1 << "  " << EQ::getSlopeNames()[(int) std::lround (processor.getBandValue (band, EQ::Param::Slope))];
     if (! isEnabled (band))
         line1 << "  (bypassed)";
+    if (const int mode = (int) std::lround (processor.getBandValue (band, EQ::Param::Stereo)); mode != 0)
+        line1 << "  [" << EQ::getStereoModeNames()[mode] << "]";
 
-    juce::String line2 = formatFreq (processor.getBandValue (band, EQ::Param::Freq));
+    const float bandFreq = processor.getBandValue (band, EQ::Param::Freq);
+    juce::String line2 = formatFreq (bandFreq) + " " + juce::String::charToString (0x00b7) + " " + EQ::Notes::formatNote (bandFreq);
     if (EQ::typeHasGain (type))
-        line2 << "   " << formatGain (processor.getBandValue (band, EQ::Param::Gain));
+    {
+        const float stored = processor.getBandValue (band, EQ::Param::Gain), scale = processor.getGainScale();
+        line2 << "   " << formatGain (stored);
+        if (scale != 1.0f)
+            line2 << " (x" << juce::String (juce::roundToInt (scale * 100.0f)) << "% = " << formatGain (stored * scale) << ")";
+    }
     line2 << "   Q " << juce::String (processor.getBandValue (band, EQ::Param::Q), 2);
 
     const auto font = juce::Font (EQColours::font (12.0f));
@@ -543,6 +772,110 @@ void EQDisplay::drawTooltip (juce::Graphics& g, juce::Rectangle<float> area, int
     g.drawText (line1, text.removeFromTop (text.getHeight() * 0.5f), juce::Justification::centred, false);
     g.setColour (EQColours::text);
     g.drawText (line2, text, juce::Justification::centred, false);
+}
+
+// The audition filter's pass region, shaded with an opacity that follows its magnitude.
+void EQDisplay::drawSoloRegion (juce::Graphics& g, juce::Rectangle<float> area, int band)
+{
+    const double sr = getDisplaySampleRate();
+    EQ::SvfCoeffs c[EQ::numSoloSections];
+    EQ::makeSoloFilter (getType (band), sr, processor.getBandValue (band, EQ::Param::Freq),
+                        processor.getBandValue (band, EQ::Param::Q), c);
+
+    const auto colour = EQColours::band (band);
+    for (float x = area.getX(); x < area.getRight(); x += 2.0f)
+    {
+        double mag = 1.0;
+        for (auto& s : c)
+            mag *= EQ::getMagnitude (s, xToFreq (x + 1.0f), sr);
+
+        if (mag > 0.01)
+        {
+            g.setColour (colour.withAlpha ((float) (0.28 * mag)));
+            g.fillRect (x, area.getY(), 2.0f, area.getHeight());
+        }
+    }
+
+    g.setColour (colour);
+    g.setFont (EQColours::font (12.0f, true));
+    g.drawText ("SOLO  Band " + juce::String (band + 1), area.reduced (10.0f, 8.0f).removeFromTop (16.0f),
+                juce::Justification::centredLeft, false);
+}
+
+// A thin keyboard along the bottom of the plot, on the log-frequency axis: each key
+// spans +-half a semitone around its note. The key nearest the selected band is lit
+// in that band's colour, and every C is labelled.
+void EQDisplay::drawPianoStrip (juce::Graphics& g, juce::Rectangle<float> area)
+{
+    constexpr float stripHeight = 14.0f;
+    const auto strip = area.withTop (area.getBottom() - stripHeight);
+    const int first = EQ::Notes::freqToNote (EQ::minFreq).midi, last = EQ::Notes::freqToNote (EQ::maxFreq).midi;
+
+    const int selected = getSelectedBand();
+    const int selectedMidi = selected >= 0 ? EQ::Notes::freqToNote (processor.getBandValue (selected, EQ::Param::Freq)).midi : -1000;
+
+    g.setColour (juce::Colour (0xffd8dce3));
+    g.fillRect (strip);
+
+    const double halfStep = std::pow (2.0, 1.0 / 24.0);
+    g.setFont (EQColours::font (8.5f, true));
+
+    for (int pass = 0; pass < 2; ++pass)   // white keys first, then the black keys on top
+        for (int m = first; m <= last; ++m)
+        {
+            const int pc = ((m % 12) + 12) % 12;
+            const bool black = pc == 1 || pc == 3 || pc == 6 || pc == 8 || pc == 10;
+            if (black != (pass == 1))
+                continue;
+
+            const double f = EQ::Notes::midiToFreq (m);
+            const float x0 = juce::jmax (strip.getX(), freqToX ((float) (f / halfStep)));
+            const float x1 = juce::jmin (strip.getRight(), freqToX ((float) (f * halfStep)));
+            if (x1 <= x0)
+                continue;
+
+            auto key = juce::Rectangle<float> (x0, strip.getY(), x1 - x0, black ? stripHeight * 0.6f : stripHeight);
+            if (m == selectedMidi)
+                g.setColour (EQColours::band (selected));
+            else
+                g.setColour (black ? juce::Colour (0xff23272e) : juce::Colour (0xffd8dce3));
+            g.fillRect (key);
+
+            if (! black)
+            {
+                g.setColour (juce::Colour (0x40000000));
+                g.drawVerticalLine (juce::roundToInt (x0), strip.getY(), strip.getBottom());
+            }
+
+            if (pc == 0 && x1 - x0 >= 3.0f && m % 12 == 0)
+            {
+                g.setColour (juce::Colour (0xff3a3f48));
+                g.drawText (EQ::Notes::noteName (m), juce::Rectangle<float> (x0 + 1.0f, strip.getY() + 2.0f, 24.0f, stripHeight - 2.0f),
+                            juce::Justification::bottomLeft, false);
+            }
+        }
+
+    g.setColour (EQColours::panelEdge);
+    g.drawRect (strip, 1.0f);
+}
+
+void EQDisplay::showDisplayMenu()
+{
+    juce::PopupMenu menu;
+    menu.addSectionHeader ("Display");
+    menu.addItem (1, "Show piano strip", true, processor.showPianoStrip.load());
+
+    juce::Component::SafePointer<EQDisplay> safe (this);
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this)
+                                                  .withTargetScreenArea (juce::Rectangle<int> (1, 1) + juce::Desktop::getMousePosition()),
+                        [safe] (int result)
+                        {
+                            if (safe == nullptr || result != 1)
+                                return;
+                            safe->processor.showPianoStrip.store (! safe->processor.showPianoStrip.load());
+                            safe->processor.notifyNonParameterStateChanged();
+                            safe->repaint();
+                        });
 }
 
 void EQDisplay::drawEmptyHint (juce::Graphics& g, juce::Rectangle<float> area)
@@ -573,7 +906,7 @@ void EQDisplay::positionPanel()
 
     const auto area = getPlotArea();
     const auto pos = getNodePosition (b);
-    const float w = (float) BandPanel::panelWidth, h = (float) BandPanel::panelHeight;
+    const float w = (float) BandPanel::panelWidth, h = (float) panel.getPreferredHeight();
 
     const float x = juce::jlimit (area.getX() + 6.0f, juce::jmax (area.getX() + 6.0f, area.getRight() - w - 6.0f), pos.x - w * 0.5f);
     const bool nodeInLowerPart = pos.y > area.getBottom() - h - 30.0f;
@@ -592,7 +925,23 @@ void EQDisplay::showContextMenu (int band)
     menu.addSectionHeader ("Band " + juce::String (band + 1));
     for (int t = 0; t < EQ::numFilterTypes; ++t)
         menu.addItem (100 + t, EQ::getTypeNames()[t], true, (int) current == t);
+
+    {
+        juce::PopupMenu slopes;
+        const int slope = (int) std::lround (processor.getBandValue (band, EQ::Param::Slope));
+        for (int s = 0; s < EQ::numSlopes; ++s)
+            slopes.addItem (200 + s, EQ::getSlopeNames()[s], true, slope == s);
+        menu.addSubMenu ("Slope", slopes, EQ::typeHasSlope (current));
+
+        juce::PopupMenu modes;
+        const int stereo = (int) std::lround (processor.getBandValue (band, EQ::Param::Stereo));
+        for (int m = 0; m < EQ::numStereoModes; ++m)
+            modes.addItem (300 + m, EQ::getStereoModeNames()[m], true, stereo == m);
+        menu.addSubMenu ("Stereo mode", modes, processor.getMainBusNumInputChannels() >= 2);
+    }
     menu.addSeparator();
+    menu.addItem (4, "Solo (audition)", true, processor.soloBand.load() == band);
+    menu.addItem (5, "Dynamic", EQ::typeHasGain (current), processor.getBandValue (band, EQ::Param::DynOn) >= 0.5f);
     menu.addItem (1, enabled ? "Bypass" : "Enable");
     menu.addItem (2, "Reset gain and Q");
     menu.addItem (3, "Delete band");
@@ -607,10 +956,20 @@ void EQDisplay::showContextMenu (int band)
 
                             auto& edits = safe->processor.edits;
 
-                            if (result >= 100)       edits.setType (band, EQ::typeFromIndex (result - 100));
+                            if (result >= 300)       edits.setStereoMode (band, result - 300);
+                            else if (result >= 200)  edits.setSlope (band, result - 200);
+                            else if (result >= 100)  edits.setType (band, EQ::typeFromIndex (result - 100));
                             else if (result == 1)    edits.setEnabled (band, ! enabled);
                             else if (result == 2)    edits.resetBand (band);
                             else if (result == 3)  { edits.removeBand (band); safe->setSelectedBand (-1); }
+                            else if (result == 5)
+                                edits.setDynamic (band, safe->processor.getBandValue (band, EQ::Param::DynOn) < 0.5f);
+                            else if (result == 4)
+                            {
+                                auto& solo = safe->processor.soloBand;
+                                solo.store (solo.load() == band ? -1 : band);   // not a parameter: no undo step
+                                safe->repaint();
+                            }
                         });
 }
 
@@ -645,7 +1004,18 @@ void EQDisplay::mouseDown (const juce::MouseEvent& e)
     if (hit < 0)
     {
         if (! e.mods.isPopupMenu())
+        {
             setSelectedBand (-1);
+            if (processor.analyser.isPeakHold())   // click the analyser area: reset peak hold
+            {
+                processor.analyser.resetPeaks();
+                repaint();
+            }
+        }
+        else
+        {
+            showDisplayMenu();
+        }
         return;
     }
 
@@ -655,6 +1025,14 @@ void EQDisplay::mouseDown (const juce::MouseEvent& e)
     {
         showContextMenu (hit);
         return;
+    }
+
+    // Alt-click / Alt-drag: audition this band until the mouse is released.
+    if (e.mods.isAltDown())
+    {
+        momentarySolo = true;
+        soloBeforeMomentary = processor.soloBand.load();
+        processor.soloBand.store (hit);
     }
 
     draggingBand = hit;
@@ -685,7 +1063,11 @@ void EQDisplay::mouseDrag (const juce::MouseEvent& e)
     const auto delta = (e.position - anchorMouse) * (fine ? 0.1f : 1.0f);
     const auto target = anchorNode + delta;
 
-    processor.edits.setParam (EQ::Param::Freq, xToFreq (target.x));
+    // Ctrl (Cmd on macOS) snaps the frequency to the nearest semitone (A4 = 440 Hz).
+    float freq = xToFreq (target.x);
+    if (e.mods.isCommandDown())
+        freq = juce::jlimit (EQ::minFreq, EQ::maxFreq, (float) EQ::Notes::snapToSemitone (freq));
+    processor.edits.setParam (EQ::Param::Freq, freq);
 
     // Only touch gain once the mouse has actually moved vertically, so a purely
     // horizontal drag never clips a gain that lies outside the visible range.
@@ -693,7 +1075,12 @@ void EQDisplay::mouseDrag (const juce::MouseEvent& e)
         gainTouched = true;
 
     if (gainTouched && EQ::typeHasGain (getType (draggingBand)))
-        processor.edits.setParam (EQ::Param::Gain, yToGain (target.y));
+    {
+        // The node shows the scaled gain; store the unscaled value. At ~0 % scale every
+        // gain draws at 0 dB, so a vertical drag has nothing to act on.
+        if (std::abs (processor.getGainScale()) > 0.01f)
+            processor.edits.setParam (EQ::Param::Gain, displayToStoredGain (yToGain (target.y)));
+    }
 
     positionPanel();
     repaint();
@@ -706,6 +1093,12 @@ void EQDisplay::mouseUp (const juce::MouseEvent& e)
 
     processor.edits.endEdit();
     draggingBand = -1;
+
+    if (momentarySolo)
+    {
+        momentarySolo = false;
+        processor.soloBand.store (soloBeforeMomentary);
+    }
 
     hoveredBand = hitTestNode (e.position);
     setMouseCursor (hoveredBand >= 0 ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
@@ -725,7 +1118,7 @@ void EQDisplay::mouseDoubleClick (const juce::MouseEvent& e)
     }
     else if (getPlotArea().contains (e.position))
     {
-        const int band = processor.edits.addBand (xToFreq (e.position.x), yToGain (e.position.y), EQ::FilterType::Bell);
+        const int band = processor.edits.addBand (xToFreq (e.position.x), displayToStoredGain (yToGain (e.position.y)), EQ::FilterType::Bell);
         if (band >= 0)
             setSelectedBand (band);
     }

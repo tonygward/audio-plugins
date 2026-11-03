@@ -19,7 +19,10 @@ set(EQ_SOURCES
     Source/EQEditController.cpp
     Source/EQDisplay.cpp
     Source/BandPanel.cpp
-    Source/SpectrumAnalyser.cpp)
+    Source/SpectrumAnalyser.cpp
+    Source/PresetManager.cpp
+    Source/PresetBar.cpp
+    Source/LinearPhase.cpp)
 
 set(EQ_DEFINITIONS
     JUCE_WEB_BROWSER=0
@@ -27,12 +30,22 @@ set(EQ_DEFINITIONS
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0)
 
+# AU only exists on Apple platforms; Windows stays VST3 + Standalone.
+set(EQ_FORMATS VST3 Standalone)
+if(APPLE)
+    list(APPEND EQ_FORMATS AU)
+endif()
+
 juce_add_plugin(ThreeBandEQ
     COMPANY_NAME                "TonyWard"
     PRODUCT_NAME                "TW Pro EQ"
     PLUGIN_MANUFACTURER_CODE    Tnyw
     PLUGIN_CODE                 Eq3b
-    FORMATS                     VST3 Standalone
+    FORMATS                     ${EQ_FORMATS}
+    BUNDLE_ID                   com.tonyward.twproeq
+    VERSION                     ${PROJECT_VERSION}
+    AU_MAIN_TYPE                kAudioUnitType_Effect
+    AU_SANDBOX_SAFE             TRUE
     IS_SYNTH                    FALSE
     NEEDS_MIDI_INPUT            FALSE
     NEEDS_MIDI_OUTPUT           FALSE
@@ -53,6 +66,7 @@ target_link_libraries(ThreeBandEQ
     PRIVATE
         juce::juce_audio_utils
         juce::juce_audio_processors
+        juce::juce_dsp
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
@@ -74,6 +88,7 @@ if(EQ_BUILD_TESTS)
         PRIVATE
             juce::juce_audio_utils
             juce::juce_audio_processors
+            juce::juce_dsp
             juce::juce_recommended_config_flags
             juce::juce_recommended_lto_flags
             juce::juce_recommended_warning_flags)

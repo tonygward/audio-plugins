@@ -1,0 +1,100 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Keep in step with the JUCE version the project is developed against (see README).
+  JUCE_VERSION: "9.0.5"
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (VS, x64)
+            os: windows-latest
+            configure: -A x64
+            tests: eq/build/EQTests_artefacts/Release/EQTests.exe
+          - name: macOS (Xcode, universal)
+            os: macos-latest
+            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            tests: eq/build/EQTests_artefacts/Release/EQTests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE ${{ env.JUCE_VERSION }}
+        id: juce-cache
+        uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-${{ env.JUCE_VERSION }}-${{ runner.os }}
+
+      - name: Check out JUCE ${{ env.JUCE_VERSION }}
+        if: steps.juce-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: ${{ env.JUCE_VERSION }}
+          path: JUCE
+
+      - name: Configure
+        shell: bash
+        run: cmake -S eq -B eq/build ${{ matrix.configure }} -DJUCE_DIR="${{ github.workspace }}/JUCE"
+
+      - name: Build (Release)
+        shell: bash
+        run: cmake --build eq/build --config Release --parallel 4
+
+      - name: Run EQTests
+        shell: bash
+        run: ${{ matrix.tests }}
+
+      - name: Validate the Audio Unit (auval)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          rm -rf ~/Library/Audio/Plug-Ins/Components/"TW Pro EQ.component"
+          cp -R eq/build/ThreeBandEQ_artefacts/Release/AU/"TW Pro EQ.component" ~/Library/Audio/Plug-Ins/Components/
+          # Make the component registrar pick up the new plug-in.
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 2
+          auval -a | grep -i "Tnyw" || true
+          auval -v aufx Eq3b Tnyw
+
+      - name: Zip macOS plug-ins (VST3 + AU)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p dist/"TW Pro EQ"
+          cp -R eq/build/ThreeBandEQ_artefacts/Release/VST3/"TW Pro EQ.vst3" dist/"TW Pro EQ"/
+          cp -R eq/build/ThreeBandEQ_artefacts/Release/AU/"TW Pro EQ.component" dist/"TW Pro EQ"/
+          ditto -c -k --keepParent dist/"TW Pro EQ" dist/TW-Pro-EQ-macOS.zip
+
+      - name: Upload macOS zip
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: TW-Pro-EQ-macOS-zip
+          path: dist/TW-Pro-EQ-macOS.zip
+
+      - name: Upload plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TW-Pro-EQ-${{ runner.os }}
+          if-no-files-found: warn
+          path: |
+            eq/build/ThreeBandEQ_artefacts/Release/VST3/
+            eq/build/ThreeBandEQ_artefacts/Release/AU/
+            eq/build/ThreeBandEQ_artefacts/Release/Standalone/
