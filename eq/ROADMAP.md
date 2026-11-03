@@ -29,6 +29,8 @@ Suggested split: slopes plus output gain and bypass in one PR, and the build che
 
 - [x] **AU format and a tested macOS release.** Logic and GarageBand users can't load the plugin today.
 - [x] **Stereo modes per band:** Stereo, Left, Right, Mid and Side. This is the biggest jump in usefulness for mastering and bus work, and it fits the per-channel SVF state the engine already has.
+- [ ] **Rename to Songsmith EQ** (by Songsmith Studio), ready for a Songsmith family of plugins such as Songsmith Analogue EQ. Plugin codes stay the same, so sessions and presets carry over.
+- [ ] **Windows installer.** An unsigned Inno Setup `Setup.exe` that installs the VST3 (and optionally the standalone app), upgrades in place, and uninstalls cleanly without touching user presets. Built on CI next to the release zip.
 
 ## Phase 3: Better analyser and workflow (v0.5)
 
@@ -58,4 +60,4 @@ Each of these is a project on its own. Do them in this order:
 ## Out of scope
 
 - CLAP format
-- Signed installers (the release zip plus `install.ps1` is enough)
+- Code-signing the installer (an unsigned installer is fine; SmartScreen's warning is documented)

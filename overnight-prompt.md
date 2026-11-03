@@ -1,4 +1,5 @@
-Work through every prompt in eq/prompts/roadmap/ in numeric order (05 → 19).
+Work through every prompt directly in eq/prompts/roadmap/ in numeric order.
+Skip the done/ subfolder: those tasks are already merged.
 Ignore that folder's README.md; it describes parallel waves, which don't apply here.
 
 Setup (once):
@@ -18,7 +19,7 @@ leave its PR as a draft with a "Blocked" section, don't merge it, check out
 roadmap/overnight again and carry on with the next prompt. Later tasks may
 depend on a skipped one; adapt and note it in their PRs.
 
-Don't stop until all 15 have been attempted. Then:
+Don't stop until all of them have been attempted. Then:
 1. On roadmap/overnight, do a clean Release build and run EQTests and
    EQTests --bench.
 2. Open one draft PR from roadmap/overnight into main, containing: a table of
