@@ -2272,7 +2272,7 @@ public:
             expect (out == l, "identical");
 
             setParam (p, "gain_scale", 30.0f);
-            expectEquals (p.getBandValue (0, Param::Gain), 7.5f, "stored gain untouched by the scale");
+            expectWithinAbsoluteError (p.getBandValue (0, Param::Gain), 7.5f, 1.0e-5f, "stored gain untouched by the scale");   // ulp tolerance: FMA snapping on macOS
         }
 
         beginTest ("Rapid automation of the scale stays finite and smooth");
