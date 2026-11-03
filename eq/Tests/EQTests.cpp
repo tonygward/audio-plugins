@@ -1388,8 +1388,11 @@ public:
 
         beginTest ("Every factory preset loads, is finite and has the expected bands");
         {
-            expectGreaterOrEqual (PresetManager::getNumFactoryPresets(), 6);
-            expectLessOrEqual (PresetManager::getNumFactoryPresets(), 8);
+            int classic = 0;
+            for (int i = 0; i < PresetManager::getNumFactoryPresets(); ++i)
+                classic += PresetManager::isStartingPoint (i) ? 0 : 1;
+            expectGreaterOrEqual (classic, 6);
+            expectLessOrEqual (classic, 8);
 
             for (int i = 0; i < PresetManager::getNumFactoryPresets(); ++i)
             {
@@ -3122,6 +3125,171 @@ public:
     }
 };
 
+//==============================================================================
+// Starting-point templates (factory presets based on Joe Gilder's EQ advice).
+class StartingPointTests final : public juce::UnitTest
+{
+public:
+    StartingPointTests() : juce::UnitTest ("Starting-point templates", "EQ") {}
+
+    static constexpr int block = 512;
+
+    static std::vector<int> templates()
+    {
+        std::vector<int> list;
+        for (int i = 0; i < PresetManager::getNumFactoryPresets(); ++i)
+            if (PresetManager::isStartingPoint (i))
+                list.push_back (i);
+        return list;
+    }
+
+    // K-weighted loudness change (dB) of pink noise through 'data' at 48 kHz.
+    static double loudnessChange (const PresetData& data)
+    {
+        const double fs = AutoGainTests::fs;
+        ThreeBandEQAudioProcessor p;
+        p.edits.loadPreset (data, "test");
+        p.prepareToPlay (fs, block);
+
+        AutoGainTests::Pink pink;
+        const int total = (int) (8.0 * fs);
+        std::vector<float> in ((size_t) total);
+        for (auto& v : in) v = pink.next();
+        const auto out = runProcessor (p, fs, block, total, [&] (int n) { return in[(size_t) n]; }, [] (int) {});
+
+        const size_t from = (size_t) (3.0 * fs);
+        return AutoGainTests::loudness (out, from, out.size()) - AutoGainTests::loudness (in, from, in.size());
+    }
+
+    void runTest() override
+    {
+        const auto list = templates();
+
+        beginTest ("The starting points are listed after the original factory presets");
+        {
+            expectEquals ((int) list.size(), 11);
+            const int firstTemplate = list.empty() ? 0 : list.front();
+            expectEquals (firstTemplate, 8, "the 8 original presets keep their indices");
+            for (size_t k = 0; k < list.size(); ++k)
+                expectEquals (list[k], firstTemplate + (int) k, "templates are contiguous");
+        }
+
+        beginTest ("The original factory presets are unchanged by the new band fields");
+        {
+            for (int i = 0; i < 8; ++i)
+            {
+                const auto d = PresetManager::getFactoryPreset (i);
+                expect (PresetManager::getFactoryHint (i).isEmpty());
+                for (int b = 0; b < PresetManager::getFactoryUsedBands (i); ++b)
+                {
+                    const auto& s = d.bands[(size_t) b];
+                    expect (s.used && s.enabled && ! s.dynOn && ! s.dynExternal, PresetManager::getFactoryName (i));
+                    expectEquals (s.threshold, defaultThreshold);
+                    expectEquals (s.range, defaultRange);
+                    expectEquals (s.attack, defaultAttackMs);
+                    expectEquals (s.release, defaultReleaseMs);
+                }
+            }
+        }
+
+        beginTest ("Every template loads and is finite at 44.1, 48 and 96 kHz");
+        {
+            for (int i : list)
+            {
+                for (double fs : { 44100.0, 48000.0, 96000.0 })
+                {
+                    ThreeBandEQAudioProcessor p;
+                    juce::String error;
+                    expect (p.presets.load ({ PresetManager::getFactoryName (i), i, {} }, error), error);
+                    expectEquals (p.getNumUsedBands(), PresetManager::getFactoryUsedBands (i), PresetManager::getFactoryName (i));
+                    expect (! p.presets.isModified());
+
+                    p.prepareToPlay (fs, block);
+                    AutoGainTests::Pink pink;
+                    bool finite = true;
+                    const auto out = runProcessor (p, fs, block, (int) fs, [&] (int) { return pink.next() * 8.0f; }, [] (int) {});
+                    for (float v : out)
+                        finite = finite && std::isfinite (v) && std::abs (v) < 10.0f;
+                    expect (finite, "finite output: " + PresetManager::getFactoryName (i) + " at " + juce::String (fs));
+                }
+            }
+        }
+
+        beginTest ("Bypassed bands load as used-but-off and don't change the sound");
+        {
+            int bypassedSeen = 0;
+            for (int i : list)
+            {
+                const auto data = PresetManager::getFactoryPreset (i);
+                auto without = data;
+                for (auto& s : without.bands)
+                    if (s.used && ! s.enabled)
+                    {
+                        s.used = false;
+                        ++bypassedSeen;
+                    }
+
+                ThreeBandEQAudioProcessor a, b;
+                juce::String error;
+                expect (a.presets.load ({ PresetManager::getFactoryName (i), i, {} }, error), error);
+                for (int k = 0; k < PresetManager::getFactoryUsedBands (i); ++k)
+                    expect (a.isBandUsed (k), "band is used");
+                b.edits.loadPreset (without, "without");
+
+                a.prepareToPlay (48000.0, block);
+                b.prepareToPlay (48000.0, block);
+                AutoGainTests::Pink pinkA, pinkB;
+                const auto outA = runProcessor (a, 48000.0, block, 48000, [&] (int) { return pinkA.next(); }, [] (int) {});
+                const auto outB = runProcessor (b, 48000.0, block, 48000, [&] (int) { return pinkB.next(); }, [] (int) {});
+
+                float maxDiff = 0.0f;
+                for (size_t n = 0; n < outA.size(); ++n)
+                    maxDiff = std::max (maxDiff, std::abs (outA[n] - outB[n]));
+                expectLessThan (maxDiff, 1.0e-6f, "null test: " + PresetManager::getFactoryName (i));
+            }
+            expectGreaterThan (bypassedSeen, 5, "templates use bypassed 'only if needed' bands");
+        }
+
+        beginTest ("Every template is loudness-matched on pink noise within 0.25 dB");
+        {
+            for (int i : list)
+            {
+                const double change = loudnessChange (PresetManager::getFactoryPreset (i));
+                logMessage ("  " + PresetManager::getFactoryName (i) + ": " + juce::String (change, 2) + " dB");
+                expectWithinAbsoluteError (change, 0.0, 0.25, PresetManager::getFactoryName (i));
+            }
+        }
+
+        beginTest ("Cut first: active boosts never outweigh active cuts");
+        {
+            for (int i : list)
+            {
+                const auto presetName = PresetManager::getFactoryName (i);
+                if (presetName == "Electric guitar bus")   // deliberate exception: the 360 Hz warmth boost is the move
+                    continue;
+
+                const auto d = PresetManager::getFactoryPreset (i);
+                float boosts = 0.0f, cuts = 0.0f;
+                for (const auto& s : d.bands)
+                    if (s.used && s.enabled)
+                        (s.gain > 0.0f ? boosts : cuts) += std::abs (s.gain);
+                expectLessOrEqual (boosts, cuts, presetName);
+            }
+        }
+
+        beginTest ("Every template has a short usage hint");
+        {
+            for (int i : list)
+            {
+                const auto hint = PresetManager::getFactoryHint (i);
+                expect (hint.isNotEmpty(), PresetManager::getFactoryName (i));
+                expectLessOrEqual (hint.length(), 100, PresetManager::getFactoryName (i));
+            }
+        }
+    }
+};
+
+static StartingPointTests startingPointTests;
 static OversamplingTests oversamplingTests;
 static LinearPhaseTests linearPhaseTests;
 static DynamicEqTests dynamicEqTests;

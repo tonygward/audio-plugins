@@ -28,7 +28,8 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 - **Output gain** (±24 dB, double-click to reset) with a peak meter, peak hold and clip indicator (click the meter to clear it)
 - **Global bypass** that your DAW uses as its native bypass, with a smooth 20 ms cross-fade
 - **Auto gain** (AG button): matches the output loudness to the input (K-weighted, 2 s window, ±12 dB, frozen on silence) so you judge EQ moves at equal loudness; the button shows the correction
-- **Presets:** 8 factory starting points plus your own presets, saved as `.twpreset` files in `%APPDATA%\TW Pro EQ\Presets` (Windows) or `~/Library/TW Pro EQ/Presets` (macOS). Use the arrows and the menu in the top bar; `*` means the settings differ from the loaded preset. Loading a preset is one undo step.
+- **Starting points** (in the preset menu): 11 templates for common sources: lead vocal, backing vocals, spoken word, acoustic guitar body, electric guitar, electric guitar bus, bass guitar, drum bus, snare, reverb return and a five-zone teaching layout. They're based on advice from Joe Gilder's [Home Studio Corner](https://homestudiocorner.com) videos, and they aren't endorsed by him. They work the way he does: cuts before boosts, small moves, "only if needed" bands loaded but switched off, and output gain set so turning the EQ on and off compares tone, not loudness. Hover over the preset name for a one-line hint. Treat the frequencies as places to start listening, and move each band to what you hear in the mix
+- **Presets:** 8 factory presets plus your own presets, saved as `.twpreset` files in `%APPDATA%\TW Pro EQ\Presets` (Windows) or `~/Library/TW Pro EQ/Presets` (macOS). Use the arrows and the menu in the top bar; `*` means the settings differ from the loaded preset. Loading a preset is one undo step.
 
 ### Just want to use it?
 

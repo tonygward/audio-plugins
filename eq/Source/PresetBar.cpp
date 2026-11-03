@@ -27,6 +27,15 @@ void PresetBar::refresh()
 
     if (nameButton.getButtonText() != text)
         nameButton.setButtonText (text);
+
+    // A starting-point template shows its usage hint as the tooltip.
+    juce::String tip ("Presets: load, save, delete");
+    if (pm.hasCurrent() && pm.getCurrent().isFactory())
+        if (const auto hint = EQ::PresetManager::getFactoryHint (pm.getCurrent().factoryIndex); hint.isNotEmpty())
+            tip = hint;
+
+    if (nameButton.getTooltip() != tip)
+        nameButton.setTooltip (tip);
 }
 
 void PresetBar::resized()
@@ -63,9 +72,15 @@ void PresetBar::showMenu()
     };
 
     menu.addSectionHeader ("Factory");
-    bool anyUser = false;
+    bool anyUser = false, startingPoints = false;
     for (size_t i = 0; i < all.size(); ++i)
     {
+        if (all[i].isFactory() && ! startingPoints && EQ::PresetManager::isStartingPoint (all[i].factoryIndex))
+        {
+            menu.addSectionHeader ("Starting points");
+            startingPoints = true;
+        }
+
         if (! all[i].isFactory() && ! anyUser)
         {
             menu.addSectionHeader ("User");

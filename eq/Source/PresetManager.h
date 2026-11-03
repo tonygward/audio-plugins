@@ -43,6 +43,8 @@ namespace EQ
         static juce::String getFactoryName (int index);
         static PresetData getFactoryPreset (int index);
         static int getFactoryUsedBands (int index);
+        static bool isStartingPoint (int index);          // listed under "Starting points"
+        static juce::String getFactoryHint (int index);   // empty when the preset has none
 
         std::vector<Entry> getUserPresets() const;
         std::vector<Entry> getAllPresets() const;   // factory first, then user (sorted)
