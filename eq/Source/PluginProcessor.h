@@ -12,14 +12,14 @@
 #include "AutoGain.h"
 #include "LinearPhase.h"
 
-class ThreeBandEQAudioProcessor : public juce::AudioProcessor, private juce::Timer
+class SongsmithEQAudioProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
     static constexpr int numBands = EQ::numBands;
     static constexpr int stateVersion = 2;   // 1 = v0.1 (3 fixed bell bands), 2 = 24-band bank
 
-    ThreeBandEQAudioProcessor();
-    ~ThreeBandEQAudioProcessor() override;
+    SongsmithEQAudioProcessor();
+    ~SongsmithEQAudioProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -198,5 +198,5 @@ private:
     juce::AudioBuffer<float> dryBuffer;
     static constexpr double outputGainSmoothingSeconds = 0.02, bypassFadeSeconds = 0.02;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ThreeBandEQAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SongsmithEQAudioProcessor)
 };

@@ -21,7 +21,7 @@
 class EQDisplay : public juce::Component, private juce::Timer
 {
 public:
-    explicit EQDisplay (ThreeBandEQAudioProcessor&);
+    explicit EQDisplay (SongsmithEQAudioProcessor&);
     ~EQDisplay() override;
 
     void paint (juce::Graphics&) override;
@@ -76,7 +76,7 @@ private:
     void positionPanel();
     void endWheelEdit();
 
-    ThreeBandEQAudioProcessor& processor;
+    SongsmithEQAudioProcessor& processor;
     BandPanel panel;
 
     std::vector<float> lastValues;

@@ -4,7 +4,7 @@
 #include <array>
 #include "EQParams.h"
 
-class ThreeBandEQAudioProcessor;
+class SongsmithEQAudioProcessor;
 
 namespace EQ
 {
@@ -69,7 +69,7 @@ namespace EQ
     class EditController
     {
     public:
-        explicit EditController (ThreeBandEQAudioProcessor& p) : processor (p) {}
+        explicit EditController (SongsmithEQAudioProcessor& p) : processor (p) {}
 
         BandSnapshot getSnapshot (int band) const;
         void applySnapshot (int band, const BandSnapshot&);
@@ -105,7 +105,7 @@ namespace EQ
         void commit (int band, const BandSnapshot& before, const BandSnapshot& after, const juce::String& name);
         void setParamWithGesture (int band, Param p, float value);
 
-        ThreeBandEQAudioProcessor& processor;
+        SongsmithEQAudioProcessor& processor;
         juce::UndoManager undoManager { 30000, 30 };
 
         int editBand = -1;

@@ -22,7 +22,7 @@ namespace
     }
 }
 
-EQDisplay::EQDisplay (ThreeBandEQAudioProcessor& p) : processor (p), panel (p)
+EQDisplay::EQDisplay (SongsmithEQAudioProcessor& p) : processor (p), panel (p)
 {
     setOpaque (true);
     setWantsKeyboardFocus (true);

@@ -206,7 +206,7 @@ namespace EQ
 
         // Exactly the session restore path (defaults for missing parameters, v1 -> v2 band
         // slots, ...), applied to a scratch instance, so presets migrate like sessions.
-        ThreeBandEQAudioProcessor scratch;
+        SongsmithEQAudioProcessor scratch;
         scratch.restoreFromValueTree (state);
         out = scratch.edits.getPresetData();
         return true;
@@ -355,7 +355,7 @@ namespace EQ
             if (current.isFactory())
             {
                 // Round-trip through the parameters so the comparison sees snapped values.
-                ThreeBandEQAudioProcessor scratch;
+                SongsmithEQAudioProcessor scratch;
                 scratch.edits.applyPresetData (getFactoryPreset (current.factoryIndex));
                 currentData = std::make_unique<PresetData> (scratch.edits.getPresetData());
             }

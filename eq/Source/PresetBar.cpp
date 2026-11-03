@@ -1,7 +1,7 @@
 #include "PresetBar.h"
 #include "EQLookAndFeel.h"
 
-PresetBar::PresetBar (ThreeBandEQAudioProcessor& p) : processor (p)
+PresetBar::PresetBar (SongsmithEQAudioProcessor& p) : processor (p)
 {
     prevButton.setTooltip ("Previous preset");
     nextButton.setTooltip ("Next preset");

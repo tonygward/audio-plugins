@@ -7,11 +7,11 @@
 #include "OutputMeter.h"
 #include "PresetBar.h"
 
-class ThreeBandEQAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
+class SongsmithEQAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
-    explicit ThreeBandEQAudioProcessorEditor (ThreeBandEQAudioProcessor&);
-    ~ThreeBandEQAudioProcessorEditor() override;
+    explicit SongsmithEQAudioProcessorEditor (SongsmithEQAudioProcessor&);
+    ~SongsmithEQAudioProcessorEditor() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -20,7 +20,7 @@ public:
 private:
     void timerCallback() override;
 
-    ThreeBandEQAudioProcessor& processor;
+    SongsmithEQAudioProcessor& processor;
     EQLookAndFeel lookAndFeel;
     juce::TooltipWindow tooltips { this, 600 };
 
@@ -45,5 +45,5 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
     double lastMeterTime = 0.0;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ThreeBandEQAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SongsmithEQAudioProcessorEditor)
 };

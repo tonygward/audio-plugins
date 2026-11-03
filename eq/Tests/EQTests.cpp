@@ -437,7 +437,7 @@ class ProcessorTests final : public juce::UnitTest
 public:
     ProcessorTests() : juce::UnitTest ("Processor, state and undo", "EQ") {}
 
-    static void set (ThreeBandEQAudioProcessor& p, int band, Param param, float value)
+    static void set (SongsmithEQAudioProcessor& p, int band, Param param, float value)
     {
         auto* rp = p.getBandParam (band, param);
         rp->setValueNotifyingHost (rp->convertTo0to1 (value));
@@ -447,7 +447,7 @@ public:
     {
         beginTest ("Parameter identities");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             constexpr int numGlobalParams = 7;   // output_gain, bypass, auto_gain, gain_scale, phase_mode, lp_quality, oversampling
             expectEquals (p.getParameters().size(), numBands * numBandParams + numGlobalParams, "24 bands x per-band parameters + globals");
 
@@ -474,7 +474,7 @@ public:
 
         beginTest ("Save / restore round trip");
         {
-            ThreeBandEQAudioProcessor a;
+            SongsmithEQAudioProcessor a;
             set (a, 4, Param::Type, (float) FilterType::HighShelf);
             set (a, 4, Param::Freq, 3000.0f);
             set (a, 4, Param::Gain, -7.5f);
@@ -494,7 +494,7 @@ public:
             juce::MemoryBlock mb;
             a.getStateInformation (mb);
 
-            ThreeBandEQAudioProcessor b;
+            SongsmithEQAudioProcessor b;
             b.setStateInformation (mb.getData(), (int) mb.getSize());
 
             bool same = true;
@@ -528,7 +528,7 @@ public:
                 }
             } listener;
 
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.addListener (&listener);
             p.edits.removeBand (0);
             expectGreaterThan (listener.nonParamChanges, 0, "remove band flags state change");
@@ -549,7 +549,7 @@ public:
             juce::MemoryBlock mb;
             juce::AudioProcessor::copyXmlToBinary (*juce::parseXML (legacyXml), mb);
 
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             set (p, 9, Param::Gain, 9.0f);   // must be reset to default by the restore
             p.setBandUsed (9, true);
             p.setStateInformation (mb.getData(), (int) mb.getSize());
@@ -568,14 +568,14 @@ public:
 
         beginTest ("Multiple instances are independent");
         {
-            ThreeBandEQAudioProcessor a, b;
+            SongsmithEQAudioProcessor a, b;
             set (a, 0, Param::Gain, 6.0f);
             expectWithinAbsoluteError (b.getBandValue (0, Param::Gain), 0.0f, 1.0e-5f);   // interval snapping may leave ~1e-7 (FMA on Apple clang)
         }
 
         beginTest ("Undo / redo");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             auto& edits = p.edits;
 
             const int band = edits.addBand (500.0f, 6.0f, FilterType::Bell);
@@ -621,7 +621,7 @@ public:
 
         beginTest ("Silence and very low-level input (processor)");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.setRateAndBufferSizeDetails (48000.0, 256);
             p.prepareToPlay (48000.0, 256);
             for (int b = 0; b < numBands; ++b)
@@ -729,7 +729,7 @@ public:
 
         beginTest ("Processor captures pre/post only while a viewer is open");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.setRateAndBufferSizeDetails (fs, 512);
             p.prepareToPlay (fs, 512);
             // Band 1: deep notch at 1 kHz, so pre and post differ at 1 kHz.
@@ -770,13 +770,13 @@ public:
 // Shared helpers for processor-level tests.
 namespace
 {
-    void setParam (ThreeBandEQAudioProcessor& p, const juce::String& id, float value)
+    void setParam (SongsmithEQAudioProcessor& p, const juce::String& id, float value)
     {
         auto* rp = p.apvts.getParameter (id);
         rp->setValueNotifyingHost (rp->convertTo0to1 (value));
     }
 
-    void setBand (ThreeBandEQAudioProcessor& p, int band, Param prm, float value)
+    void setBand (SongsmithEQAudioProcessor& p, int band, Param prm, float value)
     {
         auto* rp = p.getBandParam (band, prm);
         rp->setValueNotifyingHost (rp->convertTo0to1 (value));
@@ -784,7 +784,7 @@ namespace
 
     // Streams a signal through the processor in fixed blocks; 'onBlock' may change
     // parameters before each block. Returns the left output and fills 'inputOut'.
-    std::vector<float> runProcessor (ThreeBandEQAudioProcessor& p, double fs, int block, int total,
+    std::vector<float> runProcessor (SongsmithEQAudioProcessor& p, double fs, int block, int total,
                                      const std::function<float (int n)>& signal,
                                      const std::function<void (int sample)>& onBlock,
                                      std::vector<float>* rightOut = nullptr)
@@ -841,7 +841,7 @@ public:
         beginTest ("Output gain accuracy (-12, 0, +12 dB)");
         for (float db : { -12.0f, 0.0f, 12.0f })
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             for (int b = 0; b < numBands; ++b)
                 p.setBandUsed (b, false);
             setParam (p, "output_gain", db);
@@ -859,7 +859,7 @@ public:
 
         beginTest ("Output gain jump is smoothed");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             for (int b = 0; b < numBands; ++b)
                 p.setBandUsed (b, false);
             p.prepareToPlay (fs, block);
@@ -881,7 +881,7 @@ public:
 
         beginTest ("Bypass cross-fades to bit-exact dry output");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setBand (p, 0, Param::Gain, 12.0f);   // band 1: +12 dB bell at 100 Hz -> clearly processed
             setBand (p, 1, Param::Gain, -9.0f);
             setParam (p, "output_gain", 6.0f);
@@ -915,7 +915,7 @@ public:
 
         beginTest ("Bypass on/off transition is smooth");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setBand (p, 1, Param::Gain, 12.0f);   // +12 dB at 1 kHz
             setBand (p, 1, Param::Q, 1.0f);
             p.prepareToPlay (fs, block);
@@ -938,7 +938,7 @@ public:
 
         beginTest ("Output meter sees peaks and clipping");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             for (int b = 0; b < numBands; ++b)
                 p.setBandUsed (b, false);
             setParam (p, "output_gain", 6.0f);
@@ -955,13 +955,13 @@ public:
 
         beginTest ("Output gain and bypass are saved with the session");
         {
-            ThreeBandEQAudioProcessor a;
+            SongsmithEQAudioProcessor a;
             setParam (a, "output_gain", -7.5f);
             setParam (a, "bypass", 1.0f);
             juce::MemoryBlock mb;
             a.getStateInformation (mb);
 
-            ThreeBandEQAudioProcessor b;
+            SongsmithEQAudioProcessor b;
             b.setStateInformation (mb.getData(), (int) mb.getSize());
             expectWithinAbsoluteError (b.apvts.getRawParameterValue ("output_gain")->load(), -7.5f, 0.001f, "output gain restored");
             expectEquals (b.apvts.getRawParameterValue ("bypass")->load(), 1.0f, "bypass restored");
@@ -1112,7 +1112,7 @@ public:
 
         beginTest ("Legacy session loads at 12 dB/oct");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setBand (p, 0, Param::Slope, 5.0f);   // must be reset by the restore
             auto state = p.apvts.copyState();
             state.setProperty ("version", 2, nullptr);
@@ -1133,7 +1133,7 @@ public:
 
         beginTest ("Slope edits are undoable and stored in the session");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.edits.setType (0, FilterType::HighCut);
             p.edits.setSlope (0, 4);
             expectEquals ((int) p.getBandValue (0, Param::Slope), 4);
@@ -1143,7 +1143,7 @@ public:
 
             juce::MemoryBlock mb;
             p.getStateInformation (mb);
-            ThreeBandEQAudioProcessor q;
+            SongsmithEQAudioProcessor q;
             q.setStateInformation (mb.getData(), (int) mb.getSize());
             expectEquals ((int) q.getBandValue (0, Param::Slope), 4, "slope restored");
         }
@@ -1162,7 +1162,7 @@ public:
     // Steady-state gain (dB) of the processor for a sine at f, with band 'solo' soloed.
     static double soloGainDb (FilterType type, float freq, float q, float gain, double f, int solo = 1)
     {
-        ThreeBandEQAudioProcessor p;
+        SongsmithEQAudioProcessor p;
         setBand (p, 1, Param::Type, (float) type);
         setBand (p, 1, Param::Freq, freq);
         setBand (p, 1, Param::Q, q);
@@ -1201,7 +1201,7 @@ public:
 
         beginTest ("Releasing solo returns bit-identical normal processing");
         {
-            ThreeBandEQAudioProcessor a, b;
+            SongsmithEQAudioProcessor a, b;
             for (auto* p : { &a, &b })
             {
                 setBand (*p, 0, Param::Gain, 6.0f);
@@ -1238,7 +1238,7 @@ public:
 
         beginTest ("Solo fades smoothly, also when switching bands");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setBand (p, 0, Param::Freq, 300.0f);
             setBand (p, 1, Param::Freq, 600.0f);
             p.prepareToPlay (fs, block);
@@ -1261,7 +1261,7 @@ public:
 
         beginTest ("Solo is transient: no undo entry, not saved, cleared when the editor closes");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.soloBand = 1;
             expect (! p.edits.getUndoManager().canUndo(), "no undo history");
 
@@ -1269,7 +1269,7 @@ public:
             p.getStateInformation (mb);
             expect (! juce::String::fromUTF8 ((const char*) mb.getData(), (int) mb.getSize()).containsIgnoreCase ("solo"), "not in the state");
 
-            ThreeBandEQAudioProcessor q;
+            SongsmithEQAudioProcessor q;
             q.setStateInformation (mb.getData(), (int) mb.getSize());
             expectEquals (q.soloBand.load(), -1, "a restored session is never soloed");
 
@@ -1295,7 +1295,7 @@ public:
         ~TempFolder() { dir.deleteRecursively(); }
     };
 
-    static std::vector<float> allValues (ThreeBandEQAudioProcessor& p)
+    static std::vector<float> allValues (SongsmithEQAudioProcessor& p)
     {
         std::vector<float> v;
         for (int b = 0; b < numBands; ++b)
@@ -1313,7 +1313,7 @@ public:
         beginTest ("Save then load round-trips every parameter exactly");
         {
             TempFolder tmp;
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.presets.setUserFolder (tmp.dir);
 
             std::mt19937 rng (21);
@@ -1353,7 +1353,7 @@ public:
         beginTest ("A preset holds no UI state and no bypass");
         {
             TempFolder tmp;
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.presets.setUserFolder (tmp.dir);
             p.editorWidth = 1500;
             p.getBypassParameter()->setValueNotifyingHost (1.0f);
@@ -1367,7 +1367,7 @@ public:
 
         beginTest ("Loading a preset is one undo transaction");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             const auto before = allValues (p);
             juce::String error;
             expect (p.presets.load ({ "Kick punch", 5, {} }, error));
@@ -1396,7 +1396,7 @@ public:
 
             for (int i = 0; i < PresetManager::getNumFactoryPresets(); ++i)
             {
-                ThreeBandEQAudioProcessor p;
+                SongsmithEQAudioProcessor p;
                 juce::String error;
                 expect (p.presets.load ({ PresetManager::getFactoryName (i), i, {} }, error), error);
                 expectEquals (p.getNumUsedBands(), PresetManager::getFactoryUsedBands (i), PresetManager::getFactoryName (i));
@@ -1422,7 +1422,7 @@ public:
                 R"(<PARAM id="band3_freq" value="9000.0"/><PARAM id="band3_gain" value="1.5"/></PARAMETERS>)";
             tmp.dir.getChildFile ("Old.twpreset").replaceWithText (v1);
 
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.presets.setUserFolder (tmp.dir);
             p.setBandUsed (7, true);
             set (p, 7, Param::Gain, 5.0f);
@@ -1444,7 +1444,7 @@ public:
             tmp.dir.getChildFile ("Foreign.twpreset").replaceWithText ("<SOMETHING><PARAM id=\"band1_gain\" value=\"12\"/></SOMETHING>");
             juce::FileOutputStream (tmp.dir.getChildFile ("Empty.twpreset")).flush();
 
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.presets.setUserFolder (tmp.dir);
             set (p, 1, Param::Gain, 4.0f);
             const auto before = allValues (p);
@@ -1464,13 +1464,13 @@ public:
 
         beginTest ("Current preset survives saving and restoring the session");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             juce::String error;
             expect (p.presets.load ({ PresetManager::getFactoryName (3), 3, {} }, error));
             juce::MemoryBlock mb;
             p.getStateInformation (mb);
 
-            ThreeBandEQAudioProcessor q;
+            SongsmithEQAudioProcessor q;
             q.setStateInformation (mb.getData(), (int) mb.getSize());
             expect (q.presets.hasCurrent(), "preset name restored");
             expectEquals (q.presets.getCurrent().name, PresetManager::getFactoryName (3));
@@ -1478,7 +1478,7 @@ public:
         }
     }
 
-    static void set (ThreeBandEQAudioProcessor& p, int band, Param prm, float v) { setBand (p, band, prm, v); }
+    static void set (SongsmithEQAudioProcessor& p, int band, Param prm, float v) { setBand (p, band, prm, v); }
 };
 
 //==============================================================================
@@ -1671,7 +1671,7 @@ public:
 
         beginTest ("Legacy session loads with every band in Stereo; mode is undoable and saved");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setBand (p, 0, Param::Stereo, 3.0f);
             auto state = p.apvts.copyState();
             state.setProperty ("version", 2, nullptr);
@@ -1694,7 +1694,7 @@ public:
 
             juce::MemoryBlock saved;
             p.getStateInformation (saved);
-            ThreeBandEQAudioProcessor q;
+            SongsmithEQAudioProcessor q;
             q.setStateInformation (saved.getData(), (int) saved.getSize());
             expectEquals ((int) q.getBandValue (1, Param::Stereo), (int) StereoMode::Side, "restored");
         }
@@ -1726,7 +1726,7 @@ public:
 
         beginTest ("Default layout is a plain stereo effect (sidechain disabled)");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             expectEquals (p.getTotalNumInputChannels(), 2);
             expectEquals (p.getTotalNumOutputChannels(), 2);
             expect (p.getBus (true, 1) != nullptr && ! p.getBus (true, 1)->isEnabled(), "sidechain bus exists, disabled");
@@ -1735,7 +1735,7 @@ public:
 
         beginTest ("Bus layouts accepted / rejected");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             const auto st = Set::stereo(), mo = Set::mono(), off = Set::disabled();
             expect (p.checkBusesLayoutSupported (layout (st, st, off)), "stereo, sidechain off");
             expect (p.checkBusesLayoutSupported (layout (st, st, mo)), "stereo, mono sidechain");
@@ -1750,7 +1750,7 @@ public:
 
         beginTest ("The sidechain never reaches the output (bit-exact versus no sidechain)");
         {
-            ThreeBandEQAudioProcessor withSc, without;
+            SongsmithEQAudioProcessor withSc, without;
             expect (withSc.setBusesLayout (layout (Set::stereo(), Set::stereo(), Set::stereo())), "sidechain layout set");
             expect (withSc.isSidechainConnected());
 
@@ -1793,7 +1793,7 @@ public:
         beginTest ("Sidechain analyser level and frequency calibration");
         for (float ampDb : { 0.0f, -20.0f })
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.setBusesLayout (layout (Set::stereo(), Set::stereo(), Set::stereo()));
             p.setRateAndBufferSizeDetails (fs, block);
             p.prepareToPlay (fs, block);
@@ -1833,7 +1833,7 @@ public:
 
         beginTest ("No sidechain capture without a viewer; the setting is saved");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.setBusesLayout (layout (Set::stereo(), Set::stereo(), Set::stereo()));
             p.prepareToPlay (fs, block);
             p.sidechainView = 1;
@@ -1852,7 +1852,7 @@ public:
             p.sidechainView = 2;
             juce::MemoryBlock mb;
             p.getStateInformation (mb);
-            ThreeBandEQAudioProcessor q;
+            SongsmithEQAudioProcessor q;
             q.setStateInformation (mb.getData(), (int) mb.getSize());
             expectEquals (q.sidechainView.load(), 2, "sidechain view restored");
         }
@@ -2005,7 +2005,7 @@ public:
 
         beginTest ("Settings survive saving and restoring");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.analyserTilt = 3.0f;
             p.analyserTopDb = -12.0f;
             p.analyserBottomDb = -120.0f;
@@ -2015,7 +2015,7 @@ public:
 
             juce::MemoryBlock mb;
             p.getStateInformation (mb);
-            ThreeBandEQAudioProcessor q;
+            SongsmithEQAudioProcessor q;
             q.setStateInformation (mb.getData(), (int) mb.getSize());
             expectEquals (q.analyserTilt.load(), 3.0f, "tilt");
             expectEquals (q.analyserTopDb.load(), -12.0f, "top");
@@ -2025,7 +2025,7 @@ public:
             expectEquals (q.analyser.getSpeed(), 2, "speed");
             expect (q.analyser.isPeakHold(), "peak hold");
 
-            ThreeBandEQAudioProcessor fresh;
+            SongsmithEQAudioProcessor fresh;
             expectEquals (fresh.analyserTilt.load(), 4.5f, "default tilt 4.5 dB/oct");
         }
     }
@@ -2072,7 +2072,7 @@ public:
         return -0.691 + 10.0 * std::log10 (e / (double) (to - from));
     }
 
-    static void setup (ThreeBandEQAudioProcessor& p, bool autoGainOn)
+    static void setup (SongsmithEQAudioProcessor& p, bool autoGainOn)
     {
         setBand (p, 0, Param::Gain, 0.0f);
         setBand (p, 1, Param::Gain, 6.0f);    // broad +6 dB bell at 1 kHz
@@ -2088,7 +2088,7 @@ public:
         {
             for (bool on : { false, true })
             {
-                ThreeBandEQAudioProcessor p;
+                SongsmithEQAudioProcessor p;
                 setup (p, on);
                 Pink pink;
                 const int total = (int) (8.0 * fs);
@@ -2112,7 +2112,7 @@ public:
 
         beginTest ("Silence produces no gain drift");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setup (p, true);
             const auto silent = runProcessor (p, fs, block, (int) (4.0 * fs), [] (int) { return 0.0f; }, [] (int) {});
             expectEquals (p.autoGainAppliedDb.load(), 0.0f, "no correction from silence");
@@ -2133,7 +2133,7 @@ public:
 
         beginTest ("Auto gain off is bit-identical (including after it was used)");
         {
-            ThreeBandEQAudioProcessor a, b;
+            SongsmithEQAudioProcessor a, b;
             setup (a, false);
             setup (b, true);
             Pink pinkA, pinkB;
@@ -2154,7 +2154,7 @@ public:
 
         beginTest ("On/off transitions are smooth");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setup (p, false);
             const int total = (int) (10.0 * fs);
             const auto out = runProcessor (p, fs, block, total, [] (int n) { return (float) (0.2 * std::sin (2.0 * pi * 1000.0 * n / fs)); },
@@ -2173,11 +2173,11 @@ public:
 
         beginTest ("Auto gain is saved with the session; legacy sessions load with it off");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setParam (p, "auto_gain", 1.0f);
             juce::MemoryBlock mb;
             p.getStateInformation (mb);
-            ThreeBandEQAudioProcessor q;
+            SongsmithEQAudioProcessor q;
             q.setStateInformation (mb.getData(), (int) mb.getSize());
             expect (q.isAutoGainOn(), "restored");
 
@@ -2203,7 +2203,7 @@ public:
     // Steady-state processor gain (dB) at f with a single band and the given scale.
     static double measure (FilterType type, float freq, float gain, float scalePct, double f)
     {
-        ThreeBandEQAudioProcessor p;
+        SongsmithEQAudioProcessor p;
         for (int b = 1; b < numBands; ++b)
             p.setBandUsed (b, false);
         setBand (p, 0, Param::Type, (float) type);
@@ -2241,7 +2241,7 @@ public:
 
         beginTest ("100 % is bit-identical to the plain engine; stored gains are unchanged");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setBand (p, 0, Param::Gain, 7.5f);
             setBand (p, 1, Param::Gain, -4.0f);
             setBand (p, 2, Param::Type, (float) FilterType::HighShelf);
@@ -2281,7 +2281,7 @@ public:
 
         beginTest ("Rapid automation of the scale stays finite and smooth");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             for (int b = 0; b < 3; ++b)
                 setBand (p, b, Param::Gain, 6.0f);   // bells at 100 Hz, 1 kHz, 8 kHz
             p.prepareToPlay (fs, block);
@@ -2299,17 +2299,17 @@ public:
 
         beginTest ("Saved, stored in presets, legacy sessions load at 100 %");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setParam (p, "gain_scale", 42.0f);
             juce::MemoryBlock mb;
             p.getStateInformation (mb);
-            ThreeBandEQAudioProcessor q;
+            SongsmithEQAudioProcessor q;
             q.setStateInformation (mb.getData(), (int) mb.getSize());
             expectWithinAbsoluteError (q.getGainScale(), 0.42f, 1.0e-4f, "restored");
 
             const auto data = q.edits.getPresetData();
             expectWithinAbsoluteError (data.gainScale, 42.0f, 0.01f, "in the preset data");
-            ThreeBandEQAudioProcessor r;
+            SongsmithEQAudioProcessor r;
             r.edits.loadPreset (data, "test");
             expectWithinAbsoluteError (r.getGainScale(), 0.42f, 1.0e-4f, "preset load applies the scale");
 
@@ -2399,7 +2399,7 @@ public:
 
             // The frequency parameter is continuous, so a snapped value is stored exactly
             // (to float precision) instead of being rounded to a 0.1 Hz grid.
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             const float snapped = (float) snapToSemitone (1000.0);
             setBand (p, 0, Param::Freq, snapped);
             expectWithinAbsoluteError (p.getBandValue (0, Param::Freq), snapped, snapped * 1.0e-6f, "stored as the semitone frequency");
@@ -2407,11 +2407,11 @@ public:
 
         beginTest ("Piano strip setting is saved with the UI state");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.showPianoStrip = true;
             juce::MemoryBlock mb;
             p.getStateInformation (mb);
-            ThreeBandEQAudioProcessor q;
+            SongsmithEQAudioProcessor q;
             q.setStateInformation (mb.getData(), (int) mb.getSize());
             expect (q.showPianoStrip.load(), "restored");
         }
@@ -2657,7 +2657,7 @@ public:
 
         beginTest ("Legacy session loads with dynamics off; dynamic settings are undoable and saved");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setBand (p, 0, Param::DynOn, 1.0f);
             setBand (p, 0, Param::Threshold, -12.0f);
             auto state = p.apvts.copyState();
@@ -2686,7 +2686,7 @@ public:
 
             juce::MemoryBlock saved;
             p.getStateInformation (saved);
-            ThreeBandEQAudioProcessor q;
+            SongsmithEQAudioProcessor q;
             q.setStateInformation (saved.getData(), (int) saved.getSize());
             expect (q.getBandValue (1, Param::DynOn) == 1.0f, "restored on");
             expectWithinAbsoluteError (q.getBandValue (1, Param::Range), -9.0f, 0.01f, "restored range");
@@ -2705,7 +2705,7 @@ public:
 
     // Switches 'p' to linear phase at 'quality', prepares it and waits until the
     // convolution engines run the designed IR.
-    bool prepareLinear (ThreeBandEQAudioProcessor& p, int quality)
+    bool prepareLinear (SongsmithEQAudioProcessor& p, int quality)
     {
         setParam (p, "phase_mode", 1.0f);
         setParam (p, "lp_quality", (float) quality);
@@ -2730,7 +2730,7 @@ public:
     }
 
     // Impulse response of the processor (left output for a left+right impulse, or per channel).
-    static std::vector<float> impulseResponse (ThreeBandEQAudioProcessor& p, int length, int channel = 0, bool leftOnly = false)
+    static std::vector<float> impulseResponse (SongsmithEQAudioProcessor& p, int length, int channel = 0, bool leftOnly = false)
     {
         juce::AudioBuffer<float> buf (2, block);
         juce::MidiBuffer midi;
@@ -2772,7 +2772,7 @@ public:
                               { FilterType::Bell, 2500.0f, 4.0f, 0.7f }, { FilterType::Bell, 12000.0f, -3.0f, 1.0f } } },
         };
 
-        auto applyCurve = [] (ThreeBandEQAudioProcessor& p, const std::vector<Spec>& specs)
+        auto applyCurve = [] (SongsmithEQAudioProcessor& p, const std::vector<Spec>& specs)
         {
             for (int b = 0; b < numBands; ++b)
                 p.setBandUsed (b, b < (int) specs.size());
@@ -2790,7 +2790,7 @@ public:
         beginTest ("Magnitude matches the minimum-phase response within 0.2 dB (30 Hz - 18 kHz)");
         for (const auto& curve : curves)
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             applyCurve (p, curve.bands);
             expect (prepareLinear (p, 2), "IR loaded");
 
@@ -2811,7 +2811,7 @@ public:
         beginTest ("Impulse response is symmetric (linear phase); latency = measured delay");
         for (int quality = 0; quality < 3; ++quality)
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             applyCurve (p, curves[0].bands);
             expect (prepareLinear (p, quality), "IR loaded");
             p.updateLatencyNow();
@@ -2834,7 +2834,7 @@ public:
 
         beginTest ("Flat EQ in linear phase is a pure delay");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             for (int b = 0; b < numBands; ++b) p.setBandUsed (b, false);
             expect (prepareLinear (p, 0));
             const auto h = impulseResponse (p, p.getLinearPhaseLength());
@@ -2848,7 +2848,7 @@ public:
 
         beginTest ("Stereo modes in linear phase (Left-only band leaves the right channel alone)");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             applyCurve (p, { { FilterType::Bell, 1000.0f, 9.0f, 1.0f } });
             setBand (p, 0, Param::Stereo, (float) StereoMode::Left);
             expect (prepareLinear (p, 1));
@@ -2856,14 +2856,14 @@ public:
             const auto hl = impulseResponse (p, length, 0);
             expectWithinAbsoluteError (magnitudeDbAt (hl, 1000.0), 9.0, 0.2, "left boosted");
 
-            ThreeBandEQAudioProcessor q;
+            SongsmithEQAudioProcessor q;
             applyCurve (q, { { FilterType::Bell, 1000.0f, 9.0f, 1.0f } });
             setBand (q, 0, Param::Stereo, (float) StereoMode::Left);
             expect (prepareLinear (q, 1));
             const auto hr = impulseResponse (q, length, 1);
             expectWithinAbsoluteError (magnitudeDbAt (hr, 1000.0), 0.0, 0.05, "right untouched");
 
-            ThreeBandEQAudioProcessor m;
+            SongsmithEQAudioProcessor m;
             applyCurve (m, { { FilterType::Bell, 1000.0f, 6.0f, 1.0f } });
             setBand (m, 0, Param::Stereo, (float) StereoMode::Mid);
             expect (prepareLinear (m, 1));
@@ -2873,7 +2873,7 @@ public:
 
         beginTest ("Rapid parameter changes stay finite with bounded steps");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             applyCurve (p, curves[2].bands);
             expect (prepareLinear (p, 0));
 
@@ -2899,7 +2899,7 @@ public:
 
         beginTest ("Zero-latency mode reports no latency; switching modes fades and stays finite");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.prepareToPlay (fs, block);
             p.updateLatencyNow();
             expectEquals (p.getLatencySamples(), 0, "zero latency");
@@ -2921,7 +2921,7 @@ public:
 
         beginTest ("Legacy sessions load in zero-latency mode");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setParam (p, "phase_mode", 1.0f);
             auto state = p.apvts.copyState();
             state.removeChild (state.getChildWithProperty ("id", "phase_mode"), nullptr);
@@ -2949,7 +2949,7 @@ public:
         return 20.0 * std::log10 (std::abs ((s * s + s * (A / q) + 1.0) / (s * s + s / (A * q) + 1.0)));
     }
 
-    static double measureDb (ThreeBandEQAudioProcessor& p, double fs, double f)
+    static double measureDb (SongsmithEQAudioProcessor& p, double fs, double f)
     {
         const int total = (int) (0.4 * fs);
         auto sig = [=] (int n) { return (float) (0.1 * std::sin (2.0 * pi * f * n / fs)); };
@@ -2959,7 +2959,7 @@ public:
         return 20.0 * std::log10 (rms (out, (size_t) total / 2, out.size()) / rms (in, (size_t) total / 2, in.size()));
     }
 
-    static void bell16k (ThreeBandEQAudioProcessor& p)
+    static void bell16k (SongsmithEQAudioProcessor& p)
     {
         for (int b = 0; b < numBands; ++b) p.setBandUsed (b, b == 0);
         setBand (p, 0, Param::Freq, 16000.0f);
@@ -2982,7 +2982,7 @@ public:
                 double sum = 0.0;
                 for (double f : freqs)
                 {
-                    ThreeBandEQAudioProcessor p;
+                    SongsmithEQAudioProcessor p;
                     bell16k (p);
                     setParam (p, "oversampling", (float) os);
                     p.setRateAndBufferSizeDetails (fs, 256);
@@ -2998,7 +2998,7 @@ public:
             expectLessThan (rmsErr[2], rmsErr[1], "4x closer than 2x");
 
             // The drawn curve (designed at the oversampled rate) matches what is measured.
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             bell16k (p);
             setParam (p, "oversampling", 2.0f);
             p.setRateAndBufferSizeDetails (fs, 256);
@@ -3011,7 +3011,7 @@ public:
         beginTest ("Reported latency equals the measured delay");
         for (int os = 1; os < 3; ++os)
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             for (int b = 0; b < numBands; ++b) p.setBandUsed (b, false);
             setParam (p, "oversampling", (float) os);
             p.setRateAndBufferSizeDetails (fs, 256);
@@ -3038,7 +3038,7 @@ public:
 
         beginTest ("Off reports no latency (and processing is the plain engine)");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.prepareToPlay (fs, 256);
             p.updateLatencyNow();
             expectEquals (p.getLatencySamples(), 0);
@@ -3049,7 +3049,7 @@ public:
         for (double rate : { 44100.0, 48000.0, 88200.0, 96000.0, 192000.0 })
             for (int os = 1; os < 3; ++os)
             {
-                ThreeBandEQAudioProcessor p;
+                SongsmithEQAudioProcessor p;
                 setParam (p, "oversampling", (float) os);
                 p.setRateAndBufferSizeDetails (rate, 128);
                 p.prepareToPlay (rate, 128);
@@ -3076,7 +3076,7 @@ public:
 
         beginTest ("Switching the factor while running fades (no hard switch)");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setBand (p, 1, Param::Gain, 6.0f);
             p.setRateAndBufferSizeDetails (48000.0, 256);
             p.prepareToPlay (48000.0, 256);
@@ -3092,7 +3092,7 @@ public:
 
         beginTest ("Linear phase uses the oversampled design without extra latency");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             bell16k (p);
             setParam (p, "oversampling", 2.0f);
             setParam (p, "phase_mode", 1.0f);
@@ -3113,7 +3113,7 @@ public:
 
         beginTest ("Legacy sessions load with oversampling off");
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             setParam (p, "oversampling", 2.0f);
             auto state = p.apvts.copyState();
             state.removeChild (state.getChildWithProperty ("id", "oversampling"), nullptr);
@@ -3147,7 +3147,7 @@ public:
     static double loudnessChange (const PresetData& data)
     {
         const double fs = AutoGainTests::fs;
-        ThreeBandEQAudioProcessor p;
+        SongsmithEQAudioProcessor p;
         p.edits.loadPreset (data, "test");
         p.prepareToPlay (fs, block);
 
@@ -3198,7 +3198,7 @@ public:
             {
                 for (double fs : { 44100.0, 48000.0, 96000.0 })
                 {
-                    ThreeBandEQAudioProcessor p;
+                    SongsmithEQAudioProcessor p;
                     juce::String error;
                     expect (p.presets.load ({ PresetManager::getFactoryName (i), i, {} }, error), error);
                     expectEquals (p.getNumUsedBands(), PresetManager::getFactoryUsedBands (i), PresetManager::getFactoryName (i));
@@ -3229,7 +3229,7 @@ public:
                         ++bypassedSeen;
                     }
 
-                ThreeBandEQAudioProcessor a, b;
+                SongsmithEQAudioProcessor a, b;
                 juce::String error;
                 expect (a.presets.load ({ PresetManager::getFactoryName (i), i, {} }, error), error);
                 for (int k = 0; k < PresetManager::getFactoryUsedBands (i); ++k)
@@ -3312,8 +3312,8 @@ static ProcessorTests processorTests;
 // One benchmark table: all 24 bands used and set up by 'setup', static and with
 // 'automate' called for every band before every block.
 static void benchCase (const char* title,
-                       const std::function<void (ThreeBandEQAudioProcessor&, int band)>& setup,
-                       const std::function<void (ThreeBandEQAudioProcessor&, int band, int blockIndex)>& automate,
+                       const std::function<void (SongsmithEQAudioProcessor&, int band)>& setup,
+                       const std::function<void (SongsmithEQAudioProcessor&, int band, int blockIndex)>& automate,
                        const std::vector<int>& blockSizes = { 32, 128, 512 })
 {
     constexpr double fs = 48000.0;
@@ -3325,7 +3325,7 @@ static void benchCase (const char* title,
     for (int block : blockSizes)
         for (bool modulated : { false, true })
         {
-            ThreeBandEQAudioProcessor p;
+            SongsmithEQAudioProcessor p;
             p.setRateAndBufferSizeDetails (fs, block);
             p.prepareToPlay (fs, block);
 
@@ -3379,7 +3379,7 @@ static void runBenchmark()
         for (int block : { 32, 128, 512 })
             for (bool modulated : { false, true })
             {
-                ThreeBandEQAudioProcessor p;
+                SongsmithEQAudioProcessor p;
                 p.setRateAndBufferSizeDetails (fs, block);
                 p.prepareToPlay (fs, block);
 
@@ -3429,33 +3429,33 @@ static void runBenchmark()
 
     // Extra worst cases for features added later.
     benchCase ("24 cut bands at 48 dB/oct",
-               [] (ThreeBandEQAudioProcessor& p, int b)
+               [] (SongsmithEQAudioProcessor& p, int b)
                {
                    setBand (p, b, Param::Type, (float) (b % 2 == 0 ? FilterType::LowCut : FilterType::HighCut));
                    setBand (p, b, Param::Freq, b % 2 == 0 ? 20.0f + (float) b : 20000.0f - (float) b * 100.0f);
                    setBand (p, b, Param::Slope, 5.0f);
                },
-               [] (ThreeBandEQAudioProcessor& p, int b, int bi)   // frequency automation
+               [] (SongsmithEQAudioProcessor& p, int b, int bi)   // frequency automation
                {
                    const float base = b % 2 == 0 ? 30.0f : 15000.0f;
                    setBand (p, b, Param::Freq, base * (1.0f + 0.2f * std::sin ((float) bi * 0.05f + (float) b)));
                });
 
     benchCase ("24 bells, mixed stereo modes (S/L/R/M/S...)",
-               [] (ThreeBandEQAudioProcessor& p, int b)
+               [] (SongsmithEQAudioProcessor& p, int b)
                {
                    setBand (p, b, Param::Freq, 40.0f * std::pow (400.0f, (float) b / numBands));
                    setBand (p, b, Param::Gain, 6.0f);
                    setBand (p, b, Param::Q, 1.5f);
                    setBand (p, b, Param::Stereo, (float) (b % numStereoModes));
                },
-               [] (ThreeBandEQAudioProcessor& p, int b, int bi)   // gain automation
+               [] (SongsmithEQAudioProcessor& p, int b, int bi)   // gain automation
                {
                    setBand (p, b, Param::Gain, 6.0f * std::sin ((float) bi * 0.05f + (float) b));
                });
 
     benchCase ("24 dynamic bands (bells/shelves, all compressing), 64-sample blocks",
-               [] (ThreeBandEQAudioProcessor& p, int b)
+               [] (SongsmithEQAudioProcessor& p, int b)
                {
                    setBand (p, b, Param::Type, (float) (b % 3));   // bell, low shelf, high shelf
                    setBand (p, b, Param::Freq, 40.0f * std::pow (400.0f, (float) b / numBands));
@@ -3466,7 +3466,7 @@ static void runBenchmark()
                    setBand (p, b, Param::Range, -6.0f);
                    setBand (p, b, Param::Attack, 1.0f);
                },
-               [] (ThreeBandEQAudioProcessor& p, int b, int bi)
+               [] (SongsmithEQAudioProcessor& p, int b, int bi)
                {
                    setBand (p, b, Param::Threshold, -40.0f + 10.0f * std::sin ((float) bi * 0.05f + (float) b));
                },
@@ -3476,7 +3476,7 @@ static void runBenchmark()
     {
         const juce::String title = "24 bands, oversampling " + juce::StringArray { "off", "2x", "4x" }[os];
         benchCase (title.toRawUTF8(),
-                   [os] (ThreeBandEQAudioProcessor& p, int b)
+                   [os] (SongsmithEQAudioProcessor& p, int b)
                    {
                        setBand (p, b, Param::Type, (float) (b % numFilterTypes));
                        setBand (p, b, Param::Freq, 40.0f * std::pow (400.0f, (float) b / numBands));
@@ -3490,7 +3490,7 @@ static void runBenchmark()
                            for (int i = 0; i < 100; ++i) { buf.clear(); p.processBlock (buf, midi); }   // finish the switch fade
                        }
                    },
-                   [] (ThreeBandEQAudioProcessor& p, int b, int bi)
+                   [] (SongsmithEQAudioProcessor& p, int b, int bi)
                    {
                        setBand (p, b, Param::Gain, 6.0f * std::sin ((float) bi * 0.05f + (float) b));
                    });
@@ -3501,7 +3501,7 @@ static void runBenchmark()
         const juce::String title = "Linear phase, quality " + juce::String (juce::StringArray { "low", "medium", "high" }[quality])
                                  + " (24 bands; FIR " + juce::String (EQ::LinearPhaseEQ::firLength (quality, 48000.0)) + ")";
         benchCase (title.toRawUTF8(),
-                   [quality] (ThreeBandEQAudioProcessor& p, int b)
+                   [quality] (SongsmithEQAudioProcessor& p, int b)
                    {
                        setBand (p, b, Param::Freq, 40.0f * std::pow (400.0f, (float) b / numBands));
                        setBand (p, b, Param::Gain, 3.0f);
@@ -3520,14 +3520,14 @@ static void runBenchmark()
                            }
                        }
                    },
-                   [] (ThreeBandEQAudioProcessor& p, int b, int bi)   // the designer thread rebuilds as gains move
+                   [] (SongsmithEQAudioProcessor& p, int b, int bi)   // the designer thread rebuilds as gains move
                    {
                        setBand (p, b, Param::Gain, 6.0f * std::sin ((float) bi * 0.05f + (float) b));
                    });
     }
 
     benchCase ("24 bells, auto gain on",
-               [] (ThreeBandEQAudioProcessor& p, int b)
+               [] (SongsmithEQAudioProcessor& p, int b)
                {
                    if (b == 0)
                        setParam (p, "auto_gain", 1.0f);
@@ -3535,7 +3535,7 @@ static void runBenchmark()
                    setBand (p, b, Param::Gain, 6.0f);
                    setBand (p, b, Param::Q, 1.5f);
                },
-               [] (ThreeBandEQAudioProcessor& p, int b, int bi)
+               [] (SongsmithEQAudioProcessor& p, int b, int bi)
                {
                    setBand (p, b, Param::Gain, 6.0f * std::sin ((float) bi * 0.05f + (float) b));
                });

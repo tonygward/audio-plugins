@@ -4,7 +4,7 @@
 #include <vector>
 #include "EQEditController.h"
 
-class ThreeBandEQAudioProcessor;
+class SongsmithEQAudioProcessor;
 
 namespace EQ
 {
@@ -31,7 +31,7 @@ namespace EQ
             bool isFactory() const noexcept { return factoryIndex >= 0; }
         };
 
-        explicit PresetManager (ThreeBandEQAudioProcessor& p) : processor (p) {}
+        explicit PresetManager (SongsmithEQAudioProcessor& p) : processor (p) {}
 
         // %APPDATA%/TW Pro EQ/Presets on Windows, ~/Library/TW Pro EQ/Presets on macOS.
         static juce::File getDefaultUserFolder();
@@ -75,7 +75,7 @@ namespace EQ
     private:
         void setCurrent (const Entry&, const PresetData& applied);
 
-        ThreeBandEQAudioProcessor& processor;
+        SongsmithEQAudioProcessor& processor;
         juce::File userFolder { getDefaultUserFolder() };
         Entry current;
         std::unique_ptr<PresetData> currentData;   // resolved lazily after a session restore

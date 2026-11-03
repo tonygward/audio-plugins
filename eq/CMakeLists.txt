@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(ThreeBandEQ VERSION 0.2.0 LANGUAGES C CXX)
+project(SongsmithEQ VERSION 0.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,7 +36,7 @@ if(APPLE)
     list(APPEND EQ_FORMATS AU)
 endif()
 
-juce_add_plugin(ThreeBandEQ
+juce_add_plugin(SongsmithEQ
     COMPANY_NAME                "TonyWard"
     PRODUCT_NAME                "TW Pro EQ"
     PLUGIN_MANUFACTURER_CODE    Tnyw
@@ -58,11 +58,11 @@ juce_add_plugin(ThreeBandEQ
     # so it is off by default. Enable with -DEQ_COPY_PLUGIN=ON from an elevated shell.
     COPY_PLUGIN_AFTER_BUILD     ${EQ_COPY_PLUGIN})
 
-target_sources(ThreeBandEQ PRIVATE ${EQ_SOURCES})
-target_include_directories(ThreeBandEQ PRIVATE Source)
-target_compile_definitions(ThreeBandEQ PUBLIC ${EQ_DEFINITIONS})
+target_sources(SongsmithEQ PRIVATE ${EQ_SOURCES})
+target_include_directories(SongsmithEQ PRIVATE Source)
+target_compile_definitions(SongsmithEQ PUBLIC ${EQ_DEFINITIONS})
 
-target_link_libraries(ThreeBandEQ
+target_link_libraries(SongsmithEQ
     PRIVATE
         juce::juce_audio_utils
         juce::juce_audio_processors

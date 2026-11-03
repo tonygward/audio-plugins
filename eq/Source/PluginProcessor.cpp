@@ -11,9 +11,9 @@ namespace
 //==============================================================================
 // Rebuilds the linear-phase FIRs in the background, at most every 40 ms, only while
 // linear phase is selected and only when the EQ actually changed.
-struct ThreeBandEQAudioProcessor::LinearPhaseDesigner final : juce::Thread
+struct SongsmithEQAudioProcessor::LinearPhaseDesigner final : juce::Thread
 {
-    explicit LinearPhaseDesigner (ThreeBandEQAudioProcessor& p) : juce::Thread ("TW Pro EQ linear phase"), processor (p) {}
+    explicit LinearPhaseDesigner (SongsmithEQAudioProcessor& p) : juce::Thread ("TW Pro EQ linear phase"), processor (p) {}
 
     void run() override
     {
@@ -24,17 +24,17 @@ struct ThreeBandEQAudioProcessor::LinearPhaseDesigner final : juce::Thread
         }
     }
 
-    ThreeBandEQAudioProcessor& processor;
+    SongsmithEQAudioProcessor& processor;
 };
 
-ThreeBandEQAudioProcessor::~ThreeBandEQAudioProcessor()
+SongsmithEQAudioProcessor::~SongsmithEQAudioProcessor()
 {
     stopTimer();
     if (lpDesigner != nullptr)
         lpDesigner->stopThread (2000);
 }
 
-EQ::LinearPhaseBands ThreeBandEQAudioProcessor::gatherLinearPhaseBands() const
+EQ::LinearPhaseBands SongsmithEQAudioProcessor::gatherLinearPhaseBands() const
 {
     using EQ::Param;
     EQ::LinearPhaseBands bands;
@@ -54,7 +54,7 @@ EQ::LinearPhaseBands ThreeBandEQAudioProcessor::gatherLinearPhaseBands() const
     return bands;
 }
 
-bool ThreeBandEQAudioProcessor::updateLinearPhaseDesign (bool force)
+bool SongsmithEQAudioProcessor::updateLinearPhaseDesign (bool force)
 {
     const std::lock_guard<std::mutex> lock (designMutex);
     linearPhase.collectGarbage();
@@ -81,7 +81,7 @@ bool ThreeBandEQAudioProcessor::updateLinearPhaseDesign (bool force)
     return true;
 }
 
-void ThreeBandEQAudioProcessor::updateLatencyNow()
+void SongsmithEQAudioProcessor::updateLatencyNow()
 {
     // Linear phase designs at the oversampled rate without running the oversampler, so the
     // two latencies never add up: it is either the FIR's or the oversampler's.
@@ -90,19 +90,19 @@ void ThreeBandEQAudioProcessor::updateLatencyNow()
         setLatencySamples (latency);
 }
 
-void ThreeBandEQAudioProcessor::timerCallback()
+void SongsmithEQAudioProcessor::timerCallback()
 {
     updateLatencyNow();
 }
 
-double ThreeBandEQAudioProcessor::getTailLengthSeconds() const
+double SongsmithEQAudioProcessor::getTailLengthSeconds() const
 {
     // Linear phase: the latency plus the second half of the FIR.
     return isLinearPhaseSelected() ? getLinearPhaseLength() / currentSampleRate : 0.0;
 }
 
 //==============================================================================
-ThreeBandEQAudioProcessor::ThreeBandEQAudioProcessor()
+SongsmithEQAudioProcessor::SongsmithEQAudioProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
@@ -150,7 +150,7 @@ ThreeBandEQAudioProcessor::ThreeBandEQAudioProcessor()
     dryBuffer.setSize (EQ::Engine::maxChannels, 512, false, true);   // resized in prepareToPlay; zeroed
 }
 
-juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::createParameterLayout()
+juce::AudioProcessorValueTreeState::ParameterLayout SongsmithEQAudioProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
@@ -258,22 +258,22 @@ juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::c
 }
 
 //==============================================================================
-float ThreeBandEQAudioProcessor::getBandValue (int band, EQ::Param p) const
+float SongsmithEQAudioProcessor::getBandValue (int band, EQ::Param p) const
 {
     return rawValues[(size_t) band][(size_t) p]->load();
 }
 
-void ThreeBandEQAudioProcessor::setBandUsed (int band, bool used)
+void SongsmithEQAudioProcessor::setBandUsed (int band, bool used)
 {
     bandUsed[(size_t) band].store (used);
 }
 
-void ThreeBandEQAudioProcessor::notifyNonParameterStateChanged()
+void SongsmithEQAudioProcessor::notifyNonParameterStateChanged()
 {
     updateHostDisplay (ChangeDetails{}.withNonParameterStateChanged (true));
 }
 
-int ThreeBandEQAudioProcessor::getNumUsedBands() const noexcept
+int SongsmithEQAudioProcessor::getNumUsedBands() const noexcept
 {
     int n = 0;
     for (auto& u : bandUsed)
@@ -281,7 +281,7 @@ int ThreeBandEQAudioProcessor::getNumUsedBands() const noexcept
     return n;
 }
 
-int ThreeBandEQAudioProcessor::findFreeBand() const noexcept
+int SongsmithEQAudioProcessor::findFreeBand() const noexcept
 {
     for (int b = 0; b < numBands; ++b)
         if (! bandUsed[(size_t) b].load())
@@ -290,7 +290,7 @@ int ThreeBandEQAudioProcessor::findFreeBand() const noexcept
 }
 
 //==============================================================================
-bool ThreeBandEQAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool SongsmithEQAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     const auto& out = layouts.getMainOutputChannelSet();
 
@@ -311,13 +311,13 @@ bool ThreeBandEQAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
     return true;
 }
 
-bool ThreeBandEQAudioProcessor::isSidechainConnected() const
+bool SongsmithEQAudioProcessor::isSidechainConnected() const
 {
     auto* bus = getBus (true, 1);
     return bus != nullptr && bus->isEnabled() && bus->getNumberOfChannels() > 0;
 }
 
-void ThreeBandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void SongsmithEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     engine.prepare (sampleRate);
 
@@ -364,7 +364,7 @@ void ThreeBandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
         designLinearPhaseNow();
 }
 
-void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+void SongsmithEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
 
@@ -644,12 +644,12 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 }
 
 //==============================================================================
-juce::AudioProcessorEditor* ThreeBandEQAudioProcessor::createEditor()
+juce::AudioProcessorEditor* SongsmithEQAudioProcessor::createEditor()
 {
-    return new ThreeBandEQAudioProcessorEditor (*this);
+    return new SongsmithEQAudioProcessorEditor (*this);
 }
 
-juce::ValueTree ThreeBandEQAudioProcessor::createPresetState()
+juce::ValueTree SongsmithEQAudioProcessor::createPresetState()
 {
     auto state = apvts.copyState();
     state.setProperty (versionId, stateVersion, nullptr);
@@ -661,7 +661,7 @@ juce::ValueTree ThreeBandEQAudioProcessor::createPresetState()
     return state;
 }
 
-void ThreeBandEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void SongsmithEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = createPresetState();
 
@@ -687,14 +687,14 @@ void ThreeBandEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData
         copyXmlToBinary (*xml, destData);
 }
 
-void ThreeBandEQAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void SongsmithEQAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         if (xml->hasTagName (apvts.state.getType()))
             restoreFromValueTree (juce::ValueTree::fromXml (*xml));
 }
 
-void ThreeBandEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& saved)
+void SongsmithEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& saved)
 {
     const int version = saved.getProperty (versionId, 1);
 
@@ -756,5 +756,5 @@ void ThreeBandEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& sav
 //==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new ThreeBandEQAudioProcessor();
+    return new SongsmithEQAudioProcessor();
 }
