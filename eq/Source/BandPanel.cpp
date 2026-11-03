@@ -31,7 +31,7 @@ namespace
     }
 }
 
-BandPanel::BandPanel (ThreeBandEQAudioProcessor& p) : processor (p)
+BandPanel::BandPanel (SongsmithEQAudioProcessor& p) : processor (p)
 {
     title.setFont (EQColours::font (14.0f, true));
     title.setJustificationType (juce::Justification::centredLeft);

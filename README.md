@@ -6,11 +6,13 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 
 | Plugin | Folder | Formats |
 |---|---|---|
-| **TW Pro EQ**: parametric EQ with a spectrum analyser | [`eq/`](eq/) | VST3, AU (macOS), Standalone |
+| **Songsmith EQ**: parametric EQ with a spectrum analyser | [`eq/`](eq/) | VST3, AU (macOS), Standalone |
 
 ---
 
-## TW Pro EQ
+## Songsmith EQ
+
+Songsmith EQ, by Songsmith Studio, was called TW Pro EQ before v0.3. Sessions and presets carry over.
 
 ### Features
 
@@ -29,17 +31,17 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 - **Global bypass** that your DAW uses as its native bypass, with a smooth 20 ms cross-fade
 - **Auto gain** (AG button): matches the output loudness to the input (K-weighted, 2 s window, ±12 dB, frozen on silence) so you judge EQ moves at equal loudness; the button shows the correction
 - **Starting points** (in the preset menu): 11 templates for common sources: lead vocal, backing vocals, spoken word, acoustic guitar body, electric guitar, electric guitar bus, bass guitar, drum bus, snare, reverb return and a five-zone teaching layout. They're based on advice from Joe Gilder's [Home Studio Corner](https://homestudiocorner.com) videos, and they aren't endorsed by him. They work the way he does: cuts before boosts, small moves, "only if needed" bands loaded but switched off, and output gain set so turning the EQ on and off compares tone, not loudness. Hover over the preset name for a one-line hint. Treat the frequencies as places to start listening, and move each band to what you hear in the mix
-- **Presets:** 8 factory presets plus your own presets, saved as `.twpreset` files in `%APPDATA%\TW Pro EQ\Presets` (Windows) or `~/Library/TW Pro EQ/Presets` (macOS). Use the arrows and the menu in the top bar; `*` means the settings differ from the loaded preset. Loading a preset is one undo step.
+- **Presets:** 8 factory presets plus your own presets, saved as `.sspreset` files in `%APPDATA%\Songsmith Studio\Songsmith EQ\Presets` (Windows) or `~/Library/Songsmith Studio/Songsmith EQ/Presets` (macOS). Presets saved by TW Pro EQ (`.twpreset`) still load: the first time you open the preset menu or use the preset arrows, they're copied from the old `TW Pro EQ\Presets` folder, which is left as it was. Use the arrows and the menu in the top bar; `*` means the settings differ from the loaded preset. Loading a preset is one undo step.
 
 ### Just want to use it?
 
 Pre-built **Windows** binaries are on the [Releases page](https://github.com/tonygward/audio-plugins/releases).
 
-1. Download `TW-Pro-EQ-<version>-win64.zip`.
-2. Extract it and copy the `TW Pro EQ.vst3` folder into `C:\Program Files\Common Files\VST3`.
+1. Download `Songsmith-EQ-<version>-win64.zip`.
+2. Extract it and copy the `Songsmith EQ.vst3` folder into `C:\Program Files\Common Files\VST3`. Upgrading from TW Pro EQ? Delete `TW Pro EQ.vst3` from that folder too. Your DAW sees it as the same plugin, so leaving it there lists the plugin twice.
 3. Rescan plugins in your DAW.
 
-**macOS:** every CI run uploads a `TW-Pro-EQ-macOS-zip` artifact (VST3 + AU, universal) on the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml). It isn't signed or notarised, so after copying the plug-ins (see Install below) you may need to run `xattr -dr com.apple.quarantine` on them. Or build from source.
+**macOS:** every CI run uploads a `Songsmith-EQ-macOS-zip` artifact (VST3 + AU, universal) on the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml). It isn't signed or notarised, so after copying the plug-ins (see Install below) you may need to run `xattr -dr com.apple.quarantine` on them. Or build from source.
 
 ---
 
@@ -86,10 +88,10 @@ cmake --build build --config Release
 The plugin ends up at:
 
 ```
-eq\build\ThreeBandEQ_artefacts\Release\VST3\TW Pro EQ.vst3
+eq\build\SongsmithEQ_artefacts\Release\VST3\Songsmith EQ.vst3
 ```
 
-There's also a standalone app in `eq\build\ThreeBandEQ_artefacts\Release\Standalone\`.
+There's also a standalone app in `eq\build\SongsmithEQ_artefacts\Release\Standalone\`.
 
 #### Install
 
@@ -98,9 +100,9 @@ There's also a standalone app in `eq\build\ThreeBandEQ_artefacts\Release\Standal
 .\install.ps1 -Config Debug
 ```
 
-The script asks for administrator rights, copies the plugin into `C:\Program Files\Common Files\VST3`, and removes the old bundle from before the rename (`3-Band EQ.vst3`). It refuses to overwrite a plugin that a running DAW has loaded, so close the DAW first.
+The script asks for administrator rights, copies the plugin into `C:\Program Files\Common Files\VST3`, and removes the bundles from before the renames (`3-Band EQ.vst3` and `TW Pro EQ.vst3`). It refuses to overwrite a plugin that a running DAW has loaded, so close the DAW first.
 
-To install by hand instead, copy the `TW Pro EQ.vst3` folder into `C:\Program Files\Common Files\VST3`.
+To install by hand instead, copy the `Songsmith EQ.vst3` folder into `C:\Program Files\Common Files\VST3`.
 
 #### Run the tests
 
@@ -143,8 +145,8 @@ If you'd rather not use Xcode as the generator, `-G "Unix Makefiles" -DCMAKE_BUI
 On a Mac the build produces both plug-in formats (AU is added automatically on Apple platforms):
 
 ```
-eq/build/ThreeBandEQ_artefacts/Release/VST3/TW Pro EQ.vst3
-eq/build/ThreeBandEQ_artefacts/Release/AU/TW Pro EQ.component
+eq/build/SongsmithEQ_artefacts/Release/VST3/Songsmith EQ.vst3
+eq/build/SongsmithEQ_artefacts/Release/AU/Songsmith EQ.component
 ```
 
 #### Install
@@ -153,9 +155,15 @@ Copy the plug-ins into your user plug-in folders (no admin rights needed). **Log
 
 ```sh
 mkdir -p ~/Library/Audio/Plug-Ins/VST3 ~/Library/Audio/Plug-Ins/Components
+rm -rf ~/Library/Audio/Plug-Ins/VST3/"Songsmith EQ.vst3" ~/Library/Audio/Plug-Ins/Components/"Songsmith EQ.component"
+cp -R build/SongsmithEQ_artefacts/Release/VST3/"Songsmith EQ.vst3" ~/Library/Audio/Plug-Ins/VST3/
+cp -R build/SongsmithEQ_artefacts/Release/AU/"Songsmith EQ.component" ~/Library/Audio/Plug-Ins/Components/
+```
+
+**Upgrading from TW Pro EQ:** delete the old copies too (they're the same plugin to your DAW, so it would show up twice). Your sessions and presets carry over.
+
+```sh
 rm -rf ~/Library/Audio/Plug-Ins/VST3/"TW Pro EQ.vst3" ~/Library/Audio/Plug-Ins/Components/"TW Pro EQ.component"
-cp -R build/ThreeBandEQ_artefacts/Release/VST3/"TW Pro EQ.vst3" ~/Library/Audio/Plug-Ins/VST3/
-cp -R build/ThreeBandEQ_artefacts/Release/AU/"TW Pro EQ.component" ~/Library/Audio/Plug-Ins/Components/
 ```
 
 Then rescan plugins in your DAW. If Logic doesn't list the AU straight away, run `killall -9 AudioComponentRegistrar` and reopen Logic. You can check the AU yourself with `auval -v aufx Eq3b Tnyw`.

@@ -4,10 +4,11 @@ namespace
 {
     constexpr int row1Height = 40, row2Height = 32;   // two-row top strip
     constexpr int margin       = 12;
+    constexpr int titleWidth   = 108;
     constexpr float ranges[]   = { 12.0f, 24.0f, 30.0f };
 }
 
-ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAudioProcessor& p)
+SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p), display (p)
 {
     setLookAndFeel (&lookAndFeel);
@@ -194,14 +195,14 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
     startTimerHz (30);
 }
 
-ThreeBandEQAudioProcessorEditor::~ThreeBandEQAudioProcessorEditor()
+SongsmithEQAudioProcessorEditor::~SongsmithEQAudioProcessorEditor()
 {
     processor.soloBand.store (-1);   // solo is an editing aid: never leave it on without a UI
 
     setLookAndFeel (nullptr);
 }
 
-void ThreeBandEQAudioProcessorEditor::timerCallback()
+void SongsmithEQAudioProcessorEditor::timerCallback()
 {
     const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
     const double elapsed = lastMeterTime > 0.0 ? juce::jlimit (0.0, 0.5, now - lastMeterTime) : 0.0;
@@ -260,7 +261,7 @@ void ThreeBandEQAudioProcessorEditor::timerCallback()
         analyserBox.setSelectedItemIndex (processor.analyser.mode.load(), juce::dontSendNotification);
 }
 
-void ThreeBandEQAudioProcessorEditor::showAnalyserMenu()
+void SongsmithEQAudioProcessorEditor::showAnalyserMenu()
 {
     auto& an = processor.analyser;
     juce::PopupMenu menu;
@@ -296,7 +297,7 @@ void ThreeBandEQAudioProcessorEditor::showAnalyserMenu()
     menu.addSubMenu ("Range top", top);
     menu.addSubMenu ("Range floor", bottom);
 
-    juce::Component::SafePointer<ThreeBandEQAudioProcessorEditor> safe (this);
+    juce::Component::SafePointer<SongsmithEQAudioProcessorEditor> safe (this);
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&analyserSettingsButton),
                         [safe, tilts, tops, bottoms] (int r)
                         {
@@ -321,7 +322,7 @@ void ThreeBandEQAudioProcessorEditor::showAnalyserMenu()
                         });
 }
 
-bool ThreeBandEQAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
+bool SongsmithEQAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
 {
     const auto mods = key.getModifiers();
     const int code = key.getKeyCode();
@@ -342,17 +343,19 @@ bool ThreeBandEQAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
     return false;
 }
 
-void ThreeBandEQAudioProcessorEditor::paint (juce::Graphics& g)
+void SongsmithEQAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (EQColours::background);
 
     auto header = getLocalBounds().removeFromTop (row1Height).reduced (margin, 0);
     g.setColour (EQColours::text);
     g.setFont (EQColours::font (17.0f, true));
-    g.drawText (juce::String (JucePlugin_Name).toUpperCase(), header, juce::Justification::centredLeft);
+    // The title has a fixed slot (see resized()); squeeze a longer product name to fit it.
+    g.drawFittedText (juce::String (JucePlugin_Name).toUpperCase(), header.withWidth (titleWidth),
+                      juce::Justification::centredLeft, 1, 0.8f);
 }
 
-void ThreeBandEQAudioProcessorEditor::resized()
+void SongsmithEQAudioProcessorEditor::resized()
 {
     processor.editorWidth.store (getWidth());
     processor.editorHeight.store (getHeight());
@@ -362,7 +365,7 @@ void ThreeBandEQAudioProcessorEditor::resized()
     // Row 1: title | presets | undo/redo | curve scale | phase mode | band count | hint
     {
         auto row = area.removeFromTop (row1Height).reduced (margin, 7);
-        row.removeFromLeft (108);   // title (painted)
+        row.removeFromLeft (titleWidth);   // title (painted)
         presetBar.setBounds (row.removeFromLeft (200));
         row.removeFromLeft (12);
         undoButton.setBounds (row.removeFromLeft (50));

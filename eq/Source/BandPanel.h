@@ -10,7 +10,7 @@
 class BandPanel : public juce::Component, private juce::Timer
 {
 public:
-    explicit BandPanel (ThreeBandEQAudioProcessor&);
+    explicit BandPanel (SongsmithEQAudioProcessor&);
     ~BandPanel() override;
 
     void setBand (int band);
@@ -39,7 +39,7 @@ private:
     void refreshFromParams();
     void timerCallback() override { refreshFromParams(); }
 
-    ThreeBandEQAudioProcessor& processor;
+    SongsmithEQAudioProcessor& processor;
     int band = -1;
     bool updating = false;
 

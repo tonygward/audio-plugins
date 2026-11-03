@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(ThreeBandEQ VERSION 0.2.0 LANGUAGES C CXX)
+project(SongsmithEQ VERSION 0.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,19 +30,35 @@ set(EQ_DEFINITIONS
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0)
 
+# --- Names and identity ------------------------------------------------------
+# Brand + product. Songsmith EQ is the first of a family (Songsmith Analogue EQ is
+# planned), so code uses JucePlugin_Manufacturer / JucePlugin_Name, never literals.
+# Songsmith EQ was called "TW Pro EQ" (company "TonyWard") up to v0.2.
+set(EQ_COMPANY_NAME "Songsmith Studio")
+set(EQ_PRODUCT_NAME "Songsmith EQ")
+set(EQ_BUNDLE_ID    com.songsmithstudio.songsmitheq)
+
+# NEVER CHANGE THESE TWO. JUCE builds the VST3 class ID and the AU identity
+# (aufx Eq3b Tnyw) from them, so they are what lets Studio One / Logic sessions saved
+# with "3-Band EQ" or "TW Pro EQ" open with Songsmith EQ. A future Songsmith plugin
+# (e.g. Songsmith Analogue EQ) shares the manufacturer code Tnyw but needs its own
+# PLUGIN_CODE. EQTests pins both values.
+set(EQ_MANUFACTURER_CODE Tnyw)
+set(EQ_PLUGIN_CODE       Eq3b)
+
 # AU only exists on Apple platforms; Windows stays VST3 + Standalone.
 set(EQ_FORMATS VST3 Standalone)
 if(APPLE)
     list(APPEND EQ_FORMATS AU)
 endif()
 
-juce_add_plugin(ThreeBandEQ
-    COMPANY_NAME                "TonyWard"
-    PRODUCT_NAME                "TW Pro EQ"
-    PLUGIN_MANUFACTURER_CODE    Tnyw
-    PLUGIN_CODE                 Eq3b
+juce_add_plugin(SongsmithEQ
+    COMPANY_NAME                "${EQ_COMPANY_NAME}"
+    PRODUCT_NAME                "${EQ_PRODUCT_NAME}"
+    PLUGIN_MANUFACTURER_CODE    ${EQ_MANUFACTURER_CODE}
+    PLUGIN_CODE                 ${EQ_PLUGIN_CODE}
     FORMATS                     ${EQ_FORMATS}
-    BUNDLE_ID                   com.tonyward.twproeq
+    BUNDLE_ID                   ${EQ_BUNDLE_ID}
     VERSION                     ${PROJECT_VERSION}
     AU_MAIN_TYPE                kAudioUnitType_Effect
     AU_SANDBOX_SAFE             TRUE
@@ -52,17 +68,15 @@ juce_add_plugin(ThreeBandEQ
     IS_MIDI_EFFECT              FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
     VST3_CATEGORIES             Fx EQ
-    # PLUGIN_MANUFACTURER_CODE / PLUGIN_CODE define the VST3 class ID. Keep them unchanged
-    # (even though the product was renamed from "3-Band EQ") so saved projects still find it.
     # Copying into "C:/Program Files/Common Files/VST3" needs admin rights,
     # so it is off by default. Enable with -DEQ_COPY_PLUGIN=ON from an elevated shell.
     COPY_PLUGIN_AFTER_BUILD     ${EQ_COPY_PLUGIN})
 
-target_sources(ThreeBandEQ PRIVATE ${EQ_SOURCES})
-target_include_directories(ThreeBandEQ PRIVATE Source)
-target_compile_definitions(ThreeBandEQ PUBLIC ${EQ_DEFINITIONS})
+target_sources(SongsmithEQ PRIVATE ${EQ_SOURCES})
+target_include_directories(SongsmithEQ PRIVATE Source)
+target_compile_definitions(SongsmithEQ PUBLIC ${EQ_DEFINITIONS})
 
-target_link_libraries(ThreeBandEQ
+target_link_libraries(SongsmithEQ
     PRIVATE
         juce::juce_audio_utils
         juce::juce_audio_processors
@@ -82,7 +96,12 @@ if(EQ_BUILD_TESTS)
     target_include_directories(EQTests PRIVATE Source)
     target_compile_definitions(EQTests PRIVATE
         ${EQ_DEFINITIONS}
-        "JucePlugin_Name=\"TW Pro EQ\"")
+        "JucePlugin_Name=\"${EQ_PRODUCT_NAME}\""
+        "JucePlugin_Manufacturer=\"${EQ_COMPANY_NAME}\""
+        # Pinned by the identity test (the console app has no JucePlugin_*Code).
+        "EQ_MANUFACTURER_CODE=\"${EQ_MANUFACTURER_CODE}\""
+        "EQ_PLUGIN_CODE=\"${EQ_PLUGIN_CODE}\""
+        "EQ_TEST_FIXTURES=\"${CMAKE_CURRENT_SOURCE_DIR}/Tests/fixtures\"")
 
     target_link_libraries(EQTests
         PRIVATE

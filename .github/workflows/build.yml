@@ -64,8 +64,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p ~/Library/Audio/Plug-Ins/Components
-          rm -rf ~/Library/Audio/Plug-Ins/Components/"TW Pro EQ.component"
-          cp -R eq/build/ThreeBandEQ_artefacts/Release/AU/"TW Pro EQ.component" ~/Library/Audio/Plug-Ins/Components/
+          rm -rf ~/Library/Audio/Plug-Ins/Components/"Songsmith EQ.component"
+          cp -R eq/build/SongsmithEQ_artefacts/Release/AU/"Songsmith EQ.component" ~/Library/Audio/Plug-Ins/Components/
           # Make the component registrar pick up the new plug-in.
           killall -9 AudioComponentRegistrar 2>/dev/null || true
           sleep 2
@@ -76,25 +76,25 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          mkdir -p dist/"TW Pro EQ"
-          cp -R eq/build/ThreeBandEQ_artefacts/Release/VST3/"TW Pro EQ.vst3" dist/"TW Pro EQ"/
-          cp -R eq/build/ThreeBandEQ_artefacts/Release/AU/"TW Pro EQ.component" dist/"TW Pro EQ"/
-          ditto -c -k --keepParent dist/"TW Pro EQ" dist/TW-Pro-EQ-macOS.zip
+          mkdir -p dist/"Songsmith EQ"
+          cp -R eq/build/SongsmithEQ_artefacts/Release/VST3/"Songsmith EQ.vst3" dist/"Songsmith EQ"/
+          cp -R eq/build/SongsmithEQ_artefacts/Release/AU/"Songsmith EQ.component" dist/"Songsmith EQ"/
+          ditto -c -k --keepParent dist/"Songsmith EQ" dist/Songsmith-EQ-macOS.zip
 
       - name: Upload macOS zip
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: TW-Pro-EQ-macOS-zip
-          path: dist/TW-Pro-EQ-macOS.zip
+          name: Songsmith-EQ-macOS-zip
+          path: dist/Songsmith-EQ-macOS.zip
 
       - name: Upload plugin
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TW-Pro-EQ-${{ runner.os }}
+          name: Songsmith-EQ-${{ runner.os }}
           if-no-files-found: warn
           path: |
-            eq/build/ThreeBandEQ_artefacts/Release/VST3/
-            eq/build/ThreeBandEQ_artefacts/Release/AU/
-            eq/build/ThreeBandEQ_artefacts/Release/Standalone/
+            eq/build/SongsmithEQ_artefacts/Release/VST3/
+            eq/build/SongsmithEQ_artefacts/Release/AU/
+            eq/build/SongsmithEQ_artefacts/Release/Standalone/

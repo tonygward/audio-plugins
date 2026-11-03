@@ -1,5 +1,6 @@
-# Copies the built TW Pro EQ VST3 bundle into the system VST3 folder and removes
-# the bundle from before the rename ("3-Band EQ.vst3"), which has the same plugin ID.
+# Copies the built Songsmith EQ VST3 bundle into the system VST3 folder and removes
+# the bundles from before the renames ("3-Band EQ.vst3", "TW Pro EQ.vst3"), which have
+# the same plugin ID and would otherwise show up twice in the DAW.
 # Usage:  .\install.ps1            (Release build)
 #         .\install.ps1 -Config Debug
 param(
@@ -9,9 +10,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$bundleName    = "TW Pro EQ.vst3"
-$legacyBundles = @("3-Band EQ.vst3")
-$source        = Join-Path $PSScriptRoot "build\ThreeBandEQ_artefacts\$Config\VST3\$bundleName"
+$bundleName    = "Songsmith EQ.vst3"
+$legacyBundles = @("3-Band EQ.vst3", "TW Pro EQ.vst3")
+$source        = Join-Path $PSScriptRoot "build\SongsmithEQ_artefacts\$Config\VST3\$bundleName"
 $destDir       = Join-Path $env:CommonProgramFiles "VST3"
 $dest          = Join-Path $destDir $bundleName
 

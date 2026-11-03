@@ -9,7 +9,7 @@
 class PresetBar : public juce::Component
 {
 public:
-    explicit PresetBar (ThreeBandEQAudioProcessor&);
+    explicit PresetBar (SongsmithEQAudioProcessor&);
 
     void refresh();   // call from the editor timer
     void resized() override;
@@ -20,7 +20,7 @@ private:
     void confirmDelete();
     void report (bool ok, const juce::String& error);
 
-    ThreeBandEQAudioProcessor& processor;
+    SongsmithEQAudioProcessor& processor;
     juce::TextButton prevButton { "<" }, nextButton { ">" }, nameButton;
     std::unique_ptr<juce::AlertWindow> dialog;
     juce::ScopedMessageBox messageBox;
