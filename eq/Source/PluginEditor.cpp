@@ -144,7 +144,7 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
     bandCountLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (bandCountLabel);
 
-    hintLabel.setText ("Dbl-click: add/reset  Drag: freq/gain (Shift fine)  Wheel: Q  Alt-click: solo  Right-click: menu  Del: remove",
+    hintLabel.setText ("Dbl-click: add/reset  Drag: freq/gain (Shift fine, Ctrl note snap)  Wheel: Q  Alt-click: solo  Right-click: menu  Del: remove",
                        juce::dontSendNotification);
     hintLabel.setFont (EQColours::font (11.0f));
     hintLabel.setJustificationType (juce::Justification::centredRight);

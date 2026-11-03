@@ -15,6 +15,8 @@
 //  Double-click node ........... reset gain and Q
 //  Right-click node ............ context menu
 //  Alt-click / Alt-drag node ... solo (audition) the band while held
+//  Ctrl (Cmd) while dragging ... snap the frequency to the nearest semitone
+//  Right-click empty space ..... display menu (piano strip)
 //  Delete / Backspace .......... remove selected band
 class EQDisplay : public juce::Component, private juce::Timer
 {
@@ -62,6 +64,8 @@ private:
     void drawNodes (juce::Graphics&);
     void drawTooltip (juce::Graphics&, juce::Rectangle<float> area, int band);
     void drawEmptyHint (juce::Graphics&, juce::Rectangle<float> area);
+    void drawPianoStrip (juce::Graphics&, juce::Rectangle<float> area);
+    void showDisplayMenu();
     void drawSoloRegion (juce::Graphics&, juce::Rectangle<float> area, int band);
     int getSoloBand() const;
     bool isInCurveView (int band) const;

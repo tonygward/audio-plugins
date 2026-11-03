@@ -1,18 +1,31 @@
 #include "BandPanel.h"
 #include "EQLookAndFeel.h"
+#include "NoteNames.h"
 
 namespace
 {
-    juce::String formatFreq (double hz)
+    juce::String formatHz (double hz)
     {
         if (hz >= 1000.0)
             return juce::String (hz / 1000.0, hz >= 10000.0 ? 1 : 2) + " kHz";
         return juce::String (hz, hz >= 100.0 ? 0 : 1) + " Hz";
     }
 
+    // "440 Hz · A4 +0¢"
+    juce::String formatFreq (double hz)
+    {
+        return formatHz (hz) + " " + juce::String::charToString (0x00b7) + " " + EQ::Notes::formatNote (hz);
+    }
+
+    // Accepts "440", "440 Hz", "1.5k", "2 kHz" and note names ("A2", "C#5", "Eb3").
     double parseFreq (const juce::String& text)
     {
-        const auto t = text.trim().toLowerCase();
+        auto t = text.upToFirstOccurrenceOf (juce::String::charToString (0x00b7), false, false).trim();
+
+        if (auto note = EQ::Notes::parseNote (t))
+            return *note;
+
+        t = t.toLowerCase();
         const double v = t.getDoubleValue();
         return t.containsChar ('k') ? v * 1000.0 : v;
     }
@@ -124,7 +137,7 @@ void BandPanel::setupKnob (Knob& k, const juce::String& name, EQ::Param param)
     k.param = param;
 
     k.slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    k.slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 76, 16);
+    k.slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 100, 16);
     k.slider.setScrollWheelEnabled (false);   // the graph's wheel handles Q; avoids undo spam
     k.slider.setVelocityBasedMode (false);
 

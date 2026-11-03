@@ -1,6 +1,7 @@
 #include "EQDisplay.h"
 #include "EQLookAndFeel.h"
 #include "SvfFilter.h"
+#include "NoteNames.h"
 
 namespace
 {
@@ -106,6 +107,7 @@ void EQDisplay::timerCallback()
     check ((float) processor.selectedBand.load());
     check ((float) getSoloBand());
     check ((float) processor.curveView.load());
+    check (processor.showPianoStrip.load() ? 1.0f : 0.0f);
     check (processor.getGainScale());
     check (processor.analyserTilt.load());
     check (processor.analyserTopDb.load());
@@ -253,6 +255,9 @@ void EQDisplay::paint (juce::Graphics& g)
     g.fillRect (area);
 
     drawGrid (g, area);
+
+    if (processor.showPianoStrip.load())
+        drawPianoStrip (g, area);
 
     {
         juce::Graphics::ScopedSaveState state (g);
@@ -666,7 +671,8 @@ void EQDisplay::drawTooltip (juce::Graphics& g, juce::Rectangle<float> area, int
     if (const int mode = (int) std::lround (processor.getBandValue (band, EQ::Param::Stereo)); mode != 0)
         line1 << "  [" << EQ::getStereoModeNames()[mode] << "]";
 
-    juce::String line2 = formatFreq (processor.getBandValue (band, EQ::Param::Freq));
+    const float bandFreq = processor.getBandValue (band, EQ::Param::Freq);
+    juce::String line2 = formatFreq (bandFreq) + " " + juce::String::charToString (0x00b7) + " " + EQ::Notes::formatNote (bandFreq);
     if (EQ::typeHasGain (type))
     {
         const float stored = processor.getBandValue (band, EQ::Param::Gain), scale = processor.getGainScale();
@@ -727,6 +733,82 @@ void EQDisplay::drawSoloRegion (juce::Graphics& g, juce::Rectangle<float> area, 
     g.setFont (EQColours::font (12.0f, true));
     g.drawText ("SOLO  Band " + juce::String (band + 1), area.reduced (10.0f, 8.0f).removeFromTop (16.0f),
                 juce::Justification::centredLeft, false);
+}
+
+// A thin keyboard along the bottom of the plot, on the log-frequency axis: each key
+// spans +-half a semitone around its note. The key nearest the selected band is lit
+// in that band's colour, and every C is labelled.
+void EQDisplay::drawPianoStrip (juce::Graphics& g, juce::Rectangle<float> area)
+{
+    constexpr float stripHeight = 14.0f;
+    const auto strip = area.withTop (area.getBottom() - stripHeight);
+    const int first = EQ::Notes::freqToNote (EQ::minFreq).midi, last = EQ::Notes::freqToNote (EQ::maxFreq).midi;
+
+    const int selected = getSelectedBand();
+    const int selectedMidi = selected >= 0 ? EQ::Notes::freqToNote (processor.getBandValue (selected, EQ::Param::Freq)).midi : -1000;
+
+    g.setColour (juce::Colour (0xffd8dce3));
+    g.fillRect (strip);
+
+    const double halfStep = std::pow (2.0, 1.0 / 24.0);
+    g.setFont (EQColours::font (8.5f, true));
+
+    for (int pass = 0; pass < 2; ++pass)   // white keys first, then the black keys on top
+        for (int m = first; m <= last; ++m)
+        {
+            const int pc = ((m % 12) + 12) % 12;
+            const bool black = pc == 1 || pc == 3 || pc == 6 || pc == 8 || pc == 10;
+            if (black != (pass == 1))
+                continue;
+
+            const double f = EQ::Notes::midiToFreq (m);
+            const float x0 = juce::jmax (strip.getX(), freqToX ((float) (f / halfStep)));
+            const float x1 = juce::jmin (strip.getRight(), freqToX ((float) (f * halfStep)));
+            if (x1 <= x0)
+                continue;
+
+            auto key = juce::Rectangle<float> (x0, strip.getY(), x1 - x0, black ? stripHeight * 0.6f : stripHeight);
+            if (m == selectedMidi)
+                g.setColour (EQColours::band (selected));
+            else
+                g.setColour (black ? juce::Colour (0xff23272e) : juce::Colour (0xffd8dce3));
+            g.fillRect (key);
+
+            if (! black)
+            {
+                g.setColour (juce::Colour (0x40000000));
+                g.drawVerticalLine (juce::roundToInt (x0), strip.getY(), strip.getBottom());
+            }
+
+            if (pc == 0 && x1 - x0 >= 3.0f && m % 12 == 0)
+            {
+                g.setColour (juce::Colour (0xff3a3f48));
+                g.drawText (EQ::Notes::noteName (m), juce::Rectangle<float> (x0 + 1.0f, strip.getY() + 2.0f, 24.0f, stripHeight - 2.0f),
+                            juce::Justification::bottomLeft, false);
+            }
+        }
+
+    g.setColour (EQColours::panelEdge);
+    g.drawRect (strip, 1.0f);
+}
+
+void EQDisplay::showDisplayMenu()
+{
+    juce::PopupMenu menu;
+    menu.addSectionHeader ("Display");
+    menu.addItem (1, "Show piano strip", true, processor.showPianoStrip.load());
+
+    juce::Component::SafePointer<EQDisplay> safe (this);
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this)
+                                                  .withTargetScreenArea (juce::Rectangle<int> (1, 1) + juce::Desktop::getMousePosition()),
+                        [safe] (int result)
+                        {
+                            if (safe == nullptr || result != 1)
+                                return;
+                            safe->processor.showPianoStrip.store (! safe->processor.showPianoStrip.load());
+                            safe->processor.notifyNonParameterStateChanged();
+                            safe->repaint();
+                        });
 }
 
 void EQDisplay::drawEmptyHint (juce::Graphics& g, juce::Rectangle<float> area)
@@ -860,6 +942,10 @@ void EQDisplay::mouseDown (const juce::MouseEvent& e)
                 repaint();
             }
         }
+        else
+        {
+            showDisplayMenu();
+        }
         return;
     }
 
@@ -907,7 +993,11 @@ void EQDisplay::mouseDrag (const juce::MouseEvent& e)
     const auto delta = (e.position - anchorMouse) * (fine ? 0.1f : 1.0f);
     const auto target = anchorNode + delta;
 
-    processor.edits.setParam (EQ::Param::Freq, xToFreq (target.x));
+    // Ctrl (Cmd on macOS) snaps the frequency to the nearest semitone (A4 = 440 Hz).
+    float freq = xToFreq (target.x);
+    if (e.mods.isCommandDown())
+        freq = juce::jlimit (EQ::minFreq, EQ::maxFreq, (float) EQ::Notes::snapToSemitone (freq));
+    processor.edits.setParam (EQ::Param::Freq, freq);
 
     // Only touch gain once the mouse has actually moved vertically, so a purely
     // horizontal drag never clips a gain that lies outside the visible range.

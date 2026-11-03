@@ -19,7 +19,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    static constexpr int panelWidth  = 470;
+    static constexpr int panelWidth  = 520;
     static constexpr int panelHeight = 128;
 
     std::function<void()> onBandRemoved;
