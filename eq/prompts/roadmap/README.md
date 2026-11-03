@@ -7,10 +7,10 @@ There is one self-contained prompt per item in [`../../ROADMAP.md`](../../ROADMA
 | Prompt | Status |
 |---|---|
 | 05–22 (in [`done/`](done/)) | Done, merged into `main` (21 and 22 shipped in v0.3.0) |
-| [23 macOS installer](23-macos-installer.md) | To do |
-| [24 plain wording and fonts](24-ui-wording-fonts.md) | To do |
-| [25 higher-resolution, scalable UI](25-ui-resolution.md) | To do, after 24 |
-| [26 starting-points review](26-starting-points-review.md) | To do |
+| [23 macOS installer](done/23-macos-installer.md) | Done (#28), lands in `main` with the overnight PR |
+| [24 plain wording and fonts](done/24-ui-wording-fonts.md) | Done (#29), lands in `main` with the overnight PR |
+| [25 higher-resolution, scalable UI](done/25-ui-resolution.md) | Done (#30), lands in `main` with the overnight PR |
+| [26 starting-points review](done/26-starting-points-review.md) | Done (#31), lands in `main` with the overnight PR |
 
 ## Run in waves, merging between waves
 
