@@ -1,7 +1,7 @@
 ; Songsmith EQ - Windows installer (Inno Setup 6).
 ;
 ; Build it with build-installer.ps1, which passes the version and the build folder:
-;   iscc /DAppVersion=0.2.0 /DBuildDir=<eq\build\SongsmithEQ_artefacts\Release> /O<out> SongsmithEQ.iss
+;   iscc /DAppVersion=0.3.0 /DBuildDir=<eq\build\SongsmithEQ_artefacts\Release> /O<out> SongsmithEQ.iss
 ;
 ; Installs the VST3 into the fixed VST3 folder (Common Files\VST3) and, optionally, the
 ; standalone app into Program Files\Songsmith Studio\Songsmith EQ. Not code-signed (see
