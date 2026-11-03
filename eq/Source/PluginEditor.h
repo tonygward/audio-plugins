@@ -27,7 +27,7 @@ private:
     EQDisplay display;
     PresetBar presetBar { processor };
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
-    juce::ComboBox rangeBox, analyserBox, curveViewBox, sidechainBox;
+    juce::ComboBox rangeBox, analyserBox, curveViewBox, sidechainBox, phaseBox;
     double lastSidechainSignal = -100.0;   // seconds; the sidechain selector shows while a signal is arriving
     juce::Label bandCountLabel, hintLabel;
 

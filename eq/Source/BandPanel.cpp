@@ -324,7 +324,26 @@ void BandPanel::refreshFromParams()
         setSize (panelWidth, getPreferredHeight());
     }
 
-    if (show)
+    // Linear-phase mode has no dynamics or solo (they need the zero-latency engine).
+    const bool linearPhase = processor.isLinearPhaseSelected();
+    dynButton.setEnabled (hasGain && ! linearPhase);
+    dynButton.setTooltip (linearPhase ? "Dynamic EQ is not available in linear-phase mode"
+                                      : "Dynamic EQ: the band's gain moves with the level in its own frequency region");
+    soloButton.setEnabled (! linearPhase);
+    soloButton.setAlpha (linearPhase ? 0.35f : 1.0f);
+    for (auto* k : { &thresholdKnob, &rangeKnob, &attackKnob, &releaseKnob })
+    {
+        k->slider.setEnabled (! linearPhase);
+        k->slider.setAlpha (linearPhase ? 0.35f : 1.0f);
+    }
+    dynExternalButton.setEnabled (! linearPhase);
+
+    if (show && linearPhase)
+    {
+        dynGainLabel.setText ("off (linear phase)", juce::dontSendNotification);
+        dynGainLabel.setColour (juce::Label::textColourId, EQColours::label);
+    }
+    else if (show)
     {
         const float db = processor.dynamicGainDb[(size_t) band].load();
         dynGainLabel.setText (juce::String (db > 0.05f ? "+" : "") + juce::String (std::abs (db) < 0.05f ? 0.0f : db, 1) + " dB",

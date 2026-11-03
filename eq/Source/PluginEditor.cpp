@@ -65,6 +65,31 @@ ThreeBandEQAudioProcessorEditor::ThreeBandEQAudioProcessorEditor (ThreeBandEQAud
     };
     addAndMakeVisible (curveViewBox);
 
+    // Phase mode + linear-phase quality in one selector (two host parameters).
+    phaseBox.addItemList ({ "Zero latency", "Linear: low", "Linear: medium", "Linear: high" }, 1);
+    phaseBox.setTooltip ("Zero latency (minimum phase) or linear phase. Linear phase adds latency "
+                         "(at 44.1/48 kHz: low 43-46 ms, medium 85-93 ms, high 171-186 ms) and "
+                         "turns off dynamic EQ and solo.");
+    phaseBox.onChange = [this]
+    {
+        const int i = phaseBox.getSelectedItemIndex();
+        if (i < 0)
+            return;
+
+        auto set = [] (juce::RangedAudioParameter* prm, float value)
+        {
+            if (prm->convertFrom0to1 (prm->getValue()) == value)
+                return;
+            prm->beginChangeGesture();
+            prm->setValueNotifyingHost (prm->convertTo0to1 (value));
+            prm->endChangeGesture();
+        };
+        if (i > 0)
+            set (processor.apvts.getParameter (EQ::lpQualityId), (float) (i - 1));
+        set (processor.apvts.getParameter (EQ::phaseModeId), i > 0 ? 1.0f : 0.0f);
+    };
+    addAndMakeVisible (phaseBox);
+
     analyserSettingsButton.setTooltip ("Analyser settings: freeze, peak hold, tilt, resolution, speed, range");
     analyserSettingsButton.onClick = [this] { showAnalyserMenu(); };
     addAndMakeVisible (analyserSettingsButton);
@@ -204,6 +229,12 @@ void ThreeBandEQAudioProcessorEditor::timerCallback()
         if (std::abs (ranges[i] - range) < 0.5f && rangeBox.getSelectedItemIndex() != i)
             rangeBox.setSelectedItemIndex (i, juce::dontSendNotification);
 
+    {
+        const int phaseIndex = processor.isLinearPhaseSelected() ? 1 + processor.getLinearPhaseQuality() : 0;
+        if (phaseBox.getSelectedItemIndex() != phaseIndex)
+            phaseBox.setSelectedItemIndex (phaseIndex, juce::dontSendNotification);
+    }
+
     if (curveViewBox.getSelectedItemIndex() != processor.curveView.load())
         curveViewBox.setSelectedItemIndex (processor.curveView.load(), juce::dontSendNotification);
     curveViewBox.setVisible (processor.getMainBusNumInputChannels() >= 2);
@@ -309,7 +340,7 @@ void ThreeBandEQAudioProcessorEditor::paint (juce::Graphics& g)
 
     auto header = getLocalBounds().removeFromTop (row1Height).reduced (margin, 0);
     g.setColour (EQColours::text);
-    g.setFont (EQColours::font (19.0f, true));
+    g.setFont (EQColours::font (17.0f, true));
     g.drawText (juce::String (JucePlugin_Name).toUpperCase(), header, juce::Justification::centredLeft);
 }
 
@@ -320,17 +351,19 @@ void ThreeBandEQAudioProcessorEditor::resized()
 
     auto area = getLocalBounds();
 
-    // Row 1: title | presets | undo/redo | curve scale | band count | hint
+    // Row 1: title | presets | undo/redo | curve scale | phase mode | band count | hint
     {
         auto row = area.removeFromTop (row1Height).reduced (margin, 7);
-        row.removeFromLeft (130);   // title (painted)
-        presetBar.setBounds (row.removeFromLeft (300));
+        row.removeFromLeft (112);   // title (painted)
+        presetBar.setBounds (row.removeFromLeft (240));
         row.removeFromLeft (12);
         undoButton.setBounds (row.removeFromLeft (56));
         row.removeFromLeft (6);
         redoButton.setBounds (row.removeFromLeft (56));
         row.removeFromLeft (12);
         scaleSlider.setBounds (row.removeFromLeft (100));
+        row.removeFromLeft (8);
+        phaseBox.setBounds (row.removeFromLeft (118));
         row.removeFromLeft (12);
 
         bandCountLabel.setVisible (row.getWidth() >= 90);
