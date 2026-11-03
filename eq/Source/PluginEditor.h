@@ -29,6 +29,7 @@ public:
     // host's own display scaling (VST3 content scale, Retina) comes on top, separately.
     juce::Component& getContent() noexcept   { return content; }
     EQDisplay& getDisplay() noexcept         { return display; }
+    OutputMeterDisplay& getOutputMeter() noexcept { return outputMeter; }
     float getContentScale() const noexcept   { return contentScale; }   // design units -> window pixels
     float getLayoutStep() const noexcept     { return layoutStep; }
 

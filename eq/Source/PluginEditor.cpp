@@ -428,7 +428,8 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
 
     // Three rows, so every label fits spelled out at the minimum width (760 px):
     //   1: title | presets | undo | redo | scale ............ band count | bypass
-    //   2: phase mode | oversampling ......... auto gain | output gain | meter
+    //   2: phase mode | oversampling ............... auto gain | output gain
+    //   graph ..................................................... | output meter
     //   3: display range | analyser | settings | curve view | side chain ...... hint
     // Widths come from the text in the embedded font, so nothing is cut short. Optional
     // items (band count, hint) are hidden when there's no room for them.
@@ -460,8 +461,6 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         row.removeFromLeft (gap);
         oversamplingBox.setBounds (row.removeFromLeft (comboWidth (oversamplingBox)));
 
-        outputMeter.setBounds (row.removeFromRight (52));
-        row.removeFromRight (gap);
         outputSlider.setBounds (row.removeFromRight (barWidth ({ "Output -24.0 dB", "Output +24.0 dB" })));
         row.removeFromRight (gap);
         autoGainButton.setBounds (row.removeFromRight (buttonWidth ({ "Auto Gain -12.0 dB", "Auto Gain +12.0 dB" })));
@@ -480,12 +479,17 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         sidechainBox.setBounds (row.removeFromLeft (comboWidth (sidechainBox)));
         row.removeFromLeft (gap * 2);
 
-        const int hintWidth = (int) std::ceil (juce::GlyphArrangement::getStringWidth (hintLabel.getFont(), hintLabel.getText())) + 8;
+        const int hintWidth = (int) std::ceil (juce::GlyphArrangement::getStringWidth (hintLabel.getFont(), hintLabel.getText()))
+                              + hintLabel.getBorderSize().getLeftAndRight() + 2;
         hintLabel.setVisible (row.getWidth() >= hintWidth);
         hintLabel.setBounds (row.withLeft (juce::jmax (row.getX(), row.getRight() - hintWidth)));
     }
 
-    display.setBounds (area.reduced (margin, 0).withTrimmedBottom (margin));
+    // The graph, with the output meter in a full-height strip on its right (task 27).
+    auto graph = area.reduced (margin, 0).withTrimmedBottom (margin);
+    outputMeter.setBounds (graph.removeFromRight (OutputMeterDisplay::preferredWidth));
+    graph.removeFromRight (6);
+    display.setBounds (graph);
 }
 
 //==============================================================================
