@@ -52,7 +52,23 @@ Running a newer installer upgrades in place. Upgrading from TW Pro EQ? Setup rem
 2. Extract it and copy the `Songsmith EQ.vst3` folder into `C:\Program Files\Common Files\VST3`. Upgrading from TW Pro EQ? Delete `TW Pro EQ.vst3` from that folder too. Your DAW sees it as the same plugin, so leaving it there lists the plugin twice.
 3. Rescan plugins in your DAW.
 
-**macOS:** every CI run uploads a `Songsmith-EQ-macOS-zip` artifact (VST3 + AU, universal) on the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml). It isn't signed or notarised, so after copying the plug-ins (see Install below) you may need to run `xattr -dr com.apple.quarantine` on them. Or build from source.
+**macOS installer (recommended)**
+
+1. Download `Songsmith-EQ-<version>-macOS.pkg` (from the Releases page, or the `Songsmith-EQ-macOS-pkg` artifact of any CI run on the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml)). It's a universal installer for Apple Silicon and Intel Macs.
+2. Quit your DAW, then open the `.pkg`. macOS will probably refuse at first and say it can't check the installer for malicious software. That's because it isn't signed or notarised by Apple (that needs a paid developer account), not because anything is wrong with it. Try to open it once, then go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. (On older macOS, right-click the `.pkg` and choose **Open**.)
+3. Click through the installer and enter your password. It installs, for every user on the Mac:
+   - the **VST3** plug-in into `/Library/Audio/Plug-Ins/VST3`,
+   - the **Audio Unit** (for Logic Pro and GarageBand) into `/Library/Audio/Plug-Ins/Components`,
+   - the **standalone app** into `/Applications`.
+
+   Click **Customize** to leave any of them out.
+4. Restart your DAW, or rescan its plug-ins.
+
+Running a newer installer upgrades in place. Upgrading from TW Pro EQ? The installer removes the old `TW Pro EQ` plug-ins (and any copies in your own `~/Library/Audio/Plug-Ins`), and your sessions and presets carry over. Plug-ins installed by the `.pkg` don't need the `xattr` step below. To uninstall, see [Uninstalling](#uninstalling) below.
+
+**macOS zip (manual install)**
+
+Download `Songsmith-EQ-<version>-macOS.zip` (VST3 + AU, universal; also the `Songsmith-EQ-macOS-zip` CI artifact) and copy the plug-ins into place as described under [Install](#install-1) below. The zip isn't signed or notarised either, so after copying the plug-ins you may need to run `xattr -dr com.apple.quarantine` on them. Or build from source.
 
 ---
 
@@ -197,6 +213,28 @@ Then rescan plugins in your DAW. If Logic doesn't list the AU straight away, run
 ./build/EQTests_artefacts/Release/EQTests          # unit tests
 ./build/EQTests_artefacts/Release/EQTests --bench  # CPU benchmark
 ```
+
+#### Building the macOS installer
+
+After a Release build, from the `eq` folder (needs Xcode's `pkgbuild` and `productbuild`):
+
+```sh
+installer/macos/build-installer.sh   # -> build/installer/Songsmith-EQ-<version>-macOS.pkg
+```
+
+The version comes from `project(... VERSION ...)` in `CMakeLists.txt`. The installer's layout and pages are in `installer/macos/` (`distribution.xml`, `resources/`, and the `preinstall`/`postinstall` scripts in `scripts/`). It isn't signed or notarised. CI builds it on every push and uploads it as the `Songsmith-EQ-macOS-pkg` artifact, next to the zip, ready to attach to a release by hand.
+
+`installer/macos/test-installer.sh` is CI's end-to-end test. It really installs system-wide (and removes legacy plug-ins), so it refuses to run outside CI unless you pass `--i-know-this-installs-system-wide`.
+
+#### Uninstalling
+
+Quit your DAW, then run:
+
+```sh
+installer/macos/uninstall.sh
+```
+
+It asks for your password, removes `Songsmith EQ.vst3`, `Songsmith EQ.component` and `Songsmith EQ.app`, and makes macOS forget the installer's package receipts. Your presets in `~/Library/Songsmith Studio/Songsmith EQ/Presets` are kept. If you installed by hand into `~/Library/Audio/Plug-Ins`, delete those copies yourself.
 
 ---
 
