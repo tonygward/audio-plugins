@@ -170,3 +170,73 @@ jobs:
             eq/build/SongsmithEQ_artefacts/Release/VST3/
             eq/build/SongsmithEQ_artefacts/Release/AU/
             eq/build/SongsmithEQ_artefacts/Release/Standalone/
+
+  # Songsmith Maximiser (maximizer/): its own job, so the EQ job above stays as it is.
+  maximizer:
+    name: Maximiser ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (VS, x64)
+            os: windows-latest
+            configure: -A x64
+            tests: maximizer/build/MaximizerTests_artefacts/Release/MaximizerTests.exe
+          - name: macOS (Xcode, universal)
+            os: macos-latest
+            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            tests: maximizer/build/MaximizerTests_artefacts/Release/MaximizerTests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE ${{ env.JUCE_VERSION }}
+        id: juce-cache
+        uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-${{ env.JUCE_VERSION }}-${{ runner.os }}
+
+      - name: Check out JUCE ${{ env.JUCE_VERSION }}
+        if: steps.juce-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: ${{ env.JUCE_VERSION }}
+          path: JUCE
+
+      - name: Configure
+        shell: bash
+        run: cmake -S maximizer -B maximizer/build ${{ matrix.configure }} -DJUCE_DIR="${{ github.workspace }}/JUCE"
+
+      - name: Build (Release)
+        shell: bash
+        run: cmake --build maximizer/build --config Release --parallel 4
+
+      - name: Run MaximizerTests
+        shell: bash
+        run: ${{ matrix.tests }}
+
+      - name: Validate the Audio Unit (auval)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          rm -rf ~/Library/Audio/Plug-Ins/Components/"Songsmith Maximiser.component"
+          cp -R maximizer/build/SongsmithMaximiser_artefacts/Release/AU/"Songsmith Maximiser.component" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 2
+          auval -a | grep -i "Tnyw" || true
+          auval -v aufx Mxlm Tnyw
+
+      - name: Upload plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Maximiser-${{ runner.os }}
+          if-no-files-found: warn
+          path: |
+            maximizer/build/SongsmithMaximiser_artefacts/Release/VST3/
+            maximizer/build/SongsmithMaximiser_artefacts/Release/AU/
+            maximizer/build/SongsmithMaximiser_artefacts/Release/Standalone/
