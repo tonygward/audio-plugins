@@ -8,6 +8,9 @@ There is one self-contained prompt per item in [`../../ROADMAP.md`](../../ROADMA
 |---|---|
 | 05–22 (in [`done/`](done/)) | Done, merged into `main` (21 and 22 shipped in v0.3.0) |
 | [23 macOS installer](23-macos-installer.md) | To do |
+| [24 plain wording and fonts](24-ui-wording-fonts.md) | To do |
+| [25 higher-resolution, scalable UI](25-ui-resolution.md) | To do, after 24 |
+| [26 starting-points review](26-starting-points-review.md) | To do |
 
 ## Run in waves, merging between waves
 
@@ -22,13 +25,15 @@ Every prompt branches from the latest `main`. Tasks in the same wave are mostly 
 | 5 | 18 linear phase, **then** 19 oversampling | Both change latency reporting. Run them one at a time. |
 | 6 | 20 starting-point templates | |
 | 7 | 21 rename to Songsmith EQ, **then** 22 Windows installer | One at a time: 22 uses the names, paths and presets folder that 21 introduces. |
-| 8 | 23 macOS installer | Follows 22's Windows installer. Built and tested on the macOS CI job, since the dev machine is Windows. |
+| 8 | 23 macOS installer · 24 plain wording and fonts · 26 starting-points review | Independent of each other. 23 is built and tested on the macOS CI job, since the dev machine is Windows. 24 and 26 both touch `README.md` and preset hints; expect a small conflict. |
+| 9 | 25 higher-resolution, scalable UI | Needs 24's embedded font and final label sizes. |
 
 ## Conflict hotspots
 
 - `stateVersion` and the migration code in `PluginProcessor.cpp`: any task that adds parameters bumps it.
 - The parameter layout in `createParameterLayout()` and the parameter-identity test.
-- The top bar in `PluginEditor.cpp`: tasks 05, 08, 13, 14 and 15 all add controls there.
+- The top bar in `PluginEditor.cpp`: tasks 05, 08, 13, 14 and 15 all add controls there; 24 and 25 relayout it.
+- `PresetManager.cpp` factory list and `StartingPointTests`: task 26 changes values and output gains.
 
 ## Morning checklist
 
