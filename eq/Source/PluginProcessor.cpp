@@ -47,7 +47,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::c
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
     // Frequency range/skew is identical to v0.1, so existing automation maps the same.
-    juce::NormalisableRange<float> freqRange (EQ::minFreq, EQ::maxFreq, 0.1f);
+    // Continuous (no 0.1 Hz grid) so note-snapped frequencies are exact; the normalised
+    // mapping is unchanged.
+    juce::NormalisableRange<float> freqRange (EQ::minFreq, EQ::maxFreq, 0.0f);
     freqRange.setSkewForCentre (1000.0f);
 
     juce::NormalisableRange<float> gainRange (EQ::minGain, EQ::maxGain, 0.1f);
@@ -375,6 +377,7 @@ void ThreeBandEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     ui.setProperty ("selectedBand", selectedBand.load(), nullptr);
     ui.setProperty ("displayRange", displayRangeDb.load(), nullptr);
     ui.setProperty ("curveView", curveView.load(), nullptr);
+    ui.setProperty ("pianoStrip", showPianoStrip.load(), nullptr);
     ui.setProperty ("sidechainView", sidechainView.load(), nullptr);
     ui.setProperty ("analyserTilt", analyserTilt.load(), nullptr);
     ui.setProperty ("analyserTop", analyserTopDb.load(), nullptr);
@@ -438,6 +441,7 @@ void ThreeBandEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& sav
         selectedBand.store (juce::jlimit (-1, numBands - 1, (int) ui.getProperty ("selectedBand", 0)));
         displayRangeDb.store (juce::jlimit (6.0f, 30.0f, (float) ui.getProperty ("displayRange", 24.0f)));
         curveView.store (juce::jlimit (0, EQ::numStereoModes - 1, (int) ui.getProperty ("curveView", 0)));
+        showPianoStrip.store ((bool) ui.getProperty ("pianoStrip", false));
         sidechainView.store (juce::jlimit (0, 2, (int) ui.getProperty ("sidechainView", 0)));
         analyserTilt.store (juce::jlimit (0.0f, 6.0f, (float) ui.getProperty ("analyserTilt", 4.5f)));
         analyserTopDb.store (juce::jlimit (-30.0f, 12.0f, (float) ui.getProperty ("analyserTop", 0.0f)));
