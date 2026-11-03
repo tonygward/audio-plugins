@@ -29,11 +29,12 @@ namespace EQ
     {
         std::array<BandSnapshot, numBands> bands {};
         float outputGain = 0.0f;
+        float gainScale = 100.0f;   // percent
 
         // Same sound: unused bands only have to agree on being unused.
         bool sameSound (const PresetData& o) const noexcept
         {
-            if (std::abs (outputGain - o.outputGain) > 0.001f)
+            if (std::abs (outputGain - o.outputGain) > 0.001f || std::abs (gainScale - o.gainScale) > 0.05f)
                 return false;
 
             // Tolerant float compare: values go through the parameters' normalised ranges.

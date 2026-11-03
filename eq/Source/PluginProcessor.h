@@ -62,6 +62,14 @@ public:
 
     juce::AudioProcessorParameter* getBypassParameter() const override { return bypassParam; }
     juce::RangedAudioParameter* getOutputGainParam() const noexcept { return outputGainParam; }
+    juce::RangedAudioParameter* getGainScaleParam() const noexcept  { return gainScaleParam; }
+
+    // Scale the whole curve: multiplier (1 = 100 %) on every gain band's dB gain.
+    float getGainScale() const noexcept
+    {
+        const float pct = gainScaleRaw->load (std::memory_order_relaxed);
+        return std::abs (pct - 100.0f) < 0.01f ? 1.0f : pct / 100.0f;   // exactly 1 at 100 % (range snapping may leave ~1e-6)
+    }
 
     // Auto gain: the correction currently applied (dB), for the UI.
     std::atomic<float> autoGainAppliedDb { 0.0f };
@@ -135,6 +143,8 @@ private:
     bool autoGainWasOn = false;
     static constexpr double autoGainSmoothingSeconds = 0.25;
     std::atomic<float>* outputGainRaw = nullptr;
+    juce::RangedAudioParameter* gainScaleParam = nullptr;
+    std::atomic<float>* gainScaleRaw = nullptr;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> outputGain { 1.0f };
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix { 0.0f };   // 1 = fully bypassed
     juce::AudioBuffer<float> dryBuffer;

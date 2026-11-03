@@ -88,6 +88,9 @@ namespace EQ
     inline const char* const outputGainId = "output_gain";
     inline const char* const bypassId     = "bypass";
     inline const char* const autoGainId   = "auto_gain";
+    inline const char* const gainScaleId  = "gain_scale";
+
+    constexpr float minGainScale = -100.0f, maxGainScale = 200.0f;   // percent; 100 = as set
 
     constexpr float minOutputGain = -24.0f, maxOutputGain = 24.0f;
 }

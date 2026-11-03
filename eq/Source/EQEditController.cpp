@@ -48,6 +48,7 @@ namespace EQ
         for (int b = 0; b < numBands; ++b)
             d.bands[(size_t) b] = getSnapshot (b);
         d.outputGain = processor.getOutputGainParam()->convertFrom0to1 (processor.getOutputGainParam()->getValue());
+        d.gainScale  = processor.getGainScaleParam()->convertFrom0to1 (processor.getGainScaleParam()->getValue());
         return d;
     }
 
@@ -56,13 +57,17 @@ namespace EQ
         for (int b = 0; b < numBands; ++b)
             applySnapshot (b, d.bands[(size_t) b]);
 
-        auto* out = processor.getOutputGainParam();
-        if (out->convertFrom0to1 (out->getValue()) != out->convertFrom0to1 (out->convertTo0to1 (d.outputGain)))
+        auto setGlobal = [] (juce::RangedAudioParameter* p, float value)
         {
-            out->beginChangeGesture();
-            setParamValue (out, d.outputGain);
-            out->endChangeGesture();
-        }
+            if (p->convertFrom0to1 (p->getValue()) == p->convertFrom0to1 (p->convertTo0to1 (value)))
+                return;
+            p->beginChangeGesture();
+            setParamValue (p, value);
+            p->endChangeGesture();
+        };
+
+        setGlobal (processor.getOutputGainParam(), d.outputGain);
+        setGlobal (processor.getGainScaleParam(), d.gainScale);
     }
 
     void EditController::loadPreset (const PresetData& d, const juce::String& name)

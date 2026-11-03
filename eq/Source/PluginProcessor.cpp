@@ -33,6 +33,9 @@ ThreeBandEQAudioProcessor::ThreeBandEQAudioProcessor()
     outputGainRaw   = apvts.getRawParameterValue (EQ::outputGainId);
     bypassParam     = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (EQ::bypassId));
     autoGainParam   = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (EQ::autoGainId));
+    gainScaleParam  = apvts.getParameter (EQ::gainScaleId);
+    gainScaleRaw    = apvts.getRawParameterValue (EQ::gainScaleId);
+    jassert (gainScaleParam != nullptr && gainScaleRaw != nullptr);
     jassert (autoGainParam != nullptr);
     jassert (outputGainParam != nullptr && outputGainRaw != nullptr && bypassParam != nullptr);
 
@@ -95,6 +98,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::c
 
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { EQ::bypassId, 3 }, "Bypass", false));
+
+    // Scale the whole curve (v0.5): every gain band's dB gain x scale. 100 % = as set.
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { EQ::gainScaleId, 6 }, "Gain Scale",
+        juce::NormalisableRange<float> (EQ::minGainScale, EQ::maxGainScale, 0.1f), 100.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("%")));
 
     // Loudness-matched output (v0.5). Applied before the output gain.
     layout.add (std::make_unique<juce::AudioParameterBool> (
@@ -194,6 +203,7 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         buffer.clear (ch, 0, buffer.getNumSamples());
 
     using EQ::Param;
+    const float gainScale = getGainScale();
     for (int b = 0; b < numBands; ++b)
     {
         const auto& raw = rawValues[(size_t) b];
@@ -202,7 +212,9 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         s.active = bandUsed[(size_t) b].load (std::memory_order_relaxed) && raw[(size_t) Param::Enabled]->load() >= 0.5f;
         s.type   = EQ::typeFromIndex ((int) std::lround (raw[(size_t) Param::Type]->load()));
         s.freq   = raw[(size_t) Param::Freq]->load();
-        s.gain   = EQ::typeHasGain (s.type) ? raw[(size_t) Param::Gain]->load() : 0.0f;
+        // The scale multiplies the dB gain on its way into the engine (stored values stay
+        // intact) and goes through the engine's gain ramp, so moving it is click-free.
+        s.gain   = EQ::typeHasGain (s.type) ? raw[(size_t) Param::Gain]->load() * gainScale : 0.0f;
         s.q      = raw[(size_t) Param::Q]->load();
         s.slope  = (int) std::lround (raw[(size_t) Param::Slope]->load());
         s.stereo = EQ::stereoModeFromIndex ((int) std::lround (raw[(size_t) Param::Stereo]->load()));
