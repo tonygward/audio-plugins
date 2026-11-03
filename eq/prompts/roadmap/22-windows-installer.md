@@ -10,7 +10,7 @@ You may be running **unattended**. Nobody will answer questions. When something 
 - Commit in logical steps with clear messages.
 
 **Read first**
-- This task runs **after task 21** (the rename to Songsmith EQ). If `eq/CMakeLists.txt` still says `TW Pro EQ`, stop and open a draft PR with a "Blocked: task 21 not merged" section.
+- This task runs **after task 21** (the rename to Songsmith EQ). If `eq/CMakeLists.txt` doesn't contain `set(EQ_PRODUCT_NAME "Songsmith EQ")`, stop and open a draft PR with a "Blocked: task 21 not merged" section. (CMakeLists still mentions "TW Pro EQ" in a history comment; that's expected.) The Release build puts the plugin in `eq/build/SongsmithEQ_artefacts/Release/VST3/Songsmith EQ.vst3` and the standalone app in `.../Release/Standalone/Songsmith EQ.exe`.
 - Before changing anything, read `eq/ROADMAP.md`, `eq/CMakeLists.txt`, `eq/install.ps1`, `.github/workflows/build.yml`, `eq/Source/PresetManager.cpp` (where user presets live) and the "Just want to use it?" and Windows install sections of `README.md`.
 - Work with the existing build. Don't restructure the CMake project.
 
