@@ -448,7 +448,7 @@ public:
         beginTest ("Parameter identities");
         {
             ThreeBandEQAudioProcessor p;
-            constexpr int numGlobalParams = 4;   // output_gain, bypass, auto_gain, gain_scale
+            constexpr int numGlobalParams = 6;   // output_gain, bypass, auto_gain, gain_scale, phase_mode, lp_quality
             expectEquals (p.getParameters().size(), numBands * numBandParams + numGlobalParams, "24 bands x per-band parameters + globals");
 
             juce::StringArray ids;
@@ -2691,6 +2691,248 @@ public:
     }
 };
 
+//==============================================================================
+class LinearPhaseTests final : public juce::UnitTest
+{
+public:
+    LinearPhaseTests() : juce::UnitTest ("Linear phase", "EQ") {}
+
+    static constexpr double fs = 48000.0;
+    static constexpr int block = 512;
+
+    // Switches 'p' to linear phase at 'quality', prepares it and waits until the
+    // convolution engines run the designed IR.
+    bool prepareLinear (ThreeBandEQAudioProcessor& p, int quality)
+    {
+        setParam (p, "phase_mode", 1.0f);
+        setParam (p, "lp_quality", (float) quality);
+        p.setRateAndBufferSizeDetails (fs, block);
+        p.prepareToPlay (fs, block);
+
+        juce::AudioBuffer<float> buf (2, block);
+        juce::MidiBuffer midi;
+        for (int i = 0; i < 1000 && ! p.isLinearPhaseReady(); ++i)
+        {
+            buf.clear();
+            p.processBlock (buf, midi);
+            juce::Thread::sleep (2);
+        }
+        // Flush the 50 ms IR cross-fade and any old tail.
+        for (int i = 0; i < (int) (0.5 * fs) / block; ++i)
+        {
+            buf.clear();
+            p.processBlock (buf, midi);
+        }
+        return p.isLinearPhaseReady();
+    }
+
+    // Impulse response of the processor (left output for a left+right impulse, or per channel).
+    static std::vector<float> impulseResponse (ThreeBandEQAudioProcessor& p, int length, int channel = 0, bool leftOnly = false)
+    {
+        juce::AudioBuffer<float> buf (2, block);
+        juce::MidiBuffer midi;
+        std::vector<float> out;
+        for (int pos = 0; pos < length; pos += block)
+        {
+            buf.clear();
+            if (pos == 0)
+            {
+                buf.setSample (0, 0, 1.0f);
+                if (! leftOnly) buf.setSample (1, 0, 1.0f);
+            }
+            p.processBlock (buf, midi);
+            for (int i = 0; i < block; ++i)
+                out.push_back (buf.getSample (channel, i));
+        }
+        out.resize ((size_t) length);
+        return out;
+    }
+
+    static double magnitudeDbAt (const std::vector<float>& h, double f)
+    {
+        std::complex<double> sum = 0.0;
+        const double w = -2.0 * pi * f / fs;
+        for (size_t n = 0; n < h.size(); ++n)
+            sum += (double) h[n] * std::polar (1.0, w * (double) n);
+        return 20.0 * std::log10 (std::max (std::abs (sum), 1.0e-12));
+    }
+
+    void runTest() override
+    {
+        struct Curve { const char* name; std::vector<Spec> bands; };
+        const std::vector<Curve> curves {
+            { "bell + shelves", { { FilterType::Bell, 1000.0f, 6.0f, 1.0f }, { FilterType::LowShelf, 200.0f, -4.0f, defaultQ },
+                                  { FilterType::HighShelf, 8000.0f, 3.0f, defaultQ } } },
+            { "cut + narrow bell", { { FilterType::LowCut, 40.0f, 0.0f, defaultQ, true, 3 }, { FilterType::Bell, 3000.0f, -9.0f, 4.0f },
+                                     { FilterType::HighCut, 16000.0f, 0.0f, defaultQ } } },
+            { "many bells", { { FilterType::Bell, 80.0f, 5.0f, 1.5f }, { FilterType::Bell, 400.0f, -6.0f, 2.0f },
+                              { FilterType::Bell, 2500.0f, 4.0f, 0.7f }, { FilterType::Bell, 12000.0f, -3.0f, 1.0f } } },
+        };
+
+        auto applyCurve = [] (ThreeBandEQAudioProcessor& p, const std::vector<Spec>& specs)
+        {
+            for (int b = 0; b < numBands; ++b)
+                p.setBandUsed (b, b < (int) specs.size());
+            for (size_t b = 0; b < specs.size(); ++b)
+            {
+                const auto& s = specs[b];
+                setBand (p, (int) b, Param::Type, (float) s.type);
+                setBand (p, (int) b, Param::Freq, s.freq);
+                setBand (p, (int) b, Param::Gain, s.gain);
+                setBand (p, (int) b, Param::Q, s.q);
+                setBand (p, (int) b, Param::Slope, (float) s.slope);
+            }
+        };
+
+        beginTest ("Magnitude matches the minimum-phase response within 0.2 dB (30 Hz - 18 kHz)");
+        for (const auto& curve : curves)
+        {
+            ThreeBandEQAudioProcessor p;
+            applyCurve (p, curve.bands);
+            expect (prepareLinear (p, 2), "IR loaded");
+
+            const int length = p.getLinearPhaseLength();
+            const auto h = impulseResponse (p, length * 2);
+            double worst = 0.0;
+            for (int i = 0; i <= 40; ++i)
+            {
+                const double f = 30.0 * std::pow (18000.0 / 30.0, i / 40.0);
+                const double expected = analyticDb (curve.bands, fs, f);
+                if (expected < -40.0)
+                    continue;   // deep stop band: relative accuracy is meaningless there
+                worst = std::max (worst, std::abs (magnitudeDbAt (h, f) - expected));
+            }
+            expectLessThan (worst, 0.2, juce::String ("worst deviation, ") + curve.name);
+        }
+
+        beginTest ("Impulse response is symmetric (linear phase); latency = measured delay");
+        for (int quality = 0; quality < 3; ++quality)
+        {
+            ThreeBandEQAudioProcessor p;
+            applyCurve (p, curves[0].bands);
+            expect (prepareLinear (p, quality), "IR loaded");
+            p.updateLatencyNow();
+
+            const int length = p.getLinearPhaseLength();
+            const int latency = p.getLatencySamples();
+            expectEquals (latency, length / 2, "reported latency = N/2");
+
+            const auto h = impulseResponse (p, length + 1024);
+            int peak = 0;
+            for (int n = 0; n < (int) h.size(); ++n)
+                if (std::abs (h[(size_t) n]) > std::abs (h[(size_t) peak])) peak = n;
+            expectEquals (peak, latency, "measured delay (IR peak) = reported latency, quality " + juce::String (quality));
+
+            double asym = 0.0, peakValue = std::abs (h[(size_t) latency]);
+            for (int n = 1; n < latency; ++n)
+                asym = std::max (asym, (double) std::abs (h[(size_t) (latency + n)] - h[(size_t) (latency - n)]));
+            expectLessThan (asym / peakValue, 1.0e-4, "symmetric about the centre, quality " + juce::String (quality));
+        }
+
+        beginTest ("Flat EQ in linear phase is a pure delay");
+        {
+            ThreeBandEQAudioProcessor p;
+            for (int b = 0; b < numBands; ++b) p.setBandUsed (b, false);
+            expect (prepareLinear (p, 0));
+            const auto h = impulseResponse (p, p.getLinearPhaseLength());
+            const int latency = p.getLinearPhaseLength() / 2;
+            expectWithinAbsoluteError (h[(size_t) latency], 1.0f, 1.0e-4f, "unity at the latency");
+            double rest = 0.0;
+            for (size_t n = 0; n < h.size(); ++n)
+                if ((int) n != latency) rest = std::max (rest, (double) std::abs (h[n]));
+            expectLessThan (rest, 1.0e-4, "nothing elsewhere");
+        }
+
+        beginTest ("Stereo modes in linear phase (Left-only band leaves the right channel alone)");
+        {
+            ThreeBandEQAudioProcessor p;
+            applyCurve (p, { { FilterType::Bell, 1000.0f, 9.0f, 1.0f } });
+            setBand (p, 0, Param::Stereo, (float) StereoMode::Left);
+            expect (prepareLinear (p, 1));
+            const int length = p.getLinearPhaseLength();
+            const auto hl = impulseResponse (p, length, 0);
+            expectWithinAbsoluteError (magnitudeDbAt (hl, 1000.0), 9.0, 0.2, "left boosted");
+
+            ThreeBandEQAudioProcessor q;
+            applyCurve (q, { { FilterType::Bell, 1000.0f, 9.0f, 1.0f } });
+            setBand (q, 0, Param::Stereo, (float) StereoMode::Left);
+            expect (prepareLinear (q, 1));
+            const auto hr = impulseResponse (q, length, 1);
+            expectWithinAbsoluteError (magnitudeDbAt (hr, 1000.0), 0.0, 0.05, "right untouched");
+
+            ThreeBandEQAudioProcessor m;
+            applyCurve (m, { { FilterType::Bell, 1000.0f, 6.0f, 1.0f } });
+            setBand (m, 0, Param::Stereo, (float) StereoMode::Mid);
+            expect (prepareLinear (m, 1));
+            const auto hm = impulseResponse (m, length, 0);   // L = R impulse: pure Mid
+            expectWithinAbsoluteError (magnitudeDbAt (hm, 1000.0), 6.0, 0.2, "mid band on mono content");
+        }
+
+        beginTest ("Rapid parameter changes stay finite with bounded steps");
+        {
+            ThreeBandEQAudioProcessor p;
+            applyCurve (p, curves[2].bands);
+            expect (prepareLinear (p, 0));
+
+            std::mt19937 rng (18);
+            std::uniform_real_distribution<float> u (0.0f, 1.0f);
+            const int total = (int) (3.0 * fs);
+            const auto out = runProcessor (p, fs, block, total, [] (int n) { return (float) (0.1 * std::sin (2.0 * pi * 300.0 * n / fs)); },
+                                           [&] (int)
+            {
+                for (int b = 0; b < 4; ++b)
+                {
+                    setBand (p, b, Param::Gain, -12.0f + 24.0f * u (rng));
+                    setBand (p, b, Param::Freq, 100.0f * std::pow (100.0f, u (rng)));
+                }
+            });
+            expect (std::all_of (out.begin(), out.end(), [] (float v) { return std::isfinite (v); }), "finite");
+            // Random +-12 dB on 4 bands every 10 ms, with JUCE cross-fading (50 ms) between very
+            // different IRs: steps can reach ~25x the input slope. A hard switch would step by
+            // the full amplitude (~1.6 here), i.e. more than 250x.
+            const double inputStep = 0.1 * 2.0 * pi * 300.0 / fs;
+            expectLessThan (maxStep (out, (size_t) p.getLinearPhaseLength(), out.size()), inputStep * 60.0, "no clicks");
+        }
+
+        beginTest ("Zero-latency mode reports no latency; switching modes fades and stays finite");
+        {
+            ThreeBandEQAudioProcessor p;
+            p.prepareToPlay (fs, block);
+            p.updateLatencyNow();
+            expectEquals (p.getLatencySamples(), 0, "zero latency");
+            expectEquals (p.getTailLengthSeconds(), 0.0, "no tail");
+
+            const int total = (int) (2.0 * fs);
+            const auto out = runProcessor (p, fs, block, total, [] (int n) { return (float) (0.2 * std::sin (2.0 * pi * 440.0 * n / fs)); },
+                                           [&] (int n)
+            {
+                if (n == (int) (0.5 * fs) / block * block) setParam (p, "phase_mode", 1.0f);
+                if (n == (int) (1.3 * fs) / block * block) setParam (p, "phase_mode", 0.0f);
+            });
+            expect (std::all_of (out.begin(), out.end(), [] (float v) { return std::isfinite (v); }), "finite");
+            const double bound = 0.2 * 2.0 * pi * 440.0 / fs;
+            expectLessThan (maxStep (out, 1, out.size()), bound * 2.0, "fades, no hard switch");
+            p.updateLatencyNow();
+            expectEquals (p.getLatencySamples(), 0, "back to zero latency");
+        }
+
+        beginTest ("Legacy sessions load in zero-latency mode");
+        {
+            ThreeBandEQAudioProcessor p;
+            setParam (p, "phase_mode", 1.0f);
+            auto state = p.apvts.copyState();
+            state.removeChild (state.getChildWithProperty ("id", "phase_mode"), nullptr);
+            state.removeChild (state.getChildWithProperty ("id", "lp_quality"), nullptr);
+            juce::MemoryBlock mb;
+            juce::AudioProcessor::copyXmlToBinary (*state.createXml(), mb);
+            p.setStateInformation (mb.getData(), (int) mb.getSize());
+            expect (! p.isLinearPhaseSelected(), "zero latency");
+            expectEquals (p.getLinearPhaseQuality(), 1, "medium quality by default");
+        }
+    }
+};
+
+static LinearPhaseTests linearPhaseTests;
 static DynamicEqTests dynamicEqTests;
 static NoteTests noteTests;
 static GainScaleTests gainScaleTests;
@@ -2870,6 +3112,36 @@ static void runBenchmark()
                    setBand (p, b, Param::Threshold, -40.0f + 10.0f * std::sin ((float) bi * 0.05f + (float) b));
                },
                { 64 });
+
+    for (int quality = 0; quality < 3; ++quality)
+    {
+        const juce::String title = "Linear phase, quality " + juce::String (juce::StringArray { "low", "medium", "high" }[quality])
+                                 + " (24 bands; FIR " + juce::String (EQ::LinearPhaseEQ::firLength (quality, 48000.0)) + ")";
+        benchCase (title.toRawUTF8(),
+                   [quality] (ThreeBandEQAudioProcessor& p, int b)
+                   {
+                       setBand (p, b, Param::Freq, 40.0f * std::pow (400.0f, (float) b / numBands));
+                       setBand (p, b, Param::Gain, 3.0f);
+                       if (b == numBands - 1)
+                       {
+                           setParam (p, "lp_quality", (float) quality);
+                           setParam (p, "phase_mode", 1.0f);
+                           juce::AudioBuffer<float> buf (2, 512);
+                           juce::MidiBuffer midi;
+                           p.designLinearPhaseNow();
+                           for (int i = 0; i < 2000 && ! p.isLinearPhaseReady(); ++i)
+                           {
+                               buf.clear();
+                               p.processBlock (buf, midi);   // switches path, loads the IR
+                               juce::Thread::sleep (2);
+                           }
+                       }
+                   },
+                   [] (ThreeBandEQAudioProcessor& p, int b, int bi)   // the designer thread rebuilds as gains move
+                   {
+                       setBand (p, b, Param::Gain, 6.0f * std::sin ((float) bi * 0.05f + (float) b));
+                   });
+    }
 
     benchCase ("24 bells, auto gain on",
                [] (ThreeBandEQAudioProcessor& p, int b)

@@ -16,6 +16,7 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 
 - Up to 24 bands: Bell, Low Shelf, High Shelf, Low Cut, High Cut and Notch
 - Low Cut and High Cut slopes of 6, 12, 18, 24, 36 or 48 dB/oct (Butterworth; raise Q for a resonant peak at the cutoff)
+- **Linear-phase mode** (top bar): "Linear: low / medium / high" for mastering. It adds latency (at 44.1/48 kHz about 43-46, 85-93 or 171-186 ms), which is reported to your DAW for compensation. Dynamic EQ and solo need zero-latency mode
 - **Dynamic EQ per band** (Bell and shelves): turn on **Dyn** in the band panel for threshold, range (±24 dB), attack and release; the band's gain moves with the level in its own frequency region, or with the sidechain (**SC**). The graph shades the live curve and the node shows where the gain sits now
 - **Stereo modes per band:** Stereo, Left, Right, Mid or Side (a small L/R/M/S badge marks the node). The "Curve" selector shows the combined curve for one channel
 - Click-free parameter smoothing, undo/redo, and a response curve drawn from the real DSP coefficients
