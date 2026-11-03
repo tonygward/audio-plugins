@@ -72,14 +72,22 @@ namespace EQ
     inline StereoMode stereoModeFromIndex (int i) { return static_cast<StereoMode> (juce::jlimit (0, numStereoModes - 1, i)); }
     inline bool isMidSide (StereoMode m) { return m == StereoMode::Mid || m == StereoMode::Side; }
 
-    enum class Param { Freq, Gain, Q, Type, Enabled, Slope, Stereo };
-    constexpr int numBandParams = 7;
+    enum class Param { Freq, Gain, Q, Type, Enabled, Slope, Stereo,
+                       DynOn, Threshold, Range, Attack, Release, DynExternal };
+    constexpr int numBandParams = 13;
+
+    // Dynamic EQ parameter ranges and defaults (dynamics off by default).
+    constexpr float minThreshold = -60.0f, maxThreshold = 0.0f, defaultThreshold = -30.0f;
+    constexpr float minRange = -24.0f, maxRange = 24.0f, defaultRange = -6.0f;
+    constexpr float minAttackMs = 0.1f, maxAttackMs = 100.0f, defaultAttackMs = 10.0f;
+    constexpr float minReleaseMs = 10.0f, maxReleaseMs = 1000.0f, defaultReleaseMs = 150.0f;
 
     // IDs for bands 1-3 freq/gain/q are unchanged from v0.1 so automation and
     // saved sessions keep pointing at the same parameters.
     inline juce::String paramId (int band, Param p)
     {
-        static const char* const suffix[] = { "freq", "gain", "q", "type", "on", "slope", "stereo" };
+        static const char* const suffix[] = { "freq", "gain", "q", "type", "on", "slope", "stereo",
+                                              "dyn_on", "threshold", "range", "attack", "release", "dyn_ext" };
         static_assert (std::size (suffix) == (size_t) numBandParams);
         return "band" + juce::String (band + 1) + "_" + suffix[(int) p];
     }

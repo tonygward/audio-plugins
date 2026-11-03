@@ -73,6 +73,9 @@ public:
 
     // Auto gain: the correction currently applied (dB), for the UI.
     std::atomic<float> autoGainAppliedDb { 0.0f };
+
+    // Dynamic EQ: live dynamic gain (dB) per band, published after every block (UI).
+    std::array<std::atomic<float>, numBands> dynamicGainDb {};
     bool isAutoGainOn() const noexcept { return autoGainParam->get(); }
 
     // Output peak meter, written by the audio thread and read (and reset) by the editor.

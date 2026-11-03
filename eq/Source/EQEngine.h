@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+
 #include "SvfFilter.h"
 
 namespace EQ
@@ -14,6 +15,13 @@ namespace EQ
         float q    = defaultQ;
         int slope  = defaultSlope;        // index into slopeOrders (cut types only)
         StereoMode stereo = StereoMode::Stereo;
+
+        // Dynamic EQ (Bell and shelves only). See Engine::runDetector for the gain computer.
+        bool  dynOn = false;
+        bool  dynExternal = false;        // detect from the sidechain (falls back to internal)
+        float threshold = -30.0f;         // dBFS (sine-peak calibrated)
+        float range = -6.0f;              // dB, maximum dynamic gain change
+        float attackMs = 10.0f, releaseMs = 150.0f;
     };
 
     // Real-time EQ processor for up to 24 bands x 2 channels.
@@ -53,6 +61,12 @@ namespace EQ
         // soloed the output cross-fades (fadeSeconds) to the *input* filtered by that band's
         // audition filter (see makeSoloFilter). Switching between soloed bands fades out and in.
         void setSolo (int band) noexcept { soloTarget = band; }
+
+        // Sidechain for dynamic bands set to "external" (call before process; may be null).
+        void setSidechain (const float* const* channels, int numChannels) noexcept { sidechain = channels; numSidechain = numChannels; }
+
+        // Live dynamic gain (dB) of a band (audio thread; the processor publishes it to the UI).
+        float getDynamicGainDb (int band) const noexcept { return (float) bands[(size_t) band].dyn.gainDb; }
         bool isSoloActive() const noexcept { return solo.band >= 0 || solo.mix.current > 0.0; }
 
         double getSampleRate() const noexcept { return sampleRate; }
@@ -86,6 +100,27 @@ namespace EQ
             Ramp wet;                 // 0 = bypassed, 1 = fully processed
             Ramp xfade;               // 0 = old filter, 1 = new filter
             bool crossfading = false;
+
+            struct Dynamics
+            {
+                SvfCoeffs detector;
+                bool running = false;          // detector ran last chunk (state is fresh)
+                std::array<SvfState, maxChannels> detState {};
+                std::array<double, maxChannels> power {};
+                std::array<SvfState, maxChannels> scState {};   // detector state for the sidechain input
+                std::array<double, maxChannels> scPower {};
+                double gainDb = 0.0;           // smoothed dynamic gain added to the static gain
+                double appliedDb = 0.0;        // value the current coefficients were built with
+
+                void reset() noexcept
+                {
+                    for (auto& s : detState) s.reset();
+                    for (auto& s : scState)  s.reset();
+                    power.fill (0.0);
+                    scPower.fill (0.0);
+                    gainDb = appliedDb = 0.0;
+                }
+            } dyn;
         };
 
         struct Solo
@@ -104,6 +139,7 @@ namespace EQ
         static void decodeMidSide (float* const* channels, int start, int num) noexcept;
 
         void updateSolo() noexcept;
+        void runDetector (Band&, float* const* channels, int firstChannel, int lastChannel, int start, int num) noexcept;
         void processSolo (float* const* channels, const float (*input)[updateInterval], int numChannels, int start, int num) noexcept;
 
         void snapBand (Band&);
@@ -115,6 +151,8 @@ namespace EQ
         int fadeSamples = 960;
         std::array<Band, numBands> bands;
         Solo solo;
+        const float* const* sidechain = nullptr;
+        int numSidechain = 0;
         int soloTarget = -1;
     };
 }

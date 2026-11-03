@@ -88,6 +88,31 @@ juce::AudioProcessorValueTreeState::ParameterLayout ThreeBandEQAudioProcessor::c
         group->addChild (std::make_unique<juce::AudioParameterChoice> (
             juce::ParameterID { EQ::paramId (b, Param::Stereo), 4 }, name + " Stereo", EQ::getStereoModeNames(), 0));
 
+        // Dynamic EQ (v1.0). Off by default, so older sessions sound identical.
+        juce::NormalisableRange<float> attackRange (EQ::minAttackMs, EQ::maxAttackMs, 0.01f);
+        attackRange.setSkewForCentre (5.0f);
+        juce::NormalisableRange<float> releaseRange (EQ::minReleaseMs, EQ::maxReleaseMs, 0.1f);
+        releaseRange.setSkewForCentre (100.0f);
+
+        group->addChild (std::make_unique<juce::AudioParameterBool> (
+            juce::ParameterID { EQ::paramId (b, Param::DynOn), 7 }, name + " Dynamic", false));
+        group->addChild (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { EQ::paramId (b, Param::Threshold), 7 }, name + " Threshold",
+            juce::NormalisableRange<float> (EQ::minThreshold, EQ::maxThreshold, 0.1f), EQ::defaultThreshold,
+            juce::AudioParameterFloatAttributes().withLabel ("dB")));
+        group->addChild (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { EQ::paramId (b, Param::Range), 7 }, name + " Range",
+            juce::NormalisableRange<float> (EQ::minRange, EQ::maxRange, 0.1f), EQ::defaultRange,
+            juce::AudioParameterFloatAttributes().withLabel ("dB")));
+        group->addChild (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { EQ::paramId (b, Param::Attack), 7 }, name + " Attack", attackRange, EQ::defaultAttackMs,
+            juce::AudioParameterFloatAttributes().withLabel ("ms")));
+        group->addChild (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { EQ::paramId (b, Param::Release), 7 }, name + " Release", releaseRange, EQ::defaultReleaseMs,
+            juce::AudioParameterFloatAttributes().withLabel ("ms")));
+        group->addChild (std::make_unique<juce::AudioParameterBool> (
+            juce::ParameterID { EQ::paramId (b, Param::DynExternal), 7 }, name + " Dyn Sidechain", false));
+
         layout.add (std::move (group));
     }
 
@@ -220,6 +245,12 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         s.q      = raw[(size_t) Param::Q]->load();
         s.slope  = (int) std::lround (raw[(size_t) Param::Slope]->load());
         s.stereo = EQ::stereoModeFromIndex ((int) std::lround (raw[(size_t) Param::Stereo]->load()));
+        s.dynOn       = raw[(size_t) Param::DynOn]->load() >= 0.5f;
+        s.dynExternal = raw[(size_t) Param::DynExternal]->load() >= 0.5f;
+        s.threshold   = raw[(size_t) Param::Threshold]->load();
+        s.range       = raw[(size_t) Param::Range]->load() * gainScale;   // the curve scale applies to dynamics too
+        s.attackMs    = raw[(size_t) Param::Attack]->load();
+        s.releaseMs   = raw[(size_t) Param::Release]->load();
         engine.setBand (b, s);
     }
 
@@ -264,6 +295,18 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
         if (agOn)
             autoGain.measureInput (ch, numCh, num);
+
+        // Sidechain for dynamic bands set to external (same chunk offset as the main input).
+        const float* scPtrs[EQ::Engine::maxChannels] = {};
+        int numScCh = 0;
+        if (isSidechainConnected())
+        {
+            auto scBus = getBusBuffer (buffer, true, 1);
+            numScCh = juce::jmin (scBus.getNumChannels(), EQ::Engine::maxChannels);
+            for (int c = 0; c < numScCh; ++c)
+                scPtrs[c] = scBus.getReadPointer (c, pos);
+        }
+        engine.setSidechain (numScCh > 0 ? scPtrs : nullptr, numScCh);
 
         engine.process (ch, numCh, num);
 
@@ -333,6 +376,9 @@ void ThreeBandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     outputMeter.push (blockPeak);
     autoGainAppliedDb.store (juce::Decibels::gainToDecibels (autoGainSmoothed.getCurrentValue(), -100.0f), std::memory_order_relaxed);
+
+    for (int b = 0; b < numBands; ++b)
+        dynamicGainDb[(size_t) b].store (engine.getDynamicGainDb (b), std::memory_order_relaxed);
 
     // Sidechain: level for the UI, and the spectrum while a viewer shows it. It never
     // touches the main channels.

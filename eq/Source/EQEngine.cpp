@@ -58,6 +58,7 @@ namespace EQ
             for (auto& s : b.state)     s.reset();
             for (auto& s : b.prevState) s.reset();
             b.crossfading = false;
+            b.dyn.reset();
             b.coeffsDirty = true;
         }
 
@@ -153,15 +154,111 @@ namespace EQ
             b.coeffsDirty = true;
         }
 
-        if (b.coeffsDirty || b.logFreq.isRamping() || b.gainDb.isRamping() || b.logQ.isRamping())
+        if (b.coeffsDirty || b.logFreq.isRamping() || b.gainDb.isRamping() || b.logQ.isRamping()
+            || b.dyn.gainDb != b.dyn.appliedDb)
         {
             b.coeffs = makeFilter (b.type, sampleRate,
                                    std::exp (b.logFreq.current),
                                    std::exp (b.logQ.current),
-                                   b.gainDb.current,
+                                   b.gainDb.current + b.dyn.gainDb,   // static (ramped) + dynamic
                                    b.slope);
             b.coeffsDirty = false;
+            b.dyn.appliedDb = b.dyn.gainDb;
         }
+    }
+
+    //==========================================================================
+    // Dynamic EQ, run once per 16-sample chunk before the band's coefficients are updated
+    // (so a 1 ms attack is followed within 0.33 ms at 48 kHz).
+    //
+    // Detector: the band's input (or the sidechain, if "external" and connected) through a
+    // band-pass at the band's frequency and Q - or, for shelves, a 2nd-order low-pass /
+    // high-pass at the corner (the region the shelf acts on) - then a one-pole mean-square
+    // with a time constant of two periods of the band frequency (1..20 ms). Levels are
+    // sine-peak calibrated (10 log10 (2 x mean square)), so a 0 dBFS sine reads 0 dB.
+    // Channels are linked: the louder one drives the gain.
+    //
+    // Gain computer: soft knee 6 dB wide around the threshold; the full 'range' is reached
+    // 12 dB above the threshold (an implicit ratio that scales with the range), linear in dB
+    // in between. Attack/release smooth the dynamic gain in dB: attack while it moves away
+    // from 0 dB, release while it returns.
+    void Engine::runDetector (Band& b, float* const* channels, int first, int last, int start, int num) noexcept
+    {
+        const auto& t = b.target;
+        auto& d = b.dyn;
+        const bool on = t.dynOn && typeHasGain (b.type);
+
+        if (! on)
+        {
+            d.running = false;
+            if (d.gainDb != 0.0)   // glide back to the static gain
+            {
+                d.gainDb *= std::exp (-num / (std::max ((double) t.releaseMs, 10.0) * 0.001 * sampleRate));
+                if (std::abs (d.gainDb) < 1.0e-4)
+                    d.gainDb = 0.0;
+            }
+            return;
+        }
+
+        if (! d.running)
+        {
+            for (auto& s : d.detState) s.reset();
+            for (auto& s : d.scState)  s.reset();
+            d.power.fill (0.0);
+            d.scPower.fill (0.0);
+            d.running = true;
+        }
+
+        const double freq = std::exp (b.logFreq.current);
+        if (b.type == FilterType::LowShelf)       d.detector = makeCoeffs (FilterType::HighCut, sampleRate, freq, 0.7071, 0.0);
+        else if (b.type == FilterType::HighShelf) d.detector = makeCoeffs (FilterType::LowCut, sampleRate, freq, 0.7071, 0.0);
+        else                                      d.detector = makeBandPass (sampleRate, freq, std::exp (b.logQ.current));
+
+        const double tau = std::clamp (2.0 / freq, 0.001, 0.02);
+        const double a = 1.0 - std::exp (-1.0 / (tau * sampleRate));
+
+        auto detect = [&] (const float* x, SvfState& st, double& p)
+        {
+            for (int i = 0; i < num; ++i)
+            {
+                const double y = processSample (d.detector, st, (double) x[i]);
+                p += a * (y * y - p);
+            }
+            if (! std::isfinite (p) || ! st.isFinite())
+            {
+                p = 0.0;
+                st.reset();
+            }
+            return p;
+        };
+
+        double power = 0.0;
+        if (t.dynExternal && sidechain != nullptr && numSidechain > 0)
+        {
+            for (int c = 0; c < std::min (numSidechain, maxChannels); ++c)
+                power = std::max (power, detect (sidechain[c] + start, d.scState[(size_t) c], d.scPower[(size_t) c]));
+        }
+        else
+        {
+            for (int c = first; c <= last; ++c)
+                power = std::max (power, detect (channels[c] + start, d.detState[(size_t) c], d.power[(size_t) c]));
+        }
+
+        const double levelDb = 10.0 * std::log10 (std::max (2.0 * power, 1.0e-20));
+
+        constexpr double kneeDb = 6.0, fullRangeAboveDb = 12.0;
+        const double over = levelDb - t.threshold;
+        const double effective = over <= -kneeDb * 0.5 ? 0.0
+                               : over >=  kneeDb * 0.5 ? over
+                               : (over + kneeDb * 0.5) * (over + kneeDb * 0.5) / (2.0 * kneeDb);
+        const double target = t.range * std::clamp (effective / fullRangeAboveDb, 0.0, 1.0);
+
+        const bool attacking = std::abs (target) > std::abs (d.gainDb);
+        const double timeMs = std::max ((double) (attacking ? t.attackMs : t.releaseMs), 0.05);
+        d.gainDb += (target - d.gainDb) * (1.0 - std::exp (-num / (timeMs * 0.001 * sampleRate)));
+
+        if (! std::isfinite (d.gainDb))
+            d.gainDb = 0.0;
     }
 
     void Engine::processBand (Band& b, float* const* channels, int firstChannel, int lastChannel, int start, int num) noexcept
@@ -269,6 +366,7 @@ namespace EQ
                 const int first = (mode == StereoMode::Right || mode == StereoMode::Side) ? 1 : 0;
                 const int last  = (mode == StereoMode::Stereo) ? numChannels - 1 : first;
 
+                runDetector (b, channels, first, last, pos, num);
                 beginBlockForBand (b);
                 processBand (b, channels, first, last, pos, num);
 
@@ -296,6 +394,7 @@ namespace EQ
                     for (auto& s : b.state)     s.reset();
                     for (auto& s : b.prevState) s.reset();
                     b.crossfading = false;
+                    b.dyn.reset();
                 }
             }
 

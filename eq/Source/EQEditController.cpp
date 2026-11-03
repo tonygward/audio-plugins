@@ -92,6 +92,12 @@ namespace EQ
         s.q       = processor.getBandValue (band, Param::Q);
         s.slope   = (int) std::lround (processor.getBandValue (band, Param::Slope));
         s.stereo  = (int) std::lround (processor.getBandValue (band, Param::Stereo));
+        s.dynOn       = processor.getBandValue (band, Param::DynOn) >= 0.5f;
+        s.dynExternal = processor.getBandValue (band, Param::DynExternal) >= 0.5f;
+        s.threshold   = processor.getBandValue (band, Param::Threshold);
+        s.range       = processor.getBandValue (band, Param::Range);
+        s.attack      = processor.getBandValue (band, Param::Attack);
+        s.release     = processor.getBandValue (band, Param::Release);
         return s;
     }
 
@@ -113,6 +119,12 @@ namespace EQ
         setParamWithGesture (band, Param::Type, (float) s.type);
         setParamWithGesture (band, Param::Slope, (float) s.slope);
         setParamWithGesture (band, Param::Stereo, (float) s.stereo);
+        setParamWithGesture (band, Param::Threshold, s.threshold);
+        setParamWithGesture (band, Param::Range, s.range);
+        setParamWithGesture (band, Param::Attack, s.attack);
+        setParamWithGesture (band, Param::Release, s.release);
+        setParamWithGesture (band, Param::DynExternal, s.dynExternal ? 1.0f : 0.0f);
+        setParamWithGesture (band, Param::DynOn, s.dynOn ? 1.0f : 0.0f);
         setParamWithGesture (band, Param::Freq, s.freq);
         setParamWithGesture (band, Param::Gain, s.gain);
         setParamWithGesture (band, Param::Q, s.q);
@@ -240,6 +252,14 @@ namespace EQ
         auto after = before;
         after.stereo = juce::jlimit (0, numStereoModes - 1, mode);
         commit (band, before, after, "Change stereo mode");
+    }
+
+    void EditController::setDynamic (int band, bool on)
+    {
+        const auto before = getSnapshot (band);
+        auto after = before;
+        after.dynOn = on;
+        commit (band, before, after, on ? "Dynamic on" : "Dynamic off");
     }
 
     void EditController::setEnabled (int band, bool enabled)

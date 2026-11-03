@@ -14,11 +14,15 @@ namespace EQ
         bool used = false, enabled = true;
         int type = 0, slope = defaultSlope, stereo = 0;
         float freq = 1000.0f, gain = 0.0f, q = defaultQ;
+        bool dynOn = false, dynExternal = false;
+        float threshold = defaultThreshold, range = defaultRange, attack = defaultAttackMs, release = defaultReleaseMs;
 
         bool operator== (const BandSnapshot& o) const noexcept
         {
             return used == o.used && enabled == o.enabled && type == o.type && slope == o.slope && stereo == o.stereo
-                && freq == o.freq && gain == o.gain && q == o.q;
+                && freq == o.freq && gain == o.gain && q == o.q
+                && dynOn == o.dynOn && dynExternal == o.dynExternal && threshold == o.threshold
+                && range == o.range && attack == o.attack && release == o.release;
         }
         bool operator!= (const BandSnapshot& o) const noexcept { return ! (*this == o); }
     };
@@ -47,7 +51,11 @@ namespace EQ
                 if (x.used && (x.enabled != y.enabled || x.type != y.type || x.slope != y.slope || x.stereo != y.stereo
                                || std::abs (x.freq - y.freq) > x.freq * 1.0e-4f
                                || std::abs (x.gain - y.gain) > 0.005f
-                               || std::abs (x.q - y.q) > 0.005f))
+                               || std::abs (x.q - y.q) > 0.005f
+                               || x.dynOn != y.dynOn || x.dynExternal != y.dynExternal
+                               || (x.dynOn && (std::abs (x.threshold - y.threshold) > 0.005f || std::abs (x.range - y.range) > 0.005f
+                                              || std::abs (x.attack - y.attack) > x.attack * 1.0e-3f
+                                              || std::abs (x.release - y.release) > x.release * 1.0e-3f))))
                     return false;
             }
             return true;
@@ -80,6 +88,7 @@ namespace EQ
         void setType (int band, FilterType type);
         void setSlope (int band, int slopeIndex);
         void setStereoMode (int band, int mode);
+        void setDynamic (int band, bool on);
         void setEnabled (int band, bool enabled);
         void setValue (int band, Param p, float value);
 
