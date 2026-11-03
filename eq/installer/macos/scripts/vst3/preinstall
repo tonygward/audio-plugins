@@ -1,0 +1,26 @@
+#!/bin/sh
+# VST3 component, before the payload is laid down:
+#  - remove the installed Songsmith EQ.vst3, so files from an older version don't linger;
+#  - remove the bundles from before the renames (TW Pro EQ, 3-Band EQ), which hosts see as the
+#    same plug-in and would list twice;
+#  - remove the same names from the console user's ~/Library/Audio/Plug-Ins/VST3, where the
+#    old README told people to copy the plug-in.
+. "$(dirname "$0")/common.sh"
+
+root=$(target_root "$3")
+dir="$root/Library/Audio/Plug-Ins/VST3"
+
+for name in "Songsmith EQ" "TW Pro EQ" "3-Band EQ"; do
+    remove_bundle "$dir/$name.vst3"
+done
+
+if [ -z "$root" ]; then
+    home=$(console_user_home)
+    if [ -n "$home" ]; then
+        for name in "Songsmith EQ" "TW Pro EQ" "3-Band EQ"; do
+            remove_bundle "$home/Library/Audio/Plug-Ins/VST3/$name.vst3"
+        done
+    fi
+fi
+
+exit 0

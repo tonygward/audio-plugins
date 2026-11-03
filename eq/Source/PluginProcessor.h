@@ -10,6 +10,7 @@
 #include "PresetManager.h"
 #include "SpectrumAnalyser.h"
 #include "AutoGain.h"
+#include "EditorSize.h"
 #include "LinearPhase.h"
 
 class SongsmithEQAudioProcessor : public juce::AudioProcessor, private juce::Timer
@@ -119,7 +120,15 @@ public:
     std::atomic<float> displayRangeDb { 24.0f };
     std::atomic<int>   curveView { 0 };   // 0 all bands, 1 L, 2 R, 3 M, 4 S (see EQDisplay::isInCurveView)
     std::atomic<bool>  showPianoStrip { false };
-    std::atomic<int>   editorWidth { 980 }, editorHeight { 580 };
+    std::atomic<int>   editorWidth { EQ::EditorSize::defaultWidth }, editorHeight { EQ::EditorSize::defaultHeight };
+
+    // UI size (75 % to 200 %, see EditorSize.h). Saved with the session; a new instance starts
+    // at the per-machine default, which is the size last chosen on this computer.
+    std::atomic<float> uiScale { 1.0f };
+    void setUiScale (float scale);                 // also remembers it as this machine's default
+    static juce::File getMachineSettingsFile();    // Songsmith Studio/Songsmith EQ/Settings.xml
+    static float loadMachineUiScale();
+    static void saveMachineUiScale (float scale);
 
     SpectrumAnalyser analyser;   // mode and settings are persisted with the UI state
 

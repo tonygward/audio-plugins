@@ -69,6 +69,20 @@ jobs:
         shell: bash
         run: ${{ matrix.tests }}
 
+      # Editor screenshots rendered by EQTests (same component the plug-ins show), at 1x and
+      # at 2x (Retina on macOS), so UI changes can be checked on both platforms.
+      - name: Render editor screenshots
+        shell: bash
+        run: |
+          ${{ matrix.tests }} --screenshots screenshots
+          ${{ matrix.tests }} --screenshots screenshots --scale 2
+
+      - name: Upload editor screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-EQ-screenshots-${{ runner.os }}
+          path: screenshots/*.png
+
       # Unsigned Inno Setup installer + the manual-install zip, built from this run's Release
       # build and tested end to end (per-user, into a temp folder). Releases stay manual:
       # attach both artifacts to the GitHub release.
@@ -115,17 +129,36 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
+          # Same version as the Windows files: project(... VERSION x.y.z) in eq/CMakeLists.txt.
+          version=$(sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' eq/CMakeLists.txt | head -n 1)
           mkdir -p dist/"Songsmith EQ"
           cp -R eq/build/SongsmithEQ_artefacts/Release/VST3/"Songsmith EQ.vst3" dist/"Songsmith EQ"/
           cp -R eq/build/SongsmithEQ_artefacts/Release/AU/"Songsmith EQ.component" dist/"Songsmith EQ"/
-          ditto -c -k --keepParent dist/"Songsmith EQ" dist/Songsmith-EQ-macOS.zip
+          ditto -c -k --keepParent dist/"Songsmith EQ" "dist/Songsmith-EQ-$version-macOS.zip"
 
       - name: Upload macOS zip
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: Songsmith-EQ-macOS-zip
-          path: dist/Songsmith-EQ-macOS.zip
+          path: dist/Songsmith-EQ-*-macOS.zip
+
+      # Unsigned .pkg (pkgbuild + productbuild), built from this run's Release build and tested
+      # end to end: the runner is a throwaway machine, so the test installs system-wide for real,
+      # runs auval on the installed component, upgrades, deselects the app and uninstalls.
+      - name: Build and test the macOS installer
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          pkg=$(eq/installer/macos/build-installer.sh | tail -n 1)
+          eq/installer/macos/test-installer.sh --pkg "$pkg"
+
+      - name: Upload macOS installer
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-EQ-macOS-pkg
+          path: eq/build/installer/*-macOS.pkg
 
       - name: Upload plugin
         if: always()

@@ -18,20 +18,21 @@ Songsmith EQ, by Songsmith Studio, was called TW Pro EQ before v0.3. Sessions an
 
 - Up to 24 bands: Bell, Low Shelf, High Shelf, Low Cut, High Cut and Notch
 - Low Cut and High Cut slopes of 6, 12, 18, 24, 36 or 48 dB/oct (Butterworth; raise Q for a resonant peak at the cutoff)
-- **Oversampling** (top bar: OS off / 2x / 4x): stops high-frequency bells and shelves from "cramping" near Nyquist at 44.1/48 kHz. It adds a few samples of reported latency in zero-latency mode; in linear-phase mode it only changes the filter design
-- **Linear-phase mode** (top bar): "Linear: low / medium / high" for mastering. It adds latency (at 44.1/48 kHz about 43-46, 85-93 or 171-186 ms), which is reported to your DAW for compensation. Dynamic EQ and solo need zero-latency mode
-- **Dynamic EQ per band** (Bell and shelves): turn on **Dyn** in the band panel for threshold, range (±24 dB), attack and release; the band's gain moves with the level in its own frequency region, or with the sidechain (**SC**). The graph shades the live curve and the node shows where the gain sits now
-- **Stereo modes per band:** Stereo, Left, Right, Mid or Side (a small L/R/M/S badge marks the node). The "Curve" selector shows the combined curve for one channel
+- **Oversampling** (top bar: "Oversampling: off / 2× / 4×"): stops high-frequency bells and shelves from "cramping" near Nyquist at 44.1/48 kHz. It adds a few samples of reported latency in zero-latency mode; in linear-phase mode it only changes the filter design
+- **Linear-phase mode** (top bar): "Linear phase: low / medium / high" for mastering. It adds latency (at 44.1/48 kHz about 43-46, 85-93 or 171-186 ms), which is reported to your DAW for compensation. Dynamic EQ and solo need zero-latency mode
+- **Dynamic EQ per band** (Bell and shelves): turn on **Dynamic** in the band panel for threshold, range (±24 dB), attack and release; the band's gain moves with the level in its own frequency region, or with the side chain (**Side Chain**). The graph shades the live curve and the node shows where the gain sits now
+- **Stereo modes per band:** Stereo, Left, Right, Mid or Side (a small "Left", "Right", "Mid" or "Side" label sits under the node). The "Curve" selector shows the combined curve for one channel
 - Click-free parameter smoothing, undo/redo, and a response curve drawn from the real DSP coefficients
+- **Interface size** (the `...` menu → Interface size): 75 %, 100 %, 125 %, 150 %, 175 % or 200 %. Everything scales together (text, controls, nodes, lines), and the window resizes to match. The setting is saved with the session and remembered on your computer, so new instances open at the size you last chose. The window opens at 1280 × 760 (at 100 %) and can be resized from 760 × 440 up to 3840 × 2400 (a full 4K screen); on large windows the controls and text step up in size too, while the graph gets most of the extra room. Drawing stays sharp with Windows display scaling and on Retina screens
 - **Scale** (top bar): scales every band's gain together, -100 % to +200 % (0 % = flat, negative inverts; cuts and notches are unaffected). Double-click for 100 %. It's automatable and stored in presets
-- Pre/post spectrum analyser with settings (the `...` button): freeze, peak hold (click the graph to reset), tilt 0/3/4.5/6 dB/oct, 2048/4096/8192-point resolution, slow/medium/fast speed and dBFS range. Plus an optional **sidechain spectrum** (orange) to spot masking: route another track to the sidechain input and pick "Sidechain: spectrum" or "+ overlap" (shades where both tracks are within 6 dB above -60 dBFS). The selector appears once the sidechain receives signal; the sidechain is never heard
+- Spectrum analyser, before or after the EQ ("Analyser: before EQ" / "after EQ"), with settings (the `...` button): freeze, peak hold (click the graph to reset), tilt 0/3/4.5/6 dB/oct, resolution low/medium/high (2048, 4096 or 8192 points), slow/medium/fast speed and dBFS range. Plus an optional **side chain spectrum** (orange) to spot masking: route another track to the side chain input and pick "Side Chain: spectrum" or "Side Chain: spectrum and overlap" (shades where both tracks are within 6 dB above -60 dBFS). The selector appears once the side chain receives signal; the side chain is never heard
 - **Notes:** frequencies show the nearest note and cents (`440 Hz · A4 +0¢`); type note names such as `A2`, `C#5` or `Eb3` into the frequency field; hold Ctrl (Cmd on macOS) while dragging to snap to semitones; right-click the empty graph to show a piano strip along the frequency axis
 - **Solo a band:** Alt-click (and drag) a node to hear only the region it affects while the mouse is held, or latch it with the Solo button in the band panel or the right-click menu
 - **Output gain** (±24 dB, double-click to reset) with a peak meter, peak hold and clip indicator (click the meter to clear it)
 - **Global bypass** that your DAW uses as its native bypass, with a smooth 20 ms cross-fade
-- **Auto gain** (AG button): matches the output loudness to the input (K-weighted, 2 s window, ±12 dB, frozen on silence) so you judge EQ moves at equal loudness; the button shows the correction
-- **Starting points** (in the preset menu): 11 templates for common sources: lead vocal, backing vocals, spoken word, acoustic guitar body, electric guitar, electric guitar bus, bass guitar, drum bus, snare, reverb return and a five-zone teaching layout. They're based on advice from Joe Gilder's [Home Studio Corner](https://homestudiocorner.com) videos, and they aren't endorsed by him. They work the way he does: cuts before boosts, small moves, "only if needed" bands loaded but switched off, and output gain set so turning the EQ on and off compares tone, not loudness. Hover over the preset name for a one-line hint. Treat the frequencies as places to start listening, and move each band to what you hear in the mix
-- **Presets:** 8 factory presets plus your own presets, saved as `.sspreset` files in `%APPDATA%\Songsmith Studio\Songsmith EQ\Presets` (Windows) or `~/Library/Songsmith Studio/Songsmith EQ/Presets` (macOS). Presets saved by TW Pro EQ (`.twpreset`) still load: the first time you open the preset menu or use the preset arrows, they're copied from the old `TW Pro EQ\Presets` folder, which is left as it was. Use the arrows and the menu in the top bar; `*` means the settings differ from the loaded preset. Loading a preset is one undo step.
+- **Auto Gain** (top bar): matches the output loudness to the input (K-weighted, 2 s window, ±12 dB, frozen on silence) so you judge EQ moves at equal loudness; the button shows the correction, for example "Auto Gain +1.2 dB"
+- **Starting points** (in the preset menu): 13 templates for common sources: lead vocal, backing vocals, spoken word, acoustic guitar, electric guitar, electric guitar bus, bass guitar, drum bus, snare, reverb return, a five-zone teaching layout, acoustic guitar in a full mix, and acoustic guitar pickup (piezo DI). They're based on advice from Joe Gilder's [Home Studio Corner](https://homestudiocorner.com) videos, and they aren't endorsed by him. Where every band comes from: [`eq/docs/starting-points.md`](eq/docs/starting-points.md). They work the way he does: cuts before boosts, small moves, "only if needed" bands loaded but switched off, and output gain set so turning the EQ on and off compares tone, not loudness. Hover over the preset name for a one-line hint. Treat the frequencies as places to start listening, and move each band to what you hear in the mix
+- **Presets:** 8 factory presets ("Acoustic guitar" is now "Bright acoustic") plus your own presets, saved as `.sspreset` files in `%APPDATA%\Songsmith Studio\Songsmith EQ\Presets` (Windows) or `~/Library/Songsmith Studio/Songsmith EQ/Presets` (macOS). Presets saved by TW Pro EQ (`.twpreset`) still load: the first time you open the preset menu or use the preset arrows, they're copied from the old `TW Pro EQ\Presets` folder, which is left as it was. Use the arrows and the menu in the top bar; `*` means the settings differ from the loaded preset. Loading a preset is one undo step.
 
 ### Just want to use it?
 
@@ -52,7 +53,23 @@ Running a newer installer upgrades in place. Upgrading from TW Pro EQ? Setup rem
 2. Extract it and copy the `Songsmith EQ.vst3` folder into `C:\Program Files\Common Files\VST3`. Upgrading from TW Pro EQ? Delete `TW Pro EQ.vst3` from that folder too. Your DAW sees it as the same plugin, so leaving it there lists the plugin twice.
 3. Rescan plugins in your DAW.
 
-**macOS:** every CI run uploads a `Songsmith-EQ-macOS-zip` artifact (VST3 + AU, universal) on the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml). It isn't signed or notarised, so after copying the plug-ins (see Install below) you may need to run `xattr -dr com.apple.quarantine` on them. Or build from source.
+**macOS installer (recommended)**
+
+1. Download `Songsmith-EQ-<version>-macOS.pkg` (from the Releases page, or the `Songsmith-EQ-macOS-pkg` artifact of any CI run on the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml)). It's a universal installer for Apple Silicon and Intel Macs.
+2. Quit your DAW, then open the `.pkg`. macOS will probably refuse at first and say it can't check the installer for malicious software. That's because it isn't signed or notarised by Apple (that needs a paid developer account), not because anything is wrong with it. Try to open it once, then go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. (On older macOS, right-click the `.pkg` and choose **Open**.)
+3. Click through the installer and enter your password. It installs, for every user on the Mac:
+   - the **VST3** plug-in into `/Library/Audio/Plug-Ins/VST3`,
+   - the **Audio Unit** (for Logic Pro and GarageBand) into `/Library/Audio/Plug-Ins/Components`,
+   - the **standalone app** into `/Applications`.
+
+   Click **Customize** to leave any of them out.
+4. Restart your DAW, or rescan its plug-ins.
+
+Running a newer installer upgrades in place. Upgrading from TW Pro EQ? The installer removes the old `TW Pro EQ` plug-ins (and any copies in your own `~/Library/Audio/Plug-Ins`), and your sessions and presets carry over. Plug-ins installed by the `.pkg` don't need the `xattr` step below. To uninstall, see [Uninstalling](#uninstalling) below.
+
+**macOS zip (manual install)**
+
+Download `Songsmith-EQ-<version>-macOS.zip` (VST3 + AU, universal; also the `Songsmith-EQ-macOS-zip` CI artifact) and copy the plug-ins into place as described under [Install](#install-1) below. The zip isn't signed or notarised either, so after copying the plug-ins you may need to run `xattr -dr com.apple.quarantine` on them. Or build from source.
 
 ---
 
@@ -198,6 +215,28 @@ Then rescan plugins in your DAW. If Logic doesn't list the AU straight away, run
 ./build/EQTests_artefacts/Release/EQTests --bench  # CPU benchmark
 ```
 
+#### Building the macOS installer
+
+After a Release build, from the `eq` folder (needs Xcode's `pkgbuild` and `productbuild`):
+
+```sh
+installer/macos/build-installer.sh   # -> build/installer/Songsmith-EQ-<version>-macOS.pkg
+```
+
+The version comes from `project(... VERSION ...)` in `CMakeLists.txt`. The installer's layout and pages are in `installer/macos/` (`distribution.xml`, `resources/`, and the `preinstall`/`postinstall` scripts in `scripts/`). It isn't signed or notarised. CI builds it on every push and uploads it as the `Songsmith-EQ-macOS-pkg` artifact, next to the zip, ready to attach to a release by hand.
+
+`installer/macos/test-installer.sh` is CI's end-to-end test. It really installs system-wide (and removes legacy plug-ins), so it refuses to run outside CI unless you pass `--i-know-this-installs-system-wide`.
+
+#### Uninstalling
+
+Quit your DAW, then run:
+
+```sh
+installer/macos/uninstall.sh
+```
+
+It asks for your password, removes `Songsmith EQ.vst3`, `Songsmith EQ.component` and `Songsmith EQ.app`, and makes macOS forget the installer's package receipts. Your presets in `~/Library/Songsmith Studio/Songsmith EQ/Presets` are kept. If you installed by hand into `~/Library/Audio/Plug-Ins`, delete those copies yourself.
+
 ---
 
 ### Troubleshooting
@@ -205,3 +244,9 @@ Then rescan plugins in your DAW. If Logic doesn't list the AU straight away, run
 - **The DAW doesn't see the plugin:** check the install path, then force a full rescan in the DAW.
 - **CMake can't find JUCE:** check that `-DJUCE_DIR` points at the folder that contains JUCE's own `CMakeLists.txt`. If you change it, delete the `build` folder and configure again.
 - **The install script says the plugin is in use:** close the DAW and run it again.
+
+---
+
+### Fonts
+
+The editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold, v4.1) by The Inter Project Authors, embedded in the plugin so Windows and macOS look the same. Inter is licensed under the SIL Open Font License 1.1; the licence is in [`eq/Resources/Fonts/OFL.txt`](eq/Resources/Fonts/OFL.txt).

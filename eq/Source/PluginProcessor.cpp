@@ -113,7 +113,7 @@ SongsmithEQAudioProcessor::SongsmithEQAudioProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                          .withInput  ("Sidechain", juce::AudioChannelSet::stereo(), false)),   // analysed only
+                          .withInput  ("Side Chain", juce::AudioChannelSet::stereo(), false)),   // analysed only
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
 {
     for (int b = 0; b < numBands; ++b)
@@ -141,6 +141,11 @@ SongsmithEQAudioProcessor::SongsmithEQAudioProcessor()
     jassert (phaseModeParam != nullptr && lpQualityParam != nullptr);
     oversamplingParam = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (EQ::oversamplingId));
     jassert (oversamplingParam != nullptr);
+
+    // A new instance opens at the UI size last chosen on this machine (a session overrides it).
+    uiScale.store (loadMachineUiScale());
+    editorWidth.store  (juce::roundToInt ((float) EQ::EditorSize::defaultWidth  * uiScale.load()));
+    editorHeight.store (juce::roundToInt ((float) EQ::EditorSize::defaultHeight * uiScale.load()));
 
     // Polyphase IIR half-band stages: low latency (minimum phase), integer latency so it can
     // be reported exactly. Built here; prepareToPlay only sizes them.
@@ -181,7 +186,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithEQAudioProcessor::c
             "band" + juce::String (b + 1), name, " | ");
 
         group->addChild (std::make_unique<juce::AudioParameterFloat> (
-            juce::ParameterID { EQ::paramId (b, Param::Freq), 1 }, name + " Freq", freqRange, EQ::defaultFreq (b),
+            juce::ParameterID { EQ::paramId (b, Param::Freq), 1 }, name + " Frequency", freqRange, EQ::defaultFreq (b),
             juce::AudioParameterFloatAttributes().withLabel ("Hz")));
 
         group->addChild (std::make_unique<juce::AudioParameterFloat> (
@@ -195,7 +200,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithEQAudioProcessor::c
             juce::ParameterID { EQ::paramId (b, Param::Type), 2 }, name + " Type", EQ::getTypeNames(), 0));
 
         group->addChild (std::make_unique<juce::AudioParameterBool> (
-            juce::ParameterID { EQ::paramId (b, Param::Enabled), 2 }, name + " On", true));
+            juce::ParameterID { EQ::paramId (b, Param::Enabled), 2 }, name + " Enabled", true));
 
         group->addChild (std::make_unique<juce::AudioParameterChoice> (
             juce::ParameterID { EQ::paramId (b, Param::Slope), 3 }, name + " Slope", EQ::getSlopeNames(), EQ::defaultSlope));
@@ -226,7 +231,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithEQAudioProcessor::c
             juce::ParameterID { EQ::paramId (b, Param::Release), 7 }, name + " Release", releaseRange, EQ::defaultReleaseMs,
             juce::AudioParameterFloatAttributes().withLabel ("ms")));
         group->addChild (std::make_unique<juce::AudioParameterBool> (
-            juce::ParameterID { EQ::paramId (b, Param::DynExternal), 7 }, name + " Dyn Sidechain", false));
+            juce::ParameterID { EQ::paramId (b, Param::DynExternal), 7 }, name + " Dynamic Side Chain", false));
 
         layout.add (std::move (group));
     }
@@ -688,6 +693,7 @@ void SongsmithEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     ui.setProperty ("analyserMode", analyser.mode.load(), nullptr);
     ui.setProperty ("editorWidth", editorWidth.load(), nullptr);
     ui.setProperty ("editorHeight", editorHeight.load(), nullptr);
+    ui.setProperty ("uiScale", uiScale.load(), nullptr);
     state.appendChild (ui, nullptr);
 
     if (auto xml = state.createXml())
@@ -750,8 +756,14 @@ void SongsmithEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& sav
         setAnalyserSpeed ((int) ui.getProperty ("analyserSpeed", 1));
         analyser.setPeakHold ((bool) ui.getProperty ("analyserPeakHold", false));
         analyser.mode.store (juce::jlimit (0, 2, (int) ui.getProperty ("analyserMode", (int) SpectrumAnalyser::Mode::Post)));
-        editorWidth.store  (juce::jlimit (760, 2000, (int) ui.getProperty ("editorWidth", 980)));
-        editorHeight.store (juce::jlimit (440, 1200, (int) ui.getProperty ("editorHeight", 580)));
+        // Sessions saved before the UI size setting open at 100 %. Sizes are clamped to the
+        // current limits (older versions allowed 760 x 440 to 2000 x 1200).
+        uiScale.store (EQ::EditorSize::snapUiScale ((float) ui.getProperty ("uiScale", 1.0f)));
+        const auto size = EQ::EditorSize::constrain ((int) ui.getProperty ("editorWidth", EQ::EditorSize::defaultWidth),
+                                                     (int) ui.getProperty ("editorHeight", EQ::EditorSize::defaultHeight),
+                                                     uiScale.load());
+        editorWidth.store (size.x);
+        editorHeight.store (size.y);
     }
 
     presets.restoreFromUiState (ui);   // invalid tree -> no current preset
@@ -764,4 +776,38 @@ void SongsmithEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& sav
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new SongsmithEQAudioProcessor();
+}
+
+//==============================================================================
+// UI size: per session (the UI child of the state) and per machine (a small settings file next
+// to the presets folder, so the next new instance opens at the size the user last chose).
+juce::File SongsmithEQAudioProcessor::getMachineSettingsFile()
+{
+    return EQ::PresetManager::getDefaultUserFolder().getParentDirectory().getChildFile ("Settings.xml");
+}
+
+float SongsmithEQAudioProcessor::loadMachineUiScale()
+{
+    juce::PropertiesFile settings (getMachineSettingsFile(), {});
+    return EQ::EditorSize::snapUiScale ((float) settings.getDoubleValue ("uiScale", 1.0));
+}
+
+void SongsmithEQAudioProcessor::saveMachineUiScale (float scale)
+{
+    juce::PropertiesFile::Options options;
+    options.millisecondsBeforeSaving = 0;   // write now: another instance may open next
+    juce::PropertiesFile settings (getMachineSettingsFile(), options);
+    settings.setValue ("uiScale", (double) EQ::EditorSize::snapUiScale (scale));
+    settings.saveIfNeeded();
+}
+
+void SongsmithEQAudioProcessor::setUiScale (float scale)
+{
+    scale = EQ::EditorSize::snapUiScale (scale);
+    if (std::abs (scale - uiScale.load()) < 1.0e-4f)
+        return;
+
+    uiScale.store (scale);
+    saveMachineUiScale (scale);
+    notifyNonParameterStateChanged();
 }

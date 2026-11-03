@@ -2,10 +2,30 @@
 
 Songsmith EQ was called TW Pro EQ up to v0.2.0. The entries below use today's names for controls.
 
-## Unreleased
+## v0.4.0 (2026-11-03)
+
+### Install
+- **macOS installer:** an unsigned `.pkg` that installs the VST3, Audio Unit and standalone app for every user, with a choice for each. It upgrades in place, removes the old TW Pro EQ and 3-Band EQ bundles (including copies in your own `~/Library/Audio/Plug-Ins`), and refreshes the Audio Unit list so Logic sees it. `uninstall.sh` removes it again and keeps your presets. CI builds and tests it next to the macOS zip, which now has the version in its name.
+
+### Easier to read
+- **No abbreviations:** every control is spelled out: Side Chain, Auto Gain, Oversampling, Output, Dynamic, Threshold, and so on. Labels use title case, stereo modes show as words under the node, and the frequency axis reads 1 kHz, 10 kHz. Host parameter names are now `Band N Frequency`, `Band N Enabled` and `Band N Dynamic Side Chain` (IDs unchanged, so sessions and automation are unaffected).
+- **Built-in font:** Inter is embedded, so Windows and macOS look the same, with larger text throughout and fixed-width digits that don't jitter while you drag.
+
+### Bigger, sharper editor
+- Opens at 1280 × 760 and resizes up to a full 4K screen. On large windows the controls and text grow too.
+- **Interface size** (the `...` menu): 75 % to 200 %. It's saved with the session and remembered on your computer.
+- Sharp at any display scaling: curves are drawn per physical pixel and grid lines sit on whole pixels.
+
+### Starting points
+- **Acoustic guitar** (was "Acoustic guitar body") rebuilt as "three cuts and a boost": low cut 50 Hz, 150 Hz thump, 500 Hz "plastic", a dynamic 1.8 kHz band that only cuts loud strums, and a 10 kHz air shelf.
+- New: **Acoustic guitar in a full mix** and **Acoustic guitar pickup** (piezo DI). 13 templates in all.
+- **Lead vocal** gets an optional 4 kHz dip, loaded switched off.
+- The classic "Acoustic guitar" preset is now **Bright acoustic**, with a cut instead of a boost at 2.5 kHz. Sessions that saved either old name show the preset under its new one.
+- Where every band comes from: `eq/docs/starting-points.md`.
 
 ### Build and CI
 - Each change builds once: `main` on push, other branches through their PR. Changes that only touch docs, prompts or images don't build at all.
+- CI renders editor screenshots at 1x and 2x on Windows and macOS (`EQTests --screenshots`), and `EQTests --paint-bench` times the graph.
 
 ## v0.3.0 (2026-11-03)
 

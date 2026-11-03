@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
+#include "EQBinaryData.h"
 
 namespace EQColours
 {
@@ -36,9 +37,50 @@ namespace EQColours
         const float hue = std::fmod (0.07f + (float) index * 0.618034f, 1.0f);
         return juce::Colour::fromHSV (hue, 0.55f, 0.98f, 1.0f);
     }
+    // --- Text ------------------------------------------------------------------------------
+    // One embedded typeface, Inter (SIL OFL 1.1, eq/Resources/Fonts), so Windows and macOS look
+    // the same. Hierarchy comes from weight, not capitals: SemiBold for titles, Medium for
+    // labels and buttons, Regular for values and hints.
+    enum class Weight { Regular, Medium, SemiBold };
+
+    // Loaded once and shared by every editor in the process.
+    inline juce::Typeface::Ptr typeface (Weight w)
+    {
+        static const juce::Typeface::Ptr faces[] = {
+            juce::Typeface::createSystemTypefaceFor (EQBinaryData::InterRegular_ttf,  (size_t) EQBinaryData::InterRegular_ttfSize),
+            juce::Typeface::createSystemTypefaceFor (EQBinaryData::InterMedium_ttf,   (size_t) EQBinaryData::InterMedium_ttfSize),
+            juce::Typeface::createSystemTypefaceFor (EQBinaryData::InterSemiBold_ttf, (size_t) EQBinaryData::InterSemiBold_ttfSize),
+        };
+        return faces[(int) w];
+    }
+
+    // Minimum text sizes at the default editor size (see task 24): 13 for control labels and
+    // values, 14-15 for the band title and top-bar controls, 12 for anything else, and 11 only
+    // for the graph's grid labels.
+    namespace TextSize
+    {
+        constexpr float gridLabel = 11.0f;
+        constexpr float small     = 12.0f;
+        constexpr float control   = 13.0f;
+        constexpr float topBar    = 14.0f;
+        constexpr float title     = 15.0f;
+    }
+
+    // The single entry point for fonts. 'height' is JUCE's font height (ascent + descent).
+    inline juce::FontOptions font (float height, Weight weight)
+    {
+        return juce::FontOptions (typeface (weight)).withHeight (height);
+    }
+
     inline juce::FontOptions font (float height, bool bold = false)
     {
-        return juce::FontOptions ("Segoe UI", height, bold ? juce::Font::bold : juce::Font::plain);
+        return font (height, bold ? Weight::SemiBold : Weight::Regular);
+    }
+
+    // Tabular (fixed-width) figures, for numbers that change while you drag, so they don't jitter.
+    inline juce::FontOptions numbers (float height, Weight weight = Weight::Regular)
+    {
+        return font (height, weight).withFeatureEnabled ("tnum");
     }
 }
 
@@ -54,14 +96,83 @@ public:
         setColour (juce::Label::textColourId, EQColours::label);
     }
 
+    // Every font getter returns the embedded typeface explicitly. (A Font with the default
+    // typeface name is resolved through the *default* LookAndFeel, which a plug-in shouldn't
+    // replace, so overriding getTypefaceForFont alone isn't enough.)
     juce::Font getLabelFont (juce::Label& label) override
     {
-        return juce::Font (EQColours::font (label.getFont().getHeight(), label.getFont().isBold()));
+        // A slider's value box: tabular figures so the number doesn't jitter while dragging.
+        if (auto* slider = dynamic_cast<juce::Slider*> (label.getParentComponent()))
+            return juce::Font (EQColours::numbers (slider->getSliderStyle() == juce::Slider::LinearBar
+                                                       ? EQColours::TextSize::topBar : EQColours::TextSize::control));
+
+        const auto f = label.getFont();
+        if (f.getTypefacePtr() == EQColours::typeface (EQColours::Weight::Regular)
+            || f.getTypefacePtr() == EQColours::typeface (EQColours::Weight::Medium)
+            || f.getTypefacePtr() == EQColours::typeface (EQColours::Weight::SemiBold))
+            return f;   // set with EQColours::font()
+
+        return juce::Font (EQColours::font (juce::jmax (EQColours::TextSize::small, f.getHeight()), f.isBold()));
     }
 
     juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override
     {
-        return juce::Font (EQColours::font (juce::jmin (15.0f, (float) buttonHeight * 0.6f), true));
+        return juce::Font (EQColours::font (juce::jlimit (EQColours::TextSize::control, EQColours::TextSize::topBar,
+                                                          (float) buttonHeight * 0.6f),
+                                            EQColours::Weight::Medium));
+    }
+
+    juce::Font getComboBoxFont (juce::ComboBox& box) override
+    {
+        return juce::Font (EQColours::font (box.getHeight() >= 26 ? EQColours::TextSize::topBar : EQColours::TextSize::control));
+    }
+
+    juce::Font getPopupMenuFont() override               { return juce::Font (EQColours::font (15.0f)); }
+    juce::Font getSliderPopupFont (juce::Slider&) override { return juce::Font (EQColours::numbers (EQColours::TextSize::control)); }
+    juce::Font getAlertWindowTitleFont() override        { return juce::Font (EQColours::font (17.0f, EQColours::Weight::SemiBold)); }
+    juce::Font getAlertWindowMessageFont() override      { return juce::Font (EQColours::font (15.0f)); }
+    juce::Font getAlertWindowFont() override             { return juce::Font (EQColours::font (14.0f)); }
+
+    juce::Typeface::Ptr getTypefaceForFont (const juce::Font& f) override
+    {
+        if (f.getTypefaceName() == juce::Font::getDefaultSansSerifFontName())
+            return EQColours::typeface (f.isBold() ? EQColours::Weight::SemiBold : EQColours::Weight::Regular);
+        return LookAndFeel_V4::getTypefaceForFont (f);
+    }
+
+    // Tooltips: JUCE's default uses a bold system font at 13 px; use the embedded one.
+    static juce::TextLayout layoutTooltip (const juce::String& text, juce::Colour colour)
+    {
+        juce::AttributedString s;
+        s.setWordWrap (juce::AttributedString::WordWrap::byWord);
+        s.setJustification (juce::Justification::centredLeft);
+        s.append (text, juce::Font (EQColours::font (EQColours::TextSize::control)), colour);
+
+        juce::TextLayout tl;
+        tl.createLayoutWithBalancedLineLengths (s, 420.0f);
+        return tl;
+    }
+
+    juce::Rectangle<int> getTooltipBounds (const juce::String& tipText, juce::Point<int> screenPos,
+                                           juce::Rectangle<int> parentArea) override
+    {
+        const auto tl = layoutTooltip (tipText, juce::Colours::black);
+        const int w = (int) std::ceil (tl.getWidth() + 18.0f), h = (int) std::ceil (tl.getHeight() + 10.0f);
+
+        return juce::Rectangle<int> (screenPos.x > parentArea.getCentreX() ? screenPos.x - (w + 12) : screenPos.x + 24,
+                                     screenPos.y > parentArea.getCentreY() ? screenPos.y - (h + 6)  : screenPos.y + 6,
+                                     w, h).constrainedWithin (parentArea);
+    }
+
+    void drawTooltip (juce::Graphics& g, const juce::String& text, int width, int height) override
+    {
+        const auto bounds = juce::Rectangle<int> (width, height).toFloat();
+        g.setColour (juce::Colour (0xf0101216));
+        g.fillRoundedRectangle (bounds, 5.0f);
+        g.setColour (EQColours::panelEdge);
+        g.drawRoundedRectangle (bounds.reduced (0.5f), 5.0f, 1.0f);
+
+        layoutTooltip (text, EQColours::text).draw (g, bounds.reduced (9.0f, 5.0f));
     }
 
     // Compact bar sliders (top-bar output gain): bipolar ranges fill from zero.

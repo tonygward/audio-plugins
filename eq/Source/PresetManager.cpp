@@ -22,6 +22,7 @@ namespace EQ
             float outputGain = 0.0f;
             const char* hint = nullptr;   // one-line usage hint, shown as the preset bar tooltip
             bool startingPoint = false;   // listed under "Starting points"
+            const char* formerName = nullptr;   // name in older versions: sessions that saved it still show this preset
         };
 
         // Starting-point templates. Based on the EQ advice in Joe Gilder's Home Studio
@@ -59,10 +60,14 @@ namespace EQ
                                   { T::Bell, 60.0f, 4.0f, 1.4f },
                                   { T::Bell, 350.0f, -5.0f, 1.6f },
                                   { T::Bell, 3500.0f, 3.0f, 1.5f } }, -2.0f },
-                { "Acoustic guitar", { { T::LowCut, 80.0f, 0.0f, defaultQ },
+                // Index 6. Was "Acoustic guitar" (task 08) with a +1.5 dB boost at 2.5 kHz; renamed so
+                // it isn't confused with the "Acoustic guitar" template, and the boost is now a cut:
+                // Joe ("too much 1-5K makes it sound cheap") and Tony (a dip at 1.75 kHz) both cut there.
+                { "Bright acoustic", { { T::LowCut, 80.0f, 0.0f, defaultQ },
                                        { T::Bell, 200.0f, -3.0f, 1.2f },
-                                       { T::Bell, 2500.0f, 1.5f, 1.0f },
-                                       { T::HighShelf, 9000.0f, 2.0f, defaultQ } } },
+                                       { T::Bell, 2500.0f, -1.5f, 1.0f },
+                                       { T::HighShelf, 9000.0f, 2.0f, defaultQ } },
+                  0.0f, nullptr, false, "Acoustic guitar" },
                 { "De-mud", { { T::Bell, 300.0f, -4.0f, 1.0f },
                               { T::Bell, 500.0f, -2.0f, 2.0f } } },
 
@@ -70,8 +75,10 @@ namespace EQ
                 { "Lead vocal", { { T::LowCut, 120.0f, 0.0f, defaultQ, 1 },
                                   { T::Bell, 200.0f, -3.0f, 0.9f },
                                   dynamic ({ T::Bell, 2600.0f, -2.0f, 6.0f }, -30.0f, -4.0f),
-                                  off ({ T::HighShelf, 10000.0f, 2.0f, defaultQ }) },
-                  0.7f, "Move the 200 Hz cut to the mud you hear. Air shelf is off: only if still dark.", true },
+                                  off ({ T::HighShelf, 10000.0f, 2.0f, defaultQ }),
+                                  // Task 26: Joe pulls down a second whistle "at like 4K" (2024-05-29, 12:12; 2023-11-15, 6:43).
+                                  off ({ T::Bell, 4000.0f, -2.0f, 6.0f }) },
+                  0.7f, "Move the 200 Hz cut to the mud you hear. The air shelf and 4 kHz dip are off: only if needed.", true },
                 { "Backing vocals", { { T::LowShelf, 200.0f, -4.0f, defaultQ },
                                       { T::Bell, 500.0f, -3.0f, 0.8f },
                                       { T::HighShelf, 8000.0f, 2.5f, defaultQ } },
@@ -80,11 +87,17 @@ namespace EQ
                                    { T::Bell, 200.0f, -3.0f, 0.9f },
                                    { T::Bell, 2600.0f, -2.0f, 6.0f } },
                   0.7f, "Cut rumble and mud; keep the 2.6 kHz dip only if loud words whistle.", true },
-                { "Acoustic guitar body", { off ({ T::LowCut, 45.0f, 0.0f, defaultQ, 1 }),
-                                            { T::Bell, 170.0f, -3.0f, 1.4f },
-                                            { T::Bell, 1800.0f, -1.5f, 1.4f },
-                                            off ({ T::HighShelf, 8000.0f, 1.5f, defaultQ }) },
-                  0.4f, "Find the body thump between 150 and 200 Hz by ear. Dip it; don't remove it.", true },
+                // Joe's "three cuts and a boost" (2021-12-02) with Tony's own settings where they're more
+                // specific (fx-chains/songs/acoustic-moods.md, the "Acoustic" chain): see eq/docs/starting-points.md.
+                // Band 4's threshold (-27 dB): with pink noise at -20 dBFS RMS (normal playing) it cuts at
+                // most 0.13 dB; at -6 dBFS RMS (loud strums) it reaches its 2.5 dB range. EQTests checks both.
+                { "Acoustic guitar", { { T::LowCut, 50.0f, 0.0f, defaultQ, 1 },
+                                       { T::Bell, 150.0f, -3.0f, 1.4f },
+                                       { T::Bell, 500.0f, -1.5f, 2.0f },
+                                       dynamic ({ T::Bell, 1800.0f, 0.0f, 4.0f }, -27.0f, -2.5f),
+                                       { T::HighShelf, 10000.0f, 1.5f, defaultQ } },
+                  0.0f, "Sweep the 150 Hz thump by ear and dip it, don't remove it. The 2 kHz band only cuts loud strums.",
+                  true, "Acoustic guitar body" },
                 { "Electric guitar", { { T::LowCut, 80.0f, 0.0f, defaultQ, 1 },
                                        { T::Bell, 175.0f, -2.5f, 1.2f },
                                        { T::Bell, 2500.0f, -2.0f, 0.9f } },
@@ -114,6 +127,20 @@ namespace EQ
                                        { T::Bell, 2600.0f, 0.0f, 0.9f },
                                        { T::Bell, 10000.0f, 0.0f, 0.9f } },
                   0.0f, "Lows, low mids, mids, high mids, highs: find the zone that's too loud, turn it down.", true },
+
+                // ---- Added by the starting-points review (task 26); append only ----
+                // From Tony's own notes rather than Joe's videos (mixing/acoustic-moods.md "Steel guitar
+                // rhythm", instruments/tony/gibson-j45-standard.md): a strummed part under bass and a lead.
+                { "Acoustic guitar in a full mix", { { T::LowCut, 110.0f, 0.0f, defaultQ, 1 },
+                                                     dynamic ({ T::Bell, 250.0f, 0.0f, 1.4f }, -24.0f, -3.0f),
+                                                     { T::Bell, 2000.0f, -1.5f, 1.2f },
+                                                     { T::HighShelf, 10000.0f, 1.5f, defaultQ } },
+                  0.2f, "Strummed rhythm under bass and a lead. The 250 Hz band only dips boom on loud strums.", true },
+                // From Tony's guitar notes (instruments/tony/yamaha-apx-3.md, takamine-esf-40c.md): a piezo DI.
+                { "Acoustic guitar pickup", { { T::LowCut, 100.0f, 0.0f, defaultQ, 1 },
+                                              dynamic ({ T::Bell, 2000.0f, 0.0f, 1.0f }, -26.0f, -3.0f),
+                                              { T::HighShelf, 9000.0f, 1.5f, defaultQ } },
+                  -0.1f, "For a piezo DI. The 2 kHz band tames the quack only when it jumps out.", true },
             };
             return presets;
         }
@@ -467,6 +494,12 @@ namespace EQ
         const int factory = ui.getProperty ("presetFactory", -1);
         current.name = name;
         current.factoryIndex = (factory >= 0 && factory < getNumFactoryPresets()) ? factory : -1;
+
+        // A factory preset that was renamed (task 26): a session saved with its old name at
+        // its index shows the preset under its new name. Indices never change.
+        if (current.isFactory())
+            if (const auto& f = factoryPresets()[(size_t) current.factoryIndex]; f.formerName != nullptr && name == f.formerName)
+                current.name = f.name;
 
         const juce::String path = ui.getProperty ("presetFile", juce::String());
         if (! current.isFactory() && juce::File::isAbsolutePath (path))
