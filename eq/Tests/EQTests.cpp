@@ -3661,9 +3661,8 @@ public:
             p.edits.setStereoMode (dyn, 3);
 
             std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
-            for (auto* child : editor->getChildren())
-                if (auto* display = dynamic_cast<EQDisplay*> (child))
-                    display->setSelectedBand (dyn);
+            if (auto* ed = dynamic_cast<SongsmithEQAudioProcessorEditor*> (editor.get()))
+                ed->getDisplay().setSelectedBand (dyn);
 
             juce::StringArray texts;
             collect (*editor, texts);
@@ -3740,30 +3739,259 @@ public:
             setParam (p, "auto_gain", 1.0f);
             std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
             editor->setSize (760, 440);
-            auto& lf = editor->getLookAndFeel();
+            if (auto* ed = dynamic_cast<SongsmithEQAudioProcessorEditor*> (editor.get()))
+                checkLayout (*this, *ed, "760 x 440");
+        }
+    }
 
-            std::vector<juce::Rectangle<int>> placed;
-            for (auto* c : editor->getChildren())
+    // Every visible top-level control sits inside the (scaled) content, no two overlap, and no
+    // text is wider than its control in the embedded font. Used by the UI size tests too.
+    static void checkLayout (juce::UnitTest& t, SongsmithEQAudioProcessorEditor& ed, const juce::String& context)
+    {
+        auto& content = ed.getContent();
+        auto& lf = ed.getLookAndFeel();
+        const auto window = ed.getLocalBounds();
+        const auto contentOnWindow = content.getBoundsInParent();   // after the transform
+        t.expect (window.expanded (1).contains (contentOnWindow), context + ": content fills the window ("
+                  + contentOnWindow.toString() + " in " + window.toString() + ")");
+
+        std::vector<juce::Rectangle<int>> placed;
+        for (auto* c : content.getChildren())
+        {
+            if (! c->isVisible() || dynamic_cast<juce::TooltipWindow*> (c) != nullptr)
+                continue;
+            const auto what = context + ": " + c->getName() + " " + c->getBounds().toString();
+            t.expect (content.getLocalBounds().contains (c->getBounds()), what + " inside the editor");
+            if (dynamic_cast<EQDisplay*> (c) != nullptr)
+                continue;
+
+            for (auto& r : placed)
+                t.expect (! r.intersects (c->getBounds()), what + " overlaps another top-bar control");
+            placed.push_back (c->getBounds());
+
+            if (auto* box = dynamic_cast<juce::ComboBox*> (c))
+                for (int i = 0; i < box->getNumItems(); ++i)
+                    t.expect (juce::GlyphArrangement::getStringWidth (lf.getComboBoxFont (*box), box->getItemText (i))
+                                  <= (float) box->getWidth() - 30.0f, context + ": fits: " + box->getItemText (i));
+            if (auto* b = dynamic_cast<juce::TextButton*> (c))
+                t.expect (juce::GlyphArrangement::getStringWidth (lf.getTextButtonFont (*b, b->getHeight()), b->getButtonText())
+                              <= (float) b->getWidth() - 8.0f, context + ": fits: " + b->getButtonText());
+            if (auto* l = dynamic_cast<juce::Label*> (c); l != nullptr && l->getText().isNotEmpty())
+                t.expect (juce::GlyphArrangement::getStringWidth (lf.getLabelFont (*l), l->getText())
+                              <= (float) l->getWidth() - (float) l->getBorderSize().getLeftAndRight() + 0.5f,
+                          context + ": label not truncated: " + l->getText());
+        }
+    }
+};
+
+//==============================================================================
+// Task 25: bigger default, 4K maximum, UI size setting, proportional layout.
+class UiSizeTests final : public juce::UnitTest
+{
+public:
+    UiSizeTests() : juce::UnitTest ("Interface size and resolution", "EQ") {}
+
+    static std::unique_ptr<SongsmithEQAudioProcessorEditor> makeEditor (SongsmithEQAudioProcessor& p, float uiScale, int width, int height)
+    {
+        p.uiScale = uiScale;
+        p.editorWidth = width;
+        p.editorHeight = height;
+        std::unique_ptr<SongsmithEQAudioProcessorEditor> ed (dynamic_cast<SongsmithEQAudioProcessorEditor*> (p.createEditor()));
+        return ed;
+    }
+
+    static juce::MouseEvent mouseAt (juce::Component& c, juce::Point<float> pos)
+    {
+        const auto now = juce::Time::getCurrentTime();
+        return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), pos, juce::ModifierKeys(),
+                                 juce::MouseInputSource::defaultPressure, 0.0f, 0.0f, 0.0f, 0.0f,
+                                 &c, &c, now, pos, now, 1, false);
+    }
+
+    void runTest() override
+    {
+        using namespace EQ::EditorSize;
+
+        beginTest ("Limits: default about 1280 x 760, up to 4K, aspect range");
+        {
+            expectEquals (defaultWidth, 1280);
+            expectEquals (defaultHeight, 760);
+            expect (maxWidth >= 3840 && maxHeight >= 2160, "fills a 4K screen");
+            expectEquals (constrain (99999, 99999, 1.0f).x, maxWidth);
+            expectEquals (constrain (10, 10, 1.0f).x, minWidth);
+            expectEquals (constrain (10, 10, 1.0f).y, minHeight);
+            expectEquals (constrain (10, 10, 2.0f).x, minWidth * 2, "the minimum scales with the UI size");
+            const auto wide = constrain (3800, 800, 1.0f);
+            expectLessOrEqual ((double) wide.x / wide.y, maxAspect + 0.01);
+            const auto tall = constrain (900, 2000, 1.0f);
+            expectGreaterOrEqual ((double) tall.x / tall.y, minAspect - 0.01);
+            expectEquals (snapUiScale (1.3f), 1.25f);
+            expectEquals (snapUiScale (9.0f), 2.0f);
+            expectEquals (snapUiScale (std::numeric_limits<float>::quiet_NaN()), 1.0f);
+
+            SongsmithEQAudioProcessor p;
+            auto ed = makeEditor (p, 1.0f, defaultWidth, defaultHeight);
+            expectEquals (ed->getWidth(), 1280);
+            expectEquals (ed->getHeight(), 760);
+            expectEquals (ed->getContentScale(), 1.0f, "no extra scaling at the default size");
+        }
+
+        beginTest ("Layout at every UI size, default and minimum window");
+        {
+            for (int i = 0; i < numUiScales; ++i)
             {
-                if (! c->isVisible() || dynamic_cast<EQDisplay*> (c) != nullptr || dynamic_cast<juce::TooltipWindow*> (c) != nullptr)
-                    continue;
-                expect (editor->getLocalBounds().contains (c->getBounds()), "inside the editor");
-                for (auto& r : placed)
-                    expect (! r.intersects (c->getBounds()), "top-bar controls don't overlap");
-                placed.push_back (c->getBounds());
+                const float s = uiScales[i];
+                for (auto [w, h] : { std::pair<int, int> { defaultWidth, defaultHeight }, std::pair<int, int> { minWidth, minHeight } })
+                {
+                    SongsmithEQAudioProcessor p;
+                    p.prepareToPlay (48000.0, 512);
+                    setParam (p, "auto_gain", 1.0f);
+                    const int dyn = p.edits.addBand (2500.0f, -2.0f, FilterType::Bell);
+                    p.edits.setDynamic (dyn, true);
 
-                if (auto* box = dynamic_cast<juce::ComboBox*> (c))
-                    for (int i = 0; i < box->getNumItems(); ++i)
-                        expectLessOrEqual (juce::GlyphArrangement::getStringWidth (lf.getComboBoxFont (*box), box->getItemText (i)),
-                                           (float) box->getWidth() - 30.0f, "fits: " + box->getItemText (i));
-                if (auto* b = dynamic_cast<juce::TextButton*> (c))
-                    expectLessOrEqual (juce::GlyphArrangement::getStringWidth (lf.getTextButtonFont (*b, b->getHeight()), b->getButtonText()),
-                                       (float) b->getWidth() - 8.0f, "fits: " + b->getButtonText());
+                    const int ww = juce::roundToInt ((float) w * s), wh = juce::roundToInt ((float) h * s);
+                    auto ed = makeEditor (p, s, ww, wh);
+                    ed->getDisplay().setSelectedBand (dyn);
+                    const auto context = juce::String (juce::roundToInt (s * 100.0f)) + "% at " + juce::String (ww) + " x " + juce::String (wh);
+
+                    expectEquals (ed->getWidth(), ww, context + ": window width");
+                    expectEquals (ed->getHeight(), wh, context + ": window height");
+                    expectWithinAbsoluteError (ed->getContentScale(), s * ed->getLayoutStep(), 1.0e-6f);
+                    // Same design size at every UI size: the layout is identical, just scaled.
+                    expectWithinAbsoluteError ((float) ed->getContent().getWidth(), (float) w, 1.0f, context + ": design width");
+                    WordingAndFontTests::checkLayout (*this, *ed, context);
+
+                    // The band panel (with its dynamics row) stays inside the graph.
+                    for (auto* c : ed->getDisplay().getChildren())
+                        if (c->isVisible())
+                            expect (ed->getDisplay().getLocalBounds().contains (c->getBounds()),
+                                    context + ": band panel inside the graph " + c->getBounds().toString());
+                }
+            }
+        }
+
+        beginTest ("Large windows step up controls and text, but the graph grows more");
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = makeEditor (p, 1.0f, 3840, 2160);
+            expectGreaterThan (ed->getLayoutStep(), 1.4f, "controls grow on a 4K window");
+            expectLessOrEqual (ed->getLayoutStep(), 1.75f);
+            expectGreaterThan ((float) ed->getContent().getWidth(), (float) defaultWidth * 1.5f, "the graph gets most of the room");
+
+            ed->setSize (1300, 780);
+            expectEquals (ed->getLayoutStep(), 1.0f, "near the default size nothing steps up");
+        }
+
+        beginTest ("Changing the UI size resizes the window and keeps the layout");
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = makeEditor (p, 1.0f, 1400, 800);
+            const auto designBefore = ed->getContent().getLocalBounds();
+            ed->setUiScale (1.5f);
+            expectEquals (p.uiScale.load(), 1.5f);
+            expectEquals (ed->getWidth(), 2100);
+            expectEquals (ed->getHeight(), 1200);
+            expect (ed->getContent().getLocalBounds() == designBefore, "same design size: " + ed->getContent().getLocalBounds().toString());
+            expectEquals (SongsmithEQAudioProcessor::loadMachineUiScale(), 1.5f, "remembered as this machine's default");
+
+            SongsmithEQAudioProcessor fresh;
+            expectEquals (fresh.uiScale.load(), 1.5f, "a new instance opens at the last chosen size");
+            expectEquals (fresh.editorWidth.load(), juce::roundToInt (1280 * 1.5f));
+
+            ed->setUiScale (1.0f);
+            expectEquals (SongsmithEQAudioProcessor::loadMachineUiScale(), 1.0f);
+        }
+
+        beginTest ("UI size and window size round-trip through the state; old states open at 100%");
+        {
+            SongsmithEQAudioProcessor a;
+            a.uiScale = 1.75f;
+            a.editorWidth = 2400;
+            a.editorHeight = 1400;
+            juce::MemoryBlock mb;
+            a.getStateInformation (mb);
+
+            SongsmithEQAudioProcessor::saveMachineUiScale (0.75f);   // the session must win over this
+            SongsmithEQAudioProcessor b;
+            expectEquals (b.uiScale.load(), 0.75f);
+            b.setStateInformation (mb.getData(), (int) mb.getSize());
+            expectEquals (b.uiScale.load(), 1.75f, "session wins over the machine default");
+            expectEquals (b.editorWidth.load(), 2400);
+            expectEquals (b.editorHeight.load(), 1400);
+
+            // An old session: no uiScale, a size from the old 980 x 580 default.
+            auto xml = juce::AudioProcessor::getXmlFromBinary (mb.getData(), (int) mb.getSize());
+            if (xml != nullptr)
+            {
+                if (auto* ui = xml->getChildByName ("UI"))
+                {
+                    ui->removeAttribute ("uiScale");
+                    ui->setAttribute ("editorWidth", 980);
+                    ui->setAttribute ("editorHeight", 580);
+                }
+                juce::MemoryBlock old;
+                juce::AudioProcessor::copyXmlToBinary (*xml, old);
+                SongsmithEQAudioProcessor c;
+                c.setStateInformation (old.getData(), (int) old.getSize());
+                expectEquals (c.uiScale.load(), 1.0f, "old state opens at 100%");
+                expectEquals (c.editorWidth.load(), 980, "old state keeps its saved size");
+                expectEquals (c.editorHeight.load(), 580);
+
+                // Out of range: clamped.
+                if (auto* ui = xml->getChildByName ("UI"))
+                {
+                    ui->setAttribute ("uiScale", 7.0);
+                    ui->setAttribute ("editorWidth", 50000);
+                    ui->setAttribute ("editorHeight", 3);
+                }
+                juce::MemoryBlock bad;
+                juce::AudioProcessor::copyXmlToBinary (*xml, bad);
+                SongsmithEQAudioProcessor d;
+                d.setStateInformation (bad.getData(), (int) bad.getSize());
+                expectEquals (d.uiScale.load(), 2.0f, "UI size snapped to an option");
+                expectLessOrEqual (d.editorWidth.load(), maxWidth);
+                expectGreaterOrEqual (d.editorHeight.load(), minHeight * 2);
+                const double aspect = (double) d.editorWidth.load() / d.editorHeight.load();
+                expect (aspect >= minAspect - 0.01 && aspect <= maxAspect + 0.01, "aspect clamped: " + juce::String (aspect));
+            }
+            else
+            {
+                expect (false, "state XML");
+            }
+            SongsmithEQAudioProcessor::saveMachineUiScale (1.0f);
+        }
+
+        beginTest ("Clicking a node's centre selects it at 75% and at 200%");
+        {
+            for (float s : { 0.75f, 2.0f })
+            {
+                SongsmithEQAudioProcessor p;
+                p.prepareToPlay (48000.0, 512);
+                const int band = p.edits.addBand (1000.0f, 4.0f, FilterType::Bell);
+                auto ed = makeEditor (p, s, juce::roundToInt (1280 * s), juce::roundToInt (760 * s));
+                auto& display = ed->getDisplay();
+                display.setSelectedBand (-1);
+
+                // Node centre in window pixels and back: the transform is applied both ways.
+                const auto centre = display.getNodeCentre (band);
+                const auto inWindow = ed->getLocalPoint (&display, centre);
+                expectWithinAbsoluteError (inWindow.x / s, (float) display.getBoundsInParent().getX() + centre.x, 1.0f,
+                                           "window position scales with the UI size");
+                const auto back = display.getLocalPoint (ed.get(), inWindow);
+                expectEquals (display.findNodeAt (back), band, "hit at the centre");
+
+                // A click 12 design units away still hits (a 24 x 24 target at every size).
+                expectEquals (display.findNodeAt (back + juce::Point<float> (11.0f, 0.0f)), band, "24 x 24 target");
+
+                display.mouseDown (mouseAt (display, back));
+                display.mouseUp (mouseAt (display, back));
+                expectEquals (display.getSelectedBand(), band, juce::String (s) + ": click selects the node");
             }
         }
     }
 };
 
+static UiSizeTests uiSizeTests;
 static WordingAndFontTests wordingAndFontTests;
 static RenameTests renameTests;
 static StartingPointTests startingPointTests;
@@ -4027,7 +4255,7 @@ static int renderScreenshots (const juce::File& folder, float scale)
 {
     folder.createDirectory();
 
-    auto shoot = [&] (int width, int height, const juce::String& name)
+    auto shoot = [&] (int width, int height, const juce::String& name, float uiScale = 1.0f)
     {
         SongsmithEQAudioProcessor p;
         p.prepareToPlay (48000.0, 512);
@@ -4050,14 +4278,14 @@ static int renderScreenshots (const juce::File& folder, float scale)
         p.edits.setValue (dyn, Param::Range, -4.0f);
         add (FilterType::HighShelf, 10000.0f, 1.5f, 0.71f);
 
+        p.uiScale = uiScale;
         p.editorWidth = width;
         p.editorHeight = height;
         std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
         editor->setSize (width, height);
 
-        for (auto* child : editor->getChildren())
-            if (auto* display = dynamic_cast<EQDisplay*> (child))
-                display->setSelectedBand (dyn);
+        if (auto* ed = dynamic_cast<SongsmithEQAudioProcessorEditor*> (editor.get()))
+            ed->getDisplay().setSelectedBand (dyn);
 
         const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, scale);
         const auto file = folder.getChildFile (name + (scale != 1.0f ? "@" + juce::String (scale, 0) + "x" : juce::String()) + ".png");
@@ -4070,7 +4298,106 @@ static int renderScreenshots (const juce::File& folder, float scale)
 
     SongsmithEQAudioProcessor defaults;
     shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "default-size");
-    shoot (760, 440, "minimum-size");
+    shoot (EQ::EditorSize::minWidth, EQ::EditorSize::minHeight, "minimum-size");
+    shoot (EQ::EditorSize::maxWidth, 2160, "maximum-size-4k");
+
+    // Every interface size at its default window (design size 1280 x 760, scaled).
+    for (auto s : EQ::EditorSize::uiScales)
+        shoot (juce::roundToInt ((float) EQ::EditorSize::defaultWidth * s), juce::roundToInt ((float) EQ::EditorSize::defaultHeight * s),
+               "interface-size-" + juce::String (juce::roundToInt (s * 100.0f)), s);
+    return 0;
+}
+
+//==============================================================================
+// EQTests --paint-bench
+// Times EQDisplay::paint (the graph, with the analyser showing pink noise and five bands) at
+// the editor's default and largest window sizes, at 1x and 2x (Retina / 200 %) backing scale.
+static int runPaintBenchmark()
+{
+    auto timeAt = [] (int width, int height, float backingScale)
+    {
+        SongsmithEQAudioProcessor p;
+        p.setRateAndBufferSizeDetails (48000.0, 512);
+        p.prepareToPlay (48000.0, 512);
+        for (int b = 0; b < numBands; ++b)
+            if (p.isBandUsed (b))
+                p.edits.removeBand (b);
+        p.edits.addBand (70.0f, 0.0f, FilterType::LowCut);
+        p.edits.addBand (280.0f, -3.5f, FilterType::Bell);
+        const int dyn = p.edits.addBand (2600.0f, -2.0f, FilterType::Bell);
+        p.edits.setDynamic (dyn, true);
+        p.edits.addBand (10000.0f, 1.5f, FilterType::HighShelf);
+        p.edits.addBand (500.0f, -1.5f, FilterType::Bell);
+
+        // A second of pink-ish noise so the analyser has a spectrum to draw.
+        juce::AudioBuffer<float> buffer (2, 512);
+        juce::MidiBuffer midi;
+        juce::Random rng (1);
+        float b0 = 0.0f, b1 = 0.0f, b2 = 0.0f;
+        for (int block = 0; block < 100; ++block)
+        {
+            for (int i = 0; i < 512; ++i)
+            {
+                const float w = rng.nextFloat() * 2.0f - 1.0f;
+                b0 = 0.99765f * b0 + w * 0.0990460f;
+                b1 = 0.96300f * b1 + w * 0.2965164f;
+                b2 = 0.57000f * b2 + w * 1.0526913f;
+                const float pink = 0.1f * (b0 + b1 + b2 + w * 0.1848f);
+                buffer.setSample (0, i, pink);
+                buffer.setSample (1, i, pink);
+            }
+            p.processBlock (buffer, midi);
+        }
+
+        p.editorWidth = width;
+        p.editorHeight = height;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+        editor->setSize (width, height);
+
+        EQDisplay* display = nullptr;
+        std::function<void (juce::Component&)> find = [&] (juce::Component& c)
+        {
+            if (auto* d = dynamic_cast<EQDisplay*> (&c)) display = d;
+            for (auto* child : c.getChildren()) find (*child);
+        };
+        find (*editor);
+        if (display == nullptr)
+            return std::pair<double, juce::String> { -1.0, {} };
+
+        const auto bounds = display->getLocalBounds();
+        const float total = backingScale * (float) juce::Component::getApproximateScaleFactorForComponent (display);
+        juce::Image image (juce::Image::ARGB, juce::roundToInt ((float) bounds.getWidth() * total),
+                           juce::roundToInt ((float) bounds.getHeight() * total), true);
+
+        auto paintOnce = [&]
+        {
+            juce::Graphics g (image);
+            g.addTransform (juce::AffineTransform::scale (total));
+            display->paintEntireComponent (g, true);
+        };
+        paintOnce();   // warm-up (fills the curve cache, as on screen)
+
+        constexpr int runs = 20;
+        const auto start = juce::Time::getHighResolutionTicks();
+        for (int i = 0; i < runs; ++i)
+            paintOnce();
+        const double ms = juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - start) * 1000.0 / runs;
+        return std::pair<double, juce::String> { ms, juce::String (editor->getWidth()) + " x " + juce::String (editor->getHeight()) + " -> " + juce::String (image.getWidth()) + " x " + juce::String (image.getHeight()) };
+    };
+
+    SongsmithEQAudioProcessor defaults;
+    const int dw = defaults.editorWidth.load(), dh = defaults.editorHeight.load();
+
+
+    std::printf ("Graph paint time (EQDisplay, analyser on, 5 bands), mean of 20 paints\n");
+    std::printf ("%-24s %-8s %-16s %10s\n", "window", "backing", "graph pixels", "ms/paint");
+    for (auto [w, h] : { std::pair<int, int> { dw, dh }, std::pair<int, int> { 2000, 1200 }, std::pair<int, int> { 3840, 2160 } })
+        for (float s : { 1.0f, 2.0f })
+        {
+            const auto [ms, pixels] = timeAt (w, h, s);
+            std::printf ("%-24s %-8s %-16s %10.2f\n", (juce::String (w) + " x " + juce::String (h)).toRawUTF8(),
+                         (juce::String (s, 0) + "x").toRawUTF8(), pixels.toRawUTF8(), ms);
+        }
     return 0;
 }
 
@@ -4097,6 +4424,9 @@ int main (int argc, char* argv[])
             runBenchmark();
             return 0;
         }
+
+        if (juce::String (argv[i]) == "--paint-bench")
+            return runPaintBenchmark();
 
         if (juce::String (argv[i]) == "--screenshots" && i + 1 < argc)
         {

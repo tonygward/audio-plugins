@@ -54,9 +54,17 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        auto r = getLocalBounds().toFloat().reduced (0.5f, 6.0f);
-        auto clipBox = r.removeFromRight (8.0f);
-        r.removeFromRight (2.0f);
+        // Edges on whole physical pixels, so the meter stays sharp at 125 % / 150 % scaling.
+        const float s = juce::jmax (0.25f, g.getInternalContext().getPhysicalPixelScaleFactor());
+        auto snap = [s] (juce::Rectangle<float> rect)
+        {
+            return juce::Rectangle<float>::leftTopRightBottom (std::round (rect.getX() * s) / s, std::round (rect.getY() * s) / s,
+                                                              std::round (rect.getRight() * s) / s, std::round (rect.getBottom() * s) / s);
+        };
+
+        auto r = snap (getLocalBounds().toFloat().reduced (0.5f, 6.0f));
+        auto clipBox = snap (r.removeFromRight (8.0f));
+        r = snap (r.withTrimmedRight (2.0f));
 
         g.setColour (EQColours::panel);
         g.fillRoundedRectangle (r, 2.0f);

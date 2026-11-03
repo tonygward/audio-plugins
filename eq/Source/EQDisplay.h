@@ -107,6 +107,26 @@ private:
     juce::uint32 lastWheelTime = 0;
 
     static constexpr float nodeRadius = 9.0f;   // fits a two-digit band number at 12 px
+    static constexpr float hitRadius  = 14.0f;  // click target: a 28 x 28 design-unit circle (at least 24 x 24)
+
+    // High-DPI drawing. 'physicalScale' is physical pixels per design unit for the current paint
+    // (UI size x layout step x the display's own scaling), read from the Graphics context.
+    float physicalScale = 1.0f;
+    float curvesScale = 0.0f;                                  // physicalScale the curve cache was built for
+    float onePixel() const noexcept { return 1.0f / physicalScale; }
+    float stroke (float designWidth) const noexcept { return juce::jmax (designWidth, onePixel()); }
+    float snapToPixel (float v) const noexcept { return std::round (v * physicalScale) / physicalScale; }
+    float hairline() const noexcept { return juce::jmax (1.0f, std::floor (physicalScale + 0.25f)) / physicalScale; }
+    void verticalLine (juce::Graphics&, float x, float top, float bottom) const;
+    void horizontalLine (juce::Graphics&, float y, float left, float right) const;
+
+public:
+    // For tests: the band whose node is under 'pos' (display coordinates), or -1, and where a
+    // band's node is drawn.
+    int findNodeAt (juce::Point<float> pos) const { return hitTestNode (pos); }
+    juce::Point<float> getNodeCentre (int band) const { return getNodePosition (band); }
+
+private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EQDisplay)
 };
