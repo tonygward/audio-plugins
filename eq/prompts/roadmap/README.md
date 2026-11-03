@@ -6,11 +6,9 @@ There is one self-contained prompt per item in [`../../ROADMAP.md`](../../ROADMA
 
 | Prompt | Status |
 |---|---|
+| 01–03 (in [`done/`](done/)) | The prompts that built the plugin before the roadmap: [01 three-band EQ](done/01-three-band-eq.md), [02 interactive EQ curve](done/02-interactive-eq-curve.md), [03 24-band EQ](done/03-24-band-eq.md). The spectrum-analyser prompt that came between 02 and 03 wasn't saved |
 | 05–22 (in [`done/`](done/)) | Done, merged into `main` (21 and 22 shipped in v0.3.0) |
-| [23 macOS installer](done/23-macos-installer.md) | Done (#28), lands in `main` with the overnight PR |
-| [24 plain wording and fonts](done/24-ui-wording-fonts.md) | Done (#29), lands in `main` with the overnight PR |
-| [25 higher-resolution, scalable UI](done/25-ui-resolution.md) | Done (#30), lands in `main` with the overnight PR |
-| [26 starting-points review](done/26-starting-points-review.md) | Done (#31), lands in `main` with the overnight PR |
+| 23–26 (in [`done/`](done/)) | Done (#28–#31), merged into `main` in #32 and shipped in v0.4.0 |
 
 ## Run in waves, merging between waves
 
