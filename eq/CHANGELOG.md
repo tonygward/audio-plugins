@@ -1,8 +1,24 @@
-# TW Pro EQ changelog
+# Songsmith EQ changelog
 
-## Unreleased (merged in PR #17)
+Songsmith EQ was called TW Pro EQ up to v0.2.0. The entries below use today's names for controls.
 
-### New features
+## Unreleased
+
+### Build and CI
+- Each change builds once: `main` on push, other branches through their PR. Changes that only touch docs, prompts or images don't build at all.
+
+## v0.3.0 (2026-11-03)
+
+### Renamed to Songsmith EQ
+- **TW Pro EQ is now Songsmith EQ**, by Songsmith Studio. Plugin codes are unchanged, so sessions and presets from TW Pro EQ open as before. Old `.twpreset` files are copied into the new presets folder the first time it's opened.
+
+### Install
+- **Windows installer:** an unsigned Inno Setup `Setup.exe` that installs the VST3 and optionally the standalone app, upgrades in place, removes the old TW Pro EQ bundles, and uninstalls without touching your presets. CI builds it next to the release zip.
+
+### Starting points
+- **11 starting-point templates** in the preset menu (lead vocal, backing vocals, spoken word, acoustic guitar body, electric guitar, electric guitar bus, bass guitar, drum bus, snare, reverb return and a five-zone layout), based on advice from Joe Gilder's Home Studio Corner videos. Cuts before boosts, "only if needed" bands loaded but switched off, output gain level-matched, and a one-line hint for each.
+
+### New features (roadmap tasks 05–19, merged in PR #17)
 - **Output gain and bypass:** two new host parameters, smoothed so changes don't click. The top bar now has an output gain bar, a peak meter with hold and clip, and a bypass button.
 - **Cut slopes:** low and high cuts go from 6 to 48 dB/oct. Choose the slope in the band panel or from a submenu; the curve shows the real slope.
 - **Band solo:** Alt-click a band, or use the Solo button or menu item, to hear just that band's range. It fades in and out over 20 ms, and the soloed region is shaded.
