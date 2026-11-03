@@ -93,7 +93,8 @@ for spec in "vst3|/Library/Audio/Plug-Ins/VST3|Songsmith EQ.vst3" \
     check "$id: identifier com.songsmithstudio.songsmitheq.$id" grep -q "identifier=\"com.songsmithstudio.songsmitheq.$id\"" "$info"
     check "$id: installs into $location" grep -q "install-location=\"$location\"" "$info"
     check "$id: payload is exactly '$bundle'" test "$(ls -A "$d/Payload" 2>/dev/null)" = "$bundle"
-    check "$id: bundle isn't relocatable" bash -c "! grep -q '<relocate' '$info'"
+    # Relocatable bundles are listed as <relocate><bundle id=.../></relocate>; an empty <relocate/> is fine.
+    check "$id: bundle isn't relocatable" test "$(xmllint --xpath 'count(//relocate/bundle)' "$info" 2>/dev/null)" = "0"
 done
 check "no .DS_Store or AppleDouble files in any payload" \
     test -z "$(find "$work/expanded" \( -name .DS_Store -o -name '._*' \) -print -quit)"
