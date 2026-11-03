@@ -448,7 +448,7 @@ public:
         beginTest ("Parameter identities");
         {
             ThreeBandEQAudioProcessor p;
-            constexpr int numGlobalParams = 6;   // output_gain, bypass, auto_gain, gain_scale, phase_mode, lp_quality
+            constexpr int numGlobalParams = 7;   // output_gain, bypass, auto_gain, gain_scale, phase_mode, lp_quality, oversampling
             expectEquals (p.getParameters().size(), numBands * numBandParams + numGlobalParams, "24 bands x per-band parameters + globals");
 
             juce::StringArray ids;
@@ -2932,6 +2932,197 @@ public:
     }
 };
 
+//==============================================================================
+class OversamplingTests final : public juce::UnitTest
+{
+public:
+    OversamplingTests() : juce::UnitTest ("Oversampling", "EQ") {}
+
+    // Analogue prototype of the bell: H(s) = (s^2 + s A/Q + 1) / (s^2 + s/(A Q) + 1).
+    static double analogBellDb (double f, double f0, double gainDb, double q)
+    {
+        const double A = std::pow (10.0, gainDb / 40.0);
+        const std::complex<double> s (0.0, f / f0);
+        return 20.0 * std::log10 (std::abs ((s * s + s * (A / q) + 1.0) / (s * s + s / (A * q) + 1.0)));
+    }
+
+    static double measureDb (ThreeBandEQAudioProcessor& p, double fs, double f)
+    {
+        const int total = (int) (0.4 * fs);
+        auto sig = [=] (int n) { return (float) (0.1 * std::sin (2.0 * pi * f * n / fs)); };
+        const auto out = runProcessor (p, fs, 256, total, sig, [] (int) {});
+        std::vector<float> in ((size_t) total);
+        for (int n = 0; n < total; ++n) in[(size_t) n] = sig (n);
+        return 20.0 * std::log10 (rms (out, (size_t) total / 2, out.size()) / rms (in, (size_t) total / 2, in.size()));
+    }
+
+    static void bell16k (ThreeBandEQAudioProcessor& p)
+    {
+        for (int b = 0; b < numBands; ++b) p.setBandUsed (b, b == 0);
+        setBand (p, 0, Param::Freq, 16000.0f);
+        setBand (p, 0, Param::Gain, 12.0f);
+        setBand (p, 0, Param::Q, 2.0f);
+    }
+
+    void runTest() override
+    {
+        constexpr double fs = 44100.0;
+
+        beginTest ("44.1 kHz, 16 kHz +12 dB bell, Q 2: 2x / 4x are closer to the analogue prototype");
+        {
+            const double freqs[] = { 8000.0, 11000.0, 13000.0, 14500.0, 16000.0, 17000.0 };
+            double rmsErr[3] {};
+            juce::String report ("RMS error vs analogue (dB): ");
+
+            for (int os = 0; os < 3; ++os)
+            {
+                double sum = 0.0;
+                for (double f : freqs)
+                {
+                    ThreeBandEQAudioProcessor p;
+                    bell16k (p);
+                    setParam (p, "oversampling", (float) os);
+                    p.setRateAndBufferSizeDetails (fs, 256);
+                    p.prepareToPlay (fs, 256);
+                    const double err = measureDb (p, fs, f) - analogBellDb (f, 16000.0, 12.0, 2.0);
+                    sum += err * err;
+                }
+                rmsErr[os] = std::sqrt (sum / std::size (freqs));
+                report << juce::StringArray { "off", "2x", "4x" }[os] << " " << juce::String (rmsErr[os], 2) << "  ";
+            }
+            logMessage (report);
+            expectLessThan (rmsErr[1], rmsErr[0] * 0.6, "2x closer than off");
+            expectLessThan (rmsErr[2], rmsErr[1], "4x closer than 2x");
+
+            // The drawn curve (designed at the oversampled rate) matches what is measured.
+            ThreeBandEQAudioProcessor p;
+            bell16k (p);
+            setParam (p, "oversampling", 2.0f);
+            p.setRateAndBufferSizeDetails (fs, 256);
+            p.prepareToPlay (fs, 256);
+            const auto drawn = makeFilter (FilterType::Bell, fs * 4.0, 16000.0, 2.0, 12.0, defaultSlope);
+            expectWithinAbsoluteError (measureDb (p, fs, 13000.0), getMagnitudeDb (drawn, 13000.0, fs * 4.0), 0.3,
+                                       "4x: measured = curve drawn at the oversampled rate");
+        }
+
+        beginTest ("Reported latency equals the measured delay");
+        for (int os = 1; os < 3; ++os)
+        {
+            ThreeBandEQAudioProcessor p;
+            for (int b = 0; b < numBands; ++b) p.setBandUsed (b, false);
+            setParam (p, "oversampling", (float) os);
+            p.setRateAndBufferSizeDetails (fs, 256);
+            p.prepareToPlay (fs, 256);
+            p.updateLatencyNow();
+            const int latency = p.getLatencySamples();
+            expectGreaterThan (latency, 0, "some latency at " + juce::String (1 << os) + "x");
+
+            const int total = 8192;
+            auto sig = [] (int n) { return (float) (0.3 * std::sin (2.0 * pi * 300.0 * n / fs) + 0.2 * std::sin (2.0 * pi * 1100.0 * n / fs)); };
+            const auto out = runProcessor (p, fs, 256, total, sig, [] (int) {});
+
+            int best = -1;
+            double bestErr = 1.0e30;
+            for (int d = 0; d < 400; ++d)
+            {
+                double err = 0.0;
+                for (int n = 2048; n < total; ++n)
+                    err += std::abs ((double) out[(size_t) n] - sig (n - d));
+                if (err < bestErr) { bestErr = err; best = d; }
+            }
+            expectWithinAbsoluteError (best, latency, 1, "measured delay = reported latency at " + juce::String (1 << os) + "x");
+        }
+
+        beginTest ("Off reports no latency (and processing is the plain engine)");
+        {
+            ThreeBandEQAudioProcessor p;
+            p.prepareToPlay (fs, 256);
+            p.updateLatencyNow();
+            expectEquals (p.getLatencySamples(), 0);
+            expectEquals (p.getOversamplingFactor(), 1);
+        }
+
+        beginTest ("All sample rates stay finite with 2x / 4x and automation");
+        for (double rate : { 44100.0, 48000.0, 88200.0, 96000.0, 192000.0 })
+            for (int os = 1; os < 3; ++os)
+            {
+                ThreeBandEQAudioProcessor p;
+                setParam (p, "oversampling", (float) os);
+                p.setRateAndBufferSizeDetails (rate, 128);
+                p.prepareToPlay (rate, 128);
+                for (int b = 0; b < 8; ++b)
+                {
+                    p.setBandUsed (b, true);
+                    setBand (p, b, Param::Type, (float) (b % numFilterTypes));
+                    setBand (p, b, Param::Freq, 30.0f * std::pow (600.0f, (float) b / 8.0f));
+                }
+                std::mt19937 rng ((unsigned) rate + (unsigned) os);
+                std::uniform_real_distribution<float> u (0.0f, 1.0f);
+                const auto out = runProcessor (p, rate, 128, (int) (0.5 * rate), [&] (int) { return 0.5f * (u (rng) * 2.0f - 1.0f); },
+                                               [&] (int)
+                {
+                    for (int b = 0; b < 8; ++b)
+                    {
+                        setBand (p, b, Param::Gain, -24.0f + 48.0f * u (rng));
+                        setBand (p, b, Param::Freq, minFreq * std::pow (maxFreq / minFreq, u (rng)));
+                    }
+                });
+                expect (std::all_of (out.begin(), out.end(), [] (float v) { return std::isfinite (v); }),
+                        "finite at " + juce::String (rate) + " Hz, " + juce::String (1 << os) + "x");
+            }
+
+        beginTest ("Switching the factor while running fades (no hard switch)");
+        {
+            ThreeBandEQAudioProcessor p;
+            setBand (p, 1, Param::Gain, 6.0f);
+            p.setRateAndBufferSizeDetails (48000.0, 256);
+            p.prepareToPlay (48000.0, 256);
+            const auto out = runProcessor (p, 48000.0, 256, 48000, [] (int n) { return (float) (0.2 * std::sin (2.0 * pi * 440.0 * n / 48000.0)); },
+                                           [&] (int n)
+            {
+                if (n == 256 * 40) setParam (p, "oversampling", 2.0f);
+                if (n == 256 * 120) setParam (p, "oversampling", 1.0f);
+            });
+            expect (std::all_of (out.begin(), out.end(), [] (float v) { return std::isfinite (v); }), "finite");
+            expectLessThan (maxStep (out, 1, out.size()), 0.2 * 2.0 * 2.0 * pi * 440.0 / 48000.0 * 1.3, "smooth");
+        }
+
+        beginTest ("Linear phase uses the oversampled design without extra latency");
+        {
+            ThreeBandEQAudioProcessor p;
+            bell16k (p);
+            setParam (p, "oversampling", 2.0f);
+            setParam (p, "phase_mode", 1.0f);
+            setParam (p, "lp_quality", 1.0f);
+            p.setRateAndBufferSizeDetails (fs, 512);
+            p.prepareToPlay (fs, 512);
+            juce::AudioBuffer<float> buf (2, 512);
+            juce::MidiBuffer midi;
+            for (int i = 0; i < 1000 && ! p.isLinearPhaseReady(); ++i) { buf.clear(); p.processBlock (buf, midi); juce::Thread::sleep (2); }
+            for (int i = 0; i < 60; ++i) { buf.clear(); p.processBlock (buf, midi); }
+            p.updateLatencyNow();
+            expectEquals (p.getLatencySamples(), p.getLinearPhaseLength() / 2, "latency is just the FIR's");
+
+            const double measured = measureDb (p, fs, 13000.0);
+            const auto drawn = makeFilter (FilterType::Bell, fs * 4.0, 16000.0, 2.0, 12.0, defaultSlope);
+            expectWithinAbsoluteError (measured, getMagnitudeDb (drawn, 13000.0, fs * 4.0), 0.3, "un-cramped response in linear phase");
+        }
+
+        beginTest ("Legacy sessions load with oversampling off");
+        {
+            ThreeBandEQAudioProcessor p;
+            setParam (p, "oversampling", 2.0f);
+            auto state = p.apvts.copyState();
+            state.removeChild (state.getChildWithProperty ("id", "oversampling"), nullptr);
+            juce::MemoryBlock mb;
+            juce::AudioProcessor::copyXmlToBinary (*state.createXml(), mb);
+            p.setStateInformation (mb.getData(), (int) mb.getSize());
+            expectEquals (p.getOversamplingFactor(), 1);
+        }
+    }
+};
+
+static OversamplingTests oversamplingTests;
 static LinearPhaseTests linearPhaseTests;
 static DynamicEqTests dynamicEqTests;
 static NoteTests noteTests;
@@ -3112,6 +3303,30 @@ static void runBenchmark()
                    setBand (p, b, Param::Threshold, -40.0f + 10.0f * std::sin ((float) bi * 0.05f + (float) b));
                },
                { 64 });
+
+    for (int os = 0; os < 3; ++os)
+    {
+        const juce::String title = "24 bands, oversampling " + juce::StringArray { "off", "2x", "4x" }[os];
+        benchCase (title.toRawUTF8(),
+                   [os] (ThreeBandEQAudioProcessor& p, int b)
+                   {
+                       setBand (p, b, Param::Type, (float) (b % numFilterTypes));
+                       setBand (p, b, Param::Freq, 40.0f * std::pow (400.0f, (float) b / numBands));
+                       setBand (p, b, Param::Gain, 6.0f);
+                       setBand (p, b, Param::Q, 1.5f);
+                       if (b == numBands - 1)
+                       {
+                           setParam (p, "oversampling", (float) os);
+                           juce::AudioBuffer<float> buf (2, 32);
+                           juce::MidiBuffer midi;
+                           for (int i = 0; i < 100; ++i) { buf.clear(); p.processBlock (buf, midi); }   // finish the switch fade
+                       }
+                   },
+                   [] (ThreeBandEQAudioProcessor& p, int b, int bi)
+                   {
+                       setBand (p, b, Param::Gain, 6.0f * std::sin ((float) bi * 0.05f + (float) b));
+                   });
+    }
 
     for (int quality = 0; quality < 3; ++quality)
     {
