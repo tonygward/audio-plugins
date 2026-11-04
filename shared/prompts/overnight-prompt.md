@@ -6,7 +6,7 @@ files are tasks: skip README.md, this file, and the done/ subfolder (those tasks
 are already merged). Ignore that folder's README.md wave table; it describes
 parallel waves, which don't apply here. Do read its notes on order and conflicts.
 
-Overnight runs merge straight into main. Every change still goes through a PR,
+Overnight runs merge straight into main and release. Every change still goes through a PR,
 and Tony has agreed that the AI approves and merges its own PRs. (GitHub doesn't
 let an account formally approve its own PR, so "approve" means: check
 everything below, then merge.) Never push commits directly to main.
@@ -26,6 +26,27 @@ For each prompt, follow it exactly, with these overrides:
   checked, and merge (gh pr merge --merge --delete-branch).
 - In the same PR, before merging, move the task's prompt into the folder's
   done/ subfolder and update that folder's README status table, if it has one.
+- If the task changes what users install (plugin code, presets, installers),
+  bump the version in the same PR (minor for new features, patch for fixes
+  only) and add a changelog entry. Docs- and prompt-only tasks don't bump it.
+
+Releasing is automatic too. Tony has agreed that every merged PR that bumps
+the version is released straight away, without asking:
+1. Wait for main's Build run of the merge commit (gh run list --branch main
+   --event push --commit <merge sha>, then gh run watch). If it fails, fix it
+   with a new PR as the next task; don't release a red build.
+2. Download its installer and zip artifacts (gh run download <run id>), and
+   check that every file name carries the new version.
+3. Publish: gh release create vX.Y.Z --target <merge sha> --title
+   "Songsmith Studio vX.Y.Z" with those files and plain-language notes in the
+   style of the previous releases (gh release view): what's new for each
+   plugin, downloads, the unsigned-installer warnings, uninstalling, and
+   known limitations ("Not yet verified in a recording application" when
+   that's true).
+Follow the Releasing section of TECHNICAL.md if it has one. Until shared task
+S7 has merged (one VERSION file for everything), release the way the most
+recent releases were made: a tag and release per plugin whose version
+changed, and a studio-vX.Y.Z release when installer/version.txt changed.
 
 If a task is blocked, or its tests can't be made to pass within reason:
 leave its PR as a draft with a "Blocked" section, don't merge it, check out
@@ -36,7 +57,8 @@ Don't stop until all of them have been attempted. Then:
 1. On main, do a clean Release build of every plugin, run every test
    executable, and run EQTests --bench.
 2. Open one issue (gh issue create) titled "Overnight run YYYY-MM-DD" with: a
-   table of each task (merged / blocked, PR link, one-line summary), the final
+   table of each task (merged / blocked, PR link, one-line summary, release
+   link if one was published), the final
    test counts, before/after benchmark numbers, every design decision made
    without a human, and a short "what to check by hand" list (DAW tests,
    screenshots to look at, anything only verified on CI).
