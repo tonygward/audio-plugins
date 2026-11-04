@@ -2,6 +2,20 @@
 
 Songsmith EQ was called TW Pro EQ up to v0.2.0. The entries below use today's names for controls.
 
+## v0.5.0 (2026-11-04)
+
+### Editor
+- **Output meter:** a full-height meter on the right of the graph, from −60 to +6 dBFS, with a peak-hold line, the held peak as a number and a clip box at the top. It replaces the small bar in the second row.
+- **Piano toggle:** a "Piano" button in the bottom bar shows or hides the piano note strip. It stays in step with the right-click menu, is saved with the session, and is off by default.
+- **Edge double-clicks add cuts:** double-click below 40 Hz to add a Low Cut, or above 12 kHz to add a High Cut. Hold Ctrl (Cmd on macOS) to get a Bell instead.
+
+### Starting points and presets
+- New template: **Abbey Road reverb**, a five-band EQ to put before a reverb.
+- New presets: **Rack tom**, **Floor tom** and **Toms bus**.
+
+### Fixes
+- Fixed a possible hang when the linear-phase processing thread was stopped.
+
 ## v0.4.0 (2026-11-03)
 
 ### Install

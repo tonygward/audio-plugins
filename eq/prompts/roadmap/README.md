@@ -9,7 +9,7 @@ There is one self-contained prompt per item in [`../../ROADMAP.md`](../../ROADMA
 | 01–03 (in [`done/`](done/)) | The prompts that built the plugin before the roadmap: [01 three-band EQ](done/01-three-band-eq.md), [02 interactive EQ curve](done/02-interactive-eq-curve.md), [03 24-band EQ](done/03-24-band-eq.md). The spectrum-analyser prompt that came between 02 and 03 wasn't saved |
 | 05–22 (in [`done/`](done/)) | Done, merged into `main` (21 and 22 shipped in v0.3.0) |
 | 23–26 (in [`done/`](done/)) | Done (#28–#31), merged into `main` in #32 and shipped in v0.4.0 |
-| 27–31 (in [`done/`](done/)) | Done overnight on 3–4 Nov 2026 (#37, #45, #40, #42, #49), merged into the integration branch `roadmap/overnight-2026-11-03`, to be merged into `main`: [27 vertical output meter](done/27-vertical-output-meter.md), [28 piano notes toggle](done/28-piano-strip-toggle.md), [29 edge clicks add cuts](done/29-edge-click-cuts.md), [30 Abbey Road reverb template](done/30-abbey-road-reverb-template.md), [31 tom presets](done/31-tom-presets.md) |
+| 27–31 (in [`done/`](done/)) | Done overnight on 3–4 Nov 2026 (#37, #45, #40, #42, #49), merged into `main` in #52 and shipped in v0.5.0: [27 vertical output meter](done/27-vertical-output-meter.md), [28 piano notes toggle](done/28-piano-strip-toggle.md), [29 edge clicks add cuts](done/29-edge-click-cuts.md), [30 Abbey Road reverb template](done/30-abbey-road-reverb-template.md), [31 tom presets](done/31-tom-presets.md) |
 
 ## Run in waves, merging between waves
 
