@@ -5,9 +5,10 @@ using namespace FET;
 
 namespace
 {
-    // Exactly 1.0f at 0 dB, whatever the platform's pow() rounding (fast-math builds on macOS
-    // return 0.99999994 for pow (10, 0)), so default settings stay bit-exact.
-    float dbToGain (float db) noexcept { return db == 0.0f ? 1.0f : juce::Decibels::decibelsToGain (db); }
+    // Exactly 1.0f at 0 dB, so default settings stay bit-exact. The parameter value can come
+    // back from the normalised range as a few 1e-7 dB rather than 0 (it differs by platform), so
+    // anything within half a step (0.01 dB) of 0 is unity.
+    float dbToGain (float db) noexcept { return std::abs (db) < 0.005f ? 1.0f : juce::Decibels::decibelsToGain (db); }
 }
 
 SongsmithAnalogCompressorProcessor::SongsmithAnalogCompressorProcessor()
