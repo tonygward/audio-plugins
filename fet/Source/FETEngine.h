@@ -49,7 +49,9 @@ namespace FET
 
         // In place. Channels beyond maxChannels are left untouched. The gain is linked:
         // every channel gets the same gain, computed from the loudest channel.
-        void process (float* const* channels, int numChannels, int numSamples) noexcept;
+        // gainOut (optional, numSamples long) receives the linear gain applied to each sample,
+        // for the FET colour stage.
+        void process (float* const* channels, int numChannels, int numSamples, float* gainOut = nullptr) noexcept;
 
         // Steady-state gain reduction for a constant-envelope input at levelDb (peak dBFS),
         // from the static curve (for tests, metering and docs).

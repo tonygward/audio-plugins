@@ -1,17 +1,21 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
+#include <array>
 #include "FETParams.h"
 #include "FETEngine.h"
+#include "FETColour.h"
 
-class SongsmithAnalogCompressorProcessor : public juce::AudioProcessor
+class SongsmithAnalogCompressorProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
     // 1 = first release (input, output, attack, release, ratio, allButtons, grOff, bypass).
-    static constexpr int stateVersion = 1;
+    // 2 = adds oversampling (sessions from 1 load with the default).
+    static constexpr int stateVersion = 2;
 
     SongsmithAnalogCompressorProcessor();
-    ~SongsmithAnalogCompressorProcessor() override = default;
+    ~SongsmithAnalogCompressorProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -47,10 +51,24 @@ public:
     float takeGainReductionDb() noexcept { return engine.takePeakGainReductionDb(); }
     const FET::Engine& getEngine() const noexcept { return engine; }
 
+    // Latency of an oversampling setting (0 = off, 1 = 2x, 2 = 4x), valid after prepareToPlay.
+    int getOversamplingLatency (int index) const noexcept { return osLatency[(size_t) juce::jlimit (0, 2, index)]; }
+    int getActiveOversamplingIndex() const noexcept { return osActive; }
+
+    // Test hook: false = the clean engine only (no FET or output-stage colour).
+    void setColourEnabled (bool on) noexcept { colourEnabled = on; }
+
+    void updateLatencyNow();   // what the timer does: report the selected setting's latency
+
     static inline const juce::Identifier versionId { "stateVersion" };
 
 private:
+    void timerCallback() override { updateLatencyNow(); }
     void restoreFromValueTree (const juce::ValueTree& saved);
+    void processChunk (float* const* ch, int numCh, int num) noexcept;
+    void runCore (float* const* ch, int numCh, int num) noexcept;
+    void switchPath (int index) noexcept;
+    int getOversamplingIndex() const noexcept { return juce::jlimit (0, 2, (int) oversamplingParam->load()); }
 
     juce::AudioParameterBool* bypassParam = nullptr;
     std::atomic<float>* inputDb  = nullptr;
@@ -59,16 +77,29 @@ private:
     std::atomic<float>* releaseKnob = nullptr;
     std::atomic<float>* ratioIndex = nullptr;
     std::atomic<float>* grOffParam = nullptr;
+    std::atomic<float>* oversamplingParam = nullptr;
 
     FET::Engine engine;
+    FET::OutputStage outputStage;
+    bool colourEnabled = true;
+
+    // Oversampling: polyphase IIR half-band stages with integer latency, [1] = 2x, [2] = 4x.
+    std::array<std::unique_ptr<juce::dsp::Oversampling<float>>, 3> oversamplers;
+    std::array<int, 3> osLatency {};
+    int osActive = 0;
+    double baseRate = 44100.0;
+
+    static constexpr int chunkSize = 512;
+    std::vector<float> gains;              // per-sample engine gain at the running rate
+    juce::AudioBuffer<float> dryRing, dry; // bypass dry signal, delayed by the path latency
+    int dryRingPos = 0;
 
     using Smoothed = juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative>;
-    static void applyGain (juce::AudioBuffer<float>&, int numCh, int n, Smoothed&) noexcept;
     Smoothed inputGain { 1.0f }, outputGain { 1.0f };
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix { 0.0f };   // 1 = fully bypassed
-    juce::AudioBuffer<float> dry;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> pathFade { 1.0f };    // oversampling switch
 
-    static constexpr double gainSmoothingSeconds = 0.02, bypassFadeSeconds = 0.02;
+    static constexpr double gainSmoothingSeconds = 0.02, bypassFadeSeconds = 0.02, pathFadeSeconds = 0.01;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SongsmithAnalogCompressorProcessor)
 };

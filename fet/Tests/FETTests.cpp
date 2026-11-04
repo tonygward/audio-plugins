@@ -6,6 +6,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "EngineMeasure.h"
+#include "ColourMeasure.h"
 
 using namespace FET;
 
@@ -58,7 +59,7 @@ struct IdentityTests final : juce::UnitTest
         beginTest ("parameter IDs, ranges and defaults are pinned");
         SongsmithAnalogCompressorProcessor p;
 
-        struct Expected { const char* id; float min, max, def; };
+        struct Expected { const char* id; float min, max, def; int version = 1; };
         const Expected expected[] = {
             { "input",      -24.0f, 48.0f, 0.0f },
             { "output",     -36.0f, 24.0f, 0.0f },
@@ -68,6 +69,7 @@ struct IdentityTests final : juce::UnitTest
             { "allButtons",   0.0f,  1.0f, 0.0f },
             { "grOff",        0.0f,  1.0f, 0.0f },
             { "bypass",       0.0f,  1.0f, 0.0f },
+            { "oversampling", 0.0f,  2.0f, 2.0f, 2 },
         };
 
         expectEquals (p.getParameters().size(), (int) std::size (expected), "no parameters added or removed silently");
@@ -86,7 +88,7 @@ struct IdentityTests final : juce::UnitTest
 
             if (auto* withId = dynamic_cast<juce::HostedAudioProcessorParameter*> (rp))
                 expectEquals (withId->getParameterID(), juce::String (e.id));
-            expectEquals (rp->getVersionHint(), 1, e.id);
+            expectEquals (rp->getVersionHint(), e.version, e.id);
         }
 
         expectEquals (ratioNames().joinIntoString (","), juce::String ("4:1,8:1,12:1,20:1"));
@@ -139,8 +141,10 @@ struct TransparencyTests final : juce::UnitTest
     {
         for (double fs : { 44100.0, 48000.0, 96000.0 })
         {
-            beginTest ("defaults are bit-exact below the threshold at " + juce::String (fs, 0) + " Hz");
+            beginTest ("clean engine without oversampling is bit-exact below the threshold at " + juce::String (fs, 0) + " Hz");
             SongsmithAnalogCompressorProcessor p;
+            p.setColourEnabled (false);
+            setParam (p, ID::oversampling, 0.0f);
             p.setBusesLayout (layout (Set::stereo(), Set::stereo()));
             p.prepareToPlay (fs, 512);
 
@@ -164,6 +168,7 @@ struct TransparencyTests final : juce::UnitTest
         beginTest ("bypass settles to bit-exact pass-through");
         {
             SongsmithAnalogCompressorProcessor p;
+            setParam (p, ID::oversampling, 0.0f);
             p.prepareToPlay (48000.0, 512);
             setParam (p, ID::output, -12.0f);
             setParam (p, ID::bypass, 1.0f);
@@ -318,10 +323,64 @@ static int runTimingReport()
     return 0;
 }
 
+// FETTests --colour: harmonics and aliasing versus drive, level-matched (docs/colour.md).
+static int runColourReport()
+{
+    using namespace ColourMeasure;
+    std::printf ("A. Output stage alone (Gain Reduction Off), 1 kHz, by output level\n");
+    std::printf ("%-7s %-4s %8s %9s %9s %9s %9s\n", "fs", "OS", "out dBFS", "THD %", "H2 dB", "H3 dB", "alias dB");
+    for (double fs : { 44100.0, 48000.0 })
+        for (int os : { 0, 1, 2 })
+            for (float outDb : { -18.0f, -6.0f, 0.0f, 3.0f })
+            {
+                Settings s; s.fs = fs; s.oversampling = os; s.grOff = true; s.levelDbfs = outDb;
+                const auto r = measure (s);
+                std::printf ("%-7.0f %-4d %8.1f %9.3f %9.1f %9.1f %9.1f\n", fs, 1 << os, r.fundamentalDb, r.thdPercent, r.h2Db, r.h3Db, r.aliasDb);
+            }
+
+    std::printf ("\nB. Drive with and without compression, level-matched at the output (input -18 dBFS RMS, 4:1)\n");
+    std::printf ("%-7s %-4s %-6s %-6s %6s %8s %9s %9s %9s %9s\n", "fs", "OS", "freq", "drive", "GR", "out dBFS", "THD %", "H2 dB", "H3 dB", "alias dB");
+    for (double fs : { 44100.0, 48000.0 })
+        for (int os : { 0, 1, 2 })
+            for (double freq : { 1000.0, 7000.0 })
+                for (float drive : { 6.0f, 18.0f, 30.0f })
+                {
+                    Settings c; c.fs = fs; c.oversampling = os; c.freq = freq; c.inputDb = drive;
+                    const auto rc = measure (c);
+                    Settings o = c; o.grOff = true;
+                    o.outputDb = (float) (rc.fundamentalDb - (-18.0 + drive));   // match the compressed level
+                    const auto ro = measure (o);
+                    std::printf ("%-7.0f %-4d %-6.0f %-6.0f %6.1f %8.1f %9.3f %9.1f %9.1f %9.1f   comp\n", fs, 1 << os, freq, drive, rc.grDb, rc.fundamentalDb, rc.thdPercent, rc.h2Db, rc.h3Db, rc.aliasDb);
+                    std::printf ("%-7s %-4s %-6s %-6s %6s %8.1f %9.3f %9.1f %9.1f %9.1f   GR off\n", "", "", "", "", "", ro.fundamentalDb, ro.thdPercent, ro.h2Db, ro.h3Db, ro.aliasDb);
+                }
+
+    std::printf ("\nC. Frequency response re 1 kHz (GR off, -18 dBFS) and reported latency\n");
+    std::printf ("%-7s %-4s %8s %8s %8s %8s %8s %9s\n", "fs", "OS", "20 Hz", "50 Hz", "10 kHz", "16 kHz", "20 kHz", "latency");
+    for (double fs : { 44100.0, 48000.0, 96000.0 })
+        for (int os : { 0, 1, 2 })
+        {
+            Settings s; s.fs = fs; s.oversampling = os; s.grOff = true;
+            const double ref = measure (s).fundamentalDb;
+            std::printf ("%-7.0f %-4d", fs, 1 << os);
+            for (double f : { 20.0, 50.0, 10000.0, 16000.0, 20000.0 })
+            {
+                s.freq = f;
+                std::printf (" %8.2f", measure (s).fundamentalDb - ref);
+            }
+            SongsmithAnalogCompressorProcessor p;
+            p.prepareToPlay (fs, 512);
+            std::printf (" %9d\n", p.getOversamplingLatency (os));
+        }
+    return 0;
+}
+
 // FETTests --bench: plugin CPU per channel-second (stereo, 48 kHz, 512-sample blocks).
-static int runBenchmark()
+static double benchOnce (int oversampling, bool colour)
 {
     SongsmithAnalogCompressorProcessor p;
+    p.setColourEnabled (colour);
+    auto* os = p.apvts.getParameter (ID::oversampling);
+    os->setValueNotifyingHost (os->convertTo0to1 ((float) oversampling));
     p.prepareToPlay (48000.0, 512);
     auto* in = p.apvts.getParameter (ID::input);
     in->setValueNotifyingHost (in->convertTo0to1 (18.0f));
@@ -339,8 +398,15 @@ static int runBenchmark()
     }
     const double secs = juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0);
     const double audio = blocks * 512.0 / 48000.0;
-    std::printf ("Stereo 48 kHz: %.3f s for %.1f s of audio = %.3f %% of one core (realtime x%.0f)\n",
-                 secs, audio, 100.0 * secs / audio, audio / secs);
+    return 100.0 * secs / audio;
+}
+
+static int runBenchmark()
+{
+    std::printf ("CPU, stereo 48 kHz, 512-sample blocks, 18 dB drive (%% of one core)\n");
+    std::printf ("%-14s %10s %10s\n", "oversampling", "clean", "colour");
+    for (int os : { 0, 1, 2 })
+        std::printf ("%-14s %9.2f%% %9.2f%%\n", oversamplingNames()[os].toRawUTF8(), benchOnce (os, false), benchOnce (os, true));
     return 0;
 }
 
@@ -358,6 +424,7 @@ int main (int argc, char* argv[])
     {
         if (juce::String (argv[i]) == "--timing") return runTimingReport();
         if (juce::String (argv[i]) == "--bench")  return runBenchmark();
+        if (juce::String (argv[i]) == "--colour") return runColourReport();
     }
 
     ConsoleRunner runner;

@@ -29,6 +29,7 @@ namespace FET
         inline constexpr const char* allButtons = "allButtons";
         inline constexpr const char* grOff      = "grOff";
         inline constexpr const char* bypass     = "bypass";
+        inline constexpr const char* oversampling = "oversampling";   // version hint 2
     }
 
     inline constexpr int parameterVersion = 1;
@@ -51,4 +52,12 @@ namespace FET
     }
     inline constexpr float ratioValues[numRatios] = { 4.0f, 8.0f, 12.0f, 20.0f };
     inline constexpr int ratioDefault = 0;
+
+    // Oversampling for the colour stages and the engine (Off, 2x, 4x). See docs/colour.md.
+    inline const juce::StringArray& oversamplingNames()
+    {
+        static const juce::StringArray names { "Off", "2x", "4x" };
+        return names;
+    }
+    inline constexpr int oversamplingDefault = 2;   // 4x: see docs/colour.md "Oversampling"
 }
