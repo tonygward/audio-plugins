@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Songsmith Analog Compressor - macOS installer layout (productbuild distribution file).
+  build-installer.sh fills in @VERSION@ and @MIN_MACOS@. Choice ids (vst3, au, app) are used by
+  test-installer.sh, so keep them stable.
+-->
+<installer-gui-script minSpecVersion="2">
+    <title>Songsmith Analog Compressor @VERSION@</title>
+    <organization>com.songsmithstudio</organization>
+
+    <welcome    file="welcome.html"    mime-type="text/html"/>
+    <readme     file="readme.html"     mime-type="text/html"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+
+    <options customize="allow" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+
+    <allowed-os-versions>
+        <os-version min="@MIN_MACOS@"/>
+    </allowed-os-versions>
+
+    <choices-outline>
+        <line choice="vst3"/>
+        <line choice="au"/>
+        <line choice="app"/>
+    </choices-outline>
+
+    <choice id="vst3" title="VST3 plug-in" start_selected="true"
+            description="Songsmith Analog Compressor.vst3 in /Library/Audio/Plug-Ins/VST3. For Ableton Live, Cubase, Studio One, Reaper and most other DAWs.">
+        <pkg-ref id="com.songsmithstudio.songsmithanalogcompressor.vst3"/>
+    </choice>
+    <choice id="au" title="Audio Unit" start_selected="true"
+            description="Songsmith Analog Compressor.component in /Library/Audio/Plug-Ins/Components. For Logic Pro and GarageBand.">
+        <pkg-ref id="com.songsmithstudio.songsmithanalogcompressor.au"/>
+    </choice>
+    <choice id="app" title="Standalone app" start_selected="true"
+            description="Songsmith Analog Compressor.app in /Applications. Runs the compressor on its own, without a DAW.">
+        <pkg-ref id="com.songsmithstudio.songsmithanalogcompressor.app"/>
+    </choice>
+
+    <pkg-ref id="com.songsmithstudio.songsmithanalogcompressor.vst3" version="@VERSION@" onConclusion="none">songsmithanalogcompressor-vst3.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithanalogcompressor.au"   version="@VERSION@" onConclusion="none">songsmithanalogcompressor-au.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithanalogcompressor.app"  version="@VERSION@" onConclusion="none">songsmithanalogcompressor-app.pkg</pkg-ref>
+</installer-gui-script>

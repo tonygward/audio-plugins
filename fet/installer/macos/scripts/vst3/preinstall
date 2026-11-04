@@ -1,0 +1,14 @@
+#!/bin/sh
+# VST3 component, before the payload is laid down: remove the installed bundle (so files from
+# an older version don't linger) and a per-user copy of it, which hosts would list twice.
+. "$(dirname "$0")/common.sh"
+
+root=$(target_root "$3")
+remove_bundle "$root/Library/Audio/Plug-Ins/VST3/Songsmith Analog Compressor.vst3"
+
+if [ -z "$root" ]; then
+    home=$(console_user_home)
+    [ -n "$home" ] && remove_bundle "$home/Library/Audio/Plug-Ins/VST3/Songsmith Analog Compressor.vst3"
+fi
+
+exit 0
