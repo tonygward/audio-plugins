@@ -10,6 +10,7 @@ PresetBar::PresetBar (SongsmithEQAudioProcessor& p) : processor (p)
 
     nameButton.setTooltip ("Presets: load, save, delete");
     nameButton.onClick = [this] { showMenu(); };
+    nameButton.getProperties().set (Songsmith::UI::LookAndFeelBase::wellProperty, true);   // a field: the current preset
 
     for (auto* b : { &prevButton, &nextButton, &nameButton })
         addAndMakeVisible (b);

@@ -45,6 +45,57 @@ namespace Songsmith::UI::Testing
             t.expect (isEmbedded (f.getTypefacePtr()), context + ": menus and dialogs use the embedded typeface");
         }
     }
+
+    // Every button, slider and combo box in the editor is drawn by a look-and-feel derived from
+    // the shared base, so no control slips back to a plain JUCE look.
+    inline void checkControlsUseSharedLook (juce::UnitTest& t, juce::Component& editor, const juce::String& context)
+    {
+        int buttons = 0, sliders = 0, combos = 0;
+        std::function<void (juce::Component&)> walk = [&] (juce::Component& c)
+        {
+            const bool isButton = dynamic_cast<juce::Button*> (&c) != nullptr, isSlider = dynamic_cast<juce::Slider*> (&c) != nullptr,
+                       isCombo = dynamic_cast<juce::ComboBox*> (&c) != nullptr;
+            if (isButton || isSlider || isCombo)
+            {
+                buttons += isButton ? 1 : 0; sliders += isSlider ? 1 : 0; combos += isCombo ? 1 : 0;
+                const auto what = juce::String (isButton ? "button" : isSlider ? "slider" : "combo box") + " \"" + c.getName() + c.getTitle()
+                                  + (isButton ? static_cast<juce::Button&> (c).getButtonText() : juce::String()) + "\"";
+                t.expect (dynamic_cast<LookAndFeelBase*> (&c.getLookAndFeel()) != nullptr,
+                          context + ": " + what + " uses the shared Songsmith look-and-feel");
+            }
+            for (auto* child : c.getChildren())
+                walk (*child);
+        };
+        walk (editor);
+        t.expectGreaterThan (buttons + sliders + combos, 0, context + ": found controls");
+    }
+
+    // Mean brightness of one pixel row across the middle half of an image.
+    inline float rowBrightness (const juce::Image& image, int y)
+    {
+        float sum = 0.0f;
+        int n = 0;
+        for (int x = image.getWidth() / 4; x < image.getWidth() * 3 / 4; ++x, ++n)
+            sum += image.getPixelAt (x, y).getBrightness();
+        return n > 0 ? sum / (float) n : 0.0f;
+    }
+
+    // A button drawn by the look-and-feel, off or on, at 1x.
+    inline juce::Image renderButton (juce::LookAndFeel& lf, bool on, juce::Colour background)
+    {
+        juce::TextButton b ("Button");
+        b.setLookAndFeel (&lf);
+        b.setBounds (0, 0, 120, 28);
+        b.setToggleState (on, juce::dontSendNotification);
+        juce::Image image (juce::Image::ARGB, 120, 28, true, juce::SoftwareImageType());
+        {
+            juce::Graphics g (image);
+            g.fillAll (background);
+            lf.drawButtonBackground (g, b, b.findColour (on ? juce::TextButton::buttonOnColourId : juce::TextButton::buttonColourId), false, false);
+        }
+        b.setLookAndFeel (nullptr);
+        return image;
+    }
 }
 
 class SongsmithUITests final : public juce::UnitTest
@@ -117,6 +168,35 @@ public:
             const auto tip = lf.getTooltipBounds ("Sets how fast the gain comes back.", { 100, 100 }, { 0, 0, 1000, 1000 });
             expect (tip.getHeight() >= (int) Type::control, "tooltips are laid out in the embedded font");
             expect (lf.getPopupMenuFont().getTypefacePtr() == typeface (Weight::Regular));
+        }
+
+        beginTest ("Buttons are raised when off and pushed in when on");
+        {
+            LookAndFeelBase lf (juce::Colour (0xffe8a33d));
+            const auto off = Testing::renderButton (lf, false, Colours::panel), on = Testing::renderButton (lf, true, Colours::panel);
+            // Rows 2 and 25: just inside the top and bottom edges, below the outline.
+            const float offTop = Testing::rowBrightness (off, 2), offBottom = Testing::rowBrightness (off, 25);
+            const float onTop = Testing::rowBrightness (on, 2), onBottom = Testing::rowBrightness (on, 25);
+            expectGreaterThan (offTop, offBottom + 0.01f, "off: lit from the top (top edge lighter than the bottom)");
+            expectGreaterThan (onBottom, onTop + 0.01f, "on: pushed in (bottom edge lighter than the top)");
+            expectGreaterThan (Testing::rowBrightness (on, 14), Testing::rowBrightness (off, 14), "on: filled with the accent");
+        }
+
+        beginTest ("Combo boxes are recessed wells, darker than the panel");
+        {
+            LookAndFeelBase lf;
+            juce::ComboBox box;
+            box.setLookAndFeel (&lf);
+            box.setBounds (0, 0, 160, 26);
+            juce::Image image (juce::Image::ARGB, 160, 26, true, juce::SoftwareImageType());
+            {
+                juce::Graphics g (image);
+                g.fillAll (Colours::panel);
+                lf.drawComboBox (g, 160, 26, false, 0, 0, 160, 26, box);
+            }
+            box.setLookAndFeel (nullptr);
+            expectLessThan (Testing::rowBrightness (image, 13), Colours::panel.getBrightness(), "the well is darker than the panel");
+            expectLessThan (Testing::rowBrightness (image, 2), Testing::rowBrightness (image, 24), "shadow at the top, light at the bottom");
         }
 
         beginTest ("The title splits brand and product and measures both");

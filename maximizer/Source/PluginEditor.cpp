@@ -216,13 +216,12 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
 
 void SongsmithMaximiserAudioProcessorEditor::paintContent (juce::Graphics& g)
 {
-    g.fillAll (MaxColours::background);
+    const auto area = juce::Rectangle<float> ((float) designW, (float) designH);
+    Songsmith::UI::LookAndFeelBase::drawPanel (g, area);
+    Songsmith::UI::LookAndFeelBase::drawTitleBar (g, area.withHeight (Songsmith::UI::titleBarHeight));
 
     Songsmith::UI::drawTitle (g, { Songsmith::UI::titleInset, 0.0f, 360.0f, Songsmith::UI::titleBarHeight },
                               JucePlugin_Name, MaxColours::text, MaxColours::accent);
-
-    g.setColour (MaxColours::panelEdge);
-    g.drawHorizontalLine (52, 16.0f, (float) designW - 16.0f);
 
     // The Link bracket between the two faders while linked.
     if (linkButton.getToggleState())

@@ -11,6 +11,7 @@
 #include "NoteNames.h"
 #include "EQDisplay.h"
 #include "PluginEditor.h"
+#include "../../shared/Tests/SongsmithControlSheet.h"
 #include "../../shared/Tests/SongsmithUITests.h"
 
 using namespace EQ;
@@ -3917,6 +3918,15 @@ public:
             expectWithinAbsoluteError (SongsmithEQAudioProcessorEditor::parseOutputGainText ("Output -12.0 dB"), -12.0, 1.0e-9);
         }
 
+        beginTest ("Every button, slider and combo box uses the shared bevelled look");
+        {
+            SongsmithEQAudioProcessor p;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+            if (auto* ed = dynamic_cast<SongsmithEQAudioProcessorEditor*> (editor.get()))
+                ed->getDisplay().setSelectedBand (0);   // the band panel's controls too
+            Songsmith::UI::Testing::checkControlsUseSharedLook (*this, *editor, "editor");
+        }
+
         beginTest ("Editor text uses the shared typeface and type scale");
         {
             // The typeface itself is checked by the shared SongsmithUITests.
@@ -4818,6 +4828,11 @@ static int renderScreenshots (const juce::File& folder, float scale)
     for (auto s : EQ::EditorSize::uiScales)
         shoot (juce::roundToInt ((float) EQ::EditorSize::defaultWidth * s), juce::roundToInt ((float) EQ::EditorSize::defaultHeight * s),
                "interface-size-" + juce::String (juce::roundToInt (s * 100.0f)), s);
+
+    // Every control state, drawn by the editor's look-and-feel.
+    EQLookAndFeel lf;
+    Songsmith::UI::Testing::writeControlSheet (lf, EQColours::background, scale,
+        folder.getChildFile ("controls" + (scale != 1.0f ? "@" + juce::String (scale, 0) + "x" : juce::String()) + ".png"));
     return 0;
 }
 

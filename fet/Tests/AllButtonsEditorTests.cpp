@@ -274,6 +274,13 @@ struct EditorTests4 final : juce::UnitTest
 
     void runTest() override
     {
+        beginTest ("Every button, slider and combo box uses the shared bevelled look");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+            Songsmith::UI::Testing::checkControlsUseSharedLook (*this, *editor, "editor");
+        }
+
         beginTest ("Editor text uses the shared typeface and type scale");
         {
             SongsmithAnalogCompressorProcessor p;

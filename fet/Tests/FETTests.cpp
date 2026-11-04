@@ -5,6 +5,7 @@
 #include <cmath>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "../../shared/Tests/SongsmithControlSheet.h"
 #include "EngineMeasure.h"
 #include "ColourMeasure.h"
 
@@ -364,6 +365,11 @@ static int renderScreenshots (const juce::File& folder, float backingScale)
         shoot (s, false, 0, "analog-compressor-" + juce::String (juce::roundToInt (s * 100.0f)));
     shoot (1.0f, true, 0, "analog-compressor-all-buttons");
     shoot (1.0f, false, 1, "analog-compressor-meter-plus4");
+
+    // Every control state, drawn by the editor's look-and-feel.
+    FET::UI::LookAndFeel lf;
+    Songsmith::UI::Testing::writeControlSheet (lf, FET::UI::Colours::panel, backingScale,
+        folder.getChildFile ("controls" + (backingScale != 1.0f ? "@" + juce::String (backingScale, 0) + "x" : juce::String()) + ".png"));
     return 0;
 }
 
