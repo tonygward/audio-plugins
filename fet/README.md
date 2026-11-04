@@ -1,13 +1,13 @@
 # Songsmith Analog Compressor
 
-A feedback FET compressor inspired by the Rev D blackface 1176LN, built with JUCE and CMake. **Work in progress:** step 2 adds the clean feedback compressor (no analogue colour yet) to the shell. See [docs/engine.md](docs/engine.md) for the loop, the knob mapping, the timing measurements and a listening checklist.
+A feedback FET compressor inspired by the Rev D blackface 1176LN, built with JUCE and CMake. **Work in progress:** the clean feedback compressor (step 2, [docs/engine.md](docs/engine.md)) now has analogue colour and oversampling (step 3, [docs/colour.md](docs/colour.md)): FET gain-cell distortion, Class A output amplifier and transformer, Gain Reduction Off that keeps the coloured path, and latency-aligned bypass.
 
 - Formats: VST3 and Standalone, plus AU on macOS.
 - Identity: manufacturer `Tnyw`, plugin `Sfc1`, AU `aufx Sfc1 Tnyw`. Never change these once released.
-- Parameters (stable IDs): `input`, `output`, `attack`, `release`, `ratio`, `allButtons`, `grOff`, `bypass`. See `Source/FETParams.h`.
+- Parameters (stable IDs): `input`, `output`, `attack`, `release`, `ratio`, `allButtons`, `grOff`, `bypass`, plus `oversampling` (since state version 2). See `Source/FETParams.h`.
 - Sources and design claims: [docs/references.md](docs/references.md).
 - Manual DAW check: [docs/smoke-test.md](docs/smoke-test.md).
-- `FETTests --timing` prints measured attack and release times. `FETTests --bench` prints CPU use.
+- `FETTests --timing` prints measured attack and release times, `FETTests --colour` prints harmonics, aliasing, frequency response and latency, and `FETTests --bench` prints CPU use per oversampling setting.
 
 ## Build and test (Windows)
 

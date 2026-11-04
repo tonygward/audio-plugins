@@ -36,9 +36,11 @@ private:
     juce::ComboBox ratio;
     juce::Label ratioLabel;
     juce::Label grLabel;
+    juce::ComboBox oversampling;
+    juce::Label oversamplingLabel;
     juce::ToggleButton allButtons { "All Buttons" }, grOff { "Gain Reduction Off" }, bypass { "Bypass" };
 
-    std::unique_ptr<ComboAttachment> ratioAttachment;
+    std::unique_ptr<ComboAttachment> ratioAttachment, oversamplingAttachment;
     std::unique_ptr<ButtonAttachment> allButtonsAttachment, grOffAttachment, bypassAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SongsmithAnalogCompressorEditor)

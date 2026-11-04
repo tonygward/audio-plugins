@@ -78,7 +78,7 @@ target_link_libraries(SongsmithAnalogCompressor
 if(FET_BUILD_TESTS)
     juce_add_console_app(FETTests PRODUCT_NAME "FETTests")
 
-    target_sources(FETTests PRIVATE Tests/FETTests.cpp Tests/EngineTests.cpp ${FET_SOURCES})
+    target_sources(FETTests PRIVATE Tests/FETTests.cpp Tests/EngineTests.cpp Tests/ColourTests.cpp ${FET_SOURCES})
     target_include_directories(FETTests PRIVATE Source)
     target_compile_definitions(FETTests PRIVATE
         ${FET_DEFINITIONS}

@@ -24,6 +24,7 @@ SongsmithAnalogCompressorProcessor::SongsmithAnalogCompressorProcessor()
     releaseKnob = apvts.getRawParameterValue (ID::release);
     ratioIndex = apvts.getRawParameterValue (ID::ratio);
     grOffParam = apvts.getRawParameterValue (ID::grOff);
+    oversamplingParam = apvts.getRawParameterValue (ID::oversampling);
     jassert (bypassParam != nullptr && inputDb != nullptr && outputDb != nullptr);
 }
 
@@ -57,6 +58,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithAnalogCompressorPro
     layout.add (std::make_unique<AudioParameterBool> (v (ID::grOff), "Gain Reduction Off", false));
     layout.add (std::make_unique<AudioParameterBool> (v (ID::bypass), "Bypass", false));
 
+    // Added in state version 2.
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ID::oversampling, 2 }, "Oversampling",
+                                                        oversamplingNames(), oversamplingDefault));
+
     return layout;
 }
 
@@ -71,38 +76,76 @@ bool SongsmithAnalogCompressorProcessor::isBusesLayoutSupported (const BusesLayo
     return out == layouts.getMainInputChannelSet();
 }
 
-void SongsmithAnalogCompressorProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+SongsmithAnalogCompressorProcessor::~SongsmithAnalogCompressorProcessor()
 {
-    inputGain.reset (sampleRate, gainSmoothingSeconds);
-    outputGain.reset (sampleRate, gainSmoothingSeconds);
-    bypassMix.reset (sampleRate, bypassFadeSeconds);
+    stopTimer();
+}
 
+void SongsmithAnalogCompressorProcessor::updateLatencyNow()
+{
+    const int latency = osLatency[(size_t) getOversamplingIndex()];
+    if (getLatencySamples() != latency)
+        setLatencySamples (latency);
+}
+
+void SongsmithAnalogCompressorProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
+{
+    baseRate = sampleRate;
+    const int numCh = juce::jmax (1, getTotalNumOutputChannels());
+
+    // All buffers are sized for one chunk now; processBlock splits host blocks into chunks,
+    // so nothing allocates later whatever block size the host sends.
+    using OS = juce::dsp::Oversampling<float>;
+    for (size_t k = 1; k < oversamplers.size(); ++k)
+    {
+        if (oversamplers[k] == nullptr)
+            oversamplers[k] = std::make_unique<OS> ((size_t) FET::Engine::maxChannels, k, OS::filterHalfBandPolyphaseIIR, true, true);
+        oversamplers[k]->initProcessing ((size_t) chunkSize);
+        oversamplers[k]->reset();
+        osLatency[k] = juce::roundToInt (oversamplers[k]->getLatencyInSamples());
+    }
+
+    gains.assign ((size_t) chunkSize * 4, 1.0f);
+    dry.setSize (numCh, chunkSize, false, true, true);
+    dryRing.setSize (numCh, juce::jmax (osLatency[1], osLatency[2]) + 1, false, true, true);
+    dryRing.clear();
+    dryRingPos = 0;
+
+    inputGain.reset (sampleRate, gainSmoothingSeconds);
+    bypassMix.reset (sampleRate, bypassFadeSeconds);
+    pathFade.reset (sampleRate, pathFadeSeconds);
     inputGain.setCurrentAndTargetValue (dbToGain (inputDb->load()));
     outputGain.setCurrentAndTargetValue (dbToGain (outputDb->load()));
     bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
+    pathFade.setCurrentAndTargetValue (1.0f);
 
-    dry.setSize (juce::jmax (1, getTotalNumOutputChannels()), juce::jmax (1, samplesPerBlock), false, false, true);
-    engine.prepare (sampleRate);
+    switchPath (getOversamplingIndex());
+    engine.reset();
+
+    updateLatencyNow();
+    startTimerHz (10);
 }
 
-void SongsmithAnalogCompressorProcessor::applyGain (juce::AudioBuffer<float>& buffer, int numCh, int n, Smoothed& gain) noexcept
+void SongsmithAnalogCompressorProcessor::switchPath (int index) noexcept
 {
-    if (! gain.isSmoothing() && gain.getTargetValue() == 1.0f)
-        return;   // exact unity: leave samples untouched
-
-    for (int i = 0; i < n; ++i)
-    {
-        const float g = gain.getNextValue();
-        for (int c = 0; c < numCh; ++c)
-            buffer.getWritePointer (c)[i] *= g;
-    }
+    const double rate = baseRate * (1 << index);
+    engine.prepare (rate);          // no allocation: times are in seconds, coefficients re-derive
+    outputStage.prepare (rate);
+    const float current = outputGain.getCurrentValue();
+    outputGain.reset (rate, gainSmoothingSeconds);
+    outputGain.setCurrentAndTargetValue (current);
+    if (index > 0)
+        oversamplers[(size_t) index]->reset();
+    dryRing.clear();
+    dryRingPos = 0;
+    osActive = index;
 }
 
 void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
 
-    const int numCh = juce::jmin (getTotalNumInputChannels(), buffer.getNumChannels());
+    const int numCh = juce::jmin (getTotalNumInputChannels(), buffer.getNumChannels(), FET::Engine::maxChannels);
     const int n = buffer.getNumSamples();
 
     for (int c = numCh; c < buffer.getNumChannels(); ++c)
@@ -115,42 +158,135 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
     outputGain.setTargetValue (dbToGain (outputDb->load()));
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
-    // Fully bypassed and settled: leave the buffer untouched (bit-exact pass-through).
-    if (! bypassMix.isSmoothing() && bypassMix.getTargetValue() >= 1.0f)
-    {
-        inputGain.skip (n);
-        outputGain.skip (n);
-        return;
-    }
-
-    // Hosts may pass a bigger block than announced; the dry copy is only kept for the fade.
-    const bool fading = bypassMix.isSmoothing() || bypassMix.getTargetValue() > 0.0f;
-    const bool dryFits = dry.getNumChannels() >= numCh && dry.getNumSamples() >= n;
-    if (fading && dryFits)
-        for (int c = 0; c < numCh; ++c)
-            dry.copyFrom (c, 0, buffer, c, 0, n);
-
-    applyGain (buffer, numCh, n, inputGain);
-
     engine.setRatioIndex ((int) ratioIndex->load());
     engine.setAttackKnob (attackKnob->load());
     engine.setReleaseKnob (releaseKnob->load());
     engine.setGainReductionEnabled (grOffParam->load() < 0.5f);
-    engine.process (buffer.getArrayOfWritePointers(), numCh, n);
 
-    applyGain (buffer, numCh, n, outputGain);   // after the detector: Output never changes GR
-
-    if (fading)
+    // Fully bypassed and settled with no latency to keep: leave the buffer untouched.
+    if (! bypassMix.isSmoothing() && bypassMix.getTargetValue() >= 1.0f
+        && osActive == 0 && getOversamplingIndex() == 0)
     {
-        for (int i = 0; i < n; ++i)
+        inputGain.skip (n);
+        return;
+    }
+
+    for (int pos = 0; pos < n; pos += chunkSize)
+    {
+        const int num = juce::jmin (chunkSize, n - pos);
+        float* ch[FET::Engine::maxChannels] = {};
+        for (int c = 0; c < numCh; ++c)
+            ch[c] = buffer.getWritePointer (c, pos);
+        processChunk (ch, numCh, num);
+    }
+}
+
+void SongsmithAnalogCompressorProcessor::processChunk (float* const* ch, int numCh, int num) noexcept
+{
+    // Oversampling change: fade out, switch once silent, fade back in (no clicks, no alloc).
+    const int wantOS = getOversamplingIndex();
+    if (wantOS != osActive)
+    {
+        if (! pathFade.isSmoothing() && pathFade.getCurrentValue() <= 0.0f)
+        {
+            switchPath (wantOS);
+            pathFade.setTargetValue (1.0f);
+        }
+        else
+        {
+            pathFade.setTargetValue (0.0f);
+        }
+    }
+
+    // Dry signal for the bypass fade, delayed by the path latency so both line up.
+    const int latency = osLatency[(size_t) osActive];
+    for (int c = 0; c < numCh; ++c)
+    {
+        auto* d = dry.getWritePointer (c);
+        if (latency == 0)
+        {
+            juce::FloatVectorOperations::copy (d, ch[c], num);
+            continue;
+        }
+        auto* ring = dryRing.getWritePointer (c);
+        const int size = dryRing.getNumSamples();
+        int w = dryRingPos;
+        for (int i = 0; i < num; ++i)
+        {
+            d[i] = ring[(w - latency + size) % size];
+            ring[w] = ch[c][i];
+            w = (w + 1) % size;
+        }
+    }
+    if (latency > 0)
+        dryRingPos = (dryRingPos + num) % dryRing.getNumSamples();
+
+    // Input drive at the base rate (linear, so it commutes with the oversampler).
+    if (inputGain.isSmoothing() || inputGain.getTargetValue() != 1.0f)
+        for (int i = 0; i < num; ++i)
+        {
+            const float g = inputGain.getNextValue();
+            for (int c = 0; c < numCh; ++c)
+                ch[c][i] *= g;
+        }
+
+    if (osActive == 0)
+    {
+        runCore (ch, numCh, num);
+    }
+    else
+    {
+        auto& os = *oversamplers[(size_t) osActive];
+        juce::dsp::AudioBlock<float> block (ch, (size_t) numCh, (size_t) num);
+        auto up = os.processSamplesUp (block);
+        float* upCh[FET::Engine::maxChannels] = {};
+        for (int c = 0; c < numCh; ++c)
+            upCh[c] = up.getChannelPointer ((size_t) c);
+        runCore (upCh, numCh, (int) up.getNumSamples());
+        os.processSamplesDown (block);
+    }
+
+    if (pathFade.isSmoothing() || pathFade.getTargetValue() < 1.0f)
+        for (int i = 0; i < num; ++i)
+        {
+            const float g = pathFade.getNextValue();
+            for (int c = 0; c < numCh; ++c)
+                ch[c][i] *= g;
+        }
+
+    if (bypassMix.isSmoothing() || bypassMix.getTargetValue() > 0.0f)
+        for (int i = 0; i < num; ++i)
         {
             const float m = bypassMix.getNextValue();
             for (int c = 0; c < numCh; ++c)
-            {
-                auto* w = buffer.getWritePointer (c);
-                const float d = dryFits ? dry.getSample (c, i) : w[i];
-                w[i] = w[i] * (1.0f - m) + d * m;
-            }
+                ch[c][i] = ch[c][i] * (1.0f - m) + dry.getSample (c, i) * m;
+        }
+}
+
+// Engine (gain cell + feedback detector), FET colour, Output trim, Class A output stage:
+// the hardware order (UG p. 7 Fig. 1), at the running (possibly oversampled) rate.
+void SongsmithAnalogCompressorProcessor::runCore (float* const* ch, int numCh, int num) noexcept
+{
+    engine.process (ch, numCh, num, gains.data());
+
+    const bool colour = colourEnabled;
+    const bool trim = outputGain.isSmoothing() || outputGain.getTargetValue() != 1.0f;
+
+    if (! colour && ! trim)
+        return;   // clean engine at unity: bit-exact below the threshold
+
+    for (int i = 0; i < num; ++i)
+    {
+        const float g = trim ? outputGain.getNextValue() : 1.0f;
+        for (int c = 0; c < numCh; ++c)
+        {
+            float y = ch[c][i];
+            if (colour)
+                y = FET::FetCell::process (y, gains[(size_t) i]);
+            y *= g;   // the Output control drives the output amplifier (UG p. 7)
+            if (colour)
+                y = outputStage.processSample (c, y);
+            ch[c][i] = y;
         }
     }
 }

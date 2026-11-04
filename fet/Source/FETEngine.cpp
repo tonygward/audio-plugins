@@ -114,7 +114,7 @@ namespace FET
         return std::max (0.0f, g);
     }
 
-    void Engine::process (float* const* channels, int numChannels, int numSamples) noexcept
+    void Engine::process (float* const* channels, int numChannels, int numSamples, float* gainOut) noexcept
     {
         const int nc = std::min (numChannels, maxChannels);
         float blockPeak = 0.0f;
@@ -142,12 +142,15 @@ namespace FET
             gainReductionDb = gr;
             blockPeak = std::max (blockPeak, gr);
 
+            float gain = 1.0f;
             if (gr > 0.0f)
             {
-                const float gain = std::exp (-gr * 0.11512925464970229f);   // ln(10) / 20
+                gain = std::exp (-gr * 0.11512925464970229f);   // ln(10) / 20
                 for (int c = 0; c < nc; ++c)
                     channels[c][i] *= gain;
             }
+            if (gainOut != nullptr)
+                gainOut[i] = gain;
         }
 
         float prev = peakGr.load (std::memory_order_relaxed);

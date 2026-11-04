@@ -27,6 +27,13 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     addAndMakeVisible (ratioLabel);
     ratioAttachment = std::make_unique<ComboAttachment> (proc.apvts, ID::ratio, ratio);
 
+    oversampling.addItemList (oversamplingNames(), 1);
+    oversamplingLabel.setText ("Oversampling", juce::dontSendNotification);
+    oversamplingLabel.setJustificationType (juce::Justification::centred);
+    addAndMakeVisible (oversampling);
+    addAndMakeVisible (oversamplingLabel);
+    oversamplingAttachment = std::make_unique<ComboAttachment> (proc.apvts, ID::oversampling, oversampling);
+
     for (auto* b : { &allButtons, &grOff, &bypass })
         addAndMakeVisible (*b);
 
@@ -70,6 +77,9 @@ void SongsmithAnalogCompressorEditor::resized()
     auto col = area;
     ratioLabel.setBounds (col.removeFromTop (20));
     ratio.setBounds (col.removeFromTop (28).reduced (4, 0));
+    col.removeFromTop (12);
+    oversamplingLabel.setBounds (col.removeFromTop (20));
+    oversampling.setBounds (col.removeFromTop (28).reduced (4, 0));
 }
 
 void SongsmithAnalogCompressorEditor::timerCallback()
