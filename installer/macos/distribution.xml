@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Songsmith Studio - one macOS installer for every plugin (productbuild distribution file).
+
+  build-installer.sh fills in the versions and @MIN_MACOS@ and passes productbuild the component
+  packages taken from each plugin's own .pkg (the same packages, not copies, so the two
+  installers can't drift apart) and the resources/ folder.
+
+  The Customize page shows one group per plugin, all selected. Deselecting a group deselects
+  everything in it. Inside each group:
+    <plugin>_vst3  VST3 plugin    -> /Library/Audio/Plug-Ins/VST3/<plugin>.vst3
+    <plugin>_au    Audio Unit     -> /Library/Audio/Plug-Ins/Components/<plugin>.component
+    <plugin>_app   Standalone app -> /Applications/<plugin>.app
+
+  The choice ids are used by test-installer.sh (choice changes XML) and by anyone scripting an
+  install, so keep them stable. The package ids are the per-plugin installers' ids (never change
+  them): installing from either installer updates the same receipts, so there is one copy.
+-->
+<installer-gui-script minSpecVersion="2">
+    <title>Songsmith Studio plugins @SUITE_VERSION@</title>
+    <organization>com.songsmithstudio</organization>
+
+    <welcome    file="welcome.html"    mime-type="text/html"/>
+    <readme     file="readme.html"     mime-type="text/html"/>
+    <license    file="licence.html"    mime-type="text/html"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+
+    <!-- Universal build. System-wide install only (admin password), into folders every host scans. -->
+    <options customize="allow" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+
+    <!-- The highest minimum of the three plugins (their deployment targets). -->
+    <allowed-os-versions>
+        <os-version min="@MIN_MACOS@"/>
+    </allowed-os-versions>
+
+    <choices-outline>
+        <line choice="eq">
+            <line choice="eq_vst3"/>
+            <line choice="eq_au"/>
+            <line choice="eq_app"/>
+        </line>
+        <line choice="fet">
+            <line choice="fet_vst3"/>
+            <line choice="fet_au"/>
+            <line choice="fet_app"/>
+        </line>
+        <line choice="max">
+            <line choice="max_vst3"/>
+            <line choice="max_au"/>
+            <line choice="max_app"/>
+        </line>
+    </choices-outline>
+
+    <!-- Songsmith EQ -->
+    <choice id="eq" title="Songsmith EQ @EQ_VERSION@" start_selected="true"
+            description="Songsmith EQ: shape the tone of a track."/>
+    <choice id="eq_vst3" title="VST3 plugin" start_selected="true"
+            description="Songsmith EQ.vst3 in /Library/Audio/Plug-Ins/VST3. For Ableton Live, Cubase, Studio One, Reaper and most other recording software.">
+        <pkg-ref id="com.songsmithstudio.songsmitheq.vst3"/>
+    </choice>
+    <choice id="eq_au" title="Audio Unit (for Logic Pro and GarageBand)" start_selected="true"
+            description="Songsmith EQ.component in /Library/Audio/Plug-Ins/Components.">
+        <pkg-ref id="com.songsmithstudio.songsmitheq.au"/>
+    </choice>
+    <choice id="eq_app" title="Standalone app (runs without recording software)" start_selected="true"
+            description="Songsmith EQ.app in Applications.">
+        <pkg-ref id="com.songsmithstudio.songsmitheq.app"/>
+    </choice>
+
+    <!-- Songsmith Analog Compressor -->
+    <choice id="fet" title="Songsmith Analog Compressor @FET_VERSION@" start_selected="true"
+            description="Songsmith Analog Compressor: even out the level and add analogue warmth."/>
+    <choice id="fet_vst3" title="VST3 plugin" start_selected="true"
+            description="Songsmith Analog Compressor.vst3 in /Library/Audio/Plug-Ins/VST3. For Ableton Live, Cubase, Studio One, Reaper and most other recording software.">
+        <pkg-ref id="com.songsmithstudio.songsmithanalogcompressor.vst3"/>
+    </choice>
+    <choice id="fet_au" title="Audio Unit (for Logic Pro and GarageBand)" start_selected="true"
+            description="Songsmith Analog Compressor.component in /Library/Audio/Plug-Ins/Components.">
+        <pkg-ref id="com.songsmithstudio.songsmithanalogcompressor.au"/>
+    </choice>
+    <choice id="fet_app" title="Standalone app (runs without recording software)" start_selected="true"
+            description="Songsmith Analog Compressor.app in Applications.">
+        <pkg-ref id="com.songsmithstudio.songsmithanalogcompressor.app"/>
+    </choice>
+
+    <!-- Songsmith Maximiser -->
+    <choice id="max" title="Songsmith Maximiser @MAX_VERSION@" start_selected="true"
+            description="Songsmith Maximiser: make a finished mix louder without clipping."/>
+    <choice id="max_vst3" title="VST3 plugin" start_selected="true"
+            description="Songsmith Maximiser.vst3 in /Library/Audio/Plug-Ins/VST3. For Ableton Live, Cubase, Studio One, Reaper and most other recording software.">
+        <pkg-ref id="com.songsmithstudio.songsmithmaximiser.vst3"/>
+    </choice>
+    <choice id="max_au" title="Audio Unit (for Logic Pro and GarageBand)" start_selected="true"
+            description="Songsmith Maximiser.component in /Library/Audio/Plug-Ins/Components.">
+        <pkg-ref id="com.songsmithstudio.songsmithmaximiser.au"/>
+    </choice>
+    <choice id="max_app" title="Standalone app (runs without recording software)" start_selected="true"
+            description="Songsmith Maximiser.app in Applications.">
+        <pkg-ref id="com.songsmithstudio.songsmithmaximiser.app"/>
+    </choice>
+
+    <pkg-ref id="com.songsmithstudio.songsmitheq.vst3" version="@EQ_VERSION@" onConclusion="none">songsmitheq-vst3.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmitheq.au"   version="@EQ_VERSION@" onConclusion="none">songsmitheq-au.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmitheq.app"  version="@EQ_VERSION@" onConclusion="none">songsmitheq-app.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithanalogcompressor.vst3" version="@FET_VERSION@" onConclusion="none">songsmithanalogcompressor-vst3.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithanalogcompressor.au"   version="@FET_VERSION@" onConclusion="none">songsmithanalogcompressor-au.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithanalogcompressor.app"  version="@FET_VERSION@" onConclusion="none">songsmithanalogcompressor-app.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithmaximiser.vst3" version="@MAX_VERSION@" onConclusion="none">songsmithmaximiser-vst3.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithmaximiser.au"   version="@MAX_VERSION@" onConclusion="none">songsmithmaximiser-au.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithmaximiser.app"  version="@MAX_VERSION@" onConclusion="none">songsmithmaximiser-app.pkg</pkg-ref>
+</installer-gui-script>

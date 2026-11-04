@@ -8,7 +8,7 @@ Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq
 | ✅ [S2 bevelled controls everywhere](done/S2-bevelled-controls.md) | The slightly bevelled, raised look from the compressor, applied to buttons, knobs, menus and toggles in every plugin |
 | ✅ [S3 plain words everywhere](done/S3-plain-words-everywhere.md) | No abbreviations and plain language in every plugin, enforced by one shared test |
 | ✅ [S4 Windows suite installer](done/S4-windows-suite-installer.md) | One Windows installer for all plugins, with a tick box per plugin |
-| [S5 macOS suite installer](S5-macos-suite-installer.md) | One macOS `.pkg` for all plugins, with a choice per plugin and format |
+| ✅ [S5 macOS suite installer](done/S5-macos-suite-installer.md) | One macOS `.pkg` for all plugins, with a choice per plugin and format |
 
 ## Overnight runs merge into `main`
 

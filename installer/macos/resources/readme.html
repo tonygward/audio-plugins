@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>body { font: 13px -apple-system, "Helvetica Neue", sans-serif; } pre { font: 11px Menlo, monospace; background: #f2f2f2; padding: 8px; white-space: pre-wrap; }</style>
+</head><body>
+<p><b>Where things go</b></p>
+<pre>/Library/Audio/Plug-Ins/VST3/&lt;plugin&gt;.vst3
+/Library/Audio/Plug-Ins/Components/&lt;plugin&gt;.component
+/Applications/&lt;plugin&gt;.app</pre>
+<p>Your presets stay in <code>~/Library/Songsmith Studio/&lt;plugin&gt;/Presets</code>. The installer never touches them.</p>
+
+<p><b>Why macOS warned you about this installer</b></p>
+<p>The installer isn't signed or notarised by Apple (that needs a paid developer account), so Gatekeeper blocks it the first time. To open it: try to open it once, then go to <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b>.</p>
+
+<p><b>Uninstalling</b></p>
+<p>Quit your recording software, then run <code>installer/macos/uninstall.sh</code> from the Songsmith Studio source (github.com/tonygward/audio-plugins). It lists what it will remove and asks before removing anything. Your presets are kept.</p>
+</body></html>
