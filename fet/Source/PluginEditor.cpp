@@ -53,6 +53,7 @@ FETKnob::FETKnob (juce::AudioProcessorValueTreeState& state, const char* paramId
                                 juce::degreesToRadians (135.0f) + juce::MathConstants<float>::twoPi, true);
     slider.setMouseDragSensitivity (220);
     slider.setTitle (name);
+    slider.getProperties().set (Songsmith::UI::LookAndFeelBase::valueArcProperty, false);   // the printed scale shows the value
     slider.onValueChange = [this] { repaint(); };
     addAndMakeVisible (slider);
 }
@@ -142,7 +143,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
         content.addAndMakeVisible (*b);
     }
     grOffButton.setTooltip ("Gain reduction off: the signal still runs through the amplifiers (Attack \"OFF\")");
-    bypassButton.getProperties().set ("bypassColour", true);
+    bypassButton.setColour (juce::TextButton::buttonOnColourId, Colours::bypass);
 
     for (int m = 0; m < 3; ++m)
     {
@@ -243,13 +244,8 @@ void SongsmithAnalogCompressorEditor::paint (juce::Graphics& g)
 void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
 {
     const auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) designWidth, (float) designHeight);
-    juce::ColourGradient bg (Colours::panelLight, 0.0f, 0.0f, Colours::panel, 0.0f, r.getHeight(), false);
-    g.setGradientFill (bg);
-    g.fillRect (r);
-
-    // Title bar.
-    g.setColour (Colours::recess.withAlpha (0.6f));
-    g.fillRect (r.withHeight (52.0f));
+    Songsmith::UI::LookAndFeelBase::drawPanel (g, r);
+    Songsmith::UI::LookAndFeelBase::drawTitleBar (g, r.withHeight (Songsmith::UI::titleBarHeight));
     Songsmith::UI::drawTitle (g, { Songsmith::UI::titleInset, 0.0f, 360.0f, Songsmith::UI::titleBarHeight },
                               JucePlugin_Name, Colours::text, Colours::accent);
 

@@ -359,7 +359,8 @@ void BandPanel::refreshFromParams()
 void BandPanel::paint (juce::Graphics& g)
 {
     const auto r = getLocalBounds().toFloat().reduced (0.5f);
-    g.setColour (EQColours::panel.withAlpha (0.96f));
+    g.setGradientFill (juce::ColourGradient (Songsmith::UI::Colours::panelLight.withAlpha (0.97f), 0.0f, r.getY(),
+                                             Songsmith::UI::Colours::panel.withAlpha (0.97f), 0.0f, r.getBottom(), false));
     g.fillRoundedRectangle (r, 9.0f);
     g.setColour (band >= 0 ? EQColours::band (band).withAlpha (0.7f) : EQColours::panelEdge);
     g.drawRoundedRectangle (r, 9.0f, 1.2f);

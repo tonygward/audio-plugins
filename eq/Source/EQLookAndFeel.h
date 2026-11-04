@@ -8,15 +8,16 @@ namespace EQColours
     const juce::Colour background   { 0xff15171c };
     const juce::Colour plotTop      { 0xff1d2027 };
     const juce::Colour plotBottom   { 0xff121419 };
-    const juce::Colour panel        { 0xff1f232a };
-    const juce::Colour panelEdge    { 0xff2e333c };
+    // The shared Songsmith neutrals (shared/Source/SongsmithColours.h).
+    inline const juce::Colour panel     = Songsmith::UI::Colours::panelLight;
+    inline const juce::Colour panelEdge = Songsmith::UI::Colours::edge;
     const juce::Colour gridMinor    { 0x14ffffff };
     const juce::Colour gridMajor    { 0x26ffffff };
     const juce::Colour zeroLine     { 0x50ffffff };
-    const juce::Colour label        { 0xff8a919e };
-    const juce::Colour text         { 0xffe4e7ec };
+    inline const juce::Colour label     = Songsmith::UI::Colours::textDim;
+    inline const juce::Colour text      = Songsmith::UI::Colours::text;
     const juce::Colour totalCurve   { 0xfff2c94c };
-    const juce::Colour accent       { 0xfff2c94c };   // the product name in the title (Songsmith yellow)
+    const juce::Colour accent       { 0xfff2c94c };   // Songsmith yellow: the title, lit buttons, knob pointers
 
     // Stable colour identity per band slot: the original three, then golden-ratio hues.
     inline juce::Colour band (int index)
@@ -47,93 +48,15 @@ namespace EQColours
     namespace Type = Songsmith::UI::Type;
 }
 
-// Flat, arc-style rotary knobs. Bipolar ranges (e.g. gain) fill from the centre. Fonts come from
-// the shared Songsmith::UI::LookAndFeelBase.
+// Fonts, buttons, knobs, combo boxes and the bar sliders come from the shared
+// Songsmith::UI::LookAndFeelBase. Band controls take their band's colour as their accent
+// (BandPanel); the graph, nodes and meter are drawn by EQDisplay and OutputMeterDisplay.
 class EQLookAndFeel : public Songsmith::UI::LookAndFeelBase
 {
 public:
-    EQLookAndFeel()
+    EQLookAndFeel() : LookAndFeelBase (EQColours::accent)
     {
-        setColour (juce::Slider::textBoxTextColourId, EQColours::text);
-        setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
-        setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
         setColour (juce::Label::textColourId, EQColours::label);
-        setColour (juce::TooltipWindow::backgroundColourId, juce::Colour (0xf0101216));
-        setColour (juce::TooltipWindow::outlineColourId, EQColours::panelEdge);
-        setColour (juce::TooltipWindow::textColourId, EQColours::text);
-    }
-
-    // Compact bar sliders (top-bar output gain): bipolar ranges fill from zero.
-    void drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
-                           float sliderPos, float minSliderPos, float maxSliderPos,
-                           juce::Slider::SliderStyle style, juce::Slider& slider) override
-    {
-        if (style != juce::Slider::LinearBar)
-        {
-            LookAndFeel_V4::drawLinearSlider (g, x, y, width, height, sliderPos, minSliderPos, maxSliderPos, style, slider);
-            return;
-        }
-
-        const auto r = juce::Rectangle<int> (x, y, width, height).toFloat();
-        g.setColour (EQColours::panel);
-        g.fillRoundedRectangle (r, 4.0f);
-
-        const bool bipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
-        const float zeroX = bipolar ? (float) slider.getPositionOfValue (0.0) : r.getX();
-        const float from = juce::jmin (zeroX, sliderPos), to = juce::jmax (zeroX, sliderPos);
-
-        if (to - from > 0.5f)
-        {
-            g.setColour (slider.findColour (juce::Slider::trackColourId).withAlpha (slider.isEnabled() ? 0.55f : 0.2f));
-            g.fillRect (juce::Rectangle<float> (from, r.getY() + 1.0f, to - from, r.getHeight() - 2.0f));
-        }
-
-        g.setColour (EQColours::panelEdge);
-        g.drawRoundedRectangle (r.reduced (0.5f), 4.0f, 1.0f);
-    }
-
-    void drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
-                           float sliderPos, float startAngle, float endAngle,
-                           juce::Slider& slider) override
-    {
-        const auto bounds = juce::Rectangle<int> (x, y, width, height).toFloat().reduced (4.0f);
-        const float radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
-        const auto centre = bounds.getCentre();
-        const float trackWidth = juce::jmax (2.5f, radius * 0.12f);
-        const float arcRadius = radius - trackWidth * 0.5f;
-
-        const auto accent = slider.findColour (juce::Slider::rotarySliderFillColourId);
-
-        // Knob body
-        const float bodyRadius = arcRadius - trackWidth * 1.4f;
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0xff343a45), centre.x, centre.y - bodyRadius,
-                                                 juce::Colour (0xff1e2229), centre.x, centre.y + bodyRadius, false));
-        g.fillEllipse (juce::Rectangle<float> (bodyRadius * 2.0f, bodyRadius * 2.0f).withCentre (centre));
-
-        // Background track
-        juce::Path track;
-        track.addCentredArc (centre.x, centre.y, arcRadius, arcRadius, 0.0f, startAngle, endAngle, true);
-        g.setColour (juce::Colour (0xff2b3039));
-        g.strokePath (track, juce::PathStrokeType (trackWidth, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-        // Value arc
-        const bool bipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
-        const float valueAngle = startAngle + sliderPos * (endAngle - startAngle);
-        const float fromAngle = bipolar ? (startAngle + endAngle) * 0.5f : startAngle;
-
-        if (std::abs (valueAngle - fromAngle) > 0.001f)
-        {
-            juce::Path valueArc;
-            valueArc.addCentredArc (centre.x, centre.y, arcRadius, arcRadius, 0.0f,
-                                    juce::jmin (fromAngle, valueAngle), juce::jmax (fromAngle, valueAngle), true);
-            g.setColour (accent);
-            g.strokePath (valueArc, juce::PathStrokeType (trackWidth, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-        }
-
-        // Pointer
-        const auto tip = centre.getPointOnCircumference (bodyRadius * 0.85f, valueAngle);
-        const auto base = centre.getPointOnCircumference (bodyRadius * 0.35f, valueAngle);
-        g.setColour (EQColours::text);
-        g.drawLine ({ base, tip }, 2.0f);
+        setColour (juce::TextButton::textColourOnId, juce::Colours::black);
     }
 };

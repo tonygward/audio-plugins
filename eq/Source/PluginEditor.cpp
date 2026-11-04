@@ -392,7 +392,9 @@ bool SongsmithEQAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
 
 void SongsmithEQAudioProcessorEditor::paintContent (juce::Graphics& g)
 {
-    g.fillAll (EQColours::background);
+    const auto area = content.getLocalBounds().toFloat();
+    Songsmith::UI::LookAndFeelBase::drawPanel (g, area);
+    Songsmith::UI::LookAndFeelBase::drawTitleBar (g, area.withHeight ((float) row1Height));
 
     Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, EQColours::text, EQColours::accent);
 }

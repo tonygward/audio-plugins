@@ -6,6 +6,7 @@
 #include <random>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "../../shared/Tests/SongsmithControlSheet.h"
 #include "../../shared/Tests/SongsmithUITests.h"
 #include "MaxParams.h"
 
@@ -1126,6 +1127,13 @@ public:
 
     void runTest() override
     {
+        beginTest ("Every button, slider and combo box uses the shared bevelled look");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+            Songsmith::UI::Testing::checkControlsUseSharedLook (*this, *editor, "editor");
+        }
+
         beginTest ("Editor text uses the shared typeface and type scale");
         {
             SongsmithMaximiserAudioProcessor p;
@@ -1505,6 +1513,11 @@ static int renderScreenshot (const juce::File& file, float scale)
     if (! out.openedOk() || ! juce::PNGImageFormat().writeImageToStream (image, out))
         return 1;
     std::printf ("Wrote %s\n", file.getFullPathName().toRawUTF8());
+
+    // Every control state, drawn by the editor's look-and-feel, next to it.
+    MaxLookAndFeel lf;
+    Songsmith::UI::Testing::writeControlSheet (lf, MaxColours::background, scale,
+        file.getSiblingFile (file.getFileNameWithoutExtension() + "-controls.png"));
     return 0;
 }
 
