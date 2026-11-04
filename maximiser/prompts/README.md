@@ -9,5 +9,7 @@ There is one self-contained prompt per build step. They were run in order by the
 | [03 true peak and auto release](done/03-true-peak-and-auto-release.md) | Done | #39 |
 | [04 editor and dither](done/04-editor-and-dither.md) | Done | #44 |
 | [05 validation and packaging](done/05-validation-and-packaging.md) | Done | #46 |
+| [06 true peak by default](06-true-peak-by-default.md) | To do | |
+| [07 loudness meter (LUFS)](07-loudness-meter.md) | To do | |
 
 Still to do by hand before a release: the host checks in [`docs/host-checks.md`](../docs/host-checks.md).
