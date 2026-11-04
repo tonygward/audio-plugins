@@ -47,6 +47,11 @@ public:
     juce::ComboBox& getPresetBox() { return presetBox; }
     void advanceMeter (float seconds);
 
+    // Text the editor paints (the wording tests read these).
+    static juce::String gainReductionText (float db);   // the readout under the meter
+    static juce::String meterModeName (int mode);        // 0 Gain Reduction, 1 Output +4, 2 Output +8
+    static juce::String oversamplingText (int index);    // "Oversampling: off", "Oversampling: 2x" ...
+
 private:
     void timerCallback() override { advanceMeter (1.0f / 30.0f); }
     void refreshButtons();
@@ -72,13 +77,13 @@ private:
 
     FETKnob input, output, attack, release;
     std::array<std::unique_ptr<juce::TextButton>, 4> ratioButtons;
-    juce::TextButton allButton { "All" };
+    juce::TextButton allButton { "All Buttons" };
     juce::ParameterAttachment ratioAttachment, allButtonsAttachment;
 
-    juce::TextButton grOffButton { "GR Off" }, bypassButton { "Bypass" };
+    juce::TextButton grOffButton { "Gain Reduction Off" }, bypassButton { "Bypass" };
     juce::AudioProcessorValueTreeState::ButtonAttachment grOffAttachment, bypassAttachment;
 
-    std::array<juce::TextButton, 3> meterButtons { juce::TextButton ("GR"), juce::TextButton ("+4"), juce::TextButton ("+8") };
+    std::array<juce::TextButton, 3> meterButtons { juce::TextButton (meterModeName (0)), juce::TextButton (meterModeName (1)), juce::TextButton (meterModeName (2)) };
     FET::UI::NeedleMeter meter;
     float grDisplayDb = 0.0f;
 

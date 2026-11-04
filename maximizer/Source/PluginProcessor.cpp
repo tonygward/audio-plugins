@@ -44,7 +44,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithMaximiserAudioProce
         juce::AudioParameterFloatAttributes().withLabel ("dB")));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { Max::ceilingId, 1 }, "Out Ceiling",
+        juce::ParameterID { Max::ceilingId, 1 }, "Output Ceiling",
         juce::NormalisableRange<float> (Max::minCeilingDb, Max::maxCeilingDb, 0.01f), Max::defaultCeilingDb,
         juce::AudioParameterFloatAttributes().withLabel ("dB")));
 

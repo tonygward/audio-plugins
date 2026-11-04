@@ -36,9 +36,9 @@ namespace
     const juce::Rectangle<int> outputArea  { 200, 64, 170, 270 };
     const juce::Rectangle<int> attackArea  { 382, 56, 112, 138 };
     const juce::Rectangle<int> releaseArea { 382, 200, 112, 138 };
-    const juce::Rectangle<int> ratioArea   { 512, 72, 56, 236 };
-    const juce::Rectangle<int> meterArea   { 584, 72, 236, 168 };
-    const juce::Rectangle<int> meterModes  { 832, 72, 48, 132 };
+    const juce::Rectangle<int> ratioArea   { 510, 72, 66, 236 };
+    const juce::Rectangle<int> meterArea   { 584, 72, 296, 132 };
+    const juce::Rectangle<int> meterModes  { 584, 212, 296, 28 };   // a row under the meter
 }
 
 //==============================================================================
@@ -117,13 +117,13 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     for (auto* k : { &input, &output, &attack, &release })
         content.addAndMakeVisible (*k);
 
-    // Ratio buttons: one press selects that ratio (and leaves All Buttons); "All" presses all
+    // Ratio buttons: one press selects that ratio (and leaves All Buttons); "All Buttons" presses all
     // four at once (UM p. 9). Each press is one automation gesture.
     const juce::StringArray ratioText { "4", "8", "12", "20" };
     for (int i = 0; i < 4; ++i)
     {
         auto b = std::make_unique<juce::TextButton> (ratioText[i]);
-        b->setTooltip (ratioNames()[i]);
+        b->setTooltip ("Ratio " + ratioNames()[i] + ": how strongly loud sounds are turned down. Higher ratios squash more.");
         b->onClick = [this, i]
         {
             if (allButtonsOn)
@@ -133,7 +133,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
         content.addAndMakeVisible (*b);
         ratioButtons[(size_t) i] = std::move (b);
     }
-    allButton.setTooltip ("All Buttons: all four ratio buttons pressed in");
+    allButton.setTooltip ("All Buttons: all four ratio buttons pressed in at once, for a harder, more distorted sound");
     allButton.onClick = [this] { allButtonsAttachment.setValueAsCompleteGesture (allButtonsOn ? 0.0f : 1.0f); };
     content.addAndMakeVisible (allButton);
 
@@ -142,23 +142,30 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
         b->setClickingTogglesState (true);
         content.addAndMakeVisible (*b);
     }
-    grOffButton.setTooltip ("Gain reduction off: the signal still runs through the amplifiers (Attack \"OFF\")");
+    grOffButton.setTooltip ("Gain Reduction Off: stops compressing, but the sound still passes through the amplifiers and keeps their colour");
+    bypassButton.setTooltip ("Bypass: the sound passes through untouched");
     bypassButton.setColour (juce::TextButton::buttonOnColourId, Colours::bypass);
 
     for (int m = 0; m < 3; ++m)
     {
         meterButtons[(size_t) m].onClick = [this, m] { setMeterMode (m); };
+        meterButtons[(size_t) m].setTooltip (m == 0 ? "Meter: how much the compressor is turning the level down"
+                                                    : "Meter: the output level, with 0 on the scale at " + juce::String (m == 1 ? "+4" : "+8")
+                                                          + " dBu (" + juce::String (m == 1 ? "the usual studio level" : "for hotter levels") + ")");
         content.addAndMakeVisible (meterButtons[(size_t) m]);
     }
     content.addAndMakeVisible (meter);
 
-    oversampling.addItemList (oversamplingNames(), 1);
-    oversampling.setTooltip ("Oversampling for the analogue stages and the detector");
+    for (int i = 0; i < oversamplingNames().size(); ++i)
+        oversampling.addItem (oversamplingText (i), i + 1);
+    oversampling.setTooltip ("Oversampling: runs the compressor at a higher sample rate, so its distortion stays clean "
+                             "instead of folding back as harsh tones. Higher settings use more processing power.");
     content.addAndMakeVisible (oversampling);
     oversampling.setSelectedItemIndex ((int) p.apvts.getRawParameterValue (ID::oversampling)->load(), juce::dontSendNotification);
 
     for (int i = 0; i < (int) std::size (uiScales); ++i)
-        sizeBox.addItem ("Size " + juce::String (juce::roundToInt (uiScales[i] * 100.0f)) + " %", i + 1);
+        sizeBox.addItem ("Interface size: " + juce::String (juce::roundToInt (uiScales[i] * 100.0f)) + " %", i + 1);
+    sizeBox.setTooltip ("Interface size: makes the whole window larger or smaller");
     sizeBox.onChange = [this] { setUiScale (uiScales[(size_t) juce::jmax (0, sizeBox.getSelectedId() - 1)]); };
     content.addAndMakeVisible (sizeBox);
 
@@ -167,8 +174,11 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     content.addAndMakeVisible (presetBox);
     rebuildPresetMenu();
 
-    for (auto* k : { &input, &output, &attack, &release })
-        k->slider.setTooltip ("Drag to change, double-click for the default");
+    input.slider.setTooltip ("Input: how hard you drive the compressor. Turn it up for more compression; there is no threshold control. "
+                             "Double-click for the default.");
+    output.slider.setTooltip ("Output: the level after compression. Double-click for the default.");
+    attack.slider.setTooltip ("Attack: how fast it reacts when the sound gets louder. Higher numbers are faster. Double-click for the default.");
+    release.slider.setTooltip ("Release: how fast it lets go when the sound gets quieter. Higher numbers are faster. Double-click for the default.");
 
     ratioAttachment.sendInitialUpdate();
     allButtonsAttachment.sendInitialUpdate();
@@ -222,18 +232,20 @@ void SongsmithAnalogCompressorEditor::layoutContent()
 
     meter.setBounds (meterArea);
     auto modes = meterModes;
-    for (auto& b : meterButtons)
-    {
-        b.setBounds (modes.removeFromTop (40));
-        modes.removeFromTop (6);
-    }
+    const int gainReductionWidth = 116, modeGap = 8;
+    meterButtons[0].setBounds (modes.removeFromLeft (gainReductionWidth));
+    modes.removeFromLeft (modeGap);
+    const int outputWidth = (modes.getWidth() - modeGap) / 2;
+    meterButtons[1].setBounds (modes.removeFromLeft (outputWidth));
+    modes.removeFromLeft (modeGap);
+    meterButtons[2].setBounds (modes);
 
-    grOffButton.setBounds (584, 300, 112, 36);
-    bypassButton.setBounds (708, 300, 112, 36);
+    grOffButton.setBounds (584, 300, 144, 36);
+    bypassButton.setBounds (736, 300, 144, 36);
 
-    presetBox.setBounds (400, 14, 186, 26);
-    oversampling.setBounds (598, 14, 120, 26);
-    sizeBox.setBounds (730, 14, 150, 26);
+    presetBox.setBounds (300, 14, 186, 26);
+    oversampling.setBounds (498, 14, 170, 26);
+    sizeBox.setBounds (680, 14, 200, 26);
 }
 
 void SongsmithAnalogCompressorEditor::paint (juce::Graphics& g)
@@ -257,20 +269,19 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
     g.setColour (Colours::textDim);
     g.setFont (font (Type::heading, Weight::Medium));
     g.drawText ("Ratio", juce::Rectangle<float> ((float) ratioArea.getX(), 52.0f, (float) ratioArea.getWidth(), 18.0f), juce::Justification::centred);
-    g.drawText ("Meter", juce::Rectangle<float> ((float) meterModes.getX(), 52.0f, (float) meterModes.getWidth(), 18.0f), juce::Justification::centred);
 
     // Numeric GR under the needle (the needle has VU ballistics; this shows the value).
     g.setColour (Colours::text);
     g.setFont (numbers (Type::heading, Weight::Medium));
-    g.drawText ("GR " + juce::String (-grDisplayDb, 1) + " dB",
-                juce::Rectangle<float> ((float) meterArea.getX(), (float) meterArea.getBottom() + 10.0f, (float) meterArea.getWidth(), 20.0f),
+    g.drawText (gainReductionText (grDisplayDb),
+                juce::Rectangle<float> ((float) meterArea.getX(), (float) meterModes.getBottom() + 6.0f, (float) meterArea.getWidth(), 20.0f),
                 juce::Justification::centred);
 
     if (allButtonsOn)
     {
         g.setColour (Colours::accent);
         g.setFont (font (Type::hint, Weight::SemiBold));
-        g.drawText ("All Buttons", juce::Rectangle<float> ((float) meterArea.getX(), (float) meterArea.getBottom() + 30.0f, (float) meterArea.getWidth(), 16.0f),
+        g.drawText ("All Buttons", juce::Rectangle<float> ((float) meterArea.getX(), (float) meterModes.getBottom() + 26.0f, (float) meterArea.getWidth(), 16.0f),
                     juce::Justification::centred);
     }
 
@@ -280,6 +291,22 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
     const auto hint = proc.presets.currentHint.isNotEmpty() ? proc.presets.currentHint
                                                              : juce::String ("Double-click a knob for its default.");
     g.drawFittedText (hint, juce::Rectangle<int> (24, 356, 852, 36), juce::Justification::centredLeft, 2);
+}
+
+juce::String SongsmithAnalogCompressorEditor::gainReductionText (float db)
+{
+    return "Gain Reduction " + juce::String (juce::jmax (0.0f, db), 1) + " dB";
+}
+
+juce::String SongsmithAnalogCompressorEditor::meterModeName (int mode)
+{
+    return mode == 0 ? "Gain Reduction" : mode == 1 ? "Output +4" : "Output +8";
+}
+
+juce::String SongsmithAnalogCompressorEditor::oversamplingText (int index)
+{
+    const auto times = juce::String::charToString (0x00d7);   // multiplication sign
+    return index <= 0 ? juce::String ("Oversampling: off") : "Oversampling: " + juce::String (1 << index) + times;
 }
 
 void SongsmithAnalogCompressorEditor::refreshButtons()
@@ -296,7 +323,7 @@ void SongsmithAnalogCompressorEditor::setMeterMode (int mode)
     proc.meterMode.store (mode);
     for (int m = 0; m < 3; ++m)
         meterButtons[(size_t) m].setToggleState (m == mode, juce::dontSendNotification);
-    meter.setModeLabel (mode == 0 ? "GR" : mode == 1 ? "+4" : "+8");
+    meter.setModeLabel (meterModeName (mode));
 }
 
 void SongsmithAnalogCompressorEditor::advanceMeter (float seconds)
@@ -308,7 +335,7 @@ void SongsmithAnalogCompressorEditor::advanceMeter (float seconds)
 
     // The numeric readout: instant rise, ~300 ms fall.
     grDisplayDb = gr > grDisplayDb ? gr : grDisplayDb * 0.9f + gr * 0.1f;
-    content.repaint (meterArea.getX(), meterArea.getBottom(), meterArea.getWidth(), 50);
+    content.repaint (meterArea.getX(), meterArea.getY(), meterArea.getWidth(), meterModes.getBottom() + 50 - meterArea.getY());
 }
 
 FETKnob& SongsmithAnalogCompressorEditor::getKnob (const juce::String& id)

@@ -29,11 +29,11 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     };
 
     setupLabel (thresholdLabel, "Threshold");
-    setupLabel (ceilingLabel, "Out Ceiling");
+    setupLabel (ceilingLabel, "Output Ceiling");
     setupLabel (releaseLabel, "Release");
-    setupLabel (inLabel, "In");
-    setupLabel (grLabel, "Atten");
-    setupLabel (outLabel, "Out");
+    setupLabel (inLabel, "Input");
+    setupLabel (grLabel, "Gain Reduction");
+    setupLabel (outLabel, "Output");
     setupLabel (peakLabel, "Peak", juce::Justification::centredRight);
     setupLabel (ditherLabel, "Dither", juce::Justification::centredRight);
     setupLabel (gainLabel, {});
@@ -75,12 +75,12 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     };
     setupFader (thresholdSlider, MaxColours::threshold, Max::thresholdId, true);
     setupFader (ceilingSlider, MaxColours::ceiling, Max::ceilingId, false);
-    thresholdSlider.setTooltip ("Threshold: below it the gain is Out Ceiling minus Threshold; above it the limiter holds the ceiling");
-    ceilingSlider.setTooltip ("Out Ceiling: the highest level the output may reach (sample or true peak, see Peak)");
+    thresholdSlider.setTooltip ("Threshold: how hard the sound is pushed into the limiter. Lower it to make the sound louder; the gain is Output Ceiling minus Threshold");
+    ceilingSlider.setTooltip ("Output Ceiling: the highest level the output may reach (sample or true peak, see Peak)");
 
     linkButton.setClickingTogglesState (true);
     linkButton.setToggleState (proc.linkThresholdCeiling.load(), juce::dontSendNotification);
-    linkButton.setTooltip ("Link: moving Threshold or Out Ceiling moves the other by the same amount, keeping the gain the same");
+    linkButton.setTooltip ("Link: moving Threshold or Output Ceiling moves the other by the same amount, keeping the gain the same");
     linkButton.onClick = [this] { proc.linkThresholdCeiling.store (linkButton.getToggleState()); };
     content.addAndMakeVisible (linkButton);
 
@@ -112,7 +112,7 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     content.addAndMakeVisible (peakModeBox);
 
     ditherBox.addItemList (Max::getDitherNames(), 1);
-    ditherBox.setTooltip ("Dither: TPDF dither and rounding to 16 or 24 bits, for the final export only. Leave it off otherwise");
+    ditherBox.setTooltip ("Dither: adds a very quiet noise before the output is rounded to 16 or 24 bits, so quiet fades stay smooth. Use it only for the final export; leave it off otherwise");
     ditherAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, Max::ditherId, ditherBox);
     content.addAndMakeVisible (ditherBox);
 
@@ -135,7 +135,7 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     content.addAndMakeVisible (startingPointBox);
 
     inputMeter.setTooltip ("Input peak (click to reset)");
-    reductionMeter.setTooltip ("Attenuation: the limiter's gain reduction, 0 to 24 dB");
+    reductionMeter.setTooltip ("Gain Reduction: how much the limiter is turning the level down, 0 to 24 dB");
     outputMeter.setTooltip ("Output peak (click to reset)");
     for (auto* m : { &inputMeter, &reductionMeter, &outputMeter })
         content.addAndMakeVisible (*m);
@@ -186,11 +186,12 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
     peakModeBox.setBounds (ditherLabel.getX() - 12 - 116, 12, 116, 26);
     peakLabel.setBounds (peakModeBox.getX() - 44, 12, 40, 26);
 
-    // Main row: In | Threshold | Link | Out Ceiling | Atten | Out | Release.
-    const int top = 70, labelH = 20, bottom = designH - 24;
+    // Main row: Input | Threshold | Link | Output Ceiling | Gain Reduction | Output | Release.
+    // The meter and fader captions have room for two lines ("Gain Reduction"), so no word is shortened.
+    const int top = 70, labelH = 34, bottom = designH - 24;
     const int meterTop = top + labelH + 4, faderBottom = bottom;
 
-    inLabel.setBounds (20, top, 40, labelH);
+    inLabel.setBounds (8, top, 64, labelH);
     inputMeter.setBounds (28, meterTop, 24, bottom - meterTop - 26);
 
     thresholdLabel.setBounds (76, top, 100, labelH);
@@ -201,14 +202,15 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
     ceilingLabel.setBounds (248, top, 100, labelH);
     ceilingSlider.setBounds (258, meterTop, 80, faderBottom - meterTop);
 
-    grLabel.setBounds (354, top, 52, labelH);
-    reductionMeter.setBounds (366, meterTop, 28, bottom - meterTop - 26);
+    grLabel.setBounds (346, top, 80, labelH);
+    reductionMeter.setBounds (372, meterTop, 28, bottom - meterTop - 26);
 
-    outLabel.setBounds (414, top, 40, labelH);
-    outputMeter.setBounds (422, meterTop, 24, bottom - meterTop - 26);
+    outLabel.setBounds (426, top, 56, labelH);
+    outputMeter.setBounds (442, meterTop, 24, bottom - meterTop - 26);
 
-    releaseLabel.setBounds (500, top, 180, labelH);
-    releaseSlider.setBounds (515, meterTop + 4, 150, 150);
+    const int releaseTop = top + 24;   // the Release knob stays where it was
+    releaseLabel.setBounds (500, top + (labelH - 20) / 2, 180, 20);   // on the same line as the other captions
+    releaseSlider.setBounds (515, releaseTop + 4, 150, 150);
     autoReleaseButton.setBounds (530, releaseSlider.getBottom() + 14, 120, 28);
     gainLabel.setBounds (490, autoReleaseButton.getBottom() + 22, 200, 22);
     startingPointBox.setBounds (500, gainLabel.getBottom() + 18, 180, 26);

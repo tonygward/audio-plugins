@@ -82,7 +82,7 @@ namespace EQ
                 { "Backing vocals", { { T::LowShelf, 200.0f, -4.0f, defaultQ },
                                       { T::Bell, 500.0f, -3.0f, 0.8f },
                                       { T::HighShelf, 8000.0f, 2.5f, defaultQ } },
-                  -0.2f, "For the BV bus: thin the lows and mids, then set how much top end they need.", true },
+                  -0.2f, "For the backing vocal bus: thin the lows and mids, then set how much top end they need.", true },
                 { "Spoken word", { { T::LowCut, 100.0f, 0.0f, defaultQ, 1 },
                                    { T::Bell, 200.0f, -3.0f, 0.9f },
                                    { T::Bell, 2600.0f, -2.0f, 6.0f } },
@@ -140,7 +140,7 @@ namespace EQ
                 { "Acoustic guitar pickup", { { T::LowCut, 100.0f, 0.0f, defaultQ, 1 },
                                               dynamic ({ T::Bell, 2000.0f, 0.0f, 1.0f }, -26.0f, -3.0f),
                                               { T::HighShelf, 9000.0f, 1.5f, defaultQ } },
-                  -0.1f, "For a piezo DI. The 2 kHz band tames the quack only when it jumps out.", true },
+                  -0.1f, "For a piezo pickup plugged straight in. The 2 kHz band tames the quack only when it jumps out.", true },
 
                 // ---- Task 30; append only ----
                 // Tony's Pro-Q 4 preset "Abbey Road Reverb Trick" (Jul 2026), band for band, as decoded in
