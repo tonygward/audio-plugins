@@ -111,3 +111,24 @@ Unchanged: Low Cut 200 Hz, 18 dB/oct · Bell 4.8 kHz −3 dB (off). *2021-09-09,
 ### Five-zone start (index 18)
 
 Unchanged: five flat bells at 50 Hz, 160 Hz, 550 Hz, 2.6 kHz and 10 kHz. It's a teaching layout from task 20 (*2026-09-06, Frequency Fluency*). There's nothing to audit because every gain is 0 dB.
+
+### Abbey Road reverb (index 21, task 30)
+
+This template is Tony's own Pro-Q 4 preset, *Abbey Road Reverb Trick* (`Documents/FabFilter/Presets/Pro-Q 4/Tony/Abbey Road Reverb Trick.ffp`, saved 26 Jul 2026), copied band for band. It is not based on Joe's videos. The values come from the decode in `fx-chains/saved-chains.md`, line 307 (*Vocals Reverb (Dual)*: Pro-Q 4 → UADx Pure Plate → ValhallaRoom → Pro-C 2), which shows this is the EQ in front of Tony's vocal reverbs. The `.ffp` itself couldn't be opened when this was written (a OneDrive cloud-only file), so the catalogue decode is the source.
+
+| Band | Songsmith EQ | Pro-Q 4 (`saved-chains.md:307`) |
+|---|---|---|
+| 1 | Low Cut 377.28 Hz, 12 dB/oct | Low Cut 377.28 Hz, default slope |
+| 2 | Bell 594.4 Hz +0.54 dB, Q 1.92 | Bell 594.40 Hz +0.54 dB, Q 1.923 |
+| 3 | High Cut 17.056 kHz, 12 dB/oct | High Cut 17056 Hz, Q 1.004, default slope |
+| 4 | Bell 10.094 kHz +0.41 dB, Q 2.16 | Bell 10094 Hz +0.41 dB, Q 2.158 |
+| 5 | Bell 2 kHz −3 dB, Q 3.02 | Bell 2000 Hz −3.00 dB, Q 3.016 |
+
+- **Slope:** Pro-Q's default cut slope couldn't be confirmed from the file, so the cuts use 12 dB/oct, as the task says to when it's unconfirmed. Check this against the Pro-Q 4 preset.
+- **Cut Q:** the cuts use Songsmith EQ's neutral cut Q (0.707, no resonance bump). Pro-Q's Q 1.0 on a cut is its own neutral default.
+- **Output gain:** +1.6 dB, measured the way task 20 does it (pink noise, K-weighted), because the cuts take about 1.6 dB of loudness out. On a reverb send, loudness matching means little. Tony runs Pro-Q's Auto Gain here.
+- **The technique:** the "Abbey Road reverb trick" EQs the send **before** the reverb: high-pass at about 600 Hz and low-pass at about 10 kHz. Tony's version is gentler: 377 Hz and 17 kHz, plus a −3 dB dip at 2 kHz to keep harshness and sibilance out of the tail. The two tiny bells (+0.5 dB at 594 Hz and 10 kHz) mark the textbook points. The hint suggests raising the low cut towards 600 Hz for the textbook sound.
+- **Compared with "Reverb return" (index 17):** that template goes **after** the reverb, following Joe (*2021-09-09, High-Pass Your Reverb, 5:18*: "the reverb can sometimes produce low frequencies even if there's not a lot … going into it and that's why I put the EQ after"). It's a 200 Hz 18 dB/oct cut and an optional 4.8 kHz dip. Abbey Road shapes what goes **into** the reverb. The two can be used together. `mixing/reverb-template.md` (line 34) suggests keeping Tony's pre-reverb Pro-Q 4 and adding a high-pass after. `mixing/between-you-and-me.md` (line 99): "every reverb filtered, usually high-passed at 200–500 Hz and low-passed at 10–12 kHz".
+- **Joe on "Abbey Road":** the transcripts mention it only as a big drum room (*2019-01-22, My Favorite Reverb, 2:38*), not this EQ trick.
+- **The name:** it names a well-known technique. It doesn't claim any connection with the studio.
+- **Cut first:** boosts 0.95 dB against a 3 dB cut, so the template passes "boosts ≤ cuts" without an exception.
