@@ -37,8 +37,11 @@ struct SongsmithEQAudioProcessor::LinearPhaseDesigner final : juce::Thread
 SongsmithEQAudioProcessor::~SongsmithEQAudioProcessor()
 {
     stopTimer();
+    // Wait for the designer to finish its current FIR rather than force-kill it after a timeout:
+    // a killed thread can die holding a lock (or the heap lock) and deadlock the host. A design
+    // takes milliseconds normally, longer only on a heavily loaded machine.
     if (lpDesigner != nullptr)
-        lpDesigner->stopThread (2000);
+        lpDesigner->stopThread (-1);
 }
 
 EQ::LinearPhaseBands SongsmithEQAudioProcessor::gatherLinearPhaseBands() const

@@ -1142,11 +1142,20 @@ void EQDisplay::mouseDoubleClick (const juce::MouseEvent& e)
     }
     else if (getPlotArea().contains (e.position))
     {
-        const int band = processor.edits.addBand (xToFreq (e.position.x), displayToStoredGain (yToGain (e.position.y)), EQ::FilterType::Bell);
-        if (band >= 0)
-            setSelectedBand (band);
+        addBandAt (xToFreq (e.position.x), yToGain (e.position.y), e.mods.isCommandDown());
     }
     repaint();
+}
+
+int EQDisplay::addBandAt (float freq, float displayGainDb, bool forceBell)
+{
+    // Near the edges a cut (task 29); a cut ignores the vertical position and sits on 0 dB.
+    const auto type = EQ::typeForNewBand (freq, forceBell);
+    const float gain = EQ::typeHasGain (type) ? displayToStoredGain (displayGainDb) : 0.0f;
+    const int band = processor.edits.addBand (freq, gain, type);
+    if (band >= 0)
+        setSelectedBand (band);
+    return band;
 }
 
 void EQDisplay::endWheelEdit()

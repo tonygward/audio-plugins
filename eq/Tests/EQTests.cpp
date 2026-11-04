@@ -4211,6 +4211,113 @@ public:
 };
 
 //==============================================================================
+// Task 29: double-clicking near the left edge adds a Low Cut, near the right a High Cut.
+class EdgeClickTests final : public juce::UnitTest
+{
+public:
+    EdgeClickTests() : juce::UnitTest ("Edge clicks add cuts", "EQ") {}
+
+    static juce::MouseEvent doubleClickAt (juce::Component& c, juce::Point<float> pos, juce::ModifierKeys mods)
+    {
+        const auto now = juce::Time::getCurrentTime();
+        return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), pos, mods,
+                                 juce::MouseInputSource::defaultPressure, 0.0f, 0.0f, 0.0f, 0.0f,
+                                 &c, &c, now, pos, now, 2, false);
+    }
+
+    void runTest() override
+    {
+        auto check = [this] (float freq, float clickedGain, bool forceBell, FilterType expectedType, const juce::String& what)
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            const int band = ed->getDisplay().addBandAt (freq, clickedGain, forceBell);
+            expect (band >= 0, what + ": added");
+            if (band < 0)
+                return -1;
+            expectEquals ((int) p.getBandValue (band, Param::Type), (int) expectedType, what + ": type");
+            expectWithinAbsoluteError (p.getBandValue (band, Param::Freq), freq, freq * 0.001f, what + ": frequency");
+            const float expectedGain = expectedType == FilterType::Bell ? clickedGain : 0.0f;
+            expectWithinAbsoluteError (p.getBandValue (band, Param::Gain), expectedGain, 0.01f, what + ": gain");
+            if (EQ::typeHasSlope (expectedType))
+            {
+                expectEquals ((int) p.getBandValue (band, Param::Slope), EQ::defaultSlope, what + ": default slope");
+                expectWithinAbsoluteError (p.getBandValue (band, Param::Q), EQ::defaultQ, 0.01f, what + ": default Q");
+            }
+            expectEquals (ed->getDisplay().getSelectedBand(), band, what + ": selected");
+            return band;
+        };
+
+        beginTest ("25 Hz: Low Cut at 0 dB; 16 kHz: High Cut at 0 dB; 1 kHz: Bell at the clicked gain");
+        check (25.0f, 6.0f, false, FilterType::LowCut, "25 Hz");
+        check (16000.0f, -5.0f, false, FilterType::HighCut, "16 kHz");
+        check (1000.0f, 4.5f, false, FilterType::Bell, "1 kHz");
+
+        beginTest ("Zone boundaries: just inside and just outside");
+        check (EQ::lowCutZoneHz * 0.98f, 3.0f, false, FilterType::LowCut, "just below the low zone edge");
+        check (EQ::lowCutZoneHz * 1.02f, 3.0f, false, FilterType::Bell, "just above the low zone edge");
+        check (EQ::highCutZoneHz * 1.02f, 3.0f, false, FilterType::HighCut, "just above the high zone edge");
+        check (EQ::highCutZoneHz * 0.98f, 3.0f, false, FilterType::Bell, "just below the high zone edge");
+        expectEquals (EQ::lowCutZoneHz, 40.0f);
+        expectEquals (EQ::highCutZoneHz, 12000.0f);
+
+        beginTest ("Ctrl/Cmd forces a Bell at the edges");
+        check (25.0f, 6.0f, true, FilterType::Bell, "25 Hz forced");
+        check (16000.0f, -2.0f, true, FilterType::Bell, "16 kHz forced");
+
+        beginTest ("Stacking: a second Low Cut is added and existing bands are untouched");
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            const int first = ed->getDisplay().addBandAt (30.0f, 0.0f, false);
+            p.edits.setValue (first, Param::Freq, 35.0f);
+            const int second = ed->getDisplay().addBandAt (25.0f, 0.0f, false);
+            expect (second >= 0 && second != first);
+            expectEquals ((int) p.getBandValue (second, Param::Type), (int) FilterType::LowCut);
+            expectEquals ((int) p.getBandValue (first, Param::Type), (int) FilterType::LowCut);
+            expectWithinAbsoluteError (p.getBandValue (first, Param::Freq), 35.0f, 0.01f, "first cut unchanged");
+        }
+
+        beginTest ("Undo after an edge add removes the band in one step");
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            const int usedBefore = p.getNumUsedBands();
+            const int band = ed->getDisplay().addBandAt (25.0f, 6.0f, false);
+            expectEquals (p.getNumUsedBands(), usedBefore + 1);
+            p.edits.undo();
+            expectEquals (p.getNumUsedBands(), usedBefore, "one undo");
+            expect (! p.isBandUsed (band));
+            p.edits.redo();
+            expectEquals ((int) p.getBandValue (band, Param::Type), (int) FilterType::LowCut, "redo restores the cut");
+        }
+
+        beginTest ("Real double-clicks at the edges and the middle of the graph");
+        {
+            SongsmithEQAudioProcessor p;
+            for (int b = 0; b < numBands; ++b)
+                if (p.isBandUsed (b))
+                    p.edits.removeBand (b);
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            auto& display = ed->getDisplay();
+            const float plotRight = (float) display.getWidth() - 36.0f, midY = ((float) display.getHeight() - 20.0f) * 0.5f;
+
+            auto typeAfterClick = [&] (float x, float y, juce::ModifierKeys mods)
+            {
+                display.mouseDoubleClick (doubleClickAt (display, { x, y }, mods));
+                return (int) p.getBandValue (display.getSelectedBand(), Param::Type);
+            };
+            expectEquals (typeAfterClick (4.0f, midY, {}), (int) FilterType::LowCut, "far left");
+            expectEquals (typeAfterClick (plotRight - 4.0f, midY, {}), (int) FilterType::HighCut, "far right");
+            expectEquals (typeAfterClick (plotRight * 0.5f, midY, {}), (int) FilterType::Bell, "middle");
+            expectEquals (typeAfterClick (8.0f, midY + 80.0f, juce::ModifierKeys (juce::ModifierKeys::commandModifier)), (int) FilterType::Bell,
+                          "Ctrl/Cmd at the far left");
+            expectEquals (p.getNumUsedBands(), 4);
+        }
+    }
+};
+
+//==============================================================================
 // Task 27: tall vertical output meter on the right of the graph.
 class OutputMeterTests final : public juce::UnitTest
 {
@@ -4290,6 +4397,113 @@ public:
     }
 };
 
+//==============================================================================
+// Task 28: a "Piano" toggle in row 3 for the piano strip.
+class PianoToggleTests final : public juce::UnitTest
+{
+public:
+    PianoToggleTests() : juce::UnitTest ("Piano strip toggle", "EQ") {}
+
+    static juce::TextButton* findButton (juce::Component& content, const juce::String& text)
+    {
+        for (auto* c : content.getChildren())
+            if (auto* b = dynamic_cast<juce::TextButton*> (c); b != nullptr && b->getButtonText() == text)
+                return b;
+        return nullptr;
+    }
+
+    static juce::ComboBox* findCombo (juce::Component& content, const juce::String& firstItem)
+    {
+        for (auto* c : content.getChildren())
+            if (auto* b = dynamic_cast<juce::ComboBox*> (c); b != nullptr && b->getNumItems() > 0 && b->getItemText (0) == firstItem)
+                return b;
+        return nullptr;
+    }
+
+    void runTest() override
+    {
+        beginTest ("The button turns the strip on and off, and stays in step with the menu setting");
+        {
+            SongsmithEQAudioProcessor p;
+            expect (! p.showPianoStrip.load(), "off by default");
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            auto* piano = findButton (ed->getContent(), "Piano");
+            expect (piano != nullptr, "Piano button exists");
+            if (piano == nullptr)
+                return;
+            expect (piano->isVisible());
+            expect (! piano->getToggleState());
+
+            piano->setToggleState (! piano->getToggleState(), juce::sendNotificationSync);   // as a click does
+            expect (piano->getToggleState());
+            expect (p.showPianoStrip.load(), "button turns it on");
+
+            juce::MemoryBlock state;
+            p.getStateInformation (state);
+            SongsmithEQAudioProcessor restored;
+            restored.setStateInformation (state.getData(), (int) state.getSize());
+            expect (restored.showPianoStrip.load(), "saved with the session");
+            auto ed2 = UiSizeTests::makeEditor (restored, 1.0f, 1280, 760);
+            auto* piano2 = findButton (ed2->getContent(), "Piano");
+            expect (piano2 != nullptr && piano2->getToggleState(), "a reopened session shows the button on");
+
+            // As the right-click menu does: the button follows on the next timer tick.
+            p.showPianoStrip.store (false);
+            ed->refreshFromProcessor();
+            expect (! piano->getToggleState(), "menu change updates the button");
+
+            piano->setToggleState (! piano->getToggleState(), juce::sendNotificationSync);   // as a click does
+            piano->setToggleState (! piano->getToggleState(), juce::sendNotificationSync);   // as a click does
+            expect (! p.showPianoStrip.load(), "a second click turns it off");
+            p.getStateInformation (state);
+            SongsmithEQAudioProcessor restoredOff;
+            restoredOff.showPianoStrip.store (true);
+            restoredOff.setStateInformation (state.getData(), (int) state.getSize());
+            expect (! restoredOff.showPianoStrip.load(), "off round-trips too");
+        }
+
+        beginTest ("Row 3 fits at the minimum size at every UI size, with the side chain slot reserved");
+        {
+            using namespace EQ::EditorSize;
+            for (auto s : uiScales)
+            {
+                SongsmithEQAudioProcessor p;
+                const int w = juce::roundToInt ((float) minWidth * s), h = juce::roundToInt ((float) minHeight * s);
+                auto ed = UiSizeTests::makeEditor (p, s, w, h);
+                const auto context = juce::String (juce::roundToInt (s * 100.0f)) + "% at " + juce::String (w) + " x " + juce::String (h);
+                auto& content = ed->getContent();
+                auto* piano = findButton (content, "Piano");
+                auto* sidechain = findCombo (content, "Side Chain: off");
+                auto* curve = findCombo (content, "Curve: all bands");
+                expect (piano != nullptr && sidechain != nullptr && curve != nullptr);
+                if (piano == nullptr || sidechain == nullptr || curve == nullptr)
+                    continue;
+                expect (piano->isVisible(), context + ": the button is shown");
+                expect (piano->getX() >= sidechain->getRight(), context + ": after the side chain box");
+                expect (! piano->getBounds().intersects (sidechain->getBounds()), context + ": no overlap with the side chain slot");
+                expect (piano->getRight() <= content.getWidth() - 12, context + ": inside the margin");
+                expectEquals (piano->getY(), curve->getY(), context + ": in row 3");
+                WordingAndFontTests::checkLayout (*this, *ed, context);
+            }
+        }
+
+        beginTest ("Turning the strip on doesn't move the graph or the nodes");
+        {
+            SongsmithEQAudioProcessor p;
+            const int band = p.edits.addBand (1000.0f, 6.0f, FilterType::Bell);
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            const auto before = ed->getDisplay().getBounds();
+            const auto nodeBefore = ed->getDisplay().getNodeCentre (band);
+            p.showPianoStrip.store (true);
+            ed->refreshFromProcessor();
+            expect (ed->getDisplay().getBounds() == before);
+            expect (ed->getDisplay().getNodeCentre (band) == nodeBefore);
+        }
+    }
+};
+
+static PianoToggleTests pianoToggleTests;
+static EdgeClickTests edgeClickTests;
 static OutputMeterTests outputMeterTests;
 static UiSizeTests uiSizeTests;
 static WordingAndFontTests wordingAndFontTests;
@@ -4555,7 +4769,7 @@ static int renderScreenshots (const juce::File& folder, float scale)
 {
     folder.createDirectory();
 
-    auto shoot = [&] (int width, int height, const juce::String& name, float uiScale = 1.0f)
+    auto shoot = [&] (int width, int height, const juce::String& name, float uiScale = 1.0f, bool piano = false)
     {
         SongsmithEQAudioProcessor p;
         p.prepareToPlay (48000.0, 512);
@@ -4595,6 +4809,7 @@ static int renderScreenshots (const juce::File& folder, float scale)
         }
 
         p.uiScale = uiScale;
+        p.showPianoStrip.store (piano);
         p.editorWidth = width;
         p.editorHeight = height;
         std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
@@ -4615,6 +4830,8 @@ static int renderScreenshots (const juce::File& folder, float scale)
     SongsmithEQAudioProcessor defaults;
     shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "default-size");
     shoot (EQ::EditorSize::minWidth, EQ::EditorSize::minHeight, "minimum-size");
+    shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "default-size-piano", 1.0f, true);
+    shoot (EQ::EditorSize::minWidth, EQ::EditorSize::minHeight, "minimum-size-piano", 1.0f, true);
     shoot (EQ::EditorSize::maxWidth, 2160, "maximum-size-4k");
 
     // Every interface size at its default window (design size 1280 x 760, scaled).
