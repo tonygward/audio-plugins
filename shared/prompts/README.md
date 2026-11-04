@@ -12,6 +12,17 @@ Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq
 | [S6 one installer entry per plugin](S6-one-entry-per-plugin.md) | One tick box per plugin in every installer: no separate standalone app or format choices |
 | [S7 one version number](S7-one-version-number.md) | One version for every plugin, installer and release, from a root `VERSION` file, starting at 1.1.0 |
 
+## Songsmith Plugins backlog
+
+Finish the existing suite work and develop the classic standalone plugins on two tracks. **The Channel Strip follows the standalone classics.**
+
+| Track | Sequence |
+|---|---|
+| Analog emulation | Existing 1176-inspired FET compressor: [Low Cut](../../analog-compressor/prompts/07-detector-low-cut.md) then [editor polish](../../analog-compressor/prompts/08-1176-editor.md). Next [A1 Optical Leveller](classics/A1-optical-leveller.md), [A2 Pultec-style EQ](classics/A2-pultec-eq.md), then [A3 SSL-style compressor](classics/A3-ssl.md). |
+| Digital | Existing EQ: [filter icons](../../eq/prompts/33-filter-shape-icons.md). Existing Maximiser: [defaults and loudness meter](../../maximiser/prompts/README.md). Next [D1 Clean Compressor](classics/D1-clean-compressor.md). |
+
+Apply [S8 suite branding](S8-songsmith-plugins-brand.md), [S9 curated and custom presets](S9-preset-library.md), and [S10 resizable editors and control help](S10-resize-and-plain-language.md) across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
+
 ## Overnight runs merge into `main`
 
 When these prompts are run unattended (for example overnight with [`overnight-prompt.md`](overnight-prompt.md)), each task can go **straight into `main`**: the agent opens a PR, waits for CI, approves it and merges it itself once the build, tests and CI all pass. Nothing is ever pushed to `main` without a PR. Blocked tasks stay as draft PRs for Tony. (GitHub doesn't let an account formally approve its own PR, so the agent records its approval as a PR comment listing what it checked, then merges.)
