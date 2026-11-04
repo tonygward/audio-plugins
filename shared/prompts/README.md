@@ -23,6 +23,15 @@ Finish the existing suite work and develop the classic standalone plugins on two
 
 Apply [S8 suite branding](S8-songsmith-plugins-brand.md), [S9 curated and custom presets](S9-preset-library.md), and [S10 resizable editors and control help](S10-resize-and-plain-language.md) across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
 
+### S11 · Show latency and processing load in every plugin
+
+Follow `CLAUDE.md` and the suite editor requirements. Add a consistent diagnostics view to every current and future Songsmith plugin.
+
+- **Latency:** Show the processing delay this instance reports to the host, in samples and milliseconds at the current sample rate. Refresh it when the sample rate or processing mode changes. Use a plain tooltip such as “The delay this plugin adds. Your recording software may compensate for it.”
+- **Processing Load:** Offer optional per-instance timing, off by default. Estimate the percentage of the audio block's time budget used by this instance. Use a smoothed readout with enough precision for light loads, and show unavailable when there is no recent measurement. Explain in a tooltip that the value describes this plugin and varies with the computer, settings and buffer size.
+- Keep timing overhead low and benchmark it. Avoid allocations, locks, logging and UI updates in the audio callback. Publish measurements safely and refresh the display on the UI thread. Keep diagnostic settings separate from sound presets.
+- Check the displayed delay against the reported samples and sample rate in every latency-changing mode. Verify the load calculation at different block sizes, behaviour when processing stops, and the UI at supported window sizes. Test VST3, Audio Unit and standalone where supported.
+
 ## Overnight runs merge into `main`
 
 When these prompts are run unattended (for example overnight with [`overnight-prompt.md`](overnight-prompt.md)), each task can go **straight into `main`**: the agent opens a PR, waits for CI, approves it and merges it itself once the build, tests and CI all pass. Nothing is ever pushed to `main` without a PR. Blocked tasks stay as draft PRs for Tony. (GitHub doesn't let an account formally approve its own PR, so the agent records its approval as a PR comment listing what it checked, then merges.)
