@@ -1,0 +1,4 @@
+#!/bin/sh
+# Audio Unit component, after install: make macOS rescan Audio Units.
+killall -9 AudioComponentRegistrar >/dev/null 2>&1 || true
+exit 0

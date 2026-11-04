@@ -464,6 +464,12 @@ int main (int argc, char* argv[])
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
 
+    // No test may touch the real user presets folder: point it at a throwaway folder.
+    const auto appData = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                             .getNonexistentChildFile ("fet-tests-appdata", {}, false);
+    FET::Presets::setDefaultFolderRootForTesting (appData);
+    struct Cleanup { juce::File dir; ~Cleanup() { dir.deleteRecursively(); } } cleanup { appData };
+
     for (int i = 1; i < argc; ++i)
     {
         if (juce::String (argv[i]) == "--timing") return runTimingReport();

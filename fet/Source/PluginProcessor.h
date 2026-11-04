@@ -6,6 +6,7 @@
 #include "FETParams.h"
 #include "FETEngine.h"
 #include "FETColour.h"
+#include "FETPresets.h"
 
 class SongsmithAnalogCompressorProcessor : public juce::AudioProcessor, private juce::Timer
 {
@@ -32,10 +33,11 @@ public:
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 0.0; }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
+    // Host program list = the factory starting points (Studio One, Logic and others list them).
+    int getNumPrograms() override { return (int) FET::Presets::factory().size(); }
+    int getCurrentProgram() override { return currentProgram; }
+    void setCurrentProgram (int index) override;
+    const juce::String getProgramName (int index) override;
     void changeProgramName (int, const juce::String&) override {}
 
     void getStateInformation (juce::MemoryBlock& destData) override;
@@ -46,6 +48,7 @@ public:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     juce::AudioProcessorValueTreeState apvts;
+    FET::Presets presets { apvts };
 
     // Gain reduction for the meter: the largest GR (dB, positive) since the last call.
     float takeGainReductionDb() noexcept { return engine.takePeakGainReductionDb(); }
@@ -103,6 +106,7 @@ private:
     std::array<std::unique_ptr<juce::dsp::Oversampling<float>>, 3> oversamplers;
     std::array<int, 3> osLatency {};
     int osActive = 0;
+    int currentProgram = 0;
     double baseRate = 44100.0;
 
     static constexpr int chunkSize = 512;

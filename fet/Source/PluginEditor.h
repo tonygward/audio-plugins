@@ -44,12 +44,16 @@ public:
     FETKnob& getKnob (const juce::String& id);
     juce::Button& getRatioButton (int index) { return *ratioButtons[(size_t) index]; }   // 0..3 = 4, 8, 12, 20
     juce::Button& getAllButton() { return allButton; }
+    juce::ComboBox& getPresetBox() { return presetBox; }
     void advanceMeter (float seconds);
 
 private:
     void timerCallback() override { advanceMeter (1.0f / 30.0f); }
     void refreshButtons();
     void setMeterMode (int mode);
+    void rebuildPresetMenu();
+    void presetChosen();
+    void savePresetAsync();
 
     // All controls live here, laid out in design units, then scaled as one.
     struct Content : juce::Component
@@ -79,6 +83,11 @@ private:
     float grDisplayDb = 0.0f;
 
     juce::ComboBox oversampling, sizeBox;
+    juce::ComboBox presetBox;
+    juce::TooltipWindow tooltips { this, 600 };
+    std::unique_ptr<juce::AlertWindow> saveDialog;
+    static constexpr int savePresetId = 1000, openFolderId = 1001, firstUserId = 100;
+    juce::Array<juce::File> userPresetFiles;
     juce::AudioProcessorValueTreeState::ComboBoxAttachment oversamplingAttachment;
 
     int ratioIndex = 0;

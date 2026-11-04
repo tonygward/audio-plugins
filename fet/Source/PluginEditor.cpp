@@ -161,6 +161,14 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     sizeBox.onChange = [this] { setUiScale (uiScales[(size_t) juce::jmax (0, sizeBox.getSelectedId() - 1)]); };
     content.addAndMakeVisible (sizeBox);
 
+    presetBox.setTooltip ("Starting points and your own presets");
+    presetBox.onChange = [this] { presetChosen(); };
+    content.addAndMakeVisible (presetBox);
+    rebuildPresetMenu();
+
+    for (auto* k : { &input, &output, &attack, &release })
+        k->slider.setTooltip ("Drag to change, double-click for the default");
+
     ratioAttachment.sendInitialUpdate();
     allButtonsAttachment.sendInitialUpdate();
     setMeterMode (proc.meterMode.load());
@@ -222,8 +230,9 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     grOffButton.setBounds (584, 300, 112, 36);
     bypassButton.setBounds (708, 300, 112, 36);
 
-    oversampling.setBounds (600, 14, 130, 26);
-    sizeBox.setBounds (744, 14, 136, 26);
+    presetBox.setBounds (400, 14, 186, 26);
+    oversampling.setBounds (598, 14, 120, 26);
+    sizeBox.setBounds (730, 14, 150, 26);
 }
 
 void SongsmithAnalogCompressorEditor::paint (juce::Graphics& g)
@@ -273,9 +282,12 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
                     juce::Justification::centred);
     }
 
+    // The listening cue of the loaded starting point.
     g.setColour (Colours::textDim);
-    g.setFont (font (12.0f));
-    g.drawText ("Double-click a knob for its default", juce::Rectangle<float> (24.0f, 368.0f, 360.0f, 18.0f), juce::Justification::centredLeft);
+    g.setFont (font (12.5f));
+    const auto hint = proc.presets.currentHint.isNotEmpty() ? proc.presets.currentHint
+                                                             : juce::String ("Double-click a knob for its default.");
+    g.drawFittedText (hint, juce::Rectangle<int> (24, 356, 852, 36), juce::Justification::centredLeft, 2);
 }
 
 void SongsmithAnalogCompressorEditor::refreshButtons()
@@ -313,4 +325,79 @@ FETKnob& SongsmithAnalogCompressorEditor::getKnob (const juce::String& id)
     if (id == ID::output) return output;
     if (id == ID::attack) return attack;
     return release;
+}
+
+//==============================================================================
+void SongsmithAnalogCompressorEditor::rebuildPresetMenu()
+{
+    presetBox.clear (juce::dontSendNotification);
+    const auto& factory = Presets::factory();
+    presetBox.addSectionHeading ("Starting points");
+    for (int i = 0; i < (int) factory.size(); ++i)
+        presetBox.addItem (factory[(size_t) i].name, i + 1);
+
+    userPresetFiles = proc.presets.getUserPresetFiles();
+    if (! userPresetFiles.isEmpty())
+    {
+        presetBox.addSectionHeading ("Your presets");
+        for (int i = 0; i < userPresetFiles.size(); ++i)
+            presetBox.addItem (userPresetFiles[i].getFileNameWithoutExtension(), firstUserId + i);
+    }
+    presetBox.addSeparator();
+    presetBox.addItem ("Save preset...", savePresetId);
+    presetBox.addItem ("Open presets folder", openFolderId);
+
+    presetBox.setText (proc.presets.currentName.isNotEmpty() ? proc.presets.currentName : juce::String ("Preset"),
+                       juce::dontSendNotification);
+}
+
+void SongsmithAnalogCompressorEditor::presetChosen()
+{
+    const int id = presetBox.getSelectedId();
+    if (id == 0)
+        return;
+
+    if (id == savePresetId)
+    {
+        savePresetAsync();
+    }
+    else if (id == openFolderId)
+    {
+        const auto folder = proc.presets.getUserFolder();
+        folder.createDirectory();
+        folder.startAsProcess();
+    }
+    else if (id >= firstUserId && id - firstUserId < userPresetFiles.size())
+    {
+        juce::String error;
+        if (! proc.presets.loadFile (userPresetFiles[id - firstUserId], error))
+            juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Preset", error);
+    }
+    else if (id >= 1 && id <= (int) Presets::factory().size())
+    {
+        proc.presets.loadFactory (id - 1);
+    }
+
+    rebuildPresetMenu();
+    content.repaint();
+}
+
+void SongsmithAnalogCompressorEditor::savePresetAsync()
+{
+    saveDialog = std::make_unique<juce::AlertWindow> ("Save preset", "Name for the preset:", juce::MessageBoxIconType::NoIcon, this);
+    saveDialog->addTextEditor ("name", proc.presets.currentName, {});
+    saveDialog->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    saveDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    saveDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this] (int result)
+    {
+        if (result == 1 && saveDialog != nullptr)
+        {
+            juce::String error;
+            if (! proc.presets.saveAs (saveDialog->getTextEditorContents ("name"), error))
+                juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Preset", error);
+        }
+        saveDialog.reset();
+        rebuildPresetMenu();
+        content.repaint();
+    }), false);
 }
