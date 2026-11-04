@@ -55,6 +55,19 @@ public:
     int getOversamplingLatency (int index) const noexcept { return osLatency[(size_t) juce::jlimit (0, 2, index)]; }
     int getActiveOversamplingIndex() const noexcept { return osActive; }
 
+    // Output level for the meter: the largest block RMS (dBFS, loudest channel) since the last call.
+    float takeOutputRmsDb() noexcept
+    {
+        const float ms = outputMs.exchange (0.0f, std::memory_order_relaxed);
+        return ms > 1.0e-15f ? 10.0f * std::log10 (ms) : -150.0f;
+    }
+    bool isAllButtonsOn() const noexcept { return allButtonsParam->load() >= 0.5f; }
+
+    // Editor state saved with the session (not automatable): interface size and meter mode.
+    std::atomic<float> uiScale { 1.0f };
+    std::atomic<int> meterMode { 0 };   // 0 = GR, 1 = +4, 2 = +8 (UG p. 3)
+    static inline const juce::Identifier uiId { "UI" };
+
     // Test hook: false = the clean engine only (no FET or output-stage colour).
     void setColourEnabled (bool on) noexcept { colourEnabled = on; }
 
@@ -78,6 +91,9 @@ private:
     std::atomic<float>* ratioIndex = nullptr;
     std::atomic<float>* grOffParam = nullptr;
     std::atomic<float>* oversamplingParam = nullptr;
+    std::atomic<float>* allButtonsParam = nullptr;
+    std::atomic<float> outputMs { 0.0f };
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> fetFactor { 1.0f };
 
     FET::Engine engine;
     FET::OutputStage outputStage;

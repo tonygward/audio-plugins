@@ -46,6 +46,21 @@ namespace FET
         void setAttackKnob (float knob) noexcept;
         void setReleaseKnob (float knob) noexcept;
         void setGainReductionEnabled (bool enabled) noexcept { grEnabled = enabled; }
+        void setAllButtons (bool on) noexcept;
+        bool isAllButtons() const noexcept { return allButtons; }
+
+        // All Buttons ("British mode"): all four ratio buttons pressed. Sourced (UM p. 9, p. 22):
+        // the ratio "goes to somewhere between 12:1 and 20:1", the bias points change, attack
+        // lags on initial transients, attack and release keep changing, distortion rises
+        // radically. The numbers are tuned (docs/all-buttons.md).
+        static constexpr float abRatio = 18.0f;          // nominal; measures 12-20 with the knee
+        static constexpr float abThresholdDb = -21.0f;   // bias shift: lower than any single button
+        static constexpr float abKneeDb = 4.0f;
+        static constexpr float abOverStartDb = 24.0f;    // input overshoot where over-compression starts
+        static constexpr float abOverSlope = 1.2f;       // extra dB of GR per dB above that
+        static constexpr float abAttackLag = 20.0f;      // attack up to 21x slower while GR is small ...
+        static constexpr float abAttackLagDb = 4.0f;     // ... fading out over the first few dB of GR
+        static constexpr float abReleaseDb = 12.0f;      // release speeds up with depth: x1 / (1 + GR / 12)
 
         // In place. Channels beyond maxChannels are left untouched. The gain is linked:
         // every channel gets the same gain, computed from the loudest channel.
@@ -69,6 +84,8 @@ namespace FET
         int ratioIndex = 0;
         float attackKnob = 4.0f, releaseKnob = 4.0f;
         bool grEnabled = true;
+        bool allButtons = false;
+        float overSlope = 0.0f, overStartDb = 0.0f;
 
         float k = 3.0f, thresholdDb = -19.5f, kneeDb = 10.0f;   // k = ratio - 1 (feedback gain)
         float attackCoeff = 1.0f, releaseCoeff = 1.0f, grOffCoeff = 1.0f;

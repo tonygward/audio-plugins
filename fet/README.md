@@ -1,6 +1,6 @@
 # Songsmith Analog Compressor
 
-A feedback FET compressor inspired by the Rev D blackface 1176LN, built with JUCE and CMake. **Work in progress:** the clean feedback compressor (step 2, [docs/engine.md](docs/engine.md)) now has analogue colour and oversampling (step 3, [docs/colour.md](docs/colour.md)): FET gain-cell distortion, Class A output amplifier and transformer, Gain Reduction Off that keeps the coloured path, and latency-aligned bypass.
+A feedback FET compressor inspired by the Rev D blackface 1176LN, built with JUCE and CMake. **Work in progress:** the clean feedback compressor (step 2, [docs/engine.md](docs/engine.md)) now has analogue colour and oversampling (step 3, [docs/colour.md](docs/colour.md)), All Buttons ([docs/all-buttons.md](docs/all-buttons.md)) and a scalable vector editor with a VU needle meter ([docs/editor.md](docs/editor.md)).
 
 - Formats: VST3 and Standalone, plus AU on macOS.
 - Identity: manufacturer `Tnyw`, plugin `Sfc1`, AU `aufx Sfc1 Tnyw`. Never change these once released.

@@ -20,11 +20,16 @@ namespace FET
         // Relative 2nd harmonic = k2 * depth * peak / 2, depth = 1 - gain.
         static constexpr float k2 = 0.05f;
 
-        // y is the gain-reduced sample, gain the linear gain the engine applied to it.
-        static float process (float y, float gain) noexcept
+        // All Buttons shifts the bias points and distortion "increases radically" (UM p. 9);
+        // tuned as eight times the FET term.
+        static constexpr float allButtonsFactor = 8.0f;
+
+        // y is the gain-reduced sample, gain the linear gain the engine applied to it, factor
+        // 1 normally and allButtonsFactor in All Buttons (smoothed by the caller).
+        static float process (float y, float gain, float factor = 1.0f) noexcept
         {
             const float depth = 1.0f - gain;
-            return y + k2 * depth * y * y;
+            return y + factor * k2 * depth * y * y;
         }
     };
 

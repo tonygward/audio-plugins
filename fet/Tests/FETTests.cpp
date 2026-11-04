@@ -293,7 +293,7 @@ struct EditorTests final : juce::UnitTest
 
     void runTest() override
     {
-        beginTest ("debug editor opens and closes");
+        beginTest ("editor opens and closes");
         SongsmithAnalogCompressorProcessor p;
         std::unique_ptr<juce::AudioProcessorEditor> e (p.createEditor());
         expect (e != nullptr);
@@ -320,6 +320,50 @@ static int runTimingReport()
                                  FET::Engine::ratios[(size_t) r], knob, over,
                                  FET::Engine::attackSeconds (knob) * 1.0e6, Measure::attackSeconds (fs, r, knob, over) * 1.0e6,
                                  FET::Engine::releaseSeconds (knob) * 1.0e3, Measure::releaseSeconds (fs, r, knob, over) * 1.0e3);
+    return 0;
+}
+
+// FETTests --screenshots <folder> [--scale 2]: the editor at 100, 150 and 200 %, plus All Buttons
+// and the +4 meter, with audio running so the meter and GR readout show real values.
+static int renderScreenshots (const juce::File& folder, float backingScale)
+{
+    folder.createDirectory();
+    const auto shoot = [&] (float uiScale, bool allButtons, int meterMode, const juce::String& name)
+    {
+        SongsmithAnalogCompressorProcessor p;
+        const auto set = [&] (const char* id, float v) { auto* rp = p.apvts.getParameter (id); rp->setValueNotifyingHost (rp->convertTo0to1 (v)); };
+        set (ID::input, 18.0f);
+        set (ID::output, 4.0f);
+        set (ID::attack, 3.0f);
+        set (ID::release, 6.0f);
+        set (ID::ratio, 0.0f);
+        set (ID::allButtons, allButtons ? 1.0f : 0.0f);
+        p.uiScale.store (uiScale);
+        p.meterMode.store (meterMode);
+        p.prepareToPlay (48000.0, 480);
+        std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+        auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (editor.get());
+        juce::AudioBuffer<float> b (2, 480);
+        juce::MidiBuffer m;
+        for (int k = 0; k < 100; ++k)
+        {
+            for (int c = 0; c < 2; ++c)
+                for (int i = 0; i < 480; ++i)
+                    b.setSample (c, i, 0.15f * (float) std::sin (0.04 * (k * 480 + i)));
+            p.processBlock (b, m);
+            if (ed != nullptr) ed->advanceMeter (0.01f);
+        }
+        const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, backingScale);
+        const auto file = folder.getChildFile (name + (backingScale != 1.0f ? "@" + juce::String (backingScale, 0) + "x" : juce::String()) + ".png");
+        file.deleteFile();
+        juce::FileOutputStream out (file);
+        juce::PNGImageFormat().writeImageToStream (image, out);
+        std::printf ("%s\n", file.getFullPathName().toRawUTF8());
+    };
+    for (float s : { 1.0f, 1.5f, 2.0f })
+        shoot (s, false, 0, "analog-compressor-" + juce::String (juce::roundToInt (s * 100.0f)));
+    shoot (1.0f, true, 0, "analog-compressor-all-buttons");
+    shoot (1.0f, false, 1, "analog-compressor-meter-plus4");
     return 0;
 }
 
@@ -425,6 +469,14 @@ int main (int argc, char* argv[])
         if (juce::String (argv[i]) == "--timing") return runTimingReport();
         if (juce::String (argv[i]) == "--bench")  return runBenchmark();
         if (juce::String (argv[i]) == "--colour") return runColourReport();
+        if (juce::String (argv[i]) == "--screenshots" && i + 1 < argc)
+        {
+            float scale = 1.0f;
+            for (int j = 1; j + 1 < argc; ++j)
+                if (juce::String (argv[j]) == "--scale")
+                    scale = juce::String (argv[j + 1]).getFloatValue();
+            return renderScreenshots (juce::File::getCurrentWorkingDirectory().getChildFile (argv[i + 1]), juce::jlimit (1.0f, 4.0f, scale));
+        }
     }
 
     ConsoleRunner runner;

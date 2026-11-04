@@ -218,6 +218,18 @@ jobs:
         shell: bash
         run: ${{ matrix.tests }}
 
+      - name: Render analog compressor screenshots
+        shell: bash
+        run: |
+          ${{ matrix.tests }} --screenshots fet-screenshots
+          ${{ matrix.tests }} --screenshots fet-screenshots --scale 2
+
+      - name: Upload analog compressor screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-screenshots-${{ runner.os }}
+          path: fet-screenshots/*.png
+
       - name: Upload plugin
         if: always()
         uses: actions/upload-artifact@v4

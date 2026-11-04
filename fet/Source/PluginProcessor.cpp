@@ -25,6 +25,7 @@ SongsmithAnalogCompressorProcessor::SongsmithAnalogCompressorProcessor()
     ratioIndex = apvts.getRawParameterValue (ID::ratio);
     grOffParam = apvts.getRawParameterValue (ID::grOff);
     oversamplingParam = apvts.getRawParameterValue (ID::oversampling);
+    allButtonsParam = apvts.getRawParameterValue (ID::allButtons);
     jassert (bypassParam != nullptr && inputDb != nullptr && outputDb != nullptr);
 }
 
@@ -134,6 +135,9 @@ void SongsmithAnalogCompressorProcessor::switchPath (int index) noexcept
     const float current = outputGain.getCurrentValue();
     outputGain.reset (rate, gainSmoothingSeconds);
     outputGain.setCurrentAndTargetValue (current);
+    const float factor = fetFactor.getTargetValue();
+    fetFactor.reset (rate, gainSmoothingSeconds);
+    fetFactor.setCurrentAndTargetValue (factor);
     if (index > 0)
         oversamplers[(size_t) index]->reset();
     dryRing.clear();
@@ -162,6 +166,8 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
     engine.setAttackKnob (attackKnob->load());
     engine.setReleaseKnob (releaseKnob->load());
     engine.setGainReductionEnabled (grOffParam->load() < 0.5f);
+    engine.setAllButtons (isAllButtonsOn());
+    fetFactor.setTargetValue (isAllButtonsOn() ? FET::FetCell::allButtonsFactor : 1.0f);
 
     // Fully bypassed and settled with no latency to keep: leave the buffer untouched.
     if (! bypassMix.isSmoothing() && bypassMix.getTargetValue() >= 1.0f
@@ -179,6 +185,16 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
             ch[c] = buffer.getWritePointer (c, pos);
         processChunk (ch, numCh, num);
     }
+
+    // Output level for the meter (after bypass, so the +4/+8 modes show what leaves the plugin).
+    float ms = 0.0f;
+    for (int c = 0; c < numCh; ++c)
+    {
+        const float rms = buffer.getRMSLevel (c, 0, n);
+        ms = juce::jmax (ms, rms * rms);
+    }
+    float prevMs = outputMs.load (std::memory_order_relaxed);
+    while (ms > prevMs && ! outputMs.compare_exchange_weak (prevMs, ms, std::memory_order_relaxed)) {}
 }
 
 void SongsmithAnalogCompressorProcessor::processChunk (float* const* ch, int numCh, int num) noexcept
@@ -278,11 +294,12 @@ void SongsmithAnalogCompressorProcessor::runCore (float* const* ch, int numCh, i
     for (int i = 0; i < num; ++i)
     {
         const float g = trim ? outputGain.getNextValue() : 1.0f;
+        const float factor = fetFactor.getNextValue();
         for (int c = 0; c < numCh; ++c)
         {
             float y = ch[c][i];
             if (colour)
-                y = FET::FetCell::process (y, gains[(size_t) i]);
+                y = FET::FetCell::process (y, gains[(size_t) i], factor);
             y *= g;   // the Output control drives the output amplifier (UG p. 7)
             if (colour)
                 y = outputStage.processSample (c, y);
@@ -301,6 +318,11 @@ void SongsmithAnalogCompressorProcessor::getStateInformation (juce::MemoryBlock&
 {
     auto state = apvts.copyState();
     state.setProperty (versionId, stateVersion, nullptr);
+
+    juce::ValueTree ui (uiId);
+    ui.setProperty ("uiScale", uiScale.load(), nullptr);
+    ui.setProperty ("meterMode", meterMode.load(), nullptr);
+    state.appendChild (ui, nullptr);
 
     if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
@@ -336,6 +358,10 @@ void SongsmithAnalogCompressorProcessor::restoreFromValueTree (const juce::Value
     }
 
     apvts.replaceState (fresh);
+
+    const auto ui = saved.getChildWithName (uiId);
+    uiScale.store (FET::snapUiScale ((float) ui.getProperty ("uiScale", 1.0f)));
+    meterMode.store (juce::jlimit (0, 2, (int) ui.getProperty ("meterMode", 0)));
 }
 
 //==============================================================================
