@@ -15,6 +15,19 @@ Every plugin shares one look: the same typeface, type sizes and title, from the 
 
 Every editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold, v4.1) by The Inter Project Authors, embedded in the plugin so Windows and macOS look the same. One copy of the font files is kept in [`shared/Resources/Fonts`](shared/Resources/Fonts). Inter is licensed under the SIL Open Font License 1.1; the licence is in [`shared/Resources/Fonts/OFL.txt`](shared/Resources/Fonts/OFL.txt).
 
+## Install every plugin at once (Windows)
+
+**Songsmith Studio** is one installer with every plugin in it: `Songsmith-Studio-<version>-win64-setup.exe`, from the [Releases page](https://github.com/tonygward/audio-plugins/releases) (CI builds it on every change as the `Songsmith-Studio-Windows-setup` artifact). This is the one to use.
+
+1. Run it. Windows SmartScreen will probably say it "protected your PC", because the installer isn't code-signed: click **More info**, then **Run anyway**.
+2. Every plugin is ticked. Untick any you don't want; each plugin's standalone app can be unticked on its own too. The page shows how much disk space each one needs.
+3. Close your recording software first: if a plugin is loaded, Setup stops and changes nothing.
+4. Rescan plugins in your recording software.
+
+Running it again (or a newer version) remembers what you ticked. Unticking a plugin that's installed removes it. If you installed a plugin with its own installer before, the suite replaces that install, so each plugin is installed once and there's one **Songsmith Studio** entry in **Settings → Apps**. Uninstalling it there removes every plugin and keeps your presets.
+
+To build it: build the three plugins (Release), then run `.\installer\windowsuild-installer.ps1` (Inno Setup 6, see below). `.\installer\windows	est-installer.ps1` builds it and tests installing, choosing plugins, upgrading, replacing a per-plugin install, a plugin in use and uninstalling, all inside a temp folder. The suite's version is in `installer/version.txt`; each plugin keeps its own.
+
 ---
 
 ## Songsmith EQ
@@ -45,7 +58,9 @@ Songsmith EQ, by Songsmith Studio, was called TW Pro EQ before v0.3. Sessions an
 
 Pre-built **Windows** downloads are on the [Releases page](https://github.com/tonygward/audio-plugins/releases).
 
-**Installer (recommended)**
+**Installer**
+
+The [Songsmith Studio installer](#install-every-plugin-at-once-windows) above includes Songsmith EQ and is the one to use. Songsmith EQ also still has its own installer:
 
 1. Download `Songsmith-EQ-<version>-win64-setup.exe` and run it.
 2. Windows SmartScreen will probably say it "protected your PC". The installer isn't code-signed (signing needs a paid certificate), so Windows doesn't recognise the publisher. Click **More info**, then **Run anyway**.
