@@ -312,3 +312,148 @@ jobs:
             fet/build/SongsmithAnalogCompressor_artefacts/Release/VST3/
             fet/build/SongsmithAnalogCompressor_artefacts/Release/AU/
             fet/build/SongsmithAnalogCompressor_artefacts/Release/Standalone/
+
+  # Songsmith Maximiser (maximizer/): its own job, so the EQ job above stays as it is.
+  maximizer:
+    name: Maximiser ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (VS, x64)
+            os: windows-latest
+            configure: -A x64
+            tests: maximizer/build/MaximizerTests_artefacts/Release/MaximizerTests.exe
+          - name: macOS (Xcode, universal)
+            os: macos-latest
+            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            tests: maximizer/build/MaximizerTests_artefacts/Release/MaximizerTests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE ${{ env.JUCE_VERSION }}
+        id: juce-cache
+        uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-${{ env.JUCE_VERSION }}-${{ runner.os }}
+
+      - name: Check out JUCE ${{ env.JUCE_VERSION }}
+        if: steps.juce-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: ${{ env.JUCE_VERSION }}
+          path: JUCE
+
+      - name: Configure
+        shell: bash
+        run: cmake -S maximizer -B maximizer/build ${{ matrix.configure }} -DJUCE_DIR="${{ github.workspace }}/JUCE"
+
+      - name: Build (Release)
+        shell: bash
+        run: cmake --build maximizer/build --config Release --parallel 4
+
+      # Unit tests, the randomised limiter stress tests and the auto-release comparison.
+      - name: Run MaximizerTests
+        shell: bash
+        run: ${{ matrix.tests }}
+
+      - name: Render editor screenshots
+        shell: bash
+        run: |
+          mkdir -p screenshots
+          ${{ matrix.tests }} --screenshot screenshots/maximiser-1x.png
+          ${{ matrix.tests }} --screenshot screenshots/maximiser-2x.png --scale 2
+
+      - name: Upload editor screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Maximiser-screenshots-${{ runner.os }}
+          path: screenshots/*.png
+
+      - name: Validate the Audio Unit (auval)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          rm -rf ~/Library/Audio/Plug-Ins/Components/"Songsmith Maximiser.component"
+          cp -R maximizer/build/SongsmithMaximiser_artefacts/Release/AU/"Songsmith Maximiser.component" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 2
+          auval -a | grep -i "Tnyw" || true
+          auval -v aufx Mxlm Tnyw
+
+      # Unsigned Inno Setup installer + the manual-install zip, built from this run's Release build
+      # and tested end to end (per-user, into a temp folder). Publishing stays manual.
+      - name: Build and test the Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc.exe -ErrorAction SilentlyContinue) -and
+              -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+          $setup = maximizer/installer/build-installer.ps1 -Zip | Select-Object -Last 1
+          maximizer/installer/test-installer.ps1 -Installer $setup
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload Windows installer
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Maximiser-Windows-setup
+          path: maximizer/build/installer/*-win64-setup.exe
+
+      - name: Upload Windows zip
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Maximiser-Windows-zip
+          path: maximizer/build/installer/*-win64.zip
+
+      - name: Zip macOS plug-ins (VST3 + AU)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          version=$(sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' maximizer/CMakeLists.txt | head -n 1)
+          mkdir -p dist/"Songsmith Maximiser"
+          cp -R maximizer/build/SongsmithMaximiser_artefacts/Release/VST3/"Songsmith Maximiser.vst3" dist/"Songsmith Maximiser"/
+          cp -R maximizer/build/SongsmithMaximiser_artefacts/Release/AU/"Songsmith Maximiser.component" dist/"Songsmith Maximiser"/
+          ditto -c -k --keepParent dist/"Songsmith Maximiser" "dist/Songsmith-Maximiser-$version-macOS.zip"
+
+      - name: Upload macOS zip
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Maximiser-macOS-zip
+          path: dist/Songsmith-Maximiser-*-macOS.zip
+
+      # Unsigned .pkg, built and tested end to end on the throwaway runner: installs system-wide,
+      # runs auval on the installed component, reinstalls, deselects the app and uninstalls.
+      - name: Build and test the macOS installer
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          pkg=$(maximizer/installer/macos/build-installer.sh | tail -n 1)
+          maximizer/installer/macos/test-installer.sh --pkg "$pkg"
+
+      - name: Upload macOS installer
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Maximiser-macOS-pkg
+          path: maximizer/build/installer/*-macOS.pkg
+
+      - name: Upload plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Maximiser-${{ runner.os }}
+          if-no-files-found: warn
+          path: |
+            maximizer/build/SongsmithMaximiser_artefacts/Release/VST3/
+            maximizer/build/SongsmithMaximiser_artefacts/Release/AU/
+            maximizer/build/SongsmithMaximiser_artefacts/Release/Standalone/
