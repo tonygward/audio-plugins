@@ -32,6 +32,18 @@ namespace EQ
     constexpr float minQ    = 0.1f,    maxQ    = 40.0f;
     constexpr float defaultQ = 0.707f;
 
+    // Adding a band from the graph (task 29): a click below lowCutZoneHz adds a Low Cut,
+    // above highCutZoneHz a High Cut, anywhere else a Bell. By frequency, so the zones are the
+    // same at every window and UI size (about the outer 10 % / 7 % of the 20 Hz-20 kHz axis).
+    constexpr float lowCutZoneHz = 40.0f, highCutZoneHz = 12000.0f;
+
+    inline FilterType typeForNewBand (float freq, bool forceBell)
+    {
+        if (! forceBell && freq < lowCutZoneHz)  return FilterType::LowCut;
+        if (! forceBell && freq > highCutZoneHz) return FilterType::HighCut;
+        return FilterType::Bell;
+    }
+
     inline float defaultFreq (int band)
     {
         constexpr float legacy[] = { 100.0f, 1000.0f, 8000.0f };

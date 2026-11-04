@@ -202,7 +202,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     bandCountLabel.setJustificationType (juce::Justification::centredLeft);
     content.addAndMakeVisible (bandCountLabel);
 
-    hintLabel.setText ("Double-click: add or reset a band.  Drag: frequency and gain (Shift: fine, Ctrl: snap to notes).  "
+    hintLabel.setText ("Double-click: add or reset a band (near the edges: a cut; Ctrl: always a Bell).  Drag: frequency and gain (Shift: fine, Ctrl: snap to notes).  "
                        "Mouse wheel: Q.  Alt-click: solo.  Right-click: menu.  Delete key: remove.",
                        juce::dontSendNotification);
     hintLabel.setFont (EQColours::font (EQColours::TextSize::small));
