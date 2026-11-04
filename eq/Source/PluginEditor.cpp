@@ -450,7 +450,7 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
     //   1: title | presets | undo | redo | scale ............ band count | bypass
     //   2: phase mode | oversampling ............... auto gain | output gain
     //   graph ..................................................... | output meter
-    //   3: display range | analyser | settings | curve view | side chain ...... hint
+    //   3: display range | analyser | settings | curve view | side chain | piano ...... hint
     // Widths come from the text in the embedded font, so nothing is cut short. Optional
     // items (band count, hint) are hidden when there's no room for them.
     auto area = content.getLocalBounds();
