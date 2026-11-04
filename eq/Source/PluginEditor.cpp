@@ -181,11 +181,28 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     autoGainButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
     content.addAndMakeVisible (autoGainButton);
 
+    // Piano strip on/off (task 28). Same setting as "Show piano strip" in the graph's right-click
+    // menu; the timer keeps the two in step.
+    pianoButton.setClickingTogglesState (true);
+    pianoButton.setToggleState (processor.showPianoStrip.load(), juce::dontSendNotification);
+    pianoButton.setTooltip ("Piano strip: a keyboard along the bottom of the graph, on the frequency axis, with each octave "
+                            "labelled and the key nearest the selected band lit. Hold Ctrl (Cmd on macOS) while dragging "
+                            "a band to snap it to semitones.");
+    pianoButton.setColour (juce::TextButton::buttonOnColourId, EQColours::totalCurve.withAlpha (0.85f));
+    pianoButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
+    pianoButton.onClick = [this]
+    {
+        processor.showPianoStrip.store (pianoButton.getToggleState());
+        processor.notifyNonParameterStateChanged();
+        display.repaint();
+    };
+    content.addAndMakeVisible (pianoButton);
+
     bandCountLabel.setFont (EQColours::numbers (EQColours::TextSize::control));
     bandCountLabel.setJustificationType (juce::Justification::centredLeft);
     content.addAndMakeVisible (bandCountLabel);
 
-    hintLabel.setText ("Double-click: add or reset a band.  Drag: frequency and gain (Shift: fine, Ctrl: snap to notes).  "
+    hintLabel.setText ("Double-click: add or reset a band (near the edges: a cut; Ctrl: always a Bell).  Drag: frequency and gain (Shift: fine, Ctrl: snap to notes).  "
                        "Mouse wheel: Q.  Alt-click: solo.  Right-click: menu.  Delete key: remove.",
                        juce::dontSendNotification);
     hintLabel.setFont (EQColours::font (EQColours::TextSize::small));
@@ -269,6 +286,9 @@ void SongsmithEQAudioProcessorEditor::timerCallback()
 
     if (analyserBox.getSelectedItemIndex() != processor.analyser.mode.load())
         analyserBox.setSelectedItemIndex (processor.analyser.mode.load(), juce::dontSendNotification);
+
+    if (pianoButton.getToggleState() != processor.showPianoStrip.load())   // changed from the graph's menu or a session
+        pianoButton.setToggleState (processor.showPianoStrip.load(), juce::dontSendNotification);
 }
 
 juce::PopupMenu SongsmithEQAudioProcessorEditor::createAnalyserMenu()
@@ -430,7 +450,7 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
     //   1: title | presets | undo | redo | scale ............ band count | bypass
     //   2: phase mode | oversampling ............... auto gain | output gain
     //   graph ..................................................... | output meter
-    //   3: display range | analyser | settings | curve view | side chain ...... hint
+    //   3: display range | analyser | settings | curve view | side chain | piano ...... hint
     // Widths come from the text in the embedded font, so nothing is cut short. Optional
     // items (band count, hint) are hidden when there's no room for them.
     auto area = content.getLocalBounds();
@@ -477,6 +497,8 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         curveViewBox.setBounds (row.removeFromLeft (comboWidth (curveViewBox)));
         row.removeFromLeft (gap);
         sidechainBox.setBounds (row.removeFromLeft (comboWidth (sidechainBox)));
+        row.removeFromLeft (gap);
+        pianoButton.setBounds (row.removeFromLeft (buttonWidth ({ pianoButton.getButtonText() })));
         row.removeFromLeft (gap * 2);
 
         const int hintWidth = (int) std::ceil (juce::GlyphArrangement::getStringWidth (hintLabel.getFont(), hintLabel.getText()))
