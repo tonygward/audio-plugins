@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>body { font: 13px -apple-system, "Helvetica Neue", sans-serif; } pre { font: 11px Menlo, monospace; background: #f2f2f2; padding: 8px; white-space: pre-wrap; }</style>
+</head><body>
+<p><b>Where things go</b></p>
+<pre>/Library/Audio/Plug-Ins/VST3/Songsmith Analog Compressor.vst3
+/Library/Audio/Plug-Ins/Components/Songsmith Analog Compressor.component
+/Applications/Songsmith Analog Compressor.app</pre>
+<p>Your presets stay in <code>~/Library/Songsmith Studio/Songsmith Analog Compressor/Presets</code>. The installer never touches them, or Songsmith EQ.</p>
+
+<p><b>Why macOS warned you about this installer</b></p>
+<p>The installer isn't signed or notarised by Apple, so Gatekeeper blocks it the first time. To open it: try to open it once, then go to <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b>.</p>
+
+<p><b>Uninstalling</b></p>
+<p>Quit your DAW, then run <code>analog-compressor/installer/macos/uninstall.sh</code> from the source on GitHub (tonygward/audio-plugins), or paste this into Terminal:</p>
+<pre>sudo rm -rf "/Library/Audio/Plug-Ins/VST3/Songsmith Analog Compressor.vst3" \
+  "/Library/Audio/Plug-Ins/Components/Songsmith Analog Compressor.component" \
+  "/Applications/Songsmith Analog Compressor.app"
+for id in vst3 au app; do sudo pkgutil --forget com.songsmithstudio.songsmithanalogcompressor.$id; done</pre>
+<p>Your presets are kept either way.</p>
+</body></html>

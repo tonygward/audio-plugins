@@ -43,13 +43,13 @@ if ! printf '%s' "$suite_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
     exit 1
 fi
 eq_version=$(project_version eq)
-fet_version=$(project_version fet)
-max_version=$(project_version maximizer)
+fet_version=$(project_version analog-compressor)
+max_version=$(project_version maximiser)
 
 # Each plugin's own .pkg: given, or built now from that plugin's Release build.
 [ -z "$eq_pkg" ]  && eq_pkg=$("$repo/eq/installer/macos/build-installer.sh" | tail -n 1)
-[ -z "$fet_pkg" ] && fet_pkg=$("$repo/fet/installer/macos/build-installer.sh" | tail -n 1)
-[ -z "$max_pkg" ] && max_pkg=$("$repo/maximizer/installer/macos/build-installer.sh" | tail -n 1)
+[ -z "$fet_pkg" ] && fet_pkg=$("$repo/analog-compressor/installer/macos/build-installer.sh" | tail -n 1)
+[ -z "$max_pkg" ] && max_pkg=$("$repo/maximiser/installer/macos/build-installer.sh" | tail -n 1)
 
 mkdir -p "$out_dir"
 out_dir="$(cd "$out_dir" && pwd)"

@@ -3,14 +3,41 @@ name: Build
 # Build each change once: PRs build on pull_request, and main builds on push
 # (merges, which the release files come from). Branches without a PR can be
 # built by hand from the Actions tab (workflow_dispatch).
-# Changes that only touch docs, prompts or images don't build at all. A change
-# that touches any other file still builds in full.
+# Only source changes build: a change has to touch a file in one of the folders
+# below that isn't a doc, prompt or image (the "!" lines). Docs, READMEs,
+# prompts and screenshots alone never start a build. A change that touches any
+# source file still builds everything. Keep both lists the same; add a folder
+# here when you add a plugin.
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md', 'eq/prompts/**', 'eq/docs/**', 'fet/docs/**', 'analogue-compressor/prompts/**', 'maximizer/prompts/**', '**.png']
+    paths:
+      - 'eq/**'
+      - 'analog-compressor/**'
+      - 'maximiser/**'
+      - 'shared/**'
+      - 'installer/**'
+      - '.github/workflows/**'
+      - '.gitattributes'
+      - '!**.md'
+      - '!**.png'
+      - '!**/prompts/**'
+      - '!**/docs/**'
+      - '!**/.gitignore'
   pull_request:
-    paths-ignore: ['**.md', 'eq/prompts/**', 'eq/docs/**', 'fet/docs/**', 'analogue-compressor/prompts/**', 'maximizer/prompts/**', '**.png']
+    paths:
+      - 'eq/**'
+      - 'analog-compressor/**'
+      - 'maximiser/**'
+      - 'shared/**'
+      - 'installer/**'
+      - '.github/workflows/**'
+      - '.gitattributes'
+      - '!**.md'
+      - '!**.png'
+      - '!**/prompts/**'
+      - '!**/docs/**'
+      - '!**/.gitignore'
   workflow_dispatch:
 
 concurrency:
@@ -23,8 +50,8 @@ env:
   JUCE_VERSION: "9.0.5"
 
 jobs:
-  build:
-    name: ${{ matrix.name }}
+  eq:
+    name: EQ - ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -171,8 +198,8 @@ jobs:
             eq/build/SongsmithEQ_artefacts/Release/AU/
             eq/build/SongsmithEQ_artefacts/Release/Standalone/
 
-  # Songsmith Analog Compressor (fet/): its own build and FETTests, independent of the EQ job.
-  fet:
+  # Songsmith Analog Compressor (analog-compressor/): its own build and tests, independent of the EQ job.
+  analog-compressor:
     name: Analog Compressor - ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -182,11 +209,11 @@ jobs:
           - name: Windows (VS, x64)
             os: windows-latest
             configure: -A x64
-            tests: fet/build/FETTests_artefacts/Release/FETTests.exe
+            tests: analog-compressor/build/AnalogCompressorTests_artefacts/Release/AnalogCompressorTests.exe
           - name: macOS (Xcode, universal)
             os: macos-latest
             configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
-            tests: fet/build/FETTests_artefacts/Release/FETTests
+            tests: analog-compressor/build/AnalogCompressorTests_artefacts/Release/AnalogCompressorTests
 
     steps:
       - uses: actions/checkout@v4
@@ -208,27 +235,27 @@ jobs:
 
       - name: Configure
         shell: bash
-        run: cmake -S fet -B fet/build ${{ matrix.configure }} -DJUCE_DIR="${{ github.workspace }}/JUCE"
+        run: cmake -S analog-compressor -B analog-compressor/build ${{ matrix.configure }} -DJUCE_DIR="${{ github.workspace }}/JUCE"
 
       - name: Build (Release)
         shell: bash
-        run: cmake --build fet/build --config Release --parallel 4
+        run: cmake --build analog-compressor/build --config Release --parallel 4
 
-      - name: Run FETTests
+      - name: Run AnalogCompressorTests
         shell: bash
         run: ${{ matrix.tests }}
 
       - name: Render analog compressor screenshots
         shell: bash
         run: |
-          ${{ matrix.tests }} --screenshots fet-screenshots
-          ${{ matrix.tests }} --screenshots fet-screenshots --scale 2
+          ${{ matrix.tests }} --screenshots analog-compressor-screenshots
+          ${{ matrix.tests }} --screenshots analog-compressor-screenshots --scale 2
 
       - name: Upload analog compressor screenshots
         uses: actions/upload-artifact@v4
         with:
           name: Songsmith-Analog-Compressor-screenshots-${{ runner.os }}
-          path: fet-screenshots/*.png
+          path: analog-compressor-screenshots/*.png
 
       # Separately named release files for the compressor, built and tested exactly like the
       # EQ's (isolated install, upgrade and uninstall; Songsmith EQ and presets must survive).
@@ -240,8 +267,8 @@ jobs:
               -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
             choco install innosetup -y --no-progress
           }
-          $setup = fet/installer/build-installer.ps1 -Zip | Select-Object -Last 1
-          fet/installer/test-installer.ps1 -Installer $setup
+          $setup = analog-compressor/installer/build-installer.ps1 -Zip | Select-Object -Last 1
+          analog-compressor/installer/test-installer.ps1 -Installer $setup
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload Windows installer
@@ -249,14 +276,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Songsmith-Analog-Compressor-Windows-setup
-          path: fet/build/installer/*-win64-setup.exe
+          path: analog-compressor/build/installer/*-win64-setup.exe
 
       - name: Upload Windows zip
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: Songsmith-Analog-Compressor-Windows-zip
-          path: fet/build/installer/*-win64.zip
+          path: analog-compressor/build/installer/*-win64.zip
 
       - name: Validate the Audio Unit (auval, new identifiers)
         if: runner.os == 'macOS'
@@ -264,7 +291,7 @@ jobs:
         run: |
           mkdir -p ~/Library/Audio/Plug-Ins/Components
           rm -rf ~/Library/Audio/Plug-Ins/Components/"Songsmith Analog Compressor.component"
-          cp -R fet/build/SongsmithAnalogCompressor_artefacts/Release/AU/"Songsmith Analog Compressor.component" ~/Library/Audio/Plug-Ins/Components/
+          cp -R analog-compressor/build/SongsmithAnalogCompressor_artefacts/Release/AU/"Songsmith Analog Compressor.component" ~/Library/Audio/Plug-Ins/Components/
           killall -9 AudioComponentRegistrar 2>/dev/null || true
           sleep 2
           auval -a | grep -i "Tnyw" || true
@@ -274,33 +301,33 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          version=$(sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' fet/CMakeLists.txt | head -n 1)
-          art=fet/build/SongsmithAnalogCompressor_artefacts/Release
-          mkdir -p fet-dist/"Songsmith Analog Compressor"
+          version=$(sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' analog-compressor/CMakeLists.txt | head -n 1)
+          art=analog-compressor/build/SongsmithAnalogCompressor_artefacts/Release
+          mkdir -p analog-compressor-dist/"Songsmith Analog Compressor"
           cp -R "$art/VST3/Songsmith Analog Compressor.vst3" "$art/AU/Songsmith Analog Compressor.component" \
-                "$art/Standalone/Songsmith Analog Compressor.app" fet-dist/"Songsmith Analog Compressor"/
-          ditto -c -k --keepParent fet-dist/"Songsmith Analog Compressor" "fet-dist/Songsmith-Analog-Compressor-$version-macOS.zip"
+                "$art/Standalone/Songsmith Analog Compressor.app" analog-compressor-dist/"Songsmith Analog Compressor"/
+          ditto -c -k --keepParent analog-compressor-dist/"Songsmith Analog Compressor" "analog-compressor-dist/Songsmith-Analog-Compressor-$version-macOS.zip"
 
       - name: Upload macOS zip
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: Songsmith-Analog-Compressor-macOS-zip
-          path: fet-dist/Songsmith-Analog-Compressor-*-macOS.zip
+          path: analog-compressor-dist/Songsmith-Analog-Compressor-*-macOS.zip
 
       - name: Build and test the macOS installer
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          pkg=$(fet/installer/macos/build-installer.sh | tail -n 1)
-          fet/installer/macos/test-installer.sh --pkg "$pkg"
+          pkg=$(analog-compressor/installer/macos/build-installer.sh | tail -n 1)
+          analog-compressor/installer/macos/test-installer.sh --pkg "$pkg"
 
       - name: Upload macOS installer
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: Songsmith-Analog-Compressor-macOS-pkg
-          path: fet/build/installer/*-macOS.pkg
+          path: analog-compressor/build/installer/*-macOS.pkg
 
       - name: Upload plugin
         if: always()
@@ -309,13 +336,13 @@ jobs:
           name: Songsmith-Analog-Compressor-${{ runner.os }}
           if-no-files-found: warn
           path: |
-            fet/build/SongsmithAnalogCompressor_artefacts/Release/VST3/
-            fet/build/SongsmithAnalogCompressor_artefacts/Release/AU/
-            fet/build/SongsmithAnalogCompressor_artefacts/Release/Standalone/
+            analog-compressor/build/SongsmithAnalogCompressor_artefacts/Release/VST3/
+            analog-compressor/build/SongsmithAnalogCompressor_artefacts/Release/AU/
+            analog-compressor/build/SongsmithAnalogCompressor_artefacts/Release/Standalone/
 
-  # Songsmith Maximiser (maximizer/): its own job, so the EQ job above stays as it is.
-  maximizer:
-    name: Maximiser ${{ matrix.name }}
+  # Songsmith Maximiser (maximiser/): its own job, so the EQ job above stays as it is.
+  maximiser:
+    name: Maximiser - ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -324,11 +351,11 @@ jobs:
           - name: Windows (VS, x64)
             os: windows-latest
             configure: -A x64
-            tests: maximizer/build/MaximizerTests_artefacts/Release/MaximizerTests.exe
+            tests: maximiser/build/MaximiserTests_artefacts/Release/MaximiserTests.exe
           - name: macOS (Xcode, universal)
             os: macos-latest
             configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
-            tests: maximizer/build/MaximizerTests_artefacts/Release/MaximizerTests
+            tests: maximiser/build/MaximiserTests_artefacts/Release/MaximiserTests
 
     steps:
       - uses: actions/checkout@v4
@@ -350,14 +377,14 @@ jobs:
 
       - name: Configure
         shell: bash
-        run: cmake -S maximizer -B maximizer/build ${{ matrix.configure }} -DJUCE_DIR="${{ github.workspace }}/JUCE"
+        run: cmake -S maximiser -B maximiser/build ${{ matrix.configure }} -DJUCE_DIR="${{ github.workspace }}/JUCE"
 
       - name: Build (Release)
         shell: bash
-        run: cmake --build maximizer/build --config Release --parallel 4
+        run: cmake --build maximiser/build --config Release --parallel 4
 
       # Unit tests, the randomised limiter stress tests and the auto-release comparison.
-      - name: Run MaximizerTests
+      - name: Run MaximiserTests
         shell: bash
         run: ${{ matrix.tests }}
 
@@ -380,7 +407,7 @@ jobs:
         run: |
           mkdir -p ~/Library/Audio/Plug-Ins/Components
           rm -rf ~/Library/Audio/Plug-Ins/Components/"Songsmith Maximiser.component"
-          cp -R maximizer/build/SongsmithMaximiser_artefacts/Release/AU/"Songsmith Maximiser.component" ~/Library/Audio/Plug-Ins/Components/
+          cp -R maximiser/build/SongsmithMaximiser_artefacts/Release/AU/"Songsmith Maximiser.component" ~/Library/Audio/Plug-Ins/Components/
           killall -9 AudioComponentRegistrar 2>/dev/null || true
           sleep 2
           auval -a | grep -i "Tnyw" || true
@@ -396,8 +423,8 @@ jobs:
               -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
             choco install innosetup -y --no-progress
           }
-          $setup = maximizer/installer/build-installer.ps1 -Zip | Select-Object -Last 1
-          maximizer/installer/test-installer.ps1 -Installer $setup
+          $setup = maximiser/installer/build-installer.ps1 -Zip | Select-Object -Last 1
+          maximiser/installer/test-installer.ps1 -Installer $setup
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload Windows installer
@@ -405,23 +432,23 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Songsmith-Maximiser-Windows-setup
-          path: maximizer/build/installer/*-win64-setup.exe
+          path: maximiser/build/installer/*-win64-setup.exe
 
       - name: Upload Windows zip
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: Songsmith-Maximiser-Windows-zip
-          path: maximizer/build/installer/*-win64.zip
+          path: maximiser/build/installer/*-win64.zip
 
       - name: Zip macOS plug-ins (VST3 + AU)
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          version=$(sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' maximizer/CMakeLists.txt | head -n 1)
+          version=$(sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' maximiser/CMakeLists.txt | head -n 1)
           mkdir -p dist/"Songsmith Maximiser"
-          cp -R maximizer/build/SongsmithMaximiser_artefacts/Release/VST3/"Songsmith Maximiser.vst3" dist/"Songsmith Maximiser"/
-          cp -R maximizer/build/SongsmithMaximiser_artefacts/Release/AU/"Songsmith Maximiser.component" dist/"Songsmith Maximiser"/
+          cp -R maximiser/build/SongsmithMaximiser_artefacts/Release/VST3/"Songsmith Maximiser.vst3" dist/"Songsmith Maximiser"/
+          cp -R maximiser/build/SongsmithMaximiser_artefacts/Release/AU/"Songsmith Maximiser.component" dist/"Songsmith Maximiser"/
           ditto -c -k --keepParent dist/"Songsmith Maximiser" "dist/Songsmith-Maximiser-$version-macOS.zip"
 
       - name: Upload macOS zip
@@ -437,15 +464,15 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          pkg=$(maximizer/installer/macos/build-installer.sh | tail -n 1)
-          maximizer/installer/macos/test-installer.sh --pkg "$pkg"
+          pkg=$(maximiser/installer/macos/build-installer.sh | tail -n 1)
+          maximiser/installer/macos/test-installer.sh --pkg "$pkg"
 
       - name: Upload macOS installer
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: Songsmith-Maximiser-macOS-pkg
-          path: maximizer/build/installer/*-macOS.pkg
+          path: maximiser/build/installer/*-macOS.pkg
 
       - name: Upload plugin
         if: always()
@@ -454,9 +481,9 @@ jobs:
           name: Songsmith-Maximiser-${{ runner.os }}
           if-no-files-found: warn
           path: |
-            maximizer/build/SongsmithMaximiser_artefacts/Release/VST3/
-            maximizer/build/SongsmithMaximiser_artefacts/Release/AU/
-            maximizer/build/SongsmithMaximiser_artefacts/Release/Standalone/
+            maximiser/build/SongsmithMaximiser_artefacts/Release/VST3/
+            maximiser/build/SongsmithMaximiser_artefacts/Release/AU/
+            maximiser/build/SongsmithMaximiser_artefacts/Release/Standalone/
 
   # Songsmith Studio: one Windows installer with every plugin (installer/windows). Built from the
   # Release builds the three plugin jobs upload, then tested end to end (per-user, in a temp
@@ -464,7 +491,7 @@ jobs:
   # macOS leg too; a job's matrix legs can't be waited for separately.)
   suite-windows:
     name: Songsmith Studio installer - Windows
-    needs: [build, fet, maximizer]
+    needs: [eq, analog-compressor, maximiser]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -518,7 +545,7 @@ jobs:
   # (needs: waits for the Windows legs too; a job's matrix legs can't be waited for separately.)
   suite-macos:
     name: Songsmith Studio installer - macOS
-    needs: [build, fet, maximizer]
+    needs: [eq, analog-compressor, maximiser]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4

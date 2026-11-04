@@ -1,5 +1,5 @@
 # Shell scripts and the macOS installer files run on macOS: always LF, whatever core.autocrlf says.
 *.sh text eol=lf
 eq/installer/macos/** text eol=lf
-fet/installer/macos/** text eol=lf
+analog-compressor/installer/macos/** text eol=lf
 installer/macos/** text eol=lf

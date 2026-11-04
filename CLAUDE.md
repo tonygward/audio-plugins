@@ -5,10 +5,10 @@ JUCE + CMake audio plugins (VST3, AU on macOS, Standalone) by **Songsmith Studio
 | Plugin | Folder | Test executable |
 |---|---|---|
 | Songsmith EQ | `eq/` | `EQTests` |
-| Songsmith Analog Compressor | `fet/` | `FETTests` |
-| Songsmith Maximiser | `maximizer/` | `MaximizerTests` |
+| Songsmith Analog Compressor | `analog-compressor/` | `AnalogCompressorTests` |
+| Songsmith Maximiser | `maximiser/` | `MaximiserTests` |
 
-Prompts: `eq/prompts/roadmap/` (EQ roadmap), `prompts/suite/` (work across every plugin), `analogue-compressor/prompts/`, `maximizer/prompts/`. The overnight runner is `eq/prompts/overnight-prompt.md`. The UI style guide is `docs/style-guide.md` (created by suite task S1).
+Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the EQ roadmap); work across every plugin is in `prompts/`. Prompts still to run sit directly in a `prompts/` folder, with a `README.md` status table; finished ones move to its `done/` subfolder in the PR that completes them. The overnight runner is `prompts/overnight-prompt.md`. The UI style guide is `docs/style-guide.md` (created by suite task S1).
 
 ## Design principles
 
@@ -51,9 +51,9 @@ Prompts: `eq/prompts/roadmap/` (EQ roadmap), `prompts/suite/` (work across every
   cmake --build eq/build --config Release
   .\eq\build\EQTests_artefacts\Release\EQTests.exe
   ```
-  The same goes for `fet` (`FETTests`) and `maximizer` (`MaximizerTests`). Test executables can render editor screenshots (`--screenshots <folder>` or `--screenshot <file>`, `--scale 2`).
+  The same goes for `analog-compressor` (`AnalogCompressorTests`) and `maximiser` (`MaximiserTests`). Test executables can render editor screenshots (`--screenshots <folder>` or `--screenshot <file>`, `--scale 2`).
 - Never run `install.ps1`, installers or system-wide installs on the dev machines. Installer tests run in temp folders on Windows, and on CI only for macOS.
-- PRs cover what changed, choices made differently from the prompt (and why), test results, known limitations, and "Not yet verified in a DAW" when that's true. UI changes include before and after screenshots.
+- PRs cover what changed, choices made differently from the prompt (and why), test results, known limitations, and "Not yet verified in a DAW" when that's true. UI changes include before and after screenshots: commit them on the PR branch, link them in the PR by commit SHA (`.../blob/<sha>/...png?raw=true`), and delete them again before merging, so `main` doesn't collect old screenshots.
 - Keep README files up to date with user-facing changes, in the same plain language.
 
 ## Out of scope

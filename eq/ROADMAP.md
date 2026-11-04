@@ -78,7 +78,7 @@ Each of these is a project on its own. Do them in this order:
 
 ## Phase 5: Polish from daily use
 
-Requests from using the plugin on real mixes. Prompts 27–31 in [`prompts/roadmap/done/`](prompts/roadmap/done/).
+Requests from using the plugin on real mixes. Prompts 27–31 in [`prompts/done/`](prompts/done/).
 
 - [x] **Vertical output meter on the right** of the graph, full height, with a dB scale, peak hold and clip indicator, in place of the small bar in control row 2.
 - [x] **Piano notes toggle** in the bottom control bar (row 3), so the piano strip from task 16 isn't hidden in a right-click menu.

@@ -7,7 +7,7 @@
 #
 # The suite version is in installer/version.txt; each plugin's version comes from
 # project(... VERSION x.y.z) in its own CMakeLists.txt, so every version is defined in one place.
-# Build the plugins first (cmake --build <plugin>/build --config Release for eq, fet, maximizer).
+# Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser).
 # Writes the path of the installer to the output.
 param(
     [string]$EqDir,
@@ -35,9 +35,9 @@ if (-not $SuiteVersion) {
 if ($SuiteVersion -notmatch '^\d+\.\d+\.\d+$') { throw "Suite version '$SuiteVersion' isn't x.y.z (installer/version.txt)" }
 
 $plugins = @(
-    @{ Key = "Eq";  Folder = "eq";        Target = "SongsmithEQ";               Name = "Songsmith EQ";                Dir = $EqDir },
-    @{ Key = "Fet"; Folder = "fet";       Target = "SongsmithAnalogCompressor"; Name = "Songsmith Analog Compressor"; Dir = $FetDir },
-    @{ Key = "Max"; Folder = "maximizer"; Target = "SongsmithMaximiser";        Name = "Songsmith Maximiser";         Dir = $MaxDir }
+    @{ Key = "Eq";  Folder = "eq";                Target = "SongsmithEQ";               Name = "Songsmith EQ";                Dir = $EqDir },
+    @{ Key = "Fet"; Folder = "analog-compressor"; Target = "SongsmithAnalogCompressor"; Name = "Songsmith Analog Compressor"; Dir = $FetDir },
+    @{ Key = "Max"; Folder = "maximiser";         Target = "SongsmithMaximiser";        Name = "Songsmith Maximiser";         Dir = $MaxDir }
 )
 
 $defines = @("/DSuiteVersion=$SuiteVersion")
