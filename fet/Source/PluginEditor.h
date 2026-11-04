@@ -5,7 +5,7 @@
 
 // Debug editor: plain JUCE controls bound to the parameters, for smoke tests until the
 // vector editor (step 4) replaces it.
-class SongsmithAnalogCompressorEditor : public juce::AudioProcessorEditor
+class SongsmithAnalogCompressorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
     explicit SongsmithAnalogCompressorEditor (SongsmithAnalogCompressorProcessor&);
@@ -13,6 +13,10 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+
+private:
+    void timerCallback() override;
+    float grDisplayDb = 0.0f;
 
 private:
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
@@ -31,6 +35,7 @@ private:
     Knob input, output, attack, release;
     juce::ComboBox ratio;
     juce::Label ratioLabel;
+    juce::Label grLabel;
     juce::ToggleButton allButtons { "All Buttons" }, grOff { "Gain Reduction Off" }, bypass { "Bypass" };
 
     std::unique_ptr<ComboAttachment> ratioAttachment;

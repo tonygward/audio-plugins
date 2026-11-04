@@ -14,7 +14,8 @@ option(FET_BUILD_TESTS "Build the FETTests console app (DSP tests + benchmark)" 
 
 set(FET_SOURCES
     Source/PluginProcessor.cpp
-    Source/PluginEditor.cpp)
+    Source/PluginEditor.cpp
+    Source/FETEngine.cpp)
 
 set(FET_DEFINITIONS
     JUCE_WEB_BROWSER=0
@@ -77,7 +78,7 @@ target_link_libraries(SongsmithAnalogCompressor
 if(FET_BUILD_TESTS)
     juce_add_console_app(FETTests PRODUCT_NAME "FETTests")
 
-    target_sources(FETTests PRIVATE Tests/FETTests.cpp ${FET_SOURCES})
+    target_sources(FETTests PRIVATE Tests/FETTests.cpp Tests/EngineTests.cpp ${FET_SOURCES})
     target_include_directories(FETTests PRIVATE Source)
     target_compile_definitions(FETTests PRIVATE
         ${FET_DEFINITIONS}

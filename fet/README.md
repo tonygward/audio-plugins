@@ -1,12 +1,13 @@
 # Songsmith Analog Compressor
 
-A feedback FET compressor inspired by the Rev D blackface 1176LN, built with JUCE and CMake. **Work in progress:** this is the plugin shell (step 1). It has parameters, saved state, mono and stereo layouts, and a debug editor. The compressor engine comes in step 2.
+A feedback FET compressor inspired by the Rev D blackface 1176LN, built with JUCE and CMake. **Work in progress:** step 2 adds the clean feedback compressor (no analogue colour yet) to the shell. See [docs/engine.md](docs/engine.md) for the loop, the knob mapping, the timing measurements and a listening checklist.
 
 - Formats: VST3 and Standalone, plus AU on macOS.
 - Identity: manufacturer `Tnyw`, plugin `Sfc1`, AU `aufx Sfc1 Tnyw`. Never change these once released.
 - Parameters (stable IDs): `input`, `output`, `attack`, `release`, `ratio`, `allButtons`, `grOff`, `bypass`. See `Source/FETParams.h`.
 - Sources and design claims: [docs/references.md](docs/references.md).
 - Manual DAW check: [docs/smoke-test.md](docs/smoke-test.md).
+- `FETTests --timing` prints measured attack and release times. `FETTests --bench` prints CPU use.
 
 ## Build and test (Windows)
 

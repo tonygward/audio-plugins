@@ -20,6 +20,10 @@ SongsmithAnalogCompressorProcessor::SongsmithAnalogCompressorProcessor()
     bypassParam = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (ID::bypass));
     inputDb  = apvts.getRawParameterValue (ID::input);
     outputDb = apvts.getRawParameterValue (ID::output);
+    attackKnob = apvts.getRawParameterValue (ID::attack);
+    releaseKnob = apvts.getRawParameterValue (ID::release);
+    ratioIndex = apvts.getRawParameterValue (ID::ratio);
+    grOffParam = apvts.getRawParameterValue (ID::grOff);
     jassert (bypassParam != nullptr && inputDb != nullptr && outputDb != nullptr);
 }
 
@@ -78,6 +82,20 @@ void SongsmithAnalogCompressorProcessor::prepareToPlay (double sampleRate, int s
     bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
     dry.setSize (juce::jmax (1, getTotalNumOutputChannels()), juce::jmax (1, samplesPerBlock), false, false, true);
+    engine.prepare (sampleRate);
+}
+
+void SongsmithAnalogCompressorProcessor::applyGain (juce::AudioBuffer<float>& buffer, int numCh, int n, Smoothed& gain) noexcept
+{
+    if (! gain.isSmoothing() && gain.getTargetValue() == 1.0f)
+        return;   // exact unity: leave samples untouched
+
+    for (int i = 0; i < n; ++i)
+    {
+        const float g = gain.getNextValue();
+        for (int c = 0; c < numCh; ++c)
+            buffer.getWritePointer (c)[i] *= g;
+    }
 }
 
 void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -112,19 +130,15 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
         for (int c = 0; c < numCh; ++c)
             dry.copyFrom (c, 0, buffer, c, 0, n);
 
-    const bool unity = ! inputGain.isSmoothing() && ! outputGain.isSmoothing()
-                       && inputGain.getTargetValue() == 1.0f && outputGain.getTargetValue() == 1.0f;
+    applyGain (buffer, numCh, n, inputGain);
 
-    // Shell: input drive and output trim only. The compressor engine arrives in step 2.
-    if (! unity)
-    {
-        for (int i = 0; i < n; ++i)
-        {
-            const float g = inputGain.getNextValue() * outputGain.getNextValue();
-            for (int c = 0; c < numCh; ++c)
-                buffer.getWritePointer (c)[i] *= g;
-        }
-    }
+    engine.setRatioIndex ((int) ratioIndex->load());
+    engine.setAttackKnob (attackKnob->load());
+    engine.setReleaseKnob (releaseKnob->load());
+    engine.setGainReductionEnabled (grOffParam->load() < 0.5f);
+    engine.process (buffer.getArrayOfWritePointers(), numCh, n);
+
+    applyGain (buffer, numCh, n, outputGain);   // after the detector: Output never changes GR
 
     if (fading)
     {
