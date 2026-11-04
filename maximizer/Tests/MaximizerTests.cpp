@@ -1266,6 +1266,208 @@ static DitherTests ditherTests;
 static EditorTests editorTests;
 
 //==============================================================================
+class StartingPointTests final : public juce::UnitTest
+{
+public:
+    StartingPointTests() : juce::UnitTest ("Starting points", "Maximiser") {}
+
+    void runTest() override
+    {
+        const auto& points = Max::getStartingPoints();
+
+        beginTest ("Three conservative starting points, dither off");
+        {
+            expectEquals ((int) points.size(), 3);
+            expectEquals (juce::String (points[0].name), juce::String ("Mix bus"));
+            expectEquals (juce::String (points[1].name), juce::String ("Demo loudness"));
+            expectEquals (juce::String (points[2].name), juce::String ("Final export"));
+
+            for (const auto& sp : points)
+            {
+                const juce::String n (sp.name);
+                expectEquals (sp.dither, 0, n + ": dither off");
+                expect (sp.thresholdDb >= Max::minThresholdDb && sp.thresholdDb <= Max::maxThresholdDb, n + ": threshold in range");
+                expect (sp.ceilingDb <= -1.0f && sp.ceilingDb >= Max::minCeilingDb, n + ": ceiling at or below -1 dB");
+                const float gain = sp.ceilingDb - sp.thresholdDb;
+                expect (gain >= 0.0f && gain <= 6.0f, n + ": gain below threshold 0..6 dB (conservative)");
+                expect (sp.releaseMs >= Max::minReleaseMs && sp.releaseMs <= Max::maxReleaseMs, n + ": release in range");
+                expect (juce::String (sp.hint).isNotEmpty(), n + ": has a hint");
+            }
+            expectEquals (points[1].peakMode, 1, "demo loudness limits true peak");
+            expectEquals (points[2].peakMode, 1, "final export limits true peak");
+            expect (points[2].releaseMs >= 3.0f && points[2].releaseMs <= 7.0f, "final export release in the manual's 3-7 ms");
+        }
+
+        beginTest ("Loading sets the parameters and leaves Bypass and Link alone");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            setParam (p, Max::bypassId, 1.0f);
+            setParam (p, Max::ditherId, 1.0f);
+            p.linkThresholdCeiling = true;
+
+            for (int i = 0; i < (int) points.size(); ++i)
+            {
+                p.applyStartingPoint (i);
+                const auto& sp = points[(size_t) i];
+                expectWithinAbsoluteError (p.getThresholdDb(), sp.thresholdDb, 1.0e-3f);
+                expectWithinAbsoluteError (p.getCeilingDb(), sp.ceilingDb, 1.0e-3f);
+                expectWithinAbsoluteError (p.getReleaseMs(), sp.releaseMs, 1.0e-2f);
+                expectEquals (p.isTruePeak() ? 1 : 0, sp.peakMode);
+                expect (p.isAutoRelease() == sp.autoRelease, "auto release as stored");
+                expect (p.getDitherDepth() == Max::Dither::Depth::off, "dither switched off");
+            }
+            expect (p.isBypassed() && p.linkThresholdCeiling.load(), "bypass and link untouched");
+
+            p.applyStartingPoint (-1);
+            p.applyStartingPoint (99);   // out of range: ignored
+            expectWithinAbsoluteError (p.getThresholdDb(), points.back().thresholdDb, 1.0e-3f);
+
+            // From the editor's menu.
+            SongsmithMaximiserAudioProcessor q;
+            SongsmithMaximiserAudioProcessorEditor ed (q);
+            ed.getStartingPointBox().setSelectedItemIndex (1, juce::sendNotificationSync);
+            expectWithinAbsoluteError (q.getThresholdDb(), points[1].thresholdDb, 1.0e-3f, "menu loads it");
+            expectWithinAbsoluteError ((float) ed.getThresholdSlider().getValue(), points[1].thresholdDb, 1.0e-3f, "fader shows it");
+        }
+
+        beginTest ("Each starting point holds its ceiling on loud material");
+        {
+            constexpr double fs = 48000.0;
+            const double pi = juce::MathConstants<double>::pi;
+            // A loud mix of a bass line, a mid tone and bright hats, peaking near 0 dBFS.
+            std::vector<float> mix ((size_t) fs);
+            for (size_t i = 0; i < mix.size(); ++i)
+            {
+                const double t = (double) i / fs;
+                mix[i] = (float) (0.5 * std::sin (2.0 * pi * 55.0 * t) + 0.3 * std::sin (2.0 * pi * 880.0 * t + 0.3)
+                                  + ((i % 12000) < 600 ? 0.25 * std::sin (2.0 * pi * 12000.0 * t) : 0.0));
+            }
+
+            for (int i = 0; i < (int) points.size(); ++i)
+            {
+                SongsmithMaximiserAudioProcessor p;
+                p.applyStartingPoint (i);
+                prepare (p, fs, 512);
+                const auto out = run (p, { mix, mix }, { 512 });
+                const float c = Max::dbToGain (points[(size_t) i].ceilingDb);
+                const juce::String n (points[(size_t) i].name);
+                expect (peakOf (out[0]) <= c * (1.0f + ceilingTolerance), n + ": sample peak at or under the ceiling");
+                if (points[(size_t) i].peakMode == 1)
+                    expectLessOrEqual (truePeakDb (out, 4800) - points[(size_t) i].ceilingDb, 0.1f, n + ": true peak within 0.1 dB");
+            }
+        }
+    }
+};
+
+//==============================================================================
+// Randomised stress: rates, block sizes, settings, automation and nasty signals.
+class StressTests final : public juce::UnitTest
+{
+public:
+    StressTests() : juce::UnitTest ("Limiter stress", "Maximiser") {}
+
+    void runTest() override
+    {
+        beginTest ("Randomised settings, signals, rates and block sizes");
+        {
+            juce::Random rng (20261103);
+            const double rates[] = { 44100.0, 48000.0, 88200.0, 96000.0, 192000.0 };
+            int cases = 0, finiteFailures = 0, ceilingFailures = 0;
+            float worstOverDb = -100.0f;
+
+            for (int iteration = 0; iteration < 120; ++iteration)
+            {
+                const double fs = rates[rng.nextInt (5)];
+                const int channels = rng.nextBool() ? 2 : 1;
+                const int n = (int) (fs * 0.15);
+
+                // Signal: noise up to +24 dBFS, square, DC, silence with impulses, a sweep or denormals.
+                std::vector<std::vector<float>> in ((size_t) channels, std::vector<float> ((size_t) n));
+                const int kind = rng.nextInt (6);
+                const float gain = Max::dbToGain (-20.0f + 44.0f * rng.nextFloat());
+                for (int c = 0; c < channels; ++c)
+                    for (int i = 0; i < n; ++i)
+                    {
+                        float v = 0.0f;
+                        switch (kind)
+                        {
+                            case 0:  v = rng.nextFloat() * 2.0f - 1.0f; break;
+                            case 1:  v = ((i / 37) % 2 == 0) ? 1.0f : -1.0f; break;
+                            case 2:  v = c == 0 ? 1.0f : -1.0f; break;
+                            case 3:  v = (i % 997 == 0) ? (i % 2 == 0 ? 1.0f : -1.0f) : 0.0f; break;
+                            case 4:  v = (float) std::sin (2.0 * juce::MathConstants<double>::pi * (20.0 + 20000.0 * i / n) * i / fs); break;
+                            default: v = 1.0e-39f * (float) ((i % 3) - 1); break;
+                        }
+                        in[(size_t) c][(size_t) i] = v * gain;
+                    }
+
+                SongsmithMaximiserAudioProcessor p;
+                setParam (p, Max::peakModeId, rng.nextBool() ? 1.0f : 0.0f);
+                setParam (p, Max::autoReleaseId, rng.nextBool() ? 1.0f : 0.0f);
+                setParam (p, Max::ditherId, (float) rng.nextInt (3));
+                setParam (p, Max::thresholdId, -30.0f * rng.nextFloat());
+                setParam (p, Max::ceilingId, -0.1f - 12.0f * rng.nextFloat());
+                p.apvts.getParameter (Max::releaseId)->setValueNotifyingHost (rng.nextFloat());
+                std::vector<int> blocks;
+                for (int b = 0; b < 4; ++b)
+                    blocks.push_back (1 + rng.nextInt (rng.nextBool() ? 64 : 4096));
+                prepare (p, fs, 4096, channels);
+
+                // The highest ceiling in use bounds the output; automation moves it below that.
+                const float maxCeilingDb = p.getCeilingDb();
+                const auto out = run (p, in, blocks, [&] (int bi, int)
+                {
+                    if (bi % 7 == 3)
+                    {
+                        setParam (p, Max::thresholdId, -30.0f * rng.nextFloat());
+                        setParam (p, Max::ceilingId, maxCeilingDb - 6.0f * rng.nextFloat());
+                        p.apvts.getParameter (Max::releaseId)->setValueNotifyingHost (rng.nextFloat());
+                    }
+                });
+
+                bool finite = true;
+                float pk = 0.0f;
+                for (auto& ch : out)
+                    for (float s : ch)
+                    {
+                        finite = finite && std::isfinite (s);
+                        pk = std::max (pk, std::abs (s));
+                    }
+
+                ++cases;
+                finiteFailures += finite ? 0 : 1;
+                // Sample peak never above the ceiling (both modes; dither headroom keeps it under).
+                const float limit = Max::dbToGain (maxCeilingDb) * (1.0f + ceilingTolerance);
+                ceilingFailures += pk <= limit ? 0 : 1;
+                worstOverDb = std::max (worstOverDb, Max::gainToDb (pk) - maxCeilingDb);
+            }
+
+            logMessage ("    " + juce::String (cases) + " random cases; worst sample peak relative to the ceiling: "
+                        + juce::String (worstOverDb, 4) + " dB");
+            expectEquals (finiteFailures, 0, "always finite");
+            expectEquals (ceilingFailures, 0, "never above the ceiling");
+        }
+
+        beginTest ("Extreme input: +40 dBFS, NaN-free, and silence after");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            setParam (p, Max::thresholdId, -30.0f);
+            setParam (p, Max::ceilingId, -1.0f);
+            setParam (p, Max::peakModeId, 1.0f);
+            prepare (p, 48000.0, 256);
+            auto loud = noise (24000, 100.0f, 7u);   // +40 dBFS
+            loud.resize (48000, 0.0f);
+            const auto out = run (p, { loud, loud }, { 256 });
+            expect (peakOf (out[0]) <= Max::dbToGain (-1.0f) * (1.0f + ceilingTolerance), "ceiling holds at +70 dB over");
+            expectEquals (peakOf (out[0], 30000), 0.0f, "silence afterwards is silent");
+        }
+    }
+};
+
+static StartingPointTests startingPointTests;
+static StressTests stressTests;
+
+//==============================================================================
 struct ConsoleRunner final : juce::UnitTestRunner
 {
     void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); std::fflush (stdout); }

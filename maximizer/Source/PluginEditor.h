@@ -24,6 +24,7 @@ public:
     juce::Button& getLinkButton() noexcept      { return linkButton; }
     juce::ComboBox& getPeakModeBox() noexcept   { return peakModeBox; }
     juce::ComboBox& getDitherBox() noexcept     { return ditherBox; }
+    juce::ComboBox& getStartingPointBox() noexcept { return startingPointBox; }
     VerticalMeter& getReductionMeter() noexcept { return reductionMeter; }
     juce::Component& getContent() noexcept      { return content; }
     float getContentScale() const noexcept      { return contentScale; }
@@ -61,7 +62,7 @@ private:
     juce::Slider ceilingSlider   { juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
     juce::Slider releaseSlider   { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
     juce::TextButton linkButton { "Link" }, autoReleaseButton { "Auto Release" }, bypassButton { "Bypass" };
-    juce::ComboBox peakModeBox, ditherBox;
+    juce::ComboBox peakModeBox, ditherBox, startingPointBox;
     juce::Label thresholdLabel, ceilingLabel, releaseLabel, inLabel, grLabel, outLabel, peakLabel, ditherLabel, gainLabel;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseAttachment;

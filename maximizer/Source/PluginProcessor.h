@@ -5,6 +5,7 @@
 #include "BrickwallLimiter.h"
 #include "Dither.h"
 #include "EditorLogic.h"
+#include "StartingPoints.h"
 
 class SongsmithMaximiserAudioProcessor : public juce::AudioProcessor
 {
@@ -69,6 +70,10 @@ public:
 
     // Restores a saved tree: saved values where present, defaults for anything missing.
     void restoreFromValueTree (const juce::ValueTree& saved);
+
+    // Loads factory starting point 'index' (see StartingPoints.h): one host gesture per parameter.
+    // Message thread. Bypass and Link are left as they are.
+    void applyStartingPoint (int index);
 
     static constexpr double bypassFadeSeconds = 0.02;
 

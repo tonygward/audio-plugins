@@ -116,6 +116,24 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     ditherAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, Max::ditherId, ditherBox);
     content.addAndMakeVisible (ditherBox);
 
+    // Factory starting points: loading one sets the parameters (Bypass and Link stay as they are).
+    for (size_t i = 0; i < Max::getStartingPoints().size(); ++i)
+        startingPointBox.addItem (Max::getStartingPoints()[i].name, (int) i + 1);
+    startingPointBox.setTextWhenNothingSelected ("Starting point");
+    startingPointBox.setTooltip ("Conservative starting points. Dither stays off in all of them");
+    startingPointBox.onChange = [this]
+    {
+        const int index = startingPointBox.getSelectedItemIndex();
+        if (index < 0)
+            return;
+        proc.applyStartingPoint (index);
+        startingPointBox.setTooltip (Max::getStartingPoints()[(size_t) index].hint);
+        startingPointBox.setSelectedId (0, juce::dontSendNotification);
+        startingPointBox.setTextWhenNothingSelected (juce::String ("Loaded: ") + Max::getStartingPoints()[(size_t) index].name);
+        syncFromParameters();
+    };
+    content.addAndMakeVisible (startingPointBox);
+
     inputMeter.setTooltip ("Input peak (click to reset)");
     reductionMeter.setTooltip ("Attenuation: the limiter's gain reduction, 0 to 24 dB");
     outputMeter.setTooltip ("Output peak (click to reset)");
@@ -193,6 +211,7 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
     releaseSlider.setBounds (515, meterTop + 4, 150, 150);
     autoReleaseButton.setBounds (530, releaseSlider.getBottom() + 14, 120, 28);
     gainLabel.setBounds (490, autoReleaseButton.getBottom() + 22, 200, 22);
+    startingPointBox.setBounds (500, gainLabel.getBottom() + 18, 180, 26);
 }
 
 void SongsmithMaximiserAudioProcessorEditor::paintContent (juce::Graphics& g)

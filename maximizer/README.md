@@ -73,3 +73,36 @@ New parameters (ID version 2; state version 2): `peak_mode` (Sample peak / True 
   - Tested in "Ceiling holds after quantisation": every sample lands on the 16/24-bit grid and stays ≤ the ceiling.
   - Tested in "TPDF noise": the noise power is q²/4, the spectrum stays within 0.1 dB across 8 bands, and the L/R and lag-1 correlations are < 0.02.
   - Tested in "Bypass skips dither…": state recall, and version-2 sessions load with dither off.
+
+## Starting points, validation and packaging (step 05)
+
+- **Starting points** (`Source/StartingPoints.h`, the editor's "Starting point" menu): all conservative, all with a ceiling at or below −1 dB, and Dither always off. Loading one leaves Bypass and Link alone.
+
+  | Starting point | Threshold | Out Ceiling | Gain | Release | Peak | Auto Release |
+  |---|---|---|---|---|---|---|
+  | Mix bus | −1.5 dB | −1.0 dB | +0.5 dB | 10 ms | Sample | On |
+  | Demo loudness | −6.0 dB | −1.0 dB | +5 dB | 3 ms | True | On |
+  | Final export | −3.0 dB | −1.0 dB | +2 dB | 5 ms (the manual's 3–7 ms) | True | Off |
+
+  Tested in "Starting points": each holds its ceiling on loud material, with true peak within 0.1 dB.
+- **Stress tests** ("Limiter stress"): 120 randomised cases covering:
+  - every rate from 44.1 to 192 kHz, mono and stereo;
+  - block sizes from 1 to 4096 samples, and all modes, including dither;
+  - automation every few blocks;
+  - noise up to +24 dBFS, square waves, DC, impulses, sweeps and denormals.
+
+  The output was always finite and never above the ceiling. One extra case drives the input to +40 dBFS.
+- **Installers:** `maximizer/installer` is adapted from Songsmith EQ's, with its own identities. Its Inno Setup AppId and its pkg receipt IDs (`com.songsmithstudio.songsmithmaximiser.*`) must never change. CI builds and tests:
+  - **Windows:** an Inno Setup installer plus a zip. The test installs per-user into a temp folder, then checks:
+    - an upgrade in place;
+    - that Setup refuses to install while the plug-in is loaded;
+    - uninstall;
+    - that a Songsmith EQ install is never touched.
+  - **macOS:** a `.pkg` plus a zip. The test installs system-wide on the throwaway runner, runs auval on the installed component, reinstalls, installs with the app deselected, and runs `uninstall.sh`.
+
+  Publishing releases stays manual.
+- **CI artifacts** (all separate from the EQ's):
+  - `Songsmith-Maximiser-Windows-setup`, `-Windows-zip`, `-macOS-pkg` and `-macOS-zip`;
+  - the raw `Songsmith-Maximiser-<OS>` builds;
+  - the editor screenshots.
+- **Host checks:** see [`docs/host-checks.md`](docs/host-checks.md) for Studio One and Logic (scan, mono/stereo, automation, recall, offline render, latency compensation, multiple instances), listening checks, and the L1 comparison procedure. The L1 comparison hasn't been done: no L1 instance was available.

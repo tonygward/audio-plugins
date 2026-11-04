@@ -271,6 +271,29 @@ void SongsmithMaximiserAudioProcessor::restoreFromValueTree (const juce::ValueTr
                                                                        : Max::EditorLayout::defaultWidth));
 }
 
+void SongsmithMaximiserAudioProcessor::applyStartingPoint (int index)
+{
+    const auto& points = Max::getStartingPoints();
+    if (index < 0 || index >= (int) points.size())
+        return;
+
+    const auto& sp = points[(size_t) index];
+    auto set = [this] (const char* id, float value)
+    {
+        auto* param = apvts.getParameter (id);
+        param->beginChangeGesture();
+        param->setValueNotifyingHost (param->convertTo0to1 (value));
+        param->endChangeGesture();
+    };
+
+    set (Max::thresholdId, sp.thresholdDb);
+    set (Max::ceilingId, sp.ceilingDb);
+    set (Max::releaseId, sp.releaseMs);
+    set (Max::peakModeId, (float) sp.peakMode);
+    set (Max::autoReleaseId, sp.autoRelease ? 1.0f : 0.0f);
+    set (Max::ditherId, (float) sp.dither);
+}
+
 //==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {

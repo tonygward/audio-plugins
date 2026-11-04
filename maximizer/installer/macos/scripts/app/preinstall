@@ -1,0 +1,9 @@
+#!/bin/sh
+# Standalone app component, before the payload is laid down: remove the installed
+# Songsmith Maximiser.app so files from an older version don't linger.
+. "$(dirname "$0")/common.sh"
+
+root=$(target_root "$3")
+remove_bundle "$root/Applications/Songsmith Maximiser.app"
+
+exit 0
