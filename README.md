@@ -15,7 +15,7 @@ Every plugin shares one look: the same typeface, type sizes and title, from the 
 
 Every editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold, v4.1) by The Inter Project Authors, embedded in the plugin so Windows and macOS look the same. One copy of the font files is kept in [`shared/Resources/Fonts`](shared/Resources/Fonts). Inter is licensed under the SIL Open Font License 1.1; the licence is in [`shared/Resources/Fonts/OFL.txt`](shared/Resources/Fonts/OFL.txt).
 
-## Install every plugin at once (Windows)
+## Install every plugin at once
 
 **Songsmith Studio** is one installer with every plugin in it: `Songsmith-Studio-<version>-win64-setup.exe`, from the [Releases page](https://github.com/tonygward/audio-plugins/releases) (CI builds it on every change as the `Songsmith-Studio-Windows-setup` artifact). This is the one to use.
 
@@ -26,7 +26,11 @@ Every editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold,
 
 Running it again (or a newer version) remembers what you ticked. Unticking a plugin that's installed removes it. If you installed a plugin with its own installer before, the suite replaces that install, so each plugin is installed once and there's one **Songsmith Studio** entry in **Settings → Apps**. Uninstalling it there removes every plugin and keeps your presets.
 
-To build it: build the three plugins (Release), then run `.\installer\windowsuild-installer.ps1` (Inno Setup 6, see below). `.\installer\windows	est-installer.ps1` builds it and tests installing, choosing plugins, upgrading, replacing a per-plugin install, a plugin in use and uninstalling, all inside a temp folder. The suite's version is in `installer/version.txt`; each plugin keeps its own.
+To build it: build the three plugins (Release), then run `.\installer\windows\build-installer.ps1` (Inno Setup 6, see below). `.\installer\windows\test-installer.ps1` builds it and tests installing, choosing plugins, upgrading, replacing a per-plugin install, a plugin in use and uninstalling, all inside a temp folder. The suite's version is in `installer/version.txt`; each plugin keeps its own.
+
+**On a Mac**, the same suite is `Songsmith-Studio-<version>-macOS.pkg` (CI artifact `Songsmith-Studio-macOS-pkg`), a universal installer for Apple Silicon and Intel. It isn't signed or notarised, so the first time macOS blocks it: try to open it, then go to **System Settings → Privacy & Security** and click **Open Anyway**. Everything is selected; click **Customize** to leave out a plugin, or just its VST3 plugin, Audio Unit (for Logic Pro and GarageBand) or standalone app. It replaces a plugin you installed with its own installer, so there's one copy. To uninstall, run `installer/macos/uninstall.sh`: it lists what it will remove, asks first, and keeps your presets.
+
+To build it on a Mac: build the three plugins (Release), then run `installer/macos/build-installer.sh`. It builds each plugin's own `.pkg` and makes the suite from the same component packages, so the two can't drift apart. `installer/macos/test-installer.sh` installs for real, system-wide, so it only runs on CI (or with `--i-know-this-installs-system-wide`).
 
 ---
 
@@ -60,7 +64,7 @@ Pre-built **Windows** downloads are on the [Releases page](https://github.com/to
 
 **Installer**
 
-The [Songsmith Studio installer](#install-every-plugin-at-once-windows) above includes Songsmith EQ and is the one to use. Songsmith EQ also still has its own installer:
+The [Songsmith Studio installer](#install-every-plugin-at-once) above includes Songsmith EQ and is the one to use. Songsmith EQ also still has its own installer:
 
 1. Download `Songsmith-EQ-<version>-win64-setup.exe` and run it.
 2. Windows SmartScreen will probably say it "protected your PC". The installer isn't code-signed (signing needs a paid certificate), so Windows doesn't recognise the publisher. Click **More info**, then **Run anyway**.
