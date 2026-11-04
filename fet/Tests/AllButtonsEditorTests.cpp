@@ -9,6 +9,8 @@
 #include "EngineMeasure.h"
 #include "ColourMeasure.h"
 #include "../../shared/Tests/SongsmithUITests.h"
+#include "SongsmithWording.h"
+#include "FETPresets.h"
 
 using namespace FET;
 using namespace FET::UI;
@@ -274,6 +276,42 @@ struct EditorTests4 final : juce::UnitTest
 
     void runTest() override
     {
+        beginTest ("Plain words: every text, parameter name and preset, and every label fits");
+        for (float s : { 1.0f, 2.0f })   // the default (and smallest) interface size, and the largest
+        {
+            SongsmithAnalogCompressorProcessor p;
+            p.uiScale.store (s);
+            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+            const auto context = "Analog Compressor at " + juce::String (juce::roundToInt (s * 100.0f)) + " %";
+
+            juce::StringArray texts;
+            Songsmith::UI::Wording::collect (*editor, texts);
+            for (int m = 0; m < 3; ++m)   // painted: the meter mode on the needle face
+                texts.add (SongsmithAnalogCompressorEditor::meterModeName (m));
+            texts.add (SongsmithAnalogCompressorEditor::gainReductionText (3.2f));
+            for (auto* prm : p.getParameters())
+            {
+                texts.add (prm->getName (100));
+                texts.add (prm->getCurrentValueAsText());
+            }
+            for (bool in : { true, false })
+                texts.add (p.getBus (in, 0)->getName());
+            for (auto& preset : FET::Presets::factory())
+            {
+                texts.add (preset.name);
+                texts.add (preset.hint);
+            }
+            expectGreaterThan (texts.size(), 40, context + ": found the text");
+            Songsmith::UI::Wording::expectPlainWords (*this, texts, context);
+
+            for (auto* t : { "Gain Reduction Off", "All Buttons", "Gain Reduction", "Output +4", "Gain Reduction 3.2 dB", "Oversampling: off", "Interface size: 100 %" })
+                expect (texts.contains (t), context + ": shows \"" + juce::String (t) + "\"");
+
+            auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (editor.get());
+            if (ed != nullptr)
+                Songsmith::UI::Wording::expectTextFits (*this, *editor, editor->getLookAndFeel(), context);
+        }
+
         beginTest ("Every button, slider and combo box uses the shared bevelled look");
         {
             SongsmithAnalogCompressorProcessor p;

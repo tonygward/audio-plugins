@@ -22,7 +22,7 @@ namespace Max
     {
         static const std::array<StartingPoint, 3> points { {
             { "Mix bus",
-              "A safety net on the mix bus: +0.5 dB, catches the odd peak at -1 dBFS. Sample peak, so it stays light on CPU.",
+              "A safety net on the mix bus: +0.5 dB, catches the odd peak at -1 dBFS. Sample peak, so it uses little processing power.",
               -1.5f, -1.0f, 10.0f, 0, true, 0 },
             { "Demo loudness",
               "Louder demos and reference bounces: +5 dB into a -1 dBTP ceiling, auto release. Listen for pumping on dense mixes.",

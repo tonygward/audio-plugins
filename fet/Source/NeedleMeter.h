@@ -121,7 +121,7 @@ namespace FET::UI
 
             g.setColour (Colours::meterInk.withAlpha (0.8f));
             g.setFont (font (Type::hint, Weight::SemiBold));
-            g.drawText (modeLabel, face.withTrimmedTop (face.getHeight() * 0.48f).withHeight (16.0f), juce::Justification::centred);
+            g.drawText (modeLabel, face.withTrimmedTop (face.getHeight() * 0.64f).withHeight (16.0f), juce::Justification::centred);
 
             // Needle, clipped to the face.
             g.saveState();
@@ -135,6 +135,6 @@ namespace FET::UI
         VuBallistics ballistics;
 
     private:
-        juce::String modeLabel { "GR" };
+        juce::String modeLabel { "Gain Reduction" };
     };
 }

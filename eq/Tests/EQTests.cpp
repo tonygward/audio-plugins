@@ -13,6 +13,7 @@
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
 #include "../../shared/Tests/SongsmithUITests.h"
+#include "SongsmithWording.h"
 
 using namespace EQ;
 
@@ -3784,75 +3785,10 @@ class WordingAndFontTests final : public juce::UnitTest
 public:
     WordingAndFontTests() : juce::UnitTest ("Plain wording and fonts", "EQ") {}
 
-    // Returns the first banned token in 'text', or an empty string.
-    // Banned: SC, AG, OS, Dyn, FREQ, THRESH, Sidechain, the word "Out", and any standalone single
-    // capital letter other than Q. Allowed: units, note names (A4, C#5: one token with the
-    // digit), and key names after a '+' in shortcuts (Ctrl+Z).
-    static juce::String findBanned (const juce::String& text)
-    {
-        static const juce::StringArray banned { "SC", "AG", "OS", "Dyn", "FREQ", "THRESH", "Sidechain", "Out" };
-
-        juce::String token;
-        juce::juce_wchar before = 0;   // the character before the current token
-        juce::juce_wchar previous = 0;
-
-        auto check = [&]() -> juce::String
-        {
-            if (token.isEmpty())
-                return {};
-            if (banned.contains (token))
-                return token;
-            if (token.length() == 1 && juce::CharacterFunctions::isUpperCase (token[0]) && token != "Q" && before != '+')
-                return token;
-            return {};
-        };
-
-        for (auto c : text)
-        {
-            if (juce::CharacterFunctions::isLetterOrDigit (c) || c == '#')
-            {
-                if (token.isEmpty())
-                    before = previous;
-                token << juce::String::charToString (c);
-            }
-            else
-            {
-                if (auto bad = check(); bad.isNotEmpty())
-                    return bad;
-                token.clear();
-            }
-            previous = c;
-        }
-        return check();
-    }
-
-    static void collect (juce::Component& c, juce::StringArray& out)
-    {
-        if (auto* tip = dynamic_cast<juce::SettableTooltipClient*> (&c))
-            out.add (tip->getTooltip());
-        if (auto* b = dynamic_cast<juce::Button*> (&c))
-            out.add (b->getButtonText());
-        if (auto* l = dynamic_cast<juce::Label*> (&c))
-            out.add (l->getText());
-        if (auto* box = dynamic_cast<juce::ComboBox*> (&c))
-            for (int i = 0; i < box->getNumItems(); ++i)
-                out.add (box->getItemText (i));
-        if (auto* s = dynamic_cast<juce::Slider*> (&c))
-            out.add (s->getTextFromValue (s->getValue()));
-
-        for (auto* child : c.getChildren())
-            collect (*child, out);
-    }
-
-    static void collect (const juce::PopupMenu& menu, juce::StringArray& out)
-    {
-        for (juce::PopupMenu::MenuItemIterator it (menu); it.next();)
-        {
-            out.add (it.getItem().text);
-            if (auto* sub = it.getItem().subMenu.get())
-                collect (*sub, out);
-        }
-    }
+    // The suite's shared wording check (shared/Source/SongsmithWording.h), which started here.
+    static juce::String findBanned (const juce::String& text)                 { return Songsmith::UI::Wording::findBanned (text); }
+    static void collect (juce::Component& c, juce::StringArray& out)          { Songsmith::UI::Wording::collect (c, out); }
+    static void collect (const juce::PopupMenu& menu, juce::StringArray& out) { Songsmith::UI::Wording::collect (menu, out); }
 
     void runTest() override
     {
@@ -3870,6 +3806,15 @@ public:
             expect (findBanned ("440 Hz " + juce::String::charToString (0x00b7) + " A4 +0").isEmpty());
             expect (findBanned ("C#5, Eb3, 48 dB/oct, -60 dBFS, 10 ms, Oversampling: 2x").isEmpty());
             expect (findBanned ("Output +1.5 dB").isEmpty());
+            expectEquals (findBanned ("GR -3.2 dB"), juce::String ("GR"));
+            expectEquals (findBanned ("In"), juce::String ("In"));
+            expectEquals (findBanned ("Atten"), juce::String ("Atten"));
+            expectEquals (findBanned ("TPDF dither"), juce::String ("TPDF"));
+            expectEquals (findBanned ("Attack \"OFF\""), juce::String ("OFF"));
+            expectEquals (findBanned ("For the BV bus"), juce::String ("BV"));
+            expectEquals (findBanned ("Band A"), juce::String ("A"));
+            expect (findBanned ("A safety net. I like it: A bit more.").isEmpty(), "the words A and I start a sentence");
+            expect (findBanned ("-14 LUFS, -1 dBTP, +4 dBu, VST3 and AU").isEmpty());
         }
 
         beginTest ("No abbreviations anywhere in the editor");
@@ -3916,6 +3861,29 @@ public:
             expectWithinAbsoluteError (SongsmithEQAudioProcessorEditor::parseOutputGainText ("-3 dB"), -3.0, 1.0e-9);
             expectWithinAbsoluteError (SongsmithEQAudioProcessorEditor::parseOutputGainText ("2"), 2.0, 1.0e-9);
             expectWithinAbsoluteError (SongsmithEQAudioProcessorEditor::parseOutputGainText ("Output -12.0 dB"), -12.0, 1.0e-9);
+        }
+
+        beginTest ("Plain words in factory presets, and every label fits at the default and minimum sizes");
+        {
+            juce::StringArray texts;
+            for (int i = 0; i < EQ::PresetManager::getNumFactoryPresets(); ++i)
+            {
+                texts.add (EQ::PresetManager::getFactoryName (i));
+                texts.add (EQ::PresetManager::getFactoryHint (i));
+            }
+            expectGreaterThan (texts.size(), 4, "found the factory presets");
+            Songsmith::UI::Wording::expectPlainWords (*this, texts, "EQ factory presets");
+
+            for (auto size : { std::pair<int, int> { 1280, 760 }, std::pair<int, int> { 760, 440 } })
+            {
+                SongsmithEQAudioProcessor p;
+                std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+                editor->setSize (size.first, size.second);
+                if (auto* ed = dynamic_cast<SongsmithEQAudioProcessorEditor*> (editor.get()))
+                    ed->getDisplay().setSelectedBand (0);
+                Songsmith::UI::Wording::expectTextFits (*this, *editor, editor->getLookAndFeel(),
+                                                        "EQ at " + juce::String (size.first) + " x " + juce::String (size.second));
+            }
         }
 
         beginTest ("Every button, slider and combo box uses the shared bevelled look");

@@ -31,7 +31,7 @@ namespace FET
             { "Bass", 3.0f, 2.4f, 3.0f, 3.0f, 1, false,
               "8:1 with a moderate release so low notes don't distort. Each note should come out even; if it growls, slow the Release." },
             { "Drum room", 6.0f, 1.4f, 2.0f, 7.0f, 1, false,
-              "8:1, slow attack, fastest release: hits punch through and the room swells between them. For more, try All." },
+              "8:1, slow attack, fastest release: hits punch through and the room swells between them. For more, try All Buttons." },
         };
         return presets;
     }

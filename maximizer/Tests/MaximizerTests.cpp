@@ -8,6 +8,7 @@
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
 #include "../../shared/Tests/SongsmithUITests.h"
+#include "SongsmithWording.h"
 #include "MaxParams.h"
 
 namespace
@@ -1127,6 +1128,37 @@ public:
 
     void runTest() override
     {
+        beginTest ("Plain words: every text, parameter name and starting point, and every label fits");
+        for (int width : { Max::EditorLayout::defaultWidth, Max::EditorLayout::minWidth })
+        {
+            SongsmithMaximiserAudioProcessor p;
+            p.editorWidth = width;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+            const auto context = "Maximiser at " + juce::String (width) + " px";
+
+            juce::StringArray texts;
+            Songsmith::UI::Wording::collect (*editor, texts);
+            for (auto* prm : p.getParameters())
+            {
+                texts.add (prm->getName (100));
+                texts.add (prm->getCurrentValueAsText());
+            }
+            for (bool in : { true, false })
+                texts.add (p.getBus (in, 0)->getName());
+            for (auto& sp : Max::getStartingPoints())
+            {
+                texts.add (sp.name);
+                texts.add (sp.hint);
+            }
+            expectGreaterThan (texts.size(), 30, context + ": found the text");
+            Songsmith::UI::Wording::expectPlainWords (*this, texts, context);
+
+            for (auto* t : { "Input", "Output", "Gain Reduction", "Output Ceiling" })
+                expect (texts.contains (t), context + ": shows \"" + juce::String (t) + "\"");
+
+            Songsmith::UI::Wording::expectTextFits (*this, *editor, editor->getLookAndFeel(), context);
+        }
+
         beginTest ("Every button, slider and combo box uses the shared bevelled look");
         {
             SongsmithMaximiserAudioProcessor p;

@@ -163,13 +163,16 @@ namespace Songsmith::UI
 
         void drawButtonText (juce::Graphics& g, juce::TextButton& b, bool, bool) override
         {
-            g.setFont (getTextButtonFont (b, b.getHeight()));
+            const auto f = getTextButtonFont (b, b.getHeight());
+            g.setFont (f);
             const auto colour = b.findColour (b.getToggleState() ? juce::TextButton::textColourOnId : juce::TextButton::textColourOffId);
             g.setColour (colour.withMultipliedAlpha (b.isEnabled() ? 1.0f : 0.5f));
 
             const bool well = b.getProperties().getWithDefault (wellProperty, false);
-            g.drawFittedText (b.getButtonText(), b.getLocalBounds().reduced (well ? 8 : 4, 1),
-                              well ? juce::Justification::centredLeft : juce::Justification::centred, 1, 1.0f);
+            // A tall button wraps a long name onto a second line rather than squashing it.
+            const auto area = b.getLocalBounds().reduced (well ? 8 : 4, 1);
+            g.drawFittedText (b.getButtonText(), area, well ? juce::Justification::centredLeft : juce::Justification::centred,
+                              juce::jmax (1, (int) ((float) area.getHeight() / f.getHeight())), 1.0f);
         }
 
         //==============================================================================
