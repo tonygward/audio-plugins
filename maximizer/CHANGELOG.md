@@ -1,6 +1,6 @@
 # Songsmith Maximiser changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-11-04)
 
 First version: a look-ahead brickwall maximiser modelled on the published behaviour of the Waves L1.
 
