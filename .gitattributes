@@ -2,3 +2,4 @@
 *.sh text eol=lf
 eq/installer/macos/** text eol=lf
 fet/installer/macos/** text eol=lf
+installer/macos/** text eol=lf

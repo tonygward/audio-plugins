@@ -511,3 +511,48 @@ jobs:
         with:
           name: Songsmith-Studio-Windows-setup
           path: build/suite-installer/*-win64-setup.exe
+
+  # Songsmith Studio: one macOS installer with every plugin (installer/macos). Made from the same
+  # component packages as each plugin's own .pkg (the macOS legs above upload those), then
+  # installed system-wide on this throwaway runner and tested, with auval for each Audio Unit.
+  # (needs: waits for the Windows legs too; a job's matrix legs can't be waited for separately.)
+  suite-macos:
+    name: Songsmith Studio installer - macOS
+    needs: [build, fet, maximizer]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Songsmith EQ's installer
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-EQ-macOS-pkg
+          path: suite/eq
+
+      - name: Download Songsmith Analog Compressor's installer
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-macOS-pkg
+          path: suite/fet
+
+      - name: Download Songsmith Maximiser's installer
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-Maximiser-macOS-pkg
+          path: suite/max
+
+      - name: Build and test the suite installer
+        shell: bash
+        run: |
+          eq_pkg=$(ls suite/eq/*-macOS.pkg | head -n 1)
+          fet_pkg=$(ls suite/fet/*-macOS.pkg | head -n 1)
+          max_pkg=$(ls suite/max/*-macOS.pkg | head -n 1)
+          pkg=$(installer/macos/build-installer.sh --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" | tail -n 1)
+          installer/macos/test-installer.sh --i-know-this-installs-system-wide \
+              --pkg "$pkg" --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg"
+
+      - name: Upload the suite installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Studio-macOS-pkg
+          path: build/suite-installer/*-macOS.pkg
