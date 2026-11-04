@@ -8,9 +8,9 @@ name: Build
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md', 'eq/prompts/**', 'eq/docs/**', '**.png']
+    paths-ignore: ['**.md', 'eq/prompts/**', 'eq/docs/**', 'fet/docs/**', 'analogue-compressor/prompts/**', 'maximizer/prompts/**', '**.png']
   pull_request:
-    paths-ignore: ['**.md', 'eq/prompts/**', 'eq/docs/**', '**.png']
+    paths-ignore: ['**.md', 'eq/prompts/**', 'eq/docs/**', 'fet/docs/**', 'analogue-compressor/prompts/**', 'maximizer/prompts/**', '**.png']
   workflow_dispatch:
 
 concurrency:
@@ -170,6 +170,148 @@ jobs:
             eq/build/SongsmithEQ_artefacts/Release/VST3/
             eq/build/SongsmithEQ_artefacts/Release/AU/
             eq/build/SongsmithEQ_artefacts/Release/Standalone/
+
+  # Songsmith Analog Compressor (fet/): its own build and FETTests, independent of the EQ job.
+  fet:
+    name: Analog Compressor - ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (VS, x64)
+            os: windows-latest
+            configure: -A x64
+            tests: fet/build/FETTests_artefacts/Release/FETTests.exe
+          - name: macOS (Xcode, universal)
+            os: macos-latest
+            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            tests: fet/build/FETTests_artefacts/Release/FETTests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE ${{ env.JUCE_VERSION }}
+        id: juce-cache
+        uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-${{ env.JUCE_VERSION }}-${{ runner.os }}
+
+      - name: Check out JUCE ${{ env.JUCE_VERSION }}
+        if: steps.juce-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: ${{ env.JUCE_VERSION }}
+          path: JUCE
+
+      - name: Configure
+        shell: bash
+        run: cmake -S fet -B fet/build ${{ matrix.configure }} -DJUCE_DIR="${{ github.workspace }}/JUCE"
+
+      - name: Build (Release)
+        shell: bash
+        run: cmake --build fet/build --config Release --parallel 4
+
+      - name: Run FETTests
+        shell: bash
+        run: ${{ matrix.tests }}
+
+      - name: Render analog compressor screenshots
+        shell: bash
+        run: |
+          ${{ matrix.tests }} --screenshots fet-screenshots
+          ${{ matrix.tests }} --screenshots fet-screenshots --scale 2
+
+      - name: Upload analog compressor screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-screenshots-${{ runner.os }}
+          path: fet-screenshots/*.png
+
+      # Separately named release files for the compressor, built and tested exactly like the
+      # EQ's (isolated install, upgrade and uninstall; Songsmith EQ and presets must survive).
+      - name: Build and test the Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc.exe -ErrorAction SilentlyContinue) -and
+              -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+          $setup = fet/installer/build-installer.ps1 -Zip | Select-Object -Last 1
+          fet/installer/test-installer.ps1 -Installer $setup
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload Windows installer
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-Windows-setup
+          path: fet/build/installer/*-win64-setup.exe
+
+      - name: Upload Windows zip
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-Windows-zip
+          path: fet/build/installer/*-win64.zip
+
+      - name: Validate the Audio Unit (auval, new identifiers)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          rm -rf ~/Library/Audio/Plug-Ins/Components/"Songsmith Analog Compressor.component"
+          cp -R fet/build/SongsmithAnalogCompressor_artefacts/Release/AU/"Songsmith Analog Compressor.component" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 2
+          auval -a | grep -i "Tnyw" || true
+          auval -v aufx Sfc1 Tnyw
+
+      - name: Zip macOS plug-ins (VST3 + AU + Standalone)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          version=$(sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' fet/CMakeLists.txt | head -n 1)
+          art=fet/build/SongsmithAnalogCompressor_artefacts/Release
+          mkdir -p fet-dist/"Songsmith Analog Compressor"
+          cp -R "$art/VST3/Songsmith Analog Compressor.vst3" "$art/AU/Songsmith Analog Compressor.component" \
+                "$art/Standalone/Songsmith Analog Compressor.app" fet-dist/"Songsmith Analog Compressor"/
+          ditto -c -k --keepParent fet-dist/"Songsmith Analog Compressor" "fet-dist/Songsmith-Analog-Compressor-$version-macOS.zip"
+
+      - name: Upload macOS zip
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-macOS-zip
+          path: fet-dist/Songsmith-Analog-Compressor-*-macOS.zip
+
+      - name: Build and test the macOS installer
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          pkg=$(fet/installer/macos/build-installer.sh | tail -n 1)
+          fet/installer/macos/test-installer.sh --pkg "$pkg"
+
+      - name: Upload macOS installer
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-macOS-pkg
+          path: fet/build/installer/*-macOS.pkg
+
+      - name: Upload plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-${{ runner.os }}
+          if-no-files-found: warn
+          path: |
+            fet/build/SongsmithAnalogCompressor_artefacts/Release/VST3/
+            fet/build/SongsmithAnalogCompressor_artefacts/Release/AU/
+            fet/build/SongsmithAnalogCompressor_artefacts/Release/Standalone/
 
   # Songsmith Maximiser (maximizer/): its own job, so the EQ job above stays as it is.
   maximizer:

@@ -3169,7 +3169,7 @@ public:
 
         beginTest ("The starting points are listed after the original factory presets");
         {
-            expectEquals ((int) list.size(), 13);
+            expectEquals ((int) list.size(), 17);
             const int firstTemplate = list.empty() ? 0 : list.front();
             expectEquals (firstTemplate, 8, "the 8 original presets keep their indices");
             for (size_t k = 0; k < list.size(); ++k)
@@ -3270,6 +3270,11 @@ public:
             {
                 const auto presetName = PresetManager::getFactoryName (i);
                 if (presetName == "Electric guitar bus")   // deliberate exception: the 360 Hz warmth boost is the move
+                    continue;
+                // Task 31 exceptions: Tony's own album tom EQ, copied as is rather than changed to fit the rule.
+                // Rack tom: +4.6/+5.9/+3.3 against -11.9 (SSL E-Channel, tony-ward.md lines 1114, 2295, 2315).
+                // Floor tom: +7.8/+5.9/+6.8 against -6.6 (Yesterday's Toy, tony-ward.md line 2147).
+                if (presetName == "Rack tom" || presetName == "Floor tom")
                     continue;
 
                 const auto d = PresetManager::getFactoryPreset (i);
@@ -3393,6 +3398,114 @@ public:
                 expect (hint.isNotEmpty(), PresetManager::getFactoryName (i));
                 expectLessOrEqual (hint.length(), 100, PresetManager::getFactoryName (i));
             }
+        }
+
+        beginTest ("Every factory preset keeps its index");
+        {
+            const char* names[] = { "Flat", nullptr, nullptr, nullptr, nullptr, nullptr, "Bright acoustic", nullptr,
+                                    nullptr, nullptr, nullptr, "Acoustic guitar", nullptr, nullptr, nullptr, nullptr,
+                                    nullptr, nullptr, nullptr, "Acoustic guitar in a full mix", "Acoustic guitar pickup",
+                                    "Abbey Road reverb", "Rack tom", "Floor tom", "Toms bus" };
+            expectGreaterOrEqual (PresetManager::getNumFactoryPresets(), 25);
+            for (int i = 0; i < (int) std::size (names); ++i)
+                if (names[i] != nullptr)
+                    expectEquals (PresetManager::getFactoryName (i), juce::String (names[i]), "index " + juce::String (i));
+        }
+
+        beginTest ("Abbey Road reverb: Tony's Pro-Q 4 preset, band for band");
+        {
+            const int index = 21;
+            expectEquals (PresetManager::getFactoryName (index), juce::String ("Abbey Road reverb"));
+            expect (PresetManager::isStartingPoint (index));
+            expectEquals (PresetManager::getFactoryUsedBands (index), 5);
+            const auto d = PresetManager::getFactoryPreset (index);
+
+            struct Expected { FilterType type; float freq, gain, q; };
+            const Expected expected[] = {
+                { FilterType::LowCut,   377.28f,  0.0f,  defaultQ },
+                { FilterType::Bell,     594.40f,  0.54f, 1.923f },
+                { FilterType::HighCut,  17056.0f, 0.0f,  defaultQ },
+                { FilterType::Bell,     10094.0f, 0.41f, 2.158f },
+                { FilterType::Bell,     2000.0f, -3.0f,  3.016f },
+            };
+            for (int b = 0; b < 5; ++b)
+            {
+                const auto& s = d.bands[(size_t) b];
+                const auto& e = expected[b];
+                const auto what = "band " + juce::String (b + 1);
+                expect (s.used && s.enabled && ! s.dynOn, what + " used and on");
+                expect (s.type == (int) e.type, what + " type");
+                expectWithinAbsoluteError (s.freq, e.freq, e.freq * 0.01f, what + " frequency within 1 %");
+                expectWithinAbsoluteError (s.gain, e.gain, 0.01f, what + " gain");
+                expectWithinAbsoluteError (s.q, e.q, 0.01f, what + " Q");
+            }
+            expectEquals (d.bands[0].slope, 1, "low cut 12 dB/oct");
+            expectEquals (d.bands[2].slope, 1, "high cut 12 dB/oct");
+
+            // Loaded into the processor, the bands read back the same (within parameter rounding).
+            SongsmithEQAudioProcessor p;
+            juce::String error;
+            expect (p.presets.load ({ PresetManager::getFactoryName (index), index, {} }, error), error);
+            for (int b = 0; b < 5; ++b)
+            {
+                expectEquals ((int) p.getBandValue (b, Param::Type), (int) expected[b].type);
+                expectWithinAbsoluteError (p.getBandValue (b, Param::Freq), expected[b].freq, expected[b].freq * 0.01f);
+            }
+        }
+
+        beginTest ("Tom presets: Tony's album settings, band for band");
+        {
+            struct Expected { FilterType type; float freq, gain, q; bool enabled; int slope; };
+            auto checkPreset = [this] (int index, const char* presetLabel, std::initializer_list<Expected> bands)
+            {
+                expectEquals (PresetManager::getFactoryName (index), juce::String (presetLabel));
+                expect (PresetManager::isStartingPoint (index));
+                expectEquals (PresetManager::getFactoryUsedBands (index), (int) bands.size(), presetLabel);
+                const auto d = PresetManager::getFactoryPreset (index);
+                int b = 0;
+                for (const auto& e : bands)
+                {
+                    const auto& s = d.bands[(size_t) b];
+                    const auto what = juce::String (presetLabel) + " band " + juce::String (b + 1);
+                    expect (s.used && ! s.dynOn, what + " used, not dynamic");
+                    expect (s.enabled == e.enabled, what + (e.enabled ? " on" : " off"));
+                    expect (s.type == (int) e.type, what + " type");
+                    expectWithinAbsoluteError (s.freq, e.freq, e.freq * 0.01f, what + " frequency within 1 %");
+                    expectWithinAbsoluteError (s.gain, e.gain, 0.1f, what + " gain within 0.1 dB");
+                    expectWithinAbsoluteError (s.q, e.q, 0.01f, what + " Q");
+                    if (typeHasSlope (e.type))
+                        expectEquals (s.slope, e.slope, what + " slope");
+                    ++b;
+                }
+
+                for (double fs : { 44100.0, 48000.0, 96000.0 })
+                {
+                    SongsmithEQAudioProcessor p;
+                    juce::String error;
+                    expect (p.presets.load ({ presetLabel, index, {} }, error), error);
+                    p.prepareToPlay (fs, block);
+                    AutoGainTests::Pink pink;
+                    bool finite = true;
+                    for (float v : runProcessor (p, fs, block, (int) fs, [&] (int) { return pink.next() * 4.0f; }, [] (int) {}))
+                        finite = finite && std::isfinite (v);
+                    expect (finite, juce::String (presetLabel) + " finite at " + juce::String (fs));
+                }
+            };
+
+            using T = FilterType;
+            checkPreset (22, "Rack tom", { { T::LowCut, 162.0f, 0.0f, defaultQ, true, 2 },   // SSL high-pass, 18 dB/oct
+                                           { T::Bell, 163.0f, 4.6f, 0.7f, true, 1 },
+                                           { T::Bell, 670.0f, -11.9f, 1.7f, true, 1 },
+                                           { T::Bell, 4070.0f, 5.9f, 1.0f, true, 1 },
+                                           { T::Bell, 10320.0f, 3.3f, 0.7f, true, 1 } });
+            checkPreset (23, "Floor tom", { { T::LowShelf, 122.0f, 7.8f, defaultQ, true, 1 },
+                                            { T::Bell, 930.0f, -6.6f, 1.7f, true, 1 },
+                                            { T::Bell, 4070.0f, 5.9f, 1.0f, true, 1 },
+                                            { T::HighShelf, 10320.0f, 6.8f, defaultQ, true, 1 } });
+            checkPreset (24, "Toms bus", { { T::LowCut, 55.0f, 0.0f, defaultQ, true, 5 },
+                                           { T::Bell, 119.0f, -4.8f, 2.0f, true, 1 },
+                                           { T::Bell, 317.0f, -8.0f, 1.4f, false, 1 },
+                                           { T::HighCut, 10700.0f, 0.0f, defaultQ, true, 3 } });
         }
     }
 };
@@ -4097,6 +4210,301 @@ public:
     }
 };
 
+//==============================================================================
+// Task 29: double-clicking near the left edge adds a Low Cut, near the right a High Cut.
+class EdgeClickTests final : public juce::UnitTest
+{
+public:
+    EdgeClickTests() : juce::UnitTest ("Edge clicks add cuts", "EQ") {}
+
+    static juce::MouseEvent doubleClickAt (juce::Component& c, juce::Point<float> pos, juce::ModifierKeys mods)
+    {
+        const auto now = juce::Time::getCurrentTime();
+        return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), pos, mods,
+                                 juce::MouseInputSource::defaultPressure, 0.0f, 0.0f, 0.0f, 0.0f,
+                                 &c, &c, now, pos, now, 2, false);
+    }
+
+    void runTest() override
+    {
+        auto check = [this] (float freq, float clickedGain, bool forceBell, FilterType expectedType, const juce::String& what)
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            const int band = ed->getDisplay().addBandAt (freq, clickedGain, forceBell);
+            expect (band >= 0, what + ": added");
+            if (band < 0)
+                return -1;
+            expectEquals ((int) p.getBandValue (band, Param::Type), (int) expectedType, what + ": type");
+            expectWithinAbsoluteError (p.getBandValue (band, Param::Freq), freq, freq * 0.001f, what + ": frequency");
+            const float expectedGain = expectedType == FilterType::Bell ? clickedGain : 0.0f;
+            expectWithinAbsoluteError (p.getBandValue (band, Param::Gain), expectedGain, 0.01f, what + ": gain");
+            if (EQ::typeHasSlope (expectedType))
+            {
+                expectEquals ((int) p.getBandValue (band, Param::Slope), EQ::defaultSlope, what + ": default slope");
+                expectWithinAbsoluteError (p.getBandValue (band, Param::Q), EQ::defaultQ, 0.01f, what + ": default Q");
+            }
+            expectEquals (ed->getDisplay().getSelectedBand(), band, what + ": selected");
+            return band;
+        };
+
+        beginTest ("25 Hz: Low Cut at 0 dB; 16 kHz: High Cut at 0 dB; 1 kHz: Bell at the clicked gain");
+        check (25.0f, 6.0f, false, FilterType::LowCut, "25 Hz");
+        check (16000.0f, -5.0f, false, FilterType::HighCut, "16 kHz");
+        check (1000.0f, 4.5f, false, FilterType::Bell, "1 kHz");
+
+        beginTest ("Zone boundaries: just inside and just outside");
+        check (EQ::lowCutZoneHz * 0.98f, 3.0f, false, FilterType::LowCut, "just below the low zone edge");
+        check (EQ::lowCutZoneHz * 1.02f, 3.0f, false, FilterType::Bell, "just above the low zone edge");
+        check (EQ::highCutZoneHz * 1.02f, 3.0f, false, FilterType::HighCut, "just above the high zone edge");
+        check (EQ::highCutZoneHz * 0.98f, 3.0f, false, FilterType::Bell, "just below the high zone edge");
+        expectEquals (EQ::lowCutZoneHz, 40.0f);
+        expectEquals (EQ::highCutZoneHz, 12000.0f);
+
+        beginTest ("Ctrl/Cmd forces a Bell at the edges");
+        check (25.0f, 6.0f, true, FilterType::Bell, "25 Hz forced");
+        check (16000.0f, -2.0f, true, FilterType::Bell, "16 kHz forced");
+
+        beginTest ("Stacking: a second Low Cut is added and existing bands are untouched");
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            const int first = ed->getDisplay().addBandAt (30.0f, 0.0f, false);
+            p.edits.setValue (first, Param::Freq, 35.0f);
+            const int second = ed->getDisplay().addBandAt (25.0f, 0.0f, false);
+            expect (second >= 0 && second != first);
+            expectEquals ((int) p.getBandValue (second, Param::Type), (int) FilterType::LowCut);
+            expectEquals ((int) p.getBandValue (first, Param::Type), (int) FilterType::LowCut);
+            expectWithinAbsoluteError (p.getBandValue (first, Param::Freq), 35.0f, 0.01f, "first cut unchanged");
+        }
+
+        beginTest ("Undo after an edge add removes the band in one step");
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            const int usedBefore = p.getNumUsedBands();
+            const int band = ed->getDisplay().addBandAt (25.0f, 6.0f, false);
+            expectEquals (p.getNumUsedBands(), usedBefore + 1);
+            p.edits.undo();
+            expectEquals (p.getNumUsedBands(), usedBefore, "one undo");
+            expect (! p.isBandUsed (band));
+            p.edits.redo();
+            expectEquals ((int) p.getBandValue (band, Param::Type), (int) FilterType::LowCut, "redo restores the cut");
+        }
+
+        beginTest ("Real double-clicks at the edges and the middle of the graph");
+        {
+            SongsmithEQAudioProcessor p;
+            for (int b = 0; b < numBands; ++b)
+                if (p.isBandUsed (b))
+                    p.edits.removeBand (b);
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            auto& display = ed->getDisplay();
+            const float plotRight = (float) display.getWidth() - 36.0f, midY = ((float) display.getHeight() - 20.0f) * 0.5f;
+
+            auto typeAfterClick = [&] (float x, float y, juce::ModifierKeys mods)
+            {
+                display.mouseDoubleClick (doubleClickAt (display, { x, y }, mods));
+                return (int) p.getBandValue (display.getSelectedBand(), Param::Type);
+            };
+            expectEquals (typeAfterClick (4.0f, midY, {}), (int) FilterType::LowCut, "far left");
+            expectEquals (typeAfterClick (plotRight - 4.0f, midY, {}), (int) FilterType::HighCut, "far right");
+            expectEquals (typeAfterClick (plotRight * 0.5f, midY, {}), (int) FilterType::Bell, "middle");
+            expectEquals (typeAfterClick (8.0f, midY + 80.0f, juce::ModifierKeys (juce::ModifierKeys::commandModifier)), (int) FilterType::Bell,
+                          "Ctrl/Cmd at the far left");
+            expectEquals (p.getNumUsedBands(), 4);
+        }
+    }
+};
+
+//==============================================================================
+// Task 27: tall vertical output meter on the right of the graph.
+class OutputMeterTests final : public juce::UnitTest
+{
+public:
+    OutputMeterTests() : juce::UnitTest ("Vertical output meter", "EQ") {}
+
+    void runTest() override
+    {
+        beginTest ("Level to height: -60 dB at the bottom, +6 dB at the top, 0 dB on the scale mark");
+        {
+            OutputMeterDisplay m;
+            m.setSize (OutputMeterDisplay::preferredWidth, 400);
+            const auto bar = m.getBarArea();
+            expectWithinAbsoluteError (m.levelToY (-60.0f), bar.getBottom(), 1.0e-4f);
+            expectWithinAbsoluteError (m.levelToY (6.0f), bar.getY(), 1.0e-4f);
+            expectWithinAbsoluteError (m.levelToY (0.0f), bar.getBottom() - bar.getHeight() * 60.0f / 66.0f, 1.0e-3f);
+            expectWithinAbsoluteError (m.levelToY (-100.0f), bar.getBottom(), 1.0e-4f, "below the range: empty");
+            expectWithinAbsoluteError (m.levelToY (20.0f), bar.getY(), 1.0e-4f, "above the range: full");
+            expectLessThan (m.levelToY (-6.0f), m.levelToY (-12.0f), "fills bottom to top");
+            expect (bar.getBottom() <= (float) m.getHeight() - OutputMeterDisplay::bottomRow + 0.01f,
+                    "the peak number has the frequency-axis row");
+            expect (m.getClipBox().getBottom() < bar.getY(), "clip indicator above the bar");
+            expectEquals ((int) std::size (OutputMeterDisplay::scaleMarks), 6);
+        }
+
+        beginTest ("Clip indicator latches and a click resets it");
+        {
+            OutputMeterDisplay m;
+            m.setSize (OutputMeterDisplay::preferredWidth, 300);
+            m.update (0.1f, false, 0.0, 0.0);
+            expect (! m.isClipped());
+            m.update (1.2f, true, 0.1, 0.1);
+            expect (m.isClipped());
+            expectGreaterThan (m.getHoldDb(), 1.0f);
+            m.update (0.01f, false, 0.2, 0.1);
+            expect (m.isClipped(), "stays lit after the signal drops");
+            expectGreaterThan (m.getHoldDb(), 1.0f, "peak held");
+            m.update (0.01f, false, 5.0, 1.0);
+            expect (m.isClipped(), "still lit seconds later");
+            expectLessThan (m.getHoldDb(), 1.0f, "hold falls after 1.5 s");
+
+            m.mouseDown (UiSizeTests::mouseAt (m, m.getClipBox().getCentre()));
+            expect (! m.isClipped(), "click resets");
+        }
+
+        beginTest ("Ballistics: fast attack, about 24 dB/s fall-off");
+        {
+            OutputMeterDisplay m;
+            m.update (0.5f, false, 0.0, 0.0);
+            expectWithinAbsoluteError (m.getLevelDb(), juce::Decibels::gainToDecibels (0.5f), 0.01f);
+            m.update (0.0f, false, 0.5, 0.5);
+            expectWithinAbsoluteError (m.getLevelDb(), juce::Decibels::gainToDecibels (0.5f) - 12.0f, 0.01f);
+        }
+
+        beginTest ("Meter sits right of the graph, full height, at the minimum, default and largest sizes");
+        {
+            using namespace EQ::EditorSize;
+            struct Case { float scale; int w, h; };
+            for (auto c : { Case { 1.0f, minWidth, minHeight }, Case { 1.0f, defaultWidth, defaultHeight },
+                            Case { 1.0f, maxWidth, 2160 }, Case { 2.0f, minWidth * 2, minHeight * 2 },
+                            Case { 0.75f, juce::roundToInt (defaultWidth * 0.75f), juce::roundToInt (defaultHeight * 0.75f) } })
+            {
+                SongsmithEQAudioProcessor p;
+                auto ed = UiSizeTests::makeEditor (p, c.scale, c.w, c.h);
+                const auto context = juce::String (c.w) + " x " + juce::String (c.h) + " at " + juce::String (c.scale);
+                const auto meter = ed->getOutputMeter().getBounds();
+                const auto graph = ed->getDisplay().getBounds();
+                expect (meter.getX() >= graph.getRight(), context + ": meter right of the graph");
+                expect (! meter.intersects (graph), context + ": no overlap with the graph");
+                expectEquals (meter.getY(), graph.getY(), context + ": same top as the graph");
+                expectEquals (meter.getBottom(), graph.getBottom(), context + ": same bottom as the graph");
+                expectEquals (meter.getWidth(), OutputMeterDisplay::preferredWidth);
+                expect (ed->getContent().getLocalBounds().contains (meter), context + ": inside the editor");
+                WordingAndFontTests::checkLayout (*this, *ed, context);
+            }
+        }
+    }
+};
+
+//==============================================================================
+// Task 28: a "Piano" toggle in row 3 for the piano strip.
+class PianoToggleTests final : public juce::UnitTest
+{
+public:
+    PianoToggleTests() : juce::UnitTest ("Piano strip toggle", "EQ") {}
+
+    static juce::TextButton* findButton (juce::Component& content, const juce::String& text)
+    {
+        for (auto* c : content.getChildren())
+            if (auto* b = dynamic_cast<juce::TextButton*> (c); b != nullptr && b->getButtonText() == text)
+                return b;
+        return nullptr;
+    }
+
+    static juce::ComboBox* findCombo (juce::Component& content, const juce::String& firstItem)
+    {
+        for (auto* c : content.getChildren())
+            if (auto* b = dynamic_cast<juce::ComboBox*> (c); b != nullptr && b->getNumItems() > 0 && b->getItemText (0) == firstItem)
+                return b;
+        return nullptr;
+    }
+
+    void runTest() override
+    {
+        beginTest ("The button turns the strip on and off, and stays in step with the menu setting");
+        {
+            SongsmithEQAudioProcessor p;
+            expect (! p.showPianoStrip.load(), "off by default");
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            auto* piano = findButton (ed->getContent(), "Piano");
+            expect (piano != nullptr, "Piano button exists");
+            if (piano == nullptr)
+                return;
+            expect (piano->isVisible());
+            expect (! piano->getToggleState());
+
+            piano->setToggleState (! piano->getToggleState(), juce::sendNotificationSync);   // as a click does
+            expect (piano->getToggleState());
+            expect (p.showPianoStrip.load(), "button turns it on");
+
+            juce::MemoryBlock state;
+            p.getStateInformation (state);
+            SongsmithEQAudioProcessor restored;
+            restored.setStateInformation (state.getData(), (int) state.getSize());
+            expect (restored.showPianoStrip.load(), "saved with the session");
+            auto ed2 = UiSizeTests::makeEditor (restored, 1.0f, 1280, 760);
+            auto* piano2 = findButton (ed2->getContent(), "Piano");
+            expect (piano2 != nullptr && piano2->getToggleState(), "a reopened session shows the button on");
+
+            // As the right-click menu does: the button follows on the next timer tick.
+            p.showPianoStrip.store (false);
+            ed->refreshFromProcessor();
+            expect (! piano->getToggleState(), "menu change updates the button");
+
+            piano->setToggleState (! piano->getToggleState(), juce::sendNotificationSync);   // as a click does
+            piano->setToggleState (! piano->getToggleState(), juce::sendNotificationSync);   // as a click does
+            expect (! p.showPianoStrip.load(), "a second click turns it off");
+            p.getStateInformation (state);
+            SongsmithEQAudioProcessor restoredOff;
+            restoredOff.showPianoStrip.store (true);
+            restoredOff.setStateInformation (state.getData(), (int) state.getSize());
+            expect (! restoredOff.showPianoStrip.load(), "off round-trips too");
+        }
+
+        beginTest ("Row 3 fits at the minimum size at every UI size, with the side chain slot reserved");
+        {
+            using namespace EQ::EditorSize;
+            for (auto s : uiScales)
+            {
+                SongsmithEQAudioProcessor p;
+                const int w = juce::roundToInt ((float) minWidth * s), h = juce::roundToInt ((float) minHeight * s);
+                auto ed = UiSizeTests::makeEditor (p, s, w, h);
+                const auto context = juce::String (juce::roundToInt (s * 100.0f)) + "% at " + juce::String (w) + " x " + juce::String (h);
+                auto& content = ed->getContent();
+                auto* piano = findButton (content, "Piano");
+                auto* sidechain = findCombo (content, "Side Chain: off");
+                auto* curve = findCombo (content, "Curve: all bands");
+                expect (piano != nullptr && sidechain != nullptr && curve != nullptr);
+                if (piano == nullptr || sidechain == nullptr || curve == nullptr)
+                    continue;
+                expect (piano->isVisible(), context + ": the button is shown");
+                expect (piano->getX() >= sidechain->getRight(), context + ": after the side chain box");
+                expect (! piano->getBounds().intersects (sidechain->getBounds()), context + ": no overlap with the side chain slot");
+                expect (piano->getRight() <= content.getWidth() - 12, context + ": inside the margin");
+                expectEquals (piano->getY(), curve->getY(), context + ": in row 3");
+                WordingAndFontTests::checkLayout (*this, *ed, context);
+            }
+        }
+
+        beginTest ("Turning the strip on doesn't move the graph or the nodes");
+        {
+            SongsmithEQAudioProcessor p;
+            const int band = p.edits.addBand (1000.0f, 6.0f, FilterType::Bell);
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            const auto before = ed->getDisplay().getBounds();
+            const auto nodeBefore = ed->getDisplay().getNodeCentre (band);
+            p.showPianoStrip.store (true);
+            ed->refreshFromProcessor();
+            expect (ed->getDisplay().getBounds() == before);
+            expect (ed->getDisplay().getNodeCentre (band) == nodeBefore);
+        }
+    }
+};
+
+static PianoToggleTests pianoToggleTests;
+static EdgeClickTests edgeClickTests;
+static OutputMeterTests outputMeterTests;
 static UiSizeTests uiSizeTests;
 static WordingAndFontTests wordingAndFontTests;
 static RenameTests renameTests;
@@ -4361,7 +4769,7 @@ static int renderScreenshots (const juce::File& folder, float scale)
 {
     folder.createDirectory();
 
-    auto shoot = [&] (int width, int height, const juce::String& name, float uiScale = 1.0f)
+    auto shoot = [&] (int width, int height, const juce::String& name, float uiScale = 1.0f, bool piano = false)
     {
         SongsmithEQAudioProcessor p;
         p.prepareToPlay (48000.0, 512);
@@ -4384,7 +4792,24 @@ static int renderScreenshots (const juce::File& folder, float scale)
         p.edits.setValue (dyn, Param::Range, -4.0f);
         add (FilterType::HighShelf, 10000.0f, 1.5f, 0.71f);
 
+        // A 1 kHz tone at about -8 dBFS, so the output meter shows a level.
+        {
+            juce::AudioBuffer<float> buffer (2, 512);
+            juce::MidiBuffer midi;
+            for (int block = 0; block < 8; ++block)
+            {
+                for (int i = 0; i < 512; ++i)
+                {
+                    const float v = 0.4f * std::sin (juce::MathConstants<float>::twoPi * 1000.0f * (float) (block * 512 + i) / 48000.0f);
+                    buffer.setSample (0, i, v);
+                    buffer.setSample (1, i, v);
+                }
+                p.processBlock (buffer, midi);
+            }
+        }
+
         p.uiScale = uiScale;
+        p.showPianoStrip.store (piano);
         p.editorWidth = width;
         p.editorHeight = height;
         std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
@@ -4405,6 +4830,8 @@ static int renderScreenshots (const juce::File& folder, float scale)
     SongsmithEQAudioProcessor defaults;
     shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "default-size");
     shoot (EQ::EditorSize::minWidth, EQ::EditorSize::minHeight, "minimum-size");
+    shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "default-size-piano", 1.0f, true);
+    shoot (EQ::EditorSize::minWidth, EQ::EditorSize::minHeight, "minimum-size-piano", 1.0f, true);
     shoot (EQ::EditorSize::maxWidth, 2160, "maximum-size-4k");
 
     // Every interface size at its default window (design size 1280 x 760, scaled).

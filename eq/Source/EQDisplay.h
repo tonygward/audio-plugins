@@ -8,7 +8,8 @@
 
 // Interactive frequency-response display for the 24-band EQ.
 //
-//  Double-click empty space ... add a band
+//  Double-click empty space ... add a band: Low Cut below 40 Hz, High Cut above 12 kHz,
+//                               Bell elsewhere (Ctrl/Cmd: always a Bell)
 //  Click node .................. select
 //  Drag node ................... frequency (x) / gain (y); Shift = fine
 //  Wheel over node ............. Q (Shift = fine)
@@ -124,6 +125,11 @@ public:
     // For tests: the band whose node is under 'pos' (display coordinates), or -1, and where a
     // band's node is drawn.
     int findNodeAt (juce::Point<float> pos) const { return hitTestNode (pos); }
+
+    // Adds a band as a double-click on empty graph space does: a Low Cut below
+    // EQ::lowCutZoneHz, a High Cut above EQ::highCutZoneHz, else a Bell at the clicked
+    // (displayed) gain. forceBell: Ctrl/Cmd held. Returns the band, or -1 when all are used.
+    int addBandAt (float freq, float displayGainDb, bool forceBell);
     juce::Point<float> getNodeCentre (int band) const { return getNodePosition (band); }
 
 private:
