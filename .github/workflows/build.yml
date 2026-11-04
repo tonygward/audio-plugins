@@ -457,3 +457,57 @@ jobs:
             maximizer/build/SongsmithMaximiser_artefacts/Release/VST3/
             maximizer/build/SongsmithMaximiser_artefacts/Release/AU/
             maximizer/build/SongsmithMaximiser_artefacts/Release/Standalone/
+
+  # Songsmith Studio: one Windows installer with every plugin (installer/windows). Built from the
+  # Release builds the three plugin jobs upload, then tested end to end (per-user, in a temp
+  # folder), including replacing Songsmith EQ's own installer. (needs: waits for each job's
+  # macOS leg too; a job's matrix legs can't be waited for separately.)
+  suite-windows:
+    name: Songsmith Studio installer - Windows
+    needs: [build, fet, maximizer]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Songsmith EQ (Windows build)
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-EQ-Windows
+          path: suite/eq
+
+      - name: Download Songsmith Analog Compressor (Windows build)
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-Windows
+          path: suite/fet
+
+      - name: Download Songsmith Maximiser (Windows build)
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-Maximiser-Windows
+          path: suite/max
+
+      - name: Download Songsmith EQ's own installer
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-EQ-Windows-setup
+          path: suite/eq-setup
+
+      - name: Build and test the suite installer
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc.exe -ErrorAction SilentlyContinue) -and
+              -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+          $builds = @{ EqDir = "suite/eq"; FetDir = "suite/fet"; MaxDir = "suite/max" }
+          $setup = installer/windows/build-installer.ps1 @builds | Select-Object -Last 1
+          $eqSetup = (Get-ChildItem suite/eq-setup/*-win64-setup.exe | Select-Object -First 1).FullName
+          installer/windows/test-installer.ps1 -Installer $setup -EqInstaller $eqSetup @builds
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload the suite installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Studio-Windows-setup
+          path: build/suite-installer/*-win64-setup.exe
