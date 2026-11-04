@@ -114,7 +114,7 @@ namespace Max
         for (int i = 0; i < numSamples; ++i)
         {
             const float b = baseline.getNextValue();
-            const float c = ceiling.getNextValue();
+            const float c = juce::jmax (1.0e-6f, ceiling.getNextValue() - headroom);
 
             // Baseline gain, then the true-peak detector. Both peak modes use the audio delayed by
             // the detector delay, so the latency is the same in both.

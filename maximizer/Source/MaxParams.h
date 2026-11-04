@@ -26,6 +26,15 @@ namespace Max
         return names;
     }
 
+    // --- Added in version 3 (step 04) -----------------------------------------------------
+    inline constexpr const char* ditherId = "dither";   // 0 off (default), 1 16-bit, 2 24-bit TPDF
+
+    inline const juce::StringArray& getDitherNames()
+    {
+        static const juce::StringArray names { "Off", "16-bit", "24-bit" };
+        return names;
+    }
+
     // --- Ranges and defaults -------------------------------------------------------------
     // Threshold and Out Ceiling both span 0 to -30 dB, as in the L1 manual. The defaults (0 / 0)
     // give a gain of 0 dB, so a fresh instance passes audio below 0 dBFS through untouched.

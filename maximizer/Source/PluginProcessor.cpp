@@ -11,6 +11,7 @@ static_assert (JucePlugin_ManufacturerCode == 0x546e7977 /* 'Tnyw' */ && JucePlu
 namespace
 {
     const juce::Identifier versionId ("version");
+    const juce::Identifier uiId ("UI");
 }
 
 //==============================================================================
@@ -26,7 +27,8 @@ SongsmithMaximiserAudioProcessor::SongsmithMaximiserAudioProcessor()
     bypassParam  = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Max::bypassId));
     peakModeParam    = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (Max::peakModeId));
     autoReleaseParam = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Max::autoReleaseId));
-    jassert (peakModeParam != nullptr && autoReleaseParam != nullptr);
+    ditherParam      = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (Max::ditherId));
+    jassert (peakModeParam != nullptr && autoReleaseParam != nullptr && ditherParam != nullptr);
     jassert (thresholdRaw != nullptr && ceilingRaw != nullptr && releaseRaw != nullptr && bypassParam != nullptr);
 
     dryBuffer.setSize (2, 512, false, true);   // resized in prepareToPlay
@@ -60,6 +62,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithMaximiserAudioProce
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { Max::autoReleaseId, 2 }, "Auto Release", false));
 
+    // Version 3 (step 04): final-stage dither, off by default.
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { Max::ditherId, 3 }, "Dither", Max::getDitherNames(), 0));
+
     return layout;
 }
 
@@ -88,7 +94,10 @@ void SongsmithMaximiserAudioProcessor::prepareToPlay (double sampleRate, int sam
     limiter.setTruePeak (isTruePeak());
     limiter.setAutoRelease (isAutoRelease());
     limiter.setReleaseMs (getReleaseMs());
+    dither.setDepth (getDitherDepth());
+    limiter.setCeilingHeadroom (Max::Dither::headroomFor (getDitherDepth()));
     limiter.prepare (sampleRate);
+    dither.reset();
 
     dryDelay.setSize (2, limiter.getLatencySamples() + 1, false, true, false);
     dryDelay.clear();
@@ -100,6 +109,7 @@ void SongsmithMaximiserAudioProcessor::prepareToPlay (double sampleRate, int sam
 void SongsmithMaximiserAudioProcessor::reset()
 {
     limiter.reset();
+    dither.reset();
     dryDelay.clear();
     dryDelayPos = 0;
 }
@@ -123,6 +133,12 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     limiter.setTruePeak (isTruePeak());
     limiter.setAutoRelease (isAutoRelease());
     limiter.setReleaseMs (getReleaseMs());
+
+    // Dither is the last stage before the bypass mix (the dry signal is never dithered). While
+    // it is on, the ceiling is lowered by its headroom so the quantised output stays under it.
+    const auto depth = getDitherDepth();
+    dither.setDepth (depth);
+    limiter.setCeilingHeadroom (Max::Dither::headroomFor (depth));
 
     float inPeak = 0.0f, outPeak = 0.0f;
 
@@ -157,6 +173,7 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
 
         // The limiter always runs, even when bypassed, so un-bypassing never glitches.
         limiter.process (ch, numCh, num);
+        dither.process (ch, numCh, num);
 
         if (bypassMix.isSmoothing())
         {
@@ -195,6 +212,12 @@ juce::ValueTree SongsmithMaximiserAudioProcessor::createState()
 {
     auto state = apvts.copyState();
     state.setProperty (versionId, stateVersion, nullptr);
+
+    // UI state: not automatable, saved with the session.
+    juce::ValueTree ui (uiId);
+    ui.setProperty ("link", linkThresholdCeiling.load(), nullptr);
+    ui.setProperty ("editorWidth", editorWidth.load(), nullptr);
+    state.appendChild (ui, nullptr);
     return state;
 }
 
@@ -240,6 +263,12 @@ void SongsmithMaximiserAudioProcessor::restoreFromValueTree (const juce::ValueTr
     }
 
     apvts.replaceState (fresh);
+
+    // UI state (version 3 on). Older sessions: link off, default size.
+    const auto ui = saved.getChildWithName (uiId);
+    linkThresholdCeiling.store (ui.isValid() && (bool) ui.getProperty ("link", false));
+    editorWidth.store (Max::EditorLayout::constrainWidth (ui.isValid() ? (int) ui.getProperty ("editorWidth", Max::EditorLayout::defaultWidth)
+                                                                       : Max::EditorLayout::defaultWidth));
 }
 
 //==============================================================================

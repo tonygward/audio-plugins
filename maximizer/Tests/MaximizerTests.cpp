@@ -1,6 +1,7 @@
 // Songsmith Maximiser test runner.
 //   MaximizerTests.exe   -> run all unit tests (exit code 1 on failure)
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
 #include <cmath>
 #include <random>
 #include "PluginProcessor.h"
@@ -116,7 +117,7 @@ public:
         {
             SongsmithMaximiserAudioProcessor p;
             const std::pair<const char*, int> expected[] = { { "threshold", 1 }, { "ceiling", 1 }, { "release", 1 }, { "bypass", 1 },
-                                                             { "peak_mode", 2 }, { "auto_release", 2 } };
+                                                             { "peak_mode", 2 }, { "auto_release", 2 }, { "dither", 3 } };
 
             for (auto [id, version] : expected)
             {
@@ -129,7 +130,7 @@ public:
             }
 
             expect (p.getBypassParameter() == p.apvts.getParameter (Max::bypassId), "bypass is the host bypass");
-            expectEquals (p.getParameters().size(), 6, "no unexpected parameters");
+            expectEquals (p.getParameters().size(), 7, "no unexpected parameters");
         }
 
         beginTest ("Ranges and defaults");
@@ -983,14 +984,331 @@ public:
 static TruePeakAndAutoReleaseTests truePeakAndAutoReleaseTests;
 
 //==============================================================================
+class DitherTests final : public juce::UnitTest
+{
+public:
+    DitherTests() : juce::UnitTest ("Dither and quantiser", "Maximiser") {}
+
+    static double lsb (int bits) { return std::ldexp (1.0, 1 - bits); }
+
+    void runTest() override
+    {
+        constexpr double fs = 48000.0;
+
+        beginTest ("Off by default; LSB and headroom");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            expect (p.getDitherDepth() == Max::Dither::Depth::off, "dither off by default");
+            expectEquals (Max::Dither::lsbFor (Max::Dither::Depth::bits16), 1.0 / 32768.0);
+            expectEquals (Max::Dither::lsbFor (Max::Dither::Depth::bits24), 1.0 / 8388608.0);
+            expectEquals (Max::Dither::headroomFor (Max::Dither::Depth::off), 0.0f);
+            expectWithinAbsoluteError ((double) Max::Dither::headroomFor (Max::Dither::Depth::bits16), 1.5 / 32768.0, 1.0e-9);
+        }
+
+        beginTest ("Ceiling holds after quantisation, output on the 16/24-bit grid");
+        {
+            for (int depth : { 1, 2 })
+                for (int mode : { 0, 1 })
+                {
+                    const int bits = depth == 1 ? 16 : 24;
+                    SongsmithMaximiserAudioProcessor p;
+                    setParam (p, Max::thresholdId, -12.0f);
+                    setParam (p, Max::ceilingId, -0.1f);
+                    setParam (p, Max::ditherId, (float) depth);
+                    setParam (p, Max::peakModeId, (float) mode);
+                    prepare (p, fs, 256);
+
+                    const auto out = run (p, { noise ((int) fs, 1.0f, 111u), noise ((int) fs, 1.0f, 112u) }, { 256 });
+                    const float c = Max::dbToGain (-0.1f);
+                    bool onGrid = true;
+                    float pk = 0.0f;
+                    for (auto& ch : out)
+                        for (float s : ch)
+                        {
+                            const double codes = (double) s / lsb (bits);
+                            onGrid = onGrid && std::abs (codes - std::round (codes)) < 1.0e-6;
+                            pk = std::max (pk, std::abs (s));
+                        }
+
+                    const auto what = juce::String (bits) + "-bit, " + Max::getPeakModeNames()[mode];
+                    expect (onGrid, what + ": every sample is a whole " + juce::String (bits) + "-bit code");
+                    expect (pk <= c, what + ": quantised peak " + juce::String (Max::gainToDb (pk), 5) + " dB <= ceiling");
+                    if (mode == 0)   // in true-peak mode the samples sit below the ceiling by design
+                        expect (pk >= c - 4.0f * (float) lsb (bits) - 1.0e-4f, what + ": still reaches the ceiling (headroom is tiny)");
+                }
+        }
+
+        beginTest ("TPDF noise: level, flat spectrum, uncorrelated channels");
+        {
+            Max::Dither d;
+            d.setDepth (Max::Dither::Depth::bits16);
+            d.reset();
+            constexpr int n = 1 << 17;
+            std::vector<float> l ((size_t) n, 0.0f), r ((size_t) n, 0.0f);
+            float* ch[2] = { l.data(), r.data() };
+            d.process (ch, 2, n);
+
+            const double q = lsb (16);
+            double mean = 0.0, var = 0.0, cross = 0.0, lag1 = 0.0;
+            for (size_t i = 0; i < (size_t) n; ++i) mean += (double) l[i];
+            mean /= n;
+            for (size_t i = 0; i < (size_t) n; ++i)
+            {
+                var += ((double) l[i] - mean) * ((double) l[i] - mean);
+                cross += (double) l[i] * (double) r[i];
+                if (i > 0) lag1 += (double) l[i] * (double) l[i - 1];
+            }
+            var /= n;
+            expectWithinAbsoluteError (mean / q, 0.0, 0.01, "zero mean");
+            expectWithinAbsoluteError (var / (q * q), 0.25, 0.01, "noise power q^2/4 (TPDF q^2/6 + rounding q^2/12)");
+            expectLessThan (std::abs (cross / n) / var, 0.02, "left and right noise uncorrelated");
+            expectLessThan (std::abs (lag1 / n) / var, 0.02, "white: no sample-to-sample correlation");
+
+            // Spectrum: average 1024-point power spectra; 8 equal bands within 0.5 dB of each other.
+            constexpr int order = 10, size = 1 << order;
+            juce::dsp::FFT fft (order);
+            std::vector<double> power ((size_t) size / 2, 0.0);
+            std::vector<float> frame ((size_t) size * 2);
+            for (int f = 0; f + size <= n; f += size)
+            {
+                std::fill (frame.begin(), frame.end(), 0.0f);
+                std::copy (l.begin() + f, l.begin() + f + size, frame.begin());
+                fft.performFrequencyOnlyForwardTransform (frame.data());
+                for (size_t k = 0; k < power.size(); ++k)
+                    power[k] += (double) frame[k] * (double) frame[k];
+            }
+            double minBand = 1.0e30, maxBand = 0.0;
+            for (int b = 0; b < 8; ++b)
+            {
+                double sum = 0.0;
+                for (size_t k = (size_t) (b * 64 + 1); k < (size_t) (b * 64 + 64); ++k)
+                    sum += power[k];
+                minBand = std::min (minBand, sum);
+                maxBand = std::max (maxBand, sum);
+            }
+            const double spreadDb = 10.0 * std::log10 (maxBand / minBand);
+            logMessage ("    dither spectrum: 8-band spread " + juce::String (spreadDb, 2) + " dB");
+            expectLessThan (spreadDb, 0.5, "flat (white) noise spectrum");
+        }
+
+        beginTest ("Bypass skips dither; state recall; older sessions load with dither off");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            setParam (p, Max::ditherId, 1.0f);
+            setParam (p, Max::bypassId, 1.0f);
+            prepare (p, fs, 128);
+            const auto in = noise (9600, 0.5f, 121u);
+            const auto out = run (p, { in, in }, { 128 });
+            expectEquals (maxAbsDiff (out[0], in, p.getLatencySamples()), 0.0f, "bypassed: the undithered input");
+
+            juce::MemoryBlock mb;
+            setParam (p, Max::ditherId, 2.0f);
+            p.getStateInformation (mb);
+            SongsmithMaximiserAudioProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expect (q.getDitherDepth() == Max::Dither::Depth::bits24, "24-bit restored");
+
+            juce::ValueTree v2 ("PARAMETERS");
+            v2.setProperty ("version", 2, nullptr);
+            v2.appendChild (juce::ValueTree ("PARAM", { { "id", "peak_mode" }, { "value", 1.0f } }), nullptr);
+            q.restoreFromValueTree (v2);
+            expect (q.getDitherDepth() == Max::Dither::Depth::off && q.isTruePeak(), "version-2 session: dither off");
+        }
+    }
+};
+
+//==============================================================================
+class EditorTests final : public juce::UnitTest
+{
+public:
+    EditorTests() : juce::UnitTest ("Editor, link and meters", "Maximiser") {}
+
+    void runTest() override
+    {
+        beginTest ("Linked move keeps C - T within the common range");
+        {
+            auto m = Max::moveLinked (-6.0f, -1.0f, -12.0f, true);
+            expectWithinAbsoluteError (m.threshold, -12.0f, 1.0e-5f);
+            expectWithinAbsoluteError (m.ceiling, -7.0f, 1.0e-5f, "ceiling follows");
+
+            m = Max::moveLinked (-6.0f, -1.0f, 3.0f, true);   // the ceiling hits 0 first
+            expectWithinAbsoluteError (m.ceiling, 0.0f, 1.0e-5f);
+            expectWithinAbsoluteError (m.threshold, -5.0f, 1.0e-5f, "threshold stops where the ceiling ran out of range");
+
+            m = Max::moveLinked (-5.0f, -10.0f, -30.0f, true);   // C below T: the ceiling hits -30 first
+            expectWithinAbsoluteError (m.ceiling, -30.0f, 1.0e-5f);
+            expectWithinAbsoluteError (m.threshold, -25.0f, 1.0e-5f);
+
+            m = Max::moveLinked (-20.0f, -2.0f, -4.0f, false);   // moving the ceiling
+            expectWithinAbsoluteError (m.threshold, -22.0f, 1.0e-5f);
+            expectWithinAbsoluteError (m.ceiling, -4.0f, 1.0e-5f);
+        }
+
+        beginTest ("Meter ballistics (display only)");
+        {
+            Max::MeterBallistics a, b;
+            a.update (0.0f, 0.0);
+            b.update (0.0f, 0.0);
+            expectEquals (a.getLevel(), 0.0f, "instant rise");
+            for (int i = 0; i < 10; ++i)
+                a.update (-100.0f, 0.1);
+            b.update (-100.0f, 1.0);
+            expectWithinAbsoluteError (a.getLevel(), -20.0f, 1.0e-3f, "falls 20 dB/s");
+            expectWithinAbsoluteError (a.getLevel(), b.getLevel(), 1.0e-3f, "independent of the update rate");
+            expectEquals (a.getHold(), 0.0f, "hold still up after 1 s");
+            a.update (-100.0f, 0.6);
+            expect (a.getHold() < -20.0f, "hold released after 1.5 s");
+        }
+
+        beginTest ("Editor opens, scales and recalls its size");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            std::unique_ptr<SongsmithMaximiserAudioProcessorEditor> ed (dynamic_cast<SongsmithMaximiserAudioProcessorEditor*> (p.createEditor()));
+            expect (ed != nullptr);
+            expectEquals (ed->getWidth(), Max::EditorLayout::designWidth);
+            expectEquals (ed->getHeight(), Max::EditorLayout::designHeight);
+
+            ed->setSize (1080, Max::EditorLayout::heightFor (1080));
+            expectWithinAbsoluteError (ed->getContentScale(), 1.5f, 1.0e-4f, "content scales with the window");
+            expectEquals (p.editorWidth.load(), 1080);
+
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+            SongsmithMaximiserAudioProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expectEquals (q.editorWidth.load(), 1080, "size saved with the session");
+            std::unique_ptr<juce::AudioProcessorEditor> ed2 (q.createEditor());
+            expectEquals (ed2->getWidth(), 1080, "reopens at that size");
+
+            // Every control fits inside the design area.
+            bool inside = true;
+            for (auto* child : ed->getContent().getChildren())
+                inside = inside && ed->getContent().getLocalBounds().contains (child->getBounds());
+            expect (inside, "all controls inside the content area");
+        }
+
+        beginTest ("Link follows the user, not host automation");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            setParam (p, Max::thresholdId, -6.0f);
+            setParam (p, Max::ceilingId, -1.0f);
+            SongsmithMaximiserAudioProcessorEditor ed (p);
+
+            ed.getLinkButton().setToggleState (true, juce::sendNotificationSync);
+            expect (p.linkThresholdCeiling.load(), "link stored in the processor");
+
+            ed.getThresholdSlider().setValue (-10.0, juce::sendNotificationSync);   // the user moves Threshold
+            expectWithinAbsoluteError (p.getThresholdDb(), -10.0f, 1.0e-3f);
+            expectWithinAbsoluteError (p.getCeilingDb(), -5.0f, 1.0e-3f, "ceiling followed: C - T still +5 dB");
+
+            ed.getCeilingSlider().setValue (0.0, juce::sendNotificationSync);   // ceiling up 5 dB
+            expectWithinAbsoluteError (p.getThresholdDb(), -5.0f, 1.0e-3f, "threshold followed the ceiling");
+
+            ed.getThresholdSlider().setValue (2.0, juce::sendNotificationSync);   // beyond the range
+            expectWithinAbsoluteError (p.getCeilingDb() - p.getThresholdDb(), 5.0f, 1.0e-3f, "C - T kept at the range end");
+
+            // Host automation of one parameter never drags the other along.
+            setParam (p, Max::thresholdId, -20.0f);
+            ed.syncFromParameters();
+            expectWithinAbsoluteError ((float) ed.getThresholdSlider().getValue(), -20.0f, 1.0e-3f, "fader follows the host");
+            expectWithinAbsoluteError (p.getCeilingDb(), 0.0f, 1.0e-3f, "ceiling untouched by automation");
+
+            // Unlinked: independent.
+            ed.getLinkButton().setToggleState (false, juce::sendNotificationSync);
+            ed.getThresholdSlider().setValue (-8.0, juce::sendNotificationSync);
+            expectWithinAbsoluteError (p.getCeilingDb(), 0.0f, 1.0e-3f, "unlinked: ceiling stays");
+
+            // Link is part of the session.
+            ed.getLinkButton().setToggleState (true, juce::sendNotificationSync);
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+            SongsmithMaximiserAudioProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expect (q.linkThresholdCeiling.load(), "link restored");
+        }
+
+        beginTest ("Meters: the editor reads the processor; the audio doesn't depend on the editor");
+        {
+            constexpr double fs = 48000.0;
+            const auto in = noise (24000, 1.0f, 131u);
+            std::vector<std::vector<float>> outs;
+            for (bool withEditor : { false, true })
+            {
+                SongsmithMaximiserAudioProcessor p;
+                setParam (p, Max::thresholdId, -10.0f);
+                prepare (p, fs, 256);
+                std::unique_ptr<SongsmithMaximiserAudioProcessorEditor> ed;
+                if (withEditor)
+                    ed.reset (dynamic_cast<SongsmithMaximiserAudioProcessorEditor*> (p.createEditor()));
+                outs.push_back (run (p, { in, in }, { 256 }, [&] (int, int) { if (ed != nullptr) ed->updateMeters (256.0 / fs); })[0]);
+                if (ed != nullptr)
+                {
+                    ed->updateMeters (0.01);
+                    expect (ed->getReductionMeter().getBallistics().getLevel() > 3.0f, "attenuation meter shows the gain reduction");
+                }
+            }
+            expectEquals (maxAbsDiff (outs[0], outs[1]), 0.0f, "identical audio with and without the editor");
+        }
+
+        beginTest ("Combo boxes follow the parameters");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            SongsmithMaximiserAudioProcessorEditor ed (p);
+            setParam (p, Max::peakModeId, 1.0f);
+            setParam (p, Max::ditherId, 1.0f);
+            expectEquals (ed.getPeakModeBox().getText(), juce::String ("True peak"));
+            expectEquals (ed.getDitherBox().getText(), juce::String ("16-bit"));
+        }
+    }
+};
+
+static DitherTests ditherTests;
+static EditorTests editorTests;
+
+//==============================================================================
 struct ConsoleRunner final : juce::UnitTestRunner
 {
     void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); std::fflush (stdout); }
 };
 
-int main (int, char*[])
+// MaximizerTests --screenshot <file.png> [--scale 2]: renders the editor (with some gain reduction on
+// the meters) to a PNG, so UI changes can be checked without a host.
+static int renderScreenshot (const juce::File& file, float scale)
+{
+    SongsmithMaximiserAudioProcessor p;
+    setParam (p, Max::thresholdId, -8.0f);
+    setParam (p, Max::ceilingId, -1.0f);
+    setParam (p, Max::releaseId, 3.0f);
+    setParam (p, Max::peakModeId, 1.0f);
+    p.linkThresholdCeiling = true;
+    prepare (p, 48000.0, 512);
+    std::unique_ptr<SongsmithMaximiserAudioProcessorEditor> editor (dynamic_cast<SongsmithMaximiserAudioProcessorEditor*> (p.createEditor()));
+    const auto in = noise (4800, 0.7f, 1u);
+    run (p, { in, in }, { 512 });
+    editor->updateMeters (0.02);
+
+    const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, scale);
+    file.deleteFile();
+    juce::FileOutputStream out (file);
+    if (! out.openedOk() || ! juce::PNGImageFormat().writeImageToStream (image, out))
+        return 1;
+    std::printf ("Wrote %s\n", file.getFullPathName().toRawUTF8());
+    return 0;
+}
+
+int main (int argc, char* argv[])
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
+
+    for (int i = 1; i + 1 < argc; ++i)
+        if (juce::String (argv[i]) == "--screenshot")
+        {
+            float scale = 1.0f;
+            for (int j = 1; j + 1 < argc; ++j)
+                if (juce::String (argv[j]) == "--scale")
+                    scale = juce::jlimit (1.0f, 4.0f, juce::String (argv[j + 1]).getFloatValue());
+            return renderScreenshot (juce::File::getCurrentWorkingDirectory().getChildFile (argv[i + 1]), scale);
+        }
 
     ConsoleRunner runner;
     runner.setAssertOnFailure (false);
