@@ -1,4 +1,20 @@
-# Songsmith EQ roadmap
+# Songsmith Studio — roadmap
+
+_Forward-looking ideas; no committed delivery dates._
+
+**Principles stay the same:** professional sound, beginner-friendly controls, plain English, consistent interfaces, useful starting points and reliable operation.
+
+## Suite direction (high level)
+
+1. **Extra plugins** — grow beyond the existing **Songsmith EQ**, **Analog Compressor** and **Maximiser**, aiming for approximately **6–12 plugins** in total. Candidates discussed: **Optical Leveller** (LA-2A-inspired), **Reverb**, **Delay**, **De-Esser**, **Saturator**, **Gate / Expander**, **Transient Shaper**, and **Guitar Amp / Cabinet**. These are ideas, not commitments; prioritise what musicians actually use.
+2. **Songsmith Channel Strip** — a single, beginner-friendly plugin that **combines the existing Songsmith processing engines** into useful vocal, guitar and other mixing chains, rather than requiring users to assemble them manually.
+3. **Songsmith Loudness Analyser** — a **separate standalone app** for dropping in an entire finished track and checking integrated LUFS, true peaks and straightforward streaming guidance. Optional mastering/export can be considered later.
+
+Keep validating and improving what already exists before fixing the order of new work.
+
+---
+
+## Songsmith EQ — existing development roadmap
 
 Songsmith EQ was called TW Pro EQ up to v0.2; the notes below keep the names used at the time.
 
