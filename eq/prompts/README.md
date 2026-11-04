@@ -13,7 +13,7 @@ There is one self-contained prompt per item in [`eq/ROADMAP.md`](../ROADMAP.md).
 
 ## Overnight runs merge into `main`
 
-Run unattended with [`prompts/overnight-prompt.md`](../../prompts/overnight-prompt.md), each task goes **straight into `main`** through its own PR: the agent waits for CI, approves the PR and merges it itself once the build, tests and CI all pass, then starts the next task from the updated `main`. There's no integration branch any more. Nothing is pushed to `main` without a PR, and blocked tasks stay as draft PRs. (GitHub doesn't let an account formally approve its own PR, so the agent records its approval as a PR comment listing what it checked, then merges.)
+Run unattended with [`shared/prompts/overnight-prompt.md`](../../shared/prompts/overnight-prompt.md), each task goes **straight into `main`** through its own PR: the agent waits for CI, approves the PR and merges it itself once the build, tests and CI all pass, then starts the next task from the updated `main`. There's no integration branch any more. Nothing is pushed to `main` without a PR, and blocked tasks stay as draft PRs. (GitHub doesn't let an account formally approve its own PR, so the agent records its approval as a PR comment listing what it checked, then merges.)
 
 ## Run in waves, merging between waves
 

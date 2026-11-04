@@ -8,7 +8,7 @@ JUCE + CMake audio plugins (VST3, AU on macOS, Standalone) by **Songsmith Studio
 | Songsmith Analog Compressor | `analog-compressor/` | `AnalogCompressorTests` |
 | Songsmith Maximiser | `maximiser/` | `MaximiserTests` |
 
-Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the EQ roadmap); work across every plugin is in `prompts/`. Prompts still to run sit directly in a `prompts/` folder, with a `README.md` status table; finished ones move to its `done/` subfolder in the PR that completes them. The overnight runner is `prompts/overnight-prompt.md`. The UI style guide is `docs/style-guide.md` (created by suite task S1).
+Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the EQ roadmap); work across every plugin is in `shared/prompts/`. Prompts still to run sit directly in a `prompts/` folder, with a `README.md` status table; finished ones move to its `done/` subfolder in the PR that completes them. The overnight runner is `shared/prompts/overnight-prompt.md`. The UI style guide is `docs/style-guide.md` (created by suite task S1).
 
 ## Design principles
 

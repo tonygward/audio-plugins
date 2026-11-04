@@ -1,6 +1,6 @@
 Work through every prompt directly in the prompts folder named when this run
 was started, in order: a plugin's folder (eq/prompts/, analog-compressor/prompts/,
-maximiser/prompts/; numeric order) or prompts/ for work across every plugin
+maximiser/prompts/; numeric order) or shared/prompts/ for work across every plugin
 (S1, S2, ...). If no folder was named, use eq/prompts/. Only the numbered prompt
 files are tasks: skip README.md, this file, and the done/ subfolder (those tasks
 are already merged). Ignore that folder's README.md wave table; it describes
