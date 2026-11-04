@@ -43,7 +43,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 ## Working rules
 
 - Branch from an up-to-date `main`; never push commits straight to `main`, never force-push. Every change goes through a PR.
-- **Overnight / unattended runs may merge straight into `main`** through their own PR: once the build has no new warnings, every test passes and CI (including macOS) is green, the agent approves the PR (a comment listing what it checked) and merges it. Blocked work stays as a draft PR with a "Blocked" section.
+- **Overnight / unattended runs may merge straight into `main`** through their own PR: once the build has no new warnings, every test passes and CI (including macOS) is green, the agent approves the PR (a comment listing what it checked) and merges it. If the PR bumped the version, the agent then publishes the release straight away from `main`'s CI build (see `shared/prompts/overnight-prompt.md`). Blocked work stays as a draft PR with a "Blocked" section.
 - Docs- and prompt-only changes (`*.md`, prompt folders, screenshots) skip CI and can merge without waiting for it.
 - Each plugin builds on its own from its own folder:
   ```powershell
