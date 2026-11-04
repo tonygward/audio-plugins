@@ -230,6 +230,78 @@ jobs:
           name: Songsmith-Analog-Compressor-screenshots-${{ runner.os }}
           path: fet-screenshots/*.png
 
+      # Separately named release files for the compressor, built and tested exactly like the
+      # EQ's (isolated install, upgrade and uninstall; Songsmith EQ and presets must survive).
+      - name: Build and test the Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc.exe -ErrorAction SilentlyContinue) -and
+              -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+          $setup = fet/installer/build-installer.ps1 -Zip | Select-Object -Last 1
+          fet/installer/test-installer.ps1 -Installer $setup
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload Windows installer
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-Windows-setup
+          path: fet/build/installer/*-win64-setup.exe
+
+      - name: Upload Windows zip
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-Windows-zip
+          path: fet/build/installer/*-win64.zip
+
+      - name: Validate the Audio Unit (auval, new identifiers)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          rm -rf ~/Library/Audio/Plug-Ins/Components/"Songsmith Analog Compressor.component"
+          cp -R fet/build/SongsmithAnalogCompressor_artefacts/Release/AU/"Songsmith Analog Compressor.component" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 2
+          auval -a | grep -i "Tnyw" || true
+          auval -v aufx Sfc1 Tnyw
+
+      - name: Zip macOS plug-ins (VST3 + AU + Standalone)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          version=$(sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' fet/CMakeLists.txt | head -n 1)
+          art=fet/build/SongsmithAnalogCompressor_artefacts/Release
+          mkdir -p fet-dist/"Songsmith Analog Compressor"
+          cp -R "$art/VST3/Songsmith Analog Compressor.vst3" "$art/AU/Songsmith Analog Compressor.component" \
+                "$art/Standalone/Songsmith Analog Compressor.app" fet-dist/"Songsmith Analog Compressor"/
+          ditto -c -k --keepParent fet-dist/"Songsmith Analog Compressor" "fet-dist/Songsmith-Analog-Compressor-$version-macOS.zip"
+
+      - name: Upload macOS zip
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-macOS-zip
+          path: fet-dist/Songsmith-Analog-Compressor-*-macOS.zip
+
+      - name: Build and test the macOS installer
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          pkg=$(fet/installer/macos/build-installer.sh | tail -n 1)
+          fet/installer/macos/test-installer.sh --pkg "$pkg"
+
+      - name: Upload macOS installer
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Compressor-macOS-pkg
+          path: fet/build/installer/*-macOS.pkg
+
       - name: Upload plugin
         if: always()
         uses: actions/upload-artifact@v4

@@ -308,6 +308,20 @@ void SongsmithAnalogCompressorProcessor::runCore (float* const* ch, int numCh, i
     }
 }
 
+void SongsmithAnalogCompressorProcessor::setCurrentProgram (int index)
+{
+    if (index < 0 || index >= getNumPrograms())
+        return;
+    currentProgram = index;
+    presets.loadFactory (index);
+}
+
+const juce::String SongsmithAnalogCompressorProcessor::getProgramName (int index)
+{
+    const auto& list = FET::Presets::factory();
+    return index >= 0 && index < (int) list.size() ? juce::String (list[(size_t) index].name) : juce::String();
+}
+
 //==============================================================================
 juce::AudioProcessorEditor* SongsmithAnalogCompressorProcessor::createEditor()
 {
@@ -322,6 +336,8 @@ void SongsmithAnalogCompressorProcessor::getStateInformation (juce::MemoryBlock&
     juce::ValueTree ui (uiId);
     ui.setProperty ("uiScale", uiScale.load(), nullptr);
     ui.setProperty ("meterMode", meterMode.load(), nullptr);
+    ui.setProperty ("preset", presets.currentName, nullptr);
+    ui.setProperty ("presetHint", presets.currentHint, nullptr);
     state.appendChild (ui, nullptr);
 
     if (auto xml = state.createXml())
@@ -362,6 +378,8 @@ void SongsmithAnalogCompressorProcessor::restoreFromValueTree (const juce::Value
     const auto ui = saved.getChildWithName (uiId);
     uiScale.store (FET::snapUiScale ((float) ui.getProperty ("uiScale", 1.0f)));
     meterMode.store (juce::jlimit (0, 2, (int) ui.getProperty ("meterMode", 0)));
+    presets.currentName = ui.getProperty ("preset", juce::String()).toString();
+    presets.currentHint = ui.getProperty ("presetHint", juce::String()).toString();
 }
 
 //==============================================================================
