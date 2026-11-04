@@ -5,7 +5,7 @@
 // Renders one row per control in each state, drawn by the given look-and-feel exactly as the
 // editor draws it: buttons off, hover, pressed, on and disabled; a combo box (normal and
 // disabled); knobs; a bar slider; a vertical fader. Used for the style PRs' before/after pictures
-// (EQTests --screenshots, FETTests --screenshots, MaximizerTests --screenshot).
+// (EQTests --screenshots, AnalogCompressorTests --screenshots, MaximiserTests --screenshot).
 namespace Songsmith::UI::Testing
 {
     inline juce::Image renderControlSheet (juce::LookAndFeel& lf, juce::Colour background, float scale)

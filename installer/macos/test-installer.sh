@@ -59,7 +59,7 @@ name_of()   { case "$1" in eq) echo "Songsmith EQ" ;; fet) echo "Songsmith Analo
 prefix_of() { case "$1" in eq) echo "com.songsmithstudio.songsmitheq" ;; fet) echo "com.songsmithstudio.songsmithanalogcompressor" ;; max) echo "com.songsmithstudio.songsmithmaximiser" ;; esac; }
 auval_of()  { case "$1" in eq) echo "aufx Eq3b Tnyw" ;; fet) echo "aufx Sfc1 Tnyw" ;; max) echo "aufx Mxlm Tnyw" ;; esac; }
 version_of() {
-    local folder; case "$1" in eq) folder=eq ;; fet) folder=fet ;; max) folder=maximizer ;; esac
+    local folder; case "$1" in eq) folder=eq ;; fet) folder=analog-compressor ;; max) folder=maximiser ;; esac
     sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' \
         "$here/../../$folder/CMakeLists.txt" | head -n 1
 }

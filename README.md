@@ -28,8 +28,8 @@ The plugins work in compatible recording software through VST3 (and Audio Units 
 
 - [Technical guide, installation details and troubleshooting](TECHNICAL.md)
 - [Product roadmap](eq/ROADMAP.md)
-- [Songsmith EQ details](eq/README.md)
-- [Analog Compressor details](fet/README.md)
-- [Maximiser details](maximizer/README.md)
+- [Songsmith EQ details](TECHNICAL.md#songsmith-eq)
+- [Analog Compressor details](analog-compressor/README.md)
+- [Maximiser details](maximiser/README.md)
 
 *Made for musicians. Built with care.*

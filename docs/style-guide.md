@@ -130,4 +130,3 @@ The check (`Songsmith::UI::Wording::findBanned`) fails on a banned word (`SC`, `
 ### Known naming questions
 
 - "Songsmith Analog Compressor" uses the American "analog" while the UI uses British spelling; the product name is part of the plugin's identity in hosts and installers, so it stays.
-- The maximiser's folder is `maximizer/` (and its test executable `MaximizerTests`), while the product is "Songsmith Maximiser".

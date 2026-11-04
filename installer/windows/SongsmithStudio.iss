@@ -33,7 +33,7 @@
 ; "{{" is Inno Setup's escaped "{" in [Setup].
 #define SuiteAppIdSetup "{{9AC9C845-D81C-4667-BBD4-C412BC291211}"
 
-; The per-plugin installers' AppIds (from eq/, fet/ and maximizer/installer/*.iss): an install
+; The per-plugin installers' AppIds (from eq/, analog-compressor/ and maximiser/installer/*.iss): an install
 ; made by one of those is replaced when the suite installs the same plugin.
 #define EqAppId      "2F8C1884-56C1-45D8-A78D-CF117EC69B44"
 #define FetAppId     "FF3BD6A4-58D4-4AFA-BFA3-26B221E29340"
