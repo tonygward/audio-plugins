@@ -198,14 +198,14 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     };
     content.addAndMakeVisible (pianoButton);
 
-    bandCountLabel.setFont (EQColours::numbers (EQColours::TextSize::control));
+    bandCountLabel.setFont (EQColours::numbers (EQColours::Type::control));
     bandCountLabel.setJustificationType (juce::Justification::centredLeft);
     content.addAndMakeVisible (bandCountLabel);
 
     hintLabel.setText ("Double-click: add or reset a band (near the edges: a cut; Ctrl: always a Bell).  Drag: frequency and gain (Shift: fine, Ctrl: snap to notes).  "
                        "Mouse wheel: Q.  Alt-click: solo.  Right-click: menu.  Delete key: remove.",
                        juce::dontSendNotification);
-    hintLabel.setFont (EQColours::font (EQColours::TextSize::small));
+    hintLabel.setFont (EQColours::font (EQColours::Type::hint));
     hintLabel.setJustificationType (juce::Justification::centredRight);
     hintLabel.setColour (juce::Label::textColourId, EQColours::label);   // full colour: 4.5:1 contrast
     content.addAndMakeVisible (hintLabel);
@@ -394,14 +394,7 @@ void SongsmithEQAudioProcessorEditor::paintContent (juce::Graphics& g)
 {
     g.fillAll (EQColours::background);
 
-    g.setColour (EQColours::text);
-    g.setFont (titleFont());
-    g.drawText (JucePlugin_Name, titleBounds, juce::Justification::centredLeft, false);
-}
-
-juce::FontOptions SongsmithEQAudioProcessorEditor::titleFont()
-{
-    return EQColours::font (17.0f, EQColours::Weight::SemiBold);
+    Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, EQColours::text, EQColours::accent);
 }
 
 double SongsmithEQAudioProcessorEditor::parseOutputGainText (const juce::String& text)
@@ -422,7 +415,7 @@ namespace
     {
         float w = 0.0f;
         for (int i = 0; i < box.getNumItems(); ++i)
-            w = juce::jmax (w, textWidth (box.getItemText (i), EQColours::font (EQColours::TextSize::topBar)));
+            w = juce::jmax (w, textWidth (box.getItemText (i), EQColours::font (EQColours::Type::heading)));
         return (int) std::ceil (w) + 44;
     }
 
@@ -430,7 +423,7 @@ namespace
     {
         float w = 0.0f;
         for (auto& t : texts)
-            w = juce::jmax (w, textWidth (t, EQColours::font (EQColours::TextSize::topBar, EQColours::Weight::Medium)));
+            w = juce::jmax (w, textWidth (t, EQColours::font (EQColours::Type::heading, EQColours::Weight::Medium)));
         return (int) std::ceil (w) + 24;
     }
 
@@ -438,7 +431,7 @@ namespace
     {
         float w = 0.0f;
         for (auto& t : texts)
-            w = juce::jmax (w, textWidth (t, EQColours::numbers (EQColours::TextSize::topBar)));
+            w = juce::jmax (w, textWidth (t, EQColours::numbers (EQColours::Type::heading)));
         return (int) std::ceil (w) + 20;
     }
 }
@@ -458,7 +451,7 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
 
     {
         auto row = area.removeFromTop (row1Height).reduced (margin, 7);
-        titleBounds = row.removeFromLeft ((int) std::ceil (textWidth (JucePlugin_Name, titleFont())) + 4);
+        titleBounds = row.removeFromLeft ((int) std::ceil (Songsmith::UI::titleWidth (JucePlugin_Name)) + 4);
         row.removeFromLeft (16);
         presetBar.setBounds (row.removeFromLeft (220));
         row.removeFromLeft (gap + 4);
@@ -470,7 +463,7 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
 
         bypassButton.setBounds (row.removeFromRight (buttonWidth ({ "Bypass" })));
         row.removeFromRight (gap + 4);
-        const int countWidth = (int) std::ceil (textWidth ("24 / 24 bands", EQColours::numbers (EQColours::TextSize::control))) + 8;
+        const int countWidth = (int) std::ceil (textWidth ("24 / 24 bands", EQColours::numbers (EQColours::Type::control))) + 8;
         bandCountLabel.setVisible (row.getWidth() >= countWidth + gap);
         bandCountLabel.setBounds (row.removeFromRight (juce::jmin (countWidth, row.getWidth())));
     }

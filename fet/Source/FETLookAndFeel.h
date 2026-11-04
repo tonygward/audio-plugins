@@ -1,7 +1,7 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
-#include "FETBinaryData.h"
+#include "SongsmithLookAndFeel.h"
 
 // Look of the Songsmith Analog Compressor editor: an original dark-panel design informed by the
 // hardware's control layout (not a copy of its faceplate). Everything is drawn as vectors in
@@ -22,30 +22,15 @@ namespace FET::UI
         inline const juce::Colour meterRed   { 0xffb8402e };
     }
 
-    // The same embedded typeface as Songsmith EQ: Inter (SIL OFL 1.1, eq/Resources/Fonts).
-    enum class Weight { Regular, Medium, SemiBold };
+    // The shared Songsmith typeface and type scale (shared/Source/SongsmithType.h).
+    using Songsmith::UI::Weight;
+    using Songsmith::UI::typeface;
+    using Songsmith::UI::font;
+    using Songsmith::UI::numbers;
+    namespace Type = Songsmith::UI::Type;
 
-    inline juce::Typeface::Ptr typeface (Weight w)
-    {
-        static const juce::Typeface::Ptr faces[] = {
-            juce::Typeface::createSystemTypefaceFor (FETBinaryData::InterRegular_ttf,  (size_t) FETBinaryData::InterRegular_ttfSize),
-            juce::Typeface::createSystemTypefaceFor (FETBinaryData::InterMedium_ttf,   (size_t) FETBinaryData::InterMedium_ttfSize),
-            juce::Typeface::createSystemTypefaceFor (FETBinaryData::InterSemiBold_ttf, (size_t) FETBinaryData::InterSemiBold_ttfSize),
-        };
-        return faces[(int) w];
-    }
-
-    inline juce::FontOptions font (float height, Weight weight = Weight::Regular)
-    {
-        return juce::FontOptions (typeface (weight)).withHeight (height);
-    }
-
-    inline juce::FontOptions numbers (float height, Weight weight = Weight::Regular)
-    {
-        return font (height, weight).withFeatureEnabled ("tnum");
-    }
-
-    class LookAndFeel : public juce::LookAndFeel_V4
+    // Fonts come from the shared Songsmith::UI::LookAndFeelBase.
+    class LookAndFeel : public Songsmith::UI::LookAndFeelBase
     {
     public:
         LookAndFeel()
@@ -58,12 +43,7 @@ namespace FET::UI
             setColour (juce::PopupMenu::textColourId, Colours::text);
             setColour (juce::PopupMenu::highlightedBackgroundColourId, Colours::accent.withAlpha (0.35f));
             setColour (juce::Label::textColourId, Colours::text);
-            setDefaultSansSerifTypeface (typeface (Weight::Regular));
         }
-
-        juce::Font getComboBoxFont (juce::ComboBox&) override  { return font (13.0f); }
-        juce::Font getPopupMenuFont() override                 { return font (14.0f); }
-        juce::Font getTextButtonFont (juce::TextButton&, int) override { return font (13.0f, Weight::Medium); }
 
         // Rotary knob: recessed ring, a dark cap with a soft highlight, and an amber pointer.
         void drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, float pos,

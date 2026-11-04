@@ -33,7 +33,7 @@ namespace
 
 BandPanel::BandPanel (SongsmithEQAudioProcessor& p) : processor (p)
 {
-    title.setFont (EQColours::font (EQColours::TextSize::title, EQColours::Weight::SemiBold));
+    title.setFont (EQColours::font (EQColours::Type::heading, EQColours::Weight::SemiBold));
     title.setJustificationType (juce::Justification::centredLeft);
     title.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (title);
@@ -171,7 +171,7 @@ BandPanel::BandPanel (SongsmithEQAudioProcessor& p) : processor (p)
         k->label.setVisible (false);
     }
 
-    dynGainLabel.setFont (EQColours::numbers (EQColours::TextSize::control, EQColours::Weight::SemiBold));
+    dynGainLabel.setFont (EQColours::numbers (EQColours::Type::control, EQColours::Weight::SemiBold));
     dynGainLabel.setJustificationType (juce::Justification::centred);
     dynGainLabel.setTooltip ("Live dynamic gain change");
     addChildComponent (dynGainLabel);
@@ -223,7 +223,7 @@ void BandPanel::setupKnob (Knob& k, const juce::String& name, EQ::Param param)
     addAndMakeVisible (k.slider);
 
     k.label.setText (name, juce::dontSendNotification);
-    k.label.setFont (EQColours::font (EQColours::TextSize::control, EQColours::Weight::Medium));
+    k.label.setFont (EQColours::font (EQColours::Type::control, EQColours::Weight::Medium));
     k.label.setJustificationType (juce::Justification::centred);
     k.label.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (k.label);

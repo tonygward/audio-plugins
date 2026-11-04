@@ -61,17 +61,9 @@ juce_add_plugin(SongsmithAnalogCompressor
     VST3_CATEGORIES             Fx Dynamics
     COPY_PLUGIN_AFTER_BUILD     ${FET_COPY_PLUGIN})
 
-# Embedded UI font: the same Inter files as Songsmith EQ (SIL Open Font License 1.1, see
-# eq/Resources/Fonts/OFL.txt), so the family looks the same on Windows and macOS.
-set(FET_FONTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../eq/Resources/Fonts")
-juce_add_binary_data(SongsmithAnalogCompressorFonts
-    HEADER_NAME FETBinaryData.h
-    NAMESPACE   FETBinaryData
-    SOURCES
-        ${FET_FONTS_DIR}/Inter-Regular.ttf
-        ${FET_FONTS_DIR}/Inter-Medium.ttf
-        ${FET_FONTS_DIR}/Inter-SemiBold.ttf)
-set_target_properties(SongsmithAnalogCompressorFonts PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# Shared Songsmith UI library: the embedded Inter font (SIL OFL 1.1, shared/Resources/Fonts), the
+# type scale, the title and the base look-and-feel. See docs/style-guide.md.
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../shared ${CMAKE_BINARY_DIR}/shared)
 
 target_sources(SongsmithAnalogCompressor PRIVATE ${FET_SOURCES})
 target_include_directories(SongsmithAnalogCompressor PRIVATE Source)
@@ -79,7 +71,7 @@ target_compile_definitions(SongsmithAnalogCompressor PUBLIC ${FET_DEFINITIONS})
 
 target_link_libraries(SongsmithAnalogCompressor
     PRIVATE
-        SongsmithAnalogCompressorFonts
+        songsmith_ui
         juce::juce_audio_utils
         juce::juce_audio_processors
         juce::juce_dsp
@@ -103,7 +95,7 @@ if(FET_BUILD_TESTS)
 
     target_link_libraries(FETTests
         PRIVATE
-            SongsmithAnalogCompressorFonts
+            songsmith_ui
             juce::juce_audio_utils
             juce::juce_audio_processors
             juce::juce_dsp

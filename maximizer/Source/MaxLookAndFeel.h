@@ -1,11 +1,11 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
-#include "MaxBinaryData.h"
+#include "SongsmithLookAndFeel.h"
 
-// Colours, fonts and control drawing shared with Songsmith EQ (eq/Source/EQLookAndFeel.h): the
-// same palette, the same embedded Inter typeface (SIL OFL 1.1, maximizer/Resources/Fonts) and the
-// same flat arc knobs, so the two plug-ins look like one family.
+// Colours and control drawing shared with Songsmith EQ (eq/Source/EQLookAndFeel.h): the same
+// palette and the same flat arc knobs. Fonts and the type scale come from the shared Songsmith UI
+// library (shared/Source/SongsmithType.h), like every Songsmith plugin.
 namespace MaxColours
 {
     const juce::Colour background   { 0xff15171c };
@@ -21,40 +21,14 @@ namespace MaxColours
     const juce::Colour meterLow     { 0xff3ddbc4 };
     const juce::Colour clip         { 0xffff3b3b };
 
-    enum class Weight { Regular, Medium, SemiBold };
-
-    inline juce::Typeface::Ptr typeface (Weight w)
-    {
-        static const juce::Typeface::Ptr faces[] = {
-            juce::Typeface::createSystemTypefaceFor (MaxBinaryData::InterRegular_ttf,  (size_t) MaxBinaryData::InterRegular_ttfSize),
-            juce::Typeface::createSystemTypefaceFor (MaxBinaryData::InterMedium_ttf,   (size_t) MaxBinaryData::InterMedium_ttfSize),
-            juce::Typeface::createSystemTypefaceFor (MaxBinaryData::InterSemiBold_ttf, (size_t) MaxBinaryData::InterSemiBold_ttfSize),
-        };
-        return faces[(int) w];
-    }
-
-    // Text sizes at the design size (the whole editor scales on top), as in the EQ.
-    namespace TextSize
-    {
-        constexpr float small   = 12.0f;
-        constexpr float control = 13.0f;
-        constexpr float topBar  = 14.0f;
-        constexpr float title   = 18.0f;
-    }
-
-    inline juce::FontOptions font (float height, Weight weight = Weight::Regular)
-    {
-        return juce::FontOptions (typeface (weight)).withHeight (height);
-    }
-
-    // Tabular figures for numbers that change while you drag, so they don't jitter.
-    inline juce::FontOptions numbers (float height, Weight weight = Weight::Regular)
-    {
-        return font (height, weight).withFeatureEnabled ("tnum");
-    }
+    using Songsmith::UI::Weight;
+    using Songsmith::UI::typeface;
+    using Songsmith::UI::font;
+    using Songsmith::UI::numbers;
+    namespace Type = Songsmith::UI::Type;
 }
 
-class MaxLookAndFeel : public juce::LookAndFeel_V4
+class MaxLookAndFeel : public Songsmith::UI::LookAndFeelBase
 {
 public:
     MaxLookAndFeel()
@@ -75,30 +49,6 @@ public:
         setColour (juce::TextButton::textColourOffId, MaxColours::text);
         setColour (juce::TextButton::textColourOnId, MaxColours::background);
         setColour (juce::ComboBox::focusedOutlineColourId, MaxColours::panelEdge);
-    }
-
-    juce::Font getLabelFont (juce::Label& label) override
-    {
-        if (dynamic_cast<juce::Slider*> (label.getParentComponent()) != nullptr)
-            return juce::Font (MaxColours::numbers (MaxColours::TextSize::control));
-        return juce::Font (MaxColours::font (juce::jmax (MaxColours::TextSize::small, label.getFont().getHeight()),
-                                             label.getFont().isBold() ? MaxColours::Weight::SemiBold : MaxColours::Weight::Regular));
-    }
-
-    juce::Font getTextButtonFont (juce::TextButton&, int) override
-    {
-        return juce::Font (MaxColours::font (MaxColours::TextSize::control, MaxColours::Weight::Medium));
-    }
-
-    juce::Font getComboBoxFont (juce::ComboBox&) override       { return juce::Font (MaxColours::font (MaxColours::TextSize::control)); }
-    juce::Font getPopupMenuFont() override                      { return juce::Font (MaxColours::font (15.0f)); }
-    juce::Font getSliderPopupFont (juce::Slider&) override      { return juce::Font (MaxColours::numbers (MaxColours::TextSize::control)); }
-
-    juce::Typeface::Ptr getTypefaceForFont (const juce::Font& f) override
-    {
-        if (f.getTypefaceName() == juce::Font::getDefaultSansSerifFontName())
-            return MaxColours::typeface (f.isBold() ? MaxColours::Weight::SemiBold : MaxColours::Weight::Regular);
-        return LookAndFeel_V4::getTypefaceForFont (f);
     }
 
     void drawButtonBackground (juce::Graphics& g, juce::Button& b, const juce::Colour& background,

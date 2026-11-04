@@ -11,6 +11,7 @@
 #include "NoteNames.h"
 #include "EQDisplay.h"
 #include "PluginEditor.h"
+#include "../../shared/Tests/SongsmithUITests.h"
 
 using namespace EQ;
 
@@ -3916,40 +3917,18 @@ public:
             expectWithinAbsoluteError (SongsmithEQAudioProcessorEditor::parseOutputGainText ("Output -12.0 dB"), -12.0, 1.0e-9);
         }
 
-        beginTest ("Embedded font, tabular figures and minimum sizes");
+        beginTest ("Editor text uses the shared typeface and type scale");
         {
-            for (auto w : { EQColours::Weight::Regular, EQColours::Weight::Medium, EQColours::Weight::SemiBold })
+            // The typeface itself is checked by the shared SongsmithUITests.
+            for (auto size : { std::pair<int, int> { 1280, 760 }, std::pair<int, int> { 760, 440 } })
             {
-                auto tf = EQColours::typeface (w);
-                expect (tf != nullptr, "typeface loaded");
-                if (tf != nullptr)
-                    expect (tf->getName().startsWith ("Inter"), "embedded Inter, got " + tf->getName());
+                SongsmithEQAudioProcessor p;
+                std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+                editor->setSize (size.first, size.second);
+                if (auto* ed = dynamic_cast<SongsmithEQAudioProcessorEditor*> (editor.get()))
+                    ed->getDisplay().setSelectedBand (0);   // the band panel's labels and buttons too
+                Songsmith::UI::Testing::checkEditorFonts (*this, *editor, juce::String (size.first) + " x " + juce::String (size.second));
             }
-            expect (EQColours::typeface (EQColours::Weight::Regular) == EQColours::typeface (EQColours::Weight::Regular),
-                    "loaded once and shared");
-
-            // Tabular figures: every digit has the same advance.
-            const juce::Font numbers (EQColours::numbers (13.0f));
-            const float one = juce::GlyphArrangement::getStringWidth (numbers, "1111"),
-                        eight = juce::GlyphArrangement::getStringWidth (numbers, "8888");
-            expectWithinAbsoluteError (one, eight, 0.01f, "tabular digits don't jitter");
-
-            SongsmithEQAudioProcessor p;
-            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
-            auto& lf = editor->getLookAndFeel();
-            std::function<void (juce::Component&)> walk = [&] (juce::Component& c)
-            {
-                if (auto* l = dynamic_cast<juce::Label*> (&c); l != nullptr && l->getText().isNotEmpty())
-                    expectGreaterOrEqual (lf.getLabelFont (*l).getHeight(), EQColours::TextSize::small, "label " + l->getText());
-                if (auto* box = dynamic_cast<juce::ComboBox*> (&c))
-                    expectGreaterOrEqual (lf.getComboBoxFont (*box).getHeight(), EQColours::TextSize::control);
-                if (auto* b = dynamic_cast<juce::TextButton*> (&c))
-                    expectGreaterOrEqual (lf.getTextButtonFont (*b, b->getHeight()).getHeight(), EQColours::TextSize::control,
-                                          "button " + b->getButtonText());
-                for (auto* child : c.getChildren())
-                    walk (*child);
-            };
-            walk (*editor);
         }
 
         beginTest ("Top-bar text fits at the minimum editor size");
@@ -4507,6 +4486,7 @@ static EdgeClickTests edgeClickTests;
 static OutputMeterTests outputMeterTests;
 static UiSizeTests uiSizeTests;
 static WordingAndFontTests wordingAndFontTests;
+static SongsmithUITests sharedUITests { "EQ" };
 static RenameTests renameTests;
 static StartingPointTests startingPointTests;
 static OversamplingTests oversamplingTests;
