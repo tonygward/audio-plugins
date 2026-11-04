@@ -67,7 +67,7 @@ namespace Max
     void BrickwallLimiter::setReleaseMs (float ms) noexcept
     {
         releaseMs = juce::jlimit (minReleaseMs, maxReleaseMs, ms);
-        auto coef = [this] (double ms) { return (float) std::exp (-1.0 / (ms * 0.001 * fs)); };
+        auto coef = [this] (double timeMs) { return (float) std::exp (-1.0 / (timeMs * 0.001 * fs)); };
         releaseCoef = coef ((double) releaseMs);
 
         // Auto release (Songsmith recovery law, see the class comment): the slow stage is never
