@@ -141,6 +141,17 @@ namespace EQ
                                               dynamic ({ T::Bell, 2000.0f, 0.0f, 1.0f }, -26.0f, -3.0f),
                                               { T::HighShelf, 9000.0f, 1.5f, defaultQ } },
                   -0.1f, "For a piezo DI. The 2 kHz band tames the quack only when it jumps out.", true },
+
+                // ---- Task 30; append only ----
+                // Tony's Pro-Q 4 preset "Abbey Road Reverb Trick" (Jul 2026), band for band, as decoded in
+                // music-recording/fx-chains/saved-chains.md ("Vocals Reverb (Dual)": Pro-Q 4 -> Pure Plate ->
+                // ValhallaRoom -> Pro-C 2). Cuts at Pro-Q's default slope (12 dB/oct here) and neutral Q.
+                { "Abbey Road reverb", { { T::LowCut,  377.28f,   0.0f,  defaultQ, 1 },
+                                         { T::Bell,    594.40f,   0.54f, 1.923f },
+                                         { T::HighCut, 17056.0f,  0.0f,  defaultQ, 1 },
+                                         { T::Bell,    10094.0f,  0.41f, 2.158f },
+                                         { T::Bell,    2000.0f,  -3.0f,  3.016f } },
+                  1.6f, "Put this before the reverb. Raise the low cut towards 600 Hz for a cleaner, thinner tail.", true },
             };
             return presets;
         }

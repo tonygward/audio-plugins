@@ -62,7 +62,7 @@ Requests from using the plugin on real mixes. Prompts 27–31 in [`prompts/roadm
 - [x] **Vertical output meter on the right** of the graph, full height, with a dB scale, peak hold and clip indicator, in place of the small bar in control row 2.
 - [ ] **Piano notes toggle** in the bottom control bar (row 3), so the piano strip from task 16 isn't hidden in a right-click menu.
 - [ ] **Edge clicks add cuts.** Double-clicking near the far left of the graph adds a Low Cut, near the far right a High Cut, and a Bell anywhere else.
-- [ ] **"Abbey Road reverb" template**, copied from Tony's Pro-Q 4 preset "Abbey Road Reverb Trick" (low cut 377 Hz, 2 kHz dip, high cut 17 kHz).
+- [x] **"Abbey Road reverb" template**, copied from Tony's Pro-Q 4 preset "Abbey Road Reverb Trick" (low cut 377 Hz, 2 kHz dip, high cut 17 kHz).
 - [ ] **Tom presets** (rack tom, floor tom, toms bus) from Tony's saved tom chain on *Between You and Me*.
 
 ---

@@ -3169,7 +3169,7 @@ public:
 
         beginTest ("The starting points are listed after the original factory presets");
         {
-            expectEquals ((int) list.size(), 13);
+            expectEquals ((int) list.size(), 14);
             const int firstTemplate = list.empty() ? 0 : list.front();
             expectEquals (firstTemplate, 8, "the 8 original presets keep their indices");
             for (size_t k = 0; k < list.size(); ++k)
@@ -3392,6 +3392,59 @@ public:
                 const auto hint = PresetManager::getFactoryHint (i);
                 expect (hint.isNotEmpty(), PresetManager::getFactoryName (i));
                 expectLessOrEqual (hint.length(), 100, PresetManager::getFactoryName (i));
+            }
+        }
+
+        beginTest ("Every factory preset keeps its index");
+        {
+            const char* names[] = { "Flat", nullptr, nullptr, nullptr, nullptr, nullptr, "Bright acoustic", nullptr,
+                                    nullptr, nullptr, nullptr, "Acoustic guitar", nullptr, nullptr, nullptr, nullptr,
+                                    nullptr, nullptr, nullptr, "Acoustic guitar in a full mix", "Acoustic guitar pickup",
+                                    "Abbey Road reverb" };
+            expectGreaterOrEqual (PresetManager::getNumFactoryPresets(), 22);
+            for (int i = 0; i < (int) std::size (names); ++i)
+                if (names[i] != nullptr)
+                    expectEquals (PresetManager::getFactoryName (i), juce::String (names[i]), "index " + juce::String (i));
+        }
+
+        beginTest ("Abbey Road reverb: Tony's Pro-Q 4 preset, band for band");
+        {
+            const int index = 21;
+            expectEquals (PresetManager::getFactoryName (index), juce::String ("Abbey Road reverb"));
+            expect (PresetManager::isStartingPoint (index));
+            expectEquals (PresetManager::getFactoryUsedBands (index), 5);
+            const auto d = PresetManager::getFactoryPreset (index);
+
+            struct Expected { FilterType type; float freq, gain, q; };
+            const Expected expected[] = {
+                { FilterType::LowCut,   377.28f,  0.0f,  defaultQ },
+                { FilterType::Bell,     594.40f,  0.54f, 1.923f },
+                { FilterType::HighCut,  17056.0f, 0.0f,  defaultQ },
+                { FilterType::Bell,     10094.0f, 0.41f, 2.158f },
+                { FilterType::Bell,     2000.0f, -3.0f,  3.016f },
+            };
+            for (int b = 0; b < 5; ++b)
+            {
+                const auto& s = d.bands[(size_t) b];
+                const auto& e = expected[b];
+                const auto what = "band " + juce::String (b + 1);
+                expect (s.used && s.enabled && ! s.dynOn, what + " used and on");
+                expect (s.type == (int) e.type, what + " type");
+                expectWithinAbsoluteError (s.freq, e.freq, e.freq * 0.01f, what + " frequency within 1 %");
+                expectWithinAbsoluteError (s.gain, e.gain, 0.01f, what + " gain");
+                expectWithinAbsoluteError (s.q, e.q, 0.01f, what + " Q");
+            }
+            expectEquals (d.bands[0].slope, 1, "low cut 12 dB/oct");
+            expectEquals (d.bands[2].slope, 1, "high cut 12 dB/oct");
+
+            // Loaded into the processor, the bands read back the same (within parameter rounding).
+            SongsmithEQAudioProcessor p;
+            juce::String error;
+            expect (p.presets.load ({ PresetManager::getFactoryName (index), index, {} }, error), error);
+            for (int b = 0; b < 5; ++b)
+            {
+                expectEquals ((int) p.getBandValue (b, Param::Type), (int) expected[b].type);
+                expectWithinAbsoluteError (p.getBandValue (b, Param::Freq), expected[b].freq, expected[b].freq * 0.01f);
             }
         }
     }
