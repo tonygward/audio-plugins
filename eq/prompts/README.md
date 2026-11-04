@@ -12,6 +12,8 @@ There is one self-contained prompt per item in [`eq/ROADMAP.md`](../ROADMAP.md).
 | 27–31 (in [`done/`](done/)) | Done overnight on 3–4 Nov 2026 (#37, #45, #40, #42, #49), merged into `main` in #52 and shipped in v0.5.0: [27 vertical output meter](done/27-vertical-output-meter.md), [28 piano notes toggle](done/28-piano-strip-toggle.md), [29 edge clicks add cuts](done/29-edge-click-cuts.md), [30 Abbey Road reverb template](done/30-abbey-road-reverb-template.md), [31 tom presets](done/31-tom-presets.md) |
 | [32 instrument frequency guide](32-frequency-guide.md) | To do: an optional overlay that names what you hear in each part of the graph (Rumble, Thump, Plastic, Air), starting with acoustic guitar. Concept picture: [32-frequency-guide.png](32-frequency-guide.png) |
 
+| 34 Linear Phase tooltip | To do: explain when to use Linear Phase and why it adds delay. Use “Try this when blending a filtered track with a copy of the same sound. It keeps the two versions in phase, but adds delay. Leave it off for recording and most mixing.” Verify the tooltip fits and is discoverable on the mode control. |
+
 ## Overnight runs merge into `main`
 
 Run unattended with [`shared/prompts/overnight-prompt.md`](../../shared/prompts/overnight-prompt.md), each task goes **straight into `main`** through its own PR: the agent waits for CI, approves the PR and merges it itself once the build, tests and CI all pass, then starts the next task from the updated `main`. There's no integration branch any more. Nothing is pushed to `main` without a PR, and blocked tasks stay as draft PRs. (GitHub doesn't let an account formally approve its own PR, so the agent records its approval as a PR comment listing what it checked, then merges.)
