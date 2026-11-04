@@ -6,7 +6,7 @@ Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq
 |---|---|
 | ✅ [S1 shared look: fonts and type](done/S1-shared-fonts-and-type.md) | One shared UI library and one copy of the Inter font for all plugins, one type scale, and a written style guide |
 | ✅ [S2 bevelled controls everywhere](done/S2-bevelled-controls.md) | The slightly bevelled, raised look from the compressor, applied to buttons, knobs, menus and toggles in every plugin |
-| [S3 plain words everywhere](S3-plain-words-everywhere.md) | No abbreviations and plain language in every plugin, enforced by one shared test |
+| ✅ [S3 plain words everywhere](done/S3-plain-words-everywhere.md) | No abbreviations and plain language in every plugin, enforced by one shared test |
 | [S4 Windows suite installer](S4-windows-suite-installer.md) | One Windows installer for all plugins, with a tick box per plugin |
 | [S5 macOS suite installer](S5-macos-suite-installer.md) | One macOS `.pkg` for all plugins, with a choice per plugin and format |
 
