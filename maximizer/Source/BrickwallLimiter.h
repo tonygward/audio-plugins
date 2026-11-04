@@ -2,6 +2,7 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <vector>
+#include "TruePeak.h"
 
 namespace Max
 {
@@ -29,28 +30,49 @@ namespace Max
     //    same L-sample box-car, so very short releases are still at least ~1.5 ms smooth.
     //  - Threshold / ceiling changes glide over 20 ms (baseline gain multiplicatively, the ceiling
     //    linearly). The ceiling that protects a sample is the one current when it was detected.
+    //  - Peak domain (step 03): p[n] is either the sample peak or the true-peak estimate of
+    //    TruePeakDetector (8x, 24 taps/phase): the largest reconstructed value on both sides of the
+    //    sample. The audio always waits the detector's 12 samples, so both modes have the same
+    //    latency (look-ahead + 12) and switching never moves the audio in time.
+    //  - Auto release (step 03, Songsmith recovery law; Waves ARC was only a behavioural reference):
+    //    a sustained-gain estimate s follows e (40 ms going down, 400 ms coming back up). While
+    //    e < s the gain is recovering from a transient and uses the manual Release; once e >= s it
+    //    recovers with max (Release, 150 ms). Short peaks therefore recover as fast as the manual
+    //    setting, while dense material sits at a steady gain instead of pumping with the waveform.
     class BrickwallLimiter
     {
     public:
         static constexpr int maxChannels = 2;
         static constexpr double lookAheadSeconds = 0.0015;
         static constexpr double parameterSmoothingSeconds = 0.02;
+        static constexpr double autoSlowReleaseMs = 150.0, autoSustainAttackMs = 40.0, autoSustainReleaseMs = 400.0;
 
         static int lookAheadSamples (double sampleRate) noexcept
         {
             return juce::jmax (1, (int) std::ceil (lookAheadSeconds * sampleRate - 1.0e-9));
         }
 
+        // Total latency: the look-ahead plus the true-peak detector delay (12 samples). It is the same
+        // in both peak modes, so switching mode never changes the latency the host compensates.
+        static int latencySamples (double sampleRate) noexcept
+        {
+            return lookAheadSamples (sampleRate) + TruePeakDetector::delaySamples;
+        }
+
         // Allocates. Call before processing and whenever the sample rate changes.
         void prepare (double sampleRate);
         void reset() noexcept;   // clears the delay, the envelope and the meters; snaps the parameters
 
-        int getLatencySamples() const noexcept { return lookAhead; }
+        int getLatencySamples() const noexcept { return lookAhead + TruePeakDetector::delaySamples; }
 
         // Targets, in dB / ms. Safe to call every block from the audio thread.
         void setThresholdDb (float db) noexcept;
         void setCeilingDb (float db) noexcept;
         void setReleaseMs (float ms) noexcept;
+        void setTruePeak (bool on) noexcept    { truePeak = on; }
+        void setAutoRelease (bool on) noexcept { autoRelease = on; }
+        bool isTruePeak() const noexcept       { return truePeak; }
+        bool isAutoRelease() const noexcept    { return autoRelease; }
 
         // Processes in place: 'channels' holds numChannels pointers (1 or 2) of numSamples each.
         void process (float* const* channels, int numChannels, int numSamples) noexcept;
@@ -80,7 +102,15 @@ namespace Max
         double boxSum = 0.0;
         int boxPos = 0, resumCountdown = 0;
 
+        // True-peak detection (step 03): the audio waits delaySamples for the detector.
+        TruePeakDetector detector;
+        std::vector<float> preDelay[maxChannels];
+        int prePos = 0;
+        bool truePeak = false, autoRelease = false;
+
         float env = 1.0f;          // release envelope e
+        float sustained = 1.0f;    // auto release: sustained gain estimate
+        float slowCoef = 0.0f, sustainDownCoef = 0.0f, sustainUpCoef = 0.0f;
         float releaseCoef = 0.0f;  // a = exp (-1 / (release * fs))
         float releaseMs = 1.0f;
 

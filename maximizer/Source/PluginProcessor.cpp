@@ -24,6 +24,9 @@ SongsmithMaximiserAudioProcessor::SongsmithMaximiserAudioProcessor()
     ceilingRaw   = apvts.getRawParameterValue (Max::ceilingId);
     releaseRaw   = apvts.getRawParameterValue (Max::releaseId);
     bypassParam  = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Max::bypassId));
+    peakModeParam    = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (Max::peakModeId));
+    autoReleaseParam = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Max::autoReleaseId));
+    jassert (peakModeParam != nullptr && autoReleaseParam != nullptr);
     jassert (thresholdRaw != nullptr && ceilingRaw != nullptr && releaseRaw != nullptr && bypassParam != nullptr);
 
     dryBuffer.setSize (2, 512, false, true);   // resized in prepareToPlay
@@ -50,6 +53,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithMaximiserAudioProce
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { Max::bypassId, 1 }, "Bypass", false));
 
+    // Version 2 (step 03). Defaults keep version-1 sessions sounding the same.
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { Max::peakModeId, 2 }, "Peak Mode", Max::getPeakModeNames(), 0));
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { Max::autoReleaseId, 2 }, "Auto Release", false));
+
     return layout;
 }
 
@@ -75,6 +85,8 @@ void SongsmithMaximiserAudioProcessor::prepareToPlay (double sampleRate, int sam
 
     limiter.setThresholdDb (getThresholdDb());
     limiter.setCeilingDb (getCeilingDb());
+    limiter.setTruePeak (isTruePeak());
+    limiter.setAutoRelease (isAutoRelease());
     limiter.setReleaseMs (getReleaseMs());
     limiter.prepare (sampleRate);
 
@@ -108,6 +120,8 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
     limiter.setThresholdDb (getThresholdDb());
     limiter.setCeilingDb (getCeilingDb());
+    limiter.setTruePeak (isTruePeak());
+    limiter.setAutoRelease (isAutoRelease());
     limiter.setReleaseMs (getReleaseMs());
 
     float inPeak = 0.0f, outPeak = 0.0f;
@@ -199,8 +213,9 @@ void SongsmithMaximiserAudioProcessor::setStateInformation (const void* data, in
 
 void SongsmithMaximiserAudioProcessor::restoreFromValueTree (const juce::ValueTree& saved)
 {
-    // Version 1 is the first format, so there is nothing to migrate yet. A state from a newer
-    // version keeps the parameters this version knows (by ID) and ignores the rest.
+    // Version 1 (step 01-02) had no peak_mode / auto_release: they restore to their defaults (sample
+    // peak, manual release), which is exactly how version 1 sounded. A state from a newer version
+    // keeps the parameters this version knows (by ID) and ignores the rest.
     // Rebuild a complete parameter tree: saved values where present, defaults otherwise.
     // (APVTS would otherwise leave missing parameters at their *current* values.)
     juce::ValueTree fresh (apvts.state.getType());

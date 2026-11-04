@@ -29,3 +29,32 @@ maximizer/build/MaximizerTests_artefacts/Release/MaximizerTests.exe
 - **Release law (design choice):** the gain recovers exponentially towards unity, with time constant = Release. After one Release time, 63 % of the gain reduction has recovered. The result then passes through the same 1.5 ms box-car, so even 0.01 ms recovers over at least about 1.5 ms. Tested in "Release law".
 - **Parameter smoothing:** Threshold and Out Ceiling glide over 20 ms. Each sample is protected by the ceiling that was current when it was detected.
 - **Reset:** `AudioProcessor::reset()` clears the delay line and the envelope. Tested in "Reset clears…".
+
+## True peak and auto release (step 03)
+
+New parameters (ID version 2; state version 2): `peak_mode` (Sample peak / True peak, default Sample peak) and `auto_release` (default off). A version-1 session loads with both at their defaults, so it sounds exactly as before. Tested in "Version-1 sessions load…".
+
+- **True-peak detector (design choice):** `Max::TruePeakDetector` uses 8x oversampling with a Kaiser-windowed sinc (24 taps per phase, β 8). For each sample it reports the largest reconstructed magnitude on both sides of that sample, across all channels, and the limiter uses this in place of the sample peak. I chose 8x over 4x because 4x under-read full-band noise by about 0.4 dB here, and the output then overshot by 0.94 dB.
+- **Latency:** the detector needs 12 samples. The audio waits for it in **both** modes, so the latency is look-ahead + 12 in either mode: 79 samples at 44.1 kHz, 84 at 48 kHz and 156 at 96 kHz. Switching peak mode never changes the latency the DAW compensates, and never moves the audio. Sample-peak mode skips the filter, so it costs nothing extra.
+- **Verification meter:** `Max::TruePeakMeter` is an independent 8x interpolator with 32 taps per phase (β 10). It is longer than the detector, so the tests don't grade the detector against itself. Its accuracy was checked on a full-scale fs/4 tone at 45°, whose samples sit at −3 dBFS while the waveform peaks at 0 dBTP.
+- **Measured overshoot** above a −1 dBTP ceiling (T −6), read by the meter:
+
+  | Signal | True-peak mode | Sample-peak mode |
+  |---|---|---|
+  | 5, 11.025, 15 and 19 kHz tones at 4 phases | ≤ 0.001 dB | up to +3.01 dB |
+  | 17 kHz bursts | ≤ 0.001 dB | |
+  | ±1 doublet clicks | 0.009 dB | |
+  | Full-scale full-band white noise (worst case) | 0.28 dB | |
+
+  The test tolerances are 0.1 dB, and 0.35 dB for white noise.
+- **Auto release (Songsmith recovery law; Waves ARC was only a behavioural reference):** a sustained-gain estimate `s` follows the envelope. It falls with a 40 ms time constant and rises with 400 ms. While the gain is below `s`, the limiter is recovering from a transient and uses the manual Release. Once the gain is back at `s`, it recovers with max(Release, 150 ms).
+
+  Measured at 48 kHz, T −8, C −1:
+
+  | Mode | THD (50 Hz, ~7 dB GR) | Pumping (bass between kicks) | Recovery after a 5 ms spike | CPU, sample-peak mode |
+  |---|---|---|---|---|
+  | Manual 1 ms | 17.3 % | 0.00 dB | 4.4 ms | ~70 ns/sample |
+  | Manual 150 ms | 1.9 % | 1.41 dB | 270 ms | ~60 ns/sample |
+  | Auto (Release 1 ms) | 3.0 % | 0.26 dB | 4.4 ms | ~50–120 ns/sample |
+
+  Timings are from a Windows dev machine and vary between runs. True-peak mode costs about 290 ns per stereo sample. Tested in "Auto release vs manual".

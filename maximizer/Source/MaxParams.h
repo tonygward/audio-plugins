@@ -16,6 +16,16 @@ namespace Max
     inline constexpr const char* releaseId   = "release";     // ms
     inline constexpr const char* bypassId    = "bypass";      // the host's native bypass
 
+    // --- Added in version 2 (step 03) -----------------------------------------------------
+    inline constexpr const char* peakModeId    = "peak_mode";      // 0 sample peak (default), 1 true peak
+    inline constexpr const char* autoReleaseId = "auto_release";   // off by default: manual release
+
+    inline const juce::StringArray& getPeakModeNames()
+    {
+        static const juce::StringArray names { "Sample peak", "True peak" };
+        return names;
+    }
+
     // --- Ranges and defaults -------------------------------------------------------------
     // Threshold and Out Ceiling both span 0 to -30 dB, as in the L1 manual. The defaults (0 / 0)
     // give a gain of 0 dB, so a fresh instance passes audio below 0 dBFS through untouched.

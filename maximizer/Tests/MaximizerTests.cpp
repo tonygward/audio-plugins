@@ -115,7 +115,8 @@ public:
         beginTest ("Stable parameter IDs and versions");
         {
             SongsmithMaximiserAudioProcessor p;
-            const std::pair<const char*, int> expected[] = { { "threshold", 1 }, { "ceiling", 1 }, { "release", 1 }, { "bypass", 1 } };
+            const std::pair<const char*, int> expected[] = { { "threshold", 1 }, { "ceiling", 1 }, { "release", 1 }, { "bypass", 1 },
+                                                             { "peak_mode", 2 }, { "auto_release", 2 } };
 
             for (auto [id, version] : expected)
             {
@@ -128,7 +129,7 @@ public:
             }
 
             expect (p.getBypassParameter() == p.apvts.getParameter (Max::bypassId), "bypass is the host bypass");
-            expectEquals (p.getParameters().size(), 4, "no unexpected parameters");
+            expectEquals (p.getParameters().size(), 6, "no unexpected parameters");
         }
 
         beginTest ("Ranges and defaults");
@@ -428,14 +429,15 @@ public:
 
                 SongsmithMaximiserAudioProcessor p;
                 prepare (p, fs, 512);
-                expectEquals (p.getLatencySamples(), samples, "reported latency at " + juce::String (fs));
+                const int latency = samples + Max::TruePeakDetector::delaySamples;
+                expectEquals (p.getLatencySamples(), latency, "reported latency (look-ahead + detector delay) at " + juce::String (fs));
 
                 // A quiet impulse comes out unchanged, exactly 'latency' samples later.
                 std::vector<float> imp (2048, 0.0f);
                 imp[100] = 0.25f;
                 const auto out = run (p, { imp, imp }, { 512 });
-                expectEquals (out[0][(size_t) (100 + samples)], 0.25f, "impulse delayed by the latency, unchanged");
-                expectEquals (peakOf (out[0], 0, (size_t) (100 + samples)), 0.0f, "nothing before it");
+                expectEquals (out[0][(size_t) (100 + latency)], 0.25f, "impulse delayed by the latency, unchanged");
+                expectEquals (peakOf (out[0], 0, (size_t) (100 + latency)), 0.0f, "nothing before it");
             }
         }
 
@@ -646,7 +648,7 @@ public:
             expectEquals (p.getLimiter().getCurrentGain(), 1.0f, "gain back to unity");
             const auto out = run (p, { std::vector<float> (1024, 0.0f), std::vector<float> (1024, 0.0f) }, { 256 });
             expectEquals (peakOf (out[0]), 0.0f, "no stale audio comes out of the delay");
-            expectEquals (p.getLatencySamples(), 72, "latency unchanged");
+            expectEquals (p.getLatencySamples(), 72 + Max::TruePeakDetector::delaySamples, "latency unchanged");
         }
 
         beginTest ("Bypass is time-aligned with the processed path");
@@ -666,6 +668,319 @@ static IdentityTests identityTests;
 static ShellProcessingTests shellProcessingTests;
 static AutomationAndStateTests automationAndStateTests;
 static LimiterTests limiterTests;
+
+//==============================================================================
+namespace
+{
+    // True peak of a signal measured by the independent meter (8x, 32 taps/phase), in dBTP.
+    // The meter sees the whole signal (so its filter is settled), but only peaks from 'from' on
+    // count: starting it mid-signal would add the filter's own Gibbs ringing (~13 % on a step).
+    float truePeakDb (const std::vector<std::vector<float>>& sig, size_t from = 0)
+    {
+        Max::TruePeakMeter meter;
+        const float* head[2] = {};
+        const float* tail[2] = {};
+        for (size_t c = 0; c < sig.size(); ++c)
+        {
+            head[c] = sig[c].data();
+            tail[c] = sig[c].data() + from;
+        }
+        meter.process (head, (int) sig.size(), (int) from);
+        meter.readAndReset();
+        meter.process (tail, (int) sig.size(), (int) (sig[0].size() - from));
+        return Max::gainToDb (meter.getPeak());
+    }
+
+    // Total harmonic distortion of a steady tone of 'freq' (an integer number of periods in
+    // [from, to)): sqrt (sum of harmonics 2..20 squared) / fundamental.
+    double thd (const std::vector<float>& v, double fs, double freq, size_t from, size_t to)
+    {
+        auto amplitude = [&] (double f)
+        {
+            double re = 0.0, im = 0.0;
+            const double w = 2.0 * juce::MathConstants<double>::pi * f / fs;
+            for (size_t i = from; i < to; ++i)
+            {
+                re += (double) v[i] * std::cos (w * (double) i);
+                im += (double) v[i] * std::sin (w * (double) i);
+            }
+            return std::sqrt (re * re + im * im);
+        };
+
+        const double fundamental = amplitude (freq);
+        double harmonics = 0.0;
+        for (int k = 2; k <= 20 && freq * k < fs * 0.5; ++k)
+            harmonics += std::pow (amplitude (freq * k), 2.0);
+        return std::sqrt (harmonics) / fundamental;
+    }
+
+    // Runs the limiter one sample at a time and returns its gain (dB) for every sample.
+    std::vector<float> gainTrace (Max::BrickwallLimiter& lim, std::vector<float> in)
+    {
+        std::vector<float> g (in.size());
+        for (size_t i = 0; i < in.size(); ++i)
+        {
+            float* ch[1] = { in.data() + i };
+            lim.process (ch, 1, 1);
+            g[i] = Max::gainToDb (lim.getCurrentGain());
+        }
+        return g;
+    }
+}
+
+class TruePeakAndAutoReleaseTests final : public juce::UnitTest
+{
+public:
+    TruePeakAndAutoReleaseTests() : juce::UnitTest ("True peak and auto release", "Maximiser") {}
+
+    // Measured overshoot allowance for true-peak mode, from the independent 8x meter.
+    static constexpr float truePeakToleranceDb = 0.1f, whiteNoiseToleranceDb = 0.35f;
+
+    void runTest() override
+    {
+        constexpr double fs = 44100.0;
+        const double pi = juce::MathConstants<double>::pi;
+
+        beginTest ("Reconstruction meter and detector read intersample peaks");
+        {
+            // fs/4 at 45 degrees: every sample is +-0.707, the waveform peaks at 1.0 (+3 dB).
+            const auto tone = sine (8192, fs, fs / 4.0, 1.0, pi / 4.0);
+            expectWithinAbsoluteError (Max::gainToDb (peakOf (tone)), -3.01f, 0.01f, "sample peak -3 dB");
+            expectWithinAbsoluteError (truePeakDb ({ tone }, 1024), 0.0f, 0.02f, "meter reads the 0 dBTP peak");
+
+            Max::TruePeakDetector det;
+            float tpMax = 0.0f, sp = 0.0f;
+            for (size_t i = 0; i < tone.size(); ++i)
+            {
+                const float x[1] = { tone[i] };
+                const float tp = det.push (x, 1, sp);
+                if (i > 64) tpMax = std::max (tpMax, tp);
+            }
+            expectWithinAbsoluteError (Max::gainToDb (tpMax), 0.0f, 0.15f, "detector estimate");
+
+            const auto lf = sine (8192, fs, 1000.0, 0.5);
+            expectWithinAbsoluteError (truePeakDb ({ lf }, 1024), Max::gainToDb (0.5f), 0.01f, "1 kHz reads its amplitude");
+        }
+
+        beginTest ("Same latency in both modes; quiet audio passes unchanged in true-peak mode");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            prepare (p, fs, 256);
+            const int sampleLatency = p.getLatencySamples();
+            setParam (p, Max::peakModeId, 1.0f);
+            expect (p.isTruePeak());
+            prepare (p, fs, 256);
+            expectEquals (p.getLatencySamples(), sampleLatency, "no latency change when switching mode");
+
+            const auto in = noise (8192, 0.3f, 71u);
+            const auto out = run (p, { in, in }, { 256 });
+            expectEquals (maxAbsDiff (out[0], in, p.getLatencySamples()), 0.0f, "transparent below the ceiling");
+        }
+
+        beginTest ("Phase-shifted high-frequency tones: true-peak mode holds the ceiling");
+        {
+            float worstTp = -100.0f, worstSp = -100.0f;
+
+            for (double freq : { 5000.0, 11025.0, 15000.0, 19000.0 })
+                for (double phase : { 0.0, pi / 8.0, pi / 4.0, pi / 3.0 })
+                {
+                    const auto in = sine ((int) fs / 2, fs, freq, Max::dbToGain (-2.0f), phase);   // T -6 -> 4 dB over
+
+                    for (bool tpMode : { true, false })
+                    {
+                        Max::BrickwallLimiter lim;
+                        lim.setThresholdDb (-6.0f);
+                        lim.setCeilingDb (-1.0f);
+                        lim.setTruePeak (tpMode);
+                        lim.prepare (fs);
+                        const auto out = runLimiter (lim, { in, in }, 128);
+                        const float overDb = truePeakDb (out, 2048) + 1.0f;   // overshoot above -1 dBTP
+                        (tpMode ? worstTp : worstSp) = std::max (tpMode ? worstTp : worstSp, overDb);
+                    }
+                }
+
+            logMessage ("    worst true-peak overshoot above the ceiling: true-peak mode " + juce::String (worstTp, 3)
+                        + " dB, sample-peak mode " + juce::String (worstSp, 3) + " dB");
+            expectLessOrEqual (worstTp, truePeakToleranceDb, "true-peak mode overshoot within tolerance");
+            expectGreaterThan (worstSp, 1.0f, "sample-peak mode lets intersample peaks through (reference)");
+        }
+
+        beginTest ("Intersample peaks in noise and transient bursts");
+        {
+            juce::String report;
+            float worst = -100.0f;
+
+            // High-frequency bursts and +-1 doublet clicks (large reconstruction overshoot).
+            std::vector<std::vector<float>> signals;
+
+            auto bursts = std::vector<float> ((size_t) fs, 0.0f);
+            for (size_t i = 0; i < bursts.size(); ++i)
+                if ((i / 2205) % 4 == 0)   // 50 ms bursts every 200 ms
+                    bursts[i] = (float) std::sin (2.0 * pi * 17000.0 * (double) i / fs + 0.7) * (i % 3 == 0 ? 1.0f : 0.8f);
+            signals.push_back (bursts);
+
+            auto clicks = std::vector<float> ((size_t) fs, 0.0f);
+            for (size_t i = 1000; i + 1 < clicks.size(); i += 3001)
+            {
+                clicks[i] = 1.0f;
+                clicks[i + 1] = -1.0f;
+            }
+            signals.push_back (clicks);
+
+            // Full-band white noise at full scale: a worst case (real material has far less energy
+            // near Nyquist), so it gets its own, looser tolerance.
+            signals.push_back (noise ((int) fs, 1.0f, 81u));
+
+            for (size_t s = 0; s < signals.size(); ++s)
+            {
+                Max::BrickwallLimiter lim;
+                lim.setThresholdDb (-6.0f);
+                lim.setCeilingDb (-1.0f);
+                lim.setTruePeak (true);
+                lim.prepare (fs);
+                const auto out = runLimiter (lim, { signals[s], signals[s] }, 64);
+                const float over = truePeakDb (out, 0) + 1.0f;
+                report << juce::String (over, 3) << " dB  ";
+                if (s + 1 < signals.size())
+                    worst = std::max (worst, over);
+                else
+                    expectLessOrEqual (over, whiteNoiseToleranceDb, "full-band white noise within its tolerance");
+            }
+
+            logMessage ("    true-peak overshoot (HF bursts, clicks, white noise): " + report);
+            expectLessOrEqual (worst, truePeakToleranceDb, "bursts and clicks within tolerance");
+        }
+
+        beginTest ("Sample-peak mode is unchanged by the detector");
+        {
+            Max::BrickwallLimiter lim;
+            lim.setThresholdDb (-6.0f);
+            lim.setCeilingDb (-1.0f);
+            lim.prepare (fs);
+            const auto out = runLimiter (lim, { noise ((int) fs, 1.0f, 91u) }, 64);
+            expect (peakOf (out[0]) <= Max::dbToGain (-1.0f) * (1.0f + ceilingTolerance), "sample peak still exactly at or under the ceiling");
+        }
+
+        beginTest ("Auto release vs manual: distortion, pumping, recovery, CPU");
+        {
+            constexpr double rate = 48000.0;
+            auto makeLimiter = [&] (bool autoRel, float releaseMs)
+            {
+                auto lim = std::make_unique<Max::BrickwallLimiter>();
+                lim->setThresholdDb (-8.0f);
+                lim->setCeilingDb (-1.0f);
+                lim->setReleaseMs (releaseMs);
+                lim->setAutoRelease (autoRel);
+                lim->prepare (rate);
+                return lim;
+            };
+
+            // Distortion: THD of a 50 Hz tone limited by ~7 dB.
+            const auto bass = sine ((int) rate, rate, 50.0, 1.0);
+            auto distortion = [&] (bool autoRel, float releaseMs)
+            {
+                const size_t from = (size_t) rate / 2, to = from + 960 * 20;   // 20 whole periods
+                return thd (runLimiter (*makeLimiter (autoRel, releaseMs), { bass }, 256)[0], rate, 50.0, from, to);
+            };
+
+            // Pumping: a sustained 60 Hz bass that needs no limiting (-12 dBFS + 7 dB) with a full-scale
+            // 12 ms kick every 500 ms. Pumping = mean gain reduction on the bass between kicks (dB).
+            auto mix = sine ((int) rate * 2, rate, 60.0, Max::dbToGain (-12.0f));
+            const size_t kickEvery = (size_t) rate / 2, kickLength = 576;
+            for (size_t k = 0; k < mix.size(); k += kickEvery)
+                for (size_t i = k; i < std::min (mix.size(), k + kickLength); ++i)
+                    mix[i] += (float) std::sin (2.0 * pi * 100.0 * (double) (i - k) / rate) * 0.9f;
+            auto pumping = [&] (bool autoRel, float releaseMs)
+            {
+                auto lim = makeLimiter (autoRel, releaseMs);
+                const auto g = gainTrace (*lim, mix);
+                double sum = 0.0;
+                int n = 0;
+                for (size_t k = kickEvery; k < mix.size(); k += kickEvery)   // skip the first kick
+                    for (size_t i = k + kickLength + 2400; i < std::min (mix.size(), k + kickEvery); ++i)   // 50 ms after the kick
+                    {
+                        sum -= (double) g[i];
+                        ++n;
+                    }
+                return sum / juce::jmax (1, n);
+            };
+
+            // Recovery: an isolated 5 ms spike 10 dB over on a quiet tone; ms until the gain is
+            // back within 1 dB of unity.
+            auto spike = sine ((int) rate, rate, 440.0, Max::dbToGain (-30.0f));
+            for (size_t i = 4800; i < 5040; ++i)
+                spike[i] = (i % 2 == 0 ? 1.0f : -1.0f) * Max::dbToGain (1.0f);
+            auto recovery = [&] (bool autoRel, float releaseMs)
+            {
+                auto lim = makeLimiter (autoRel, releaseMs);
+                const auto g = gainTrace (*lim, spike);
+                size_t last = 5040;
+                for (size_t i = 0; i < g.size(); ++i)
+                    if (g[i] < -1.0f) last = i;
+                return (double) (last - 5040) * 1000.0 / rate;
+            };
+
+            // CPU: ns per stereo sample.
+            auto bench = [&] (bool autoRel, bool tp)
+            {
+                auto lim = makeLimiter (autoRel, 1.0f);
+                lim->setTruePeak (tp);
+                std::vector<std::vector<float>> buf { noise ((int) rate * 4, 1.0f, 5u), noise ((int) rate * 4, 1.0f, 6u) };
+                const auto t0 = juce::Time::getHighResolutionTicks();
+                runLimiter (*lim, buf, 512);
+                const auto t1 = juce::Time::getHighResolutionTicks();
+                return juce::Time::highResolutionTicksToSeconds (t1 - t0) * 1.0e9 / (rate * 4);
+            };
+
+            struct Row { const char* name; bool autoRel; float releaseMs; double thd = 0, pump = 0, rec = 0, ns = 0; };
+            Row rows[] = { { "manual 1 ms  ", false, 1.0f }, { "manual 150 ms", false, 150.0f }, { "auto (1 ms)  ", true, 1.0f } };
+            logMessage ("    mode            THD 50 Hz   pumping    recovery   ns/sample (sample peak)");
+            for (auto& r : rows)
+            {
+                r.thd = distortion (r.autoRel, r.releaseMs);
+                r.pump = pumping (r.autoRel, r.releaseMs);
+                r.rec = recovery (r.autoRel, r.releaseMs);
+                r.ns = bench (r.autoRel, false);
+                logMessage (juce::String ("    ") + r.name + "   " + juce::String (r.thd * 100.0, 2) + " %      "
+                            + juce::String (r.pump, 2) + " dB    " + juce::String (r.rec, 1) + " ms    " + juce::String (r.ns, 1));
+            }
+            logMessage ("    true peak (manual): " + juce::String (bench (false, true), 1) + " ns/sample, true peak + auto: "
+                        + juce::String (bench (true, true), 1) + " ns/sample");
+
+            const auto& fast = rows[0];
+            const auto& slow = rows[1];
+            const auto& autoRow = rows[2];
+            expectLessThan (autoRow.thd, fast.thd * 0.5, "auto distorts sustained bass far less than a fast manual release");
+            expectLessThan (autoRow.pump, slow.pump * 0.5, "auto pumps far less than a slow manual release");
+            expectLessThan (autoRow.rec, slow.rec * 0.5, "auto recovers from an isolated peak far faster than a slow release");
+        }
+
+
+        beginTest ("Version-1 sessions load as sample peak, manual release");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            setParam (p, Max::peakModeId, 1.0f);
+            setParam (p, Max::autoReleaseId, 1.0f);
+
+            juce::ValueTree v1 ("PARAMETERS");
+            v1.setProperty ("version", 1, nullptr);
+            v1.appendChild (juce::ValueTree ("PARAM", { { "id", "threshold" }, { "value", -4.0f } }), nullptr);
+            p.restoreFromValueTree (v1);
+            expect (! p.isTruePeak() && ! p.isAutoRelease(), "new parameters fall back to their defaults");
+            expectWithinAbsoluteError (p.getThresholdDb(), -4.0f, 1.0e-4f);
+
+            setParam (p, Max::peakModeId, 1.0f);
+            setParam (p, Max::autoReleaseId, 1.0f);
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+            SongsmithMaximiserAudioProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expect (q.isTruePeak() && q.isAutoRelease(), "round trip");
+        }
+    }
+};
+
+static TruePeakAndAutoReleaseTests truePeakAndAutoReleaseTests;
 
 //==============================================================================
 struct ConsoleRunner final : juce::UnitTestRunner
