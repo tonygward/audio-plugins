@@ -72,6 +72,24 @@ void SongsmithMaximiserAudioProcessor::prepareToPlay (double sampleRate, int sam
 
     bypassMix.reset (sampleRate, bypassFadeSeconds);
     bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
+
+    limiter.setThresholdDb (getThresholdDb());
+    limiter.setCeilingDb (getCeilingDb());
+    limiter.setReleaseMs (getReleaseMs());
+    limiter.prepare (sampleRate);
+
+    dryDelay.setSize (2, limiter.getLatencySamples() + 1, false, true, false);
+    dryDelay.clear();
+    dryDelayPos = 0;
+
+    setLatencySamples (limiter.getLatencySamples());
+}
+
+void SongsmithMaximiserAudioProcessor::reset()
+{
+    limiter.reset();
+    dryDelay.clear();
+    dryDelayPos = 0;
 }
 
 void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -83,23 +101,48 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     for (int ch = numIn; ch < numOut; ++ch)
         buffer.clear (ch, 0, buffer.getNumSamples());
 
-    const int numCh = juce::jmin (numIn, 2);
+    const int numCh = juce::jmin (numIn, Max::BrickwallLimiter::maxChannels);
     const int total = buffer.getNumSamples();
     const int chunk = juce::jmax (1, dryBuffer.getNumSamples());
 
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
+    limiter.setThresholdDb (getThresholdDb());
+    limiter.setCeilingDb (getCeilingDb());
+    limiter.setReleaseMs (getReleaseMs());
+
+    float inPeak = 0.0f, outPeak = 0.0f;
 
     for (int pos = 0; pos < total; pos += chunk)
     {
         const int num = juce::jmin (chunk, total - pos);
 
-        // Step 01 shell: the processing path is transparent (the limiter arrives in step 02),
-        // so the dry and processed signals are identical and the bypass fade is inaudible.
-        // The structure is already the final one: keep a dry copy while bypass is fading or on.
-        const bool needDry = bypassMix.isSmoothing() || bypassMix.getTargetValue() > 0.0f;
-        if (needDry)
-            for (int c = 0; c < numCh; ++c)
-                dryBuffer.copyFrom (c, 0, buffer, c, pos, num);
+        float* ch[Max::BrickwallLimiter::maxChannels] = {};
+        for (int c = 0; c < numCh; ++c)
+        {
+            ch[c] = buffer.getWritePointer (c, pos);
+            inPeak = juce::jmax (inPeak, buffer.getMagnitude (c, pos, num));
+        }
+
+        // The dry signal, delayed by the look-ahead so bypass lines up with the processed path.
+        // The ring always runs, so it is valid whenever bypass engages.
+        const int size = dryDelay.getNumSamples();
+        const int latency = limiter.getLatencySamples();
+        for (int c = 0; c < numCh; ++c)
+        {
+            auto* ring = dryDelay.getWritePointer (c);
+            auto* dry = dryBuffer.getWritePointer (c);
+            int w = dryDelayPos;
+            for (int i = 0; i < num; ++i)
+            {
+                ring[w] = ch[c][i];
+                dry[i] = ring[(w - latency + size) % size];
+                w = w + 1 == size ? 0 : w + 1;
+            }
+        }
+        dryDelayPos = (dryDelayPos + num) % size;
+
+        // The limiter always runs, even when bypassed, so un-bypassing never glitches.
+        limiter.process (ch, numCh, num);
 
         if (bypassMix.isSmoothing())
         {
@@ -107,19 +150,26 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
             {
                 const float m = bypassMix.getNextValue();
                 for (int c = 0; c < numCh; ++c)
-                {
-                    auto* d = buffer.getWritePointer (c, pos);
-                    d[i] += (dryBuffer.getSample (c, i) - d[i]) * m;
-                }
+                    ch[c][i] += (dryBuffer.getSample (c, i) - ch[c][i]) * m;
             }
         }
-        else if (needDry)
+        else if (bypassMix.getTargetValue() > 0.0f)
         {
             for (int c = 0; c < numCh; ++c)
-                buffer.copyFrom (c, pos, dryBuffer, c, 0, num);   // bit-exact dry
+                juce::FloatVectorOperations::copy (ch[c], dryBuffer.getReadPointer (c), num);   // bit-exact dry
         }
+
+        for (int c = 0; c < numCh; ++c)
+            outPeak = juce::jmax (outPeak, buffer.getMagnitude (c, pos, num));
     }
+
+    pushPeak (inputPeak, inPeak);
+    pushPeak (outputPeak, outPeak);
+
+    // Deepest gain reduction since the UI last read it (stored as a positive dB amount).
+    pushPeak (gainReductionDb, -limiter.readAndResetMaxGainReductionDb());
 }
+
 
 //==============================================================================
 juce::AudioProcessorEditor* SongsmithMaximiserAudioProcessor::createEditor()
