@@ -15,6 +15,7 @@ How every Songsmith Studio plugin looks, so they read as one family. The code fo
 - `shared/Source/SongsmithColours.h`: the shared neutral colours (`Songsmith::UI::Colours`).
 - `shared/Source/SongsmithLookAndFeel.h`: `Songsmith::UI::LookAndFeelBase`, which draws every button, knob, combo box and slider. Each plugin's look-and-feel derives from it, passes its accent colour, and adds only its special drawing (meters, the EQ graph, the compressor's printed knob scale).
 - `shared/Tests/SongsmithUITests.h`: checks compiled into every test executable. They fail if the typeface doesn't load, if any label, button or combo box in an editor is smaller than the type scale allows, if any control isn't drawn by the shared look-and-feel, or if buttons stop looking raised when off and pushed in when on.
+- `shared/Source/SongsmithWording.h`: the wording check (below), run by every plugin's tests on its editor, parameter names and presets.
 - `shared/Tests/SongsmithControlSheet.h`: renders every control state for screenshots (`controls.png` next to each plugin's editor screenshots).
 
 ## Typeface
@@ -89,3 +90,44 @@ Each plugin has one accent colour, used for the product name in the title, lit b
 | Songsmith Maximiser | Songsmith yellow `#F2C94C` |
 
 The EQ and the maximiser share their accent today; a separate colour for one of them is a decision for a later task.
+
+## Wording
+
+Someone who has never used a studio compressor or equaliser should be able to read every plugin. Clarity and simple language go a long way.
+
+- **Spell every word out:** labels, buttons, menu items, combo-box items, tooltips, hints, undo descriptions, text drawn on the panel, the parameter names hosts show, and preset names. "Gain Reduction", not "GR"; "Output", not "Out"; "Side Chain", not "SC".
+- **The only short forms allowed:** units (`Hz`, `kHz`, `dB`, `dB/oct`, `dBFS`, `dBTP`, `dBu`, `LUFS`, `ms`, `s`, `%`, `×`); note names (`A4`, `C#5`); key names in tooltips (`Ctrl`, `Alt`, `Cmd`, `Shift`); `Q`, the name of the EQ control, explained in its tooltip; format names in installers and READMEs (`VST3`, `AU`); and the product name Songsmith EQ.
+- **Say what a control does,** not what the hardware called it: "how fast it reacts when the sound gets louder", not "attack time constant". When a technical term is the right name (Threshold, Ratio, Dither, Oversampling), keep it and explain it in one short tooltip sentence.
+- **Title case for control names** ("Output Ceiling"), sentence case for tooltips, hints and values ("Oversampling: off"). No capitals for emphasis.
+- **One word for one thing** across the suite (see the glossary).
+- **If a word doesn't fit, change the layout:** a wider control, a second line, or a caption above. Never shorten the word. The tests check that every label and button shows its whole text.
+- **British spelling** in UI text and READMEs ("analyser", "colour", "maximiser"). Product names, bundle IDs and folders don't change to fix spelling.
+
+The check (`Songsmith::UI::Wording::findBanned`) fails on a banned word (`SC`, `AG`, `OS`, `GR`, `Dyn`, `FREQ`, `THRESH`, `Atten`, `Sidechain`, `In`, `Out`, `TPDF`, `CPU` and a few more), on a standalone capital letter other than `Q`, and on any word in capitals that isn't an allowed short form.
+
+### Glossary
+
+| Say | Not | Means |
+|---|---|---|
+| Input | In | The level coming in, or the control that sets it |
+| Output | Out | The level going out, or the control that sets it |
+| Gain Reduction | GR, Atten, Attenuation | How much a compressor or limiter is turning the level down, in dB |
+| Gain Reduction Off | GR Off | The compressor stops compressing but still colours the sound |
+| Threshold | Thresh | The level where a compressor, limiter or dynamic band starts to act |
+| Output Ceiling | Out Ceiling | The highest level the maximiser's output may reach |
+| Ratio | | How strongly sound above the threshold is turned down |
+| Attack | Att | How fast it reacts when the sound gets louder |
+| Release | Rel | How fast it lets go when the sound gets quieter |
+| Auto Release | | A release that adapts to the material |
+| Side Chain | SC, Sidechain | A second input that controls the processing |
+| Oversampling | OS | Running at a higher sample rate inside the plugin, for cleaner distortion and filters |
+| Dither | TPDF | A very quiet noise added before the output is rounded to fewer bits |
+| Bypass | Byp | The sound passes through untouched |
+| Interface size | Size, UI size | How large the window is drawn (75 % to 300 %) |
+| Starting point | | A factory setting to start from, with a listening hint |
+| Preset | | A saved setting, yours or a factory one |
+
+### Known naming questions
+
+- "Songsmith Analog Compressor" uses the American "analog" while the UI uses British spelling; the product name is part of the plugin's identity in hosts and installers, so it stays.
+- The maximiser's folder is `maximizer/` (and its test executable `MaximizerTests`), while the product is "Songsmith Maximiser".
