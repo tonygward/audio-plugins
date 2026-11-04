@@ -16,7 +16,7 @@ Songsmith EQ, by Songsmith Studio, was called TW Pro EQ before v0.3. Sessions an
 
 ### Features
 
-- Up to 24 bands: Bell, Low Shelf, High Shelf, Low Cut, High Cut and Notch
+- Up to 24 bands: Bell, Low Shelf, High Shelf, Low Cut, High Cut and Notch. Double-click the graph to add one: a Low Cut below 40 Hz, a High Cut above 12 kHz, a Bell anywhere else (hold Ctrl, or Cmd on macOS, for a Bell anywhere)
 - Low Cut and High Cut slopes of 6, 12, 18, 24, 36 or 48 dB/oct (Butterworth; raise Q for a resonant peak at the cutoff)
 - **Oversampling** (top bar: "Oversampling: off / 2× / 4×"): stops high-frequency bells and shelves from "cramping" near Nyquist at 44.1/48 kHz. It adds a few samples of reported latency in zero-latency mode; in linear-phase mode it only changes the filter design
 - **Linear-phase mode** (top bar): "Linear phase: low / medium / high" for mastering. It adds latency (at 44.1/48 kHz about 43-46, 85-93 or 171-186 ms), which is reported to your DAW for compensation. Dynamic EQ and solo need zero-latency mode
