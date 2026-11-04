@@ -20,6 +20,9 @@ public:
     // The analyser settings menu (the "..." button). Public so tests can check its wording.
     juce::PopupMenu createAnalyserMenu();
 
+    // Pulls the processor state into the controls (what the 30 Hz timer does). For tests.
+    void refreshFromProcessor() { timerCallback(); }
+
     // UI size (75 % to 200 %): resizes the window so the content keeps the same layout, and
     // remembers the choice for the session and as this machine's default.
     void setUiScale (float scale);
@@ -77,6 +80,7 @@ private:
     juce::Slider scaleSlider { juce::Slider::LinearBar, juce::Slider::TextBoxLeft };
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> scaleAttachment;
     juce::TextButton bypassButton { "Bypass" }, autoGainButton { "Auto Gain" };
+    juce::TextButton pianoButton { "Piano" };   // piano strip on/off (task 28)
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoGainAttachment;
     juce::TextButton analyserSettingsButton { "..." };   // analyser settings popup
     void showAnalyserMenu();

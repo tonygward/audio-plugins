@@ -4177,6 +4177,112 @@ public:
     }
 };
 
+//==============================================================================
+// Task 28: a "Piano" toggle in row 3 for the piano strip.
+class PianoToggleTests final : public juce::UnitTest
+{
+public:
+    PianoToggleTests() : juce::UnitTest ("Piano strip toggle", "EQ") {}
+
+    static juce::TextButton* findButton (juce::Component& content, const juce::String& text)
+    {
+        for (auto* c : content.getChildren())
+            if (auto* b = dynamic_cast<juce::TextButton*> (c); b != nullptr && b->getButtonText() == text)
+                return b;
+        return nullptr;
+    }
+
+    static juce::ComboBox* findCombo (juce::Component& content, const juce::String& firstItem)
+    {
+        for (auto* c : content.getChildren())
+            if (auto* b = dynamic_cast<juce::ComboBox*> (c); b != nullptr && b->getNumItems() > 0 && b->getItemText (0) == firstItem)
+                return b;
+        return nullptr;
+    }
+
+    void runTest() override
+    {
+        beginTest ("The button turns the strip on and off, and stays in step with the menu setting");
+        {
+            SongsmithEQAudioProcessor p;
+            expect (! p.showPianoStrip.load(), "off by default");
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            auto* piano = findButton (ed->getContent(), "Piano");
+            expect (piano != nullptr, "Piano button exists");
+            if (piano == nullptr)
+                return;
+            expect (piano->isVisible());
+            expect (! piano->getToggleState());
+
+            piano->setToggleState (! piano->getToggleState(), juce::sendNotificationSync);   // as a click does
+            expect (piano->getToggleState());
+            expect (p.showPianoStrip.load(), "button turns it on");
+
+            juce::MemoryBlock state;
+            p.getStateInformation (state);
+            SongsmithEQAudioProcessor restored;
+            restored.setStateInformation (state.getData(), (int) state.getSize());
+            expect (restored.showPianoStrip.load(), "saved with the session");
+            auto ed2 = UiSizeTests::makeEditor (restored, 1.0f, 1280, 760);
+            auto* piano2 = findButton (ed2->getContent(), "Piano");
+            expect (piano2 != nullptr && piano2->getToggleState(), "a reopened session shows the button on");
+
+            // As the right-click menu does: the button follows on the next timer tick.
+            p.showPianoStrip.store (false);
+            ed->refreshFromProcessor();
+            expect (! piano->getToggleState(), "menu change updates the button");
+
+            piano->setToggleState (! piano->getToggleState(), juce::sendNotificationSync);   // as a click does
+            piano->setToggleState (! piano->getToggleState(), juce::sendNotificationSync);   // as a click does
+            expect (! p.showPianoStrip.load(), "a second click turns it off");
+            p.getStateInformation (state);
+            SongsmithEQAudioProcessor restoredOff;
+            restoredOff.showPianoStrip.store (true);
+            restoredOff.setStateInformation (state.getData(), (int) state.getSize());
+            expect (! restoredOff.showPianoStrip.load(), "off round-trips too");
+        }
+
+        beginTest ("Row 3 fits at the minimum size at every UI size, with the side chain slot reserved");
+        {
+            using namespace EQ::EditorSize;
+            for (auto s : uiScales)
+            {
+                SongsmithEQAudioProcessor p;
+                const int w = juce::roundToInt ((float) minWidth * s), h = juce::roundToInt ((float) minHeight * s);
+                auto ed = UiSizeTests::makeEditor (p, s, w, h);
+                const auto context = juce::String (juce::roundToInt (s * 100.0f)) + "% at " + juce::String (w) + " x " + juce::String (h);
+                auto& content = ed->getContent();
+                auto* piano = findButton (content, "Piano");
+                auto* sidechain = findCombo (content, "Side Chain: off");
+                auto* curve = findCombo (content, "Curve: all bands");
+                expect (piano != nullptr && sidechain != nullptr && curve != nullptr);
+                if (piano == nullptr || sidechain == nullptr || curve == nullptr)
+                    continue;
+                expect (piano->isVisible(), context + ": the button is shown");
+                expect (piano->getX() >= sidechain->getRight(), context + ": after the side chain box");
+                expect (! piano->getBounds().intersects (sidechain->getBounds()), context + ": no overlap with the side chain slot");
+                expect (piano->getRight() <= content.getWidth() - 12, context + ": inside the margin");
+                expectEquals (piano->getY(), curve->getY(), context + ": in row 3");
+                WordingAndFontTests::checkLayout (*this, *ed, context);
+            }
+        }
+
+        beginTest ("Turning the strip on doesn't move the graph or the nodes");
+        {
+            SongsmithEQAudioProcessor p;
+            const int band = p.edits.addBand (1000.0f, 6.0f, FilterType::Bell);
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            const auto before = ed->getDisplay().getBounds();
+            const auto nodeBefore = ed->getDisplay().getNodeCentre (band);
+            p.showPianoStrip.store (true);
+            ed->refreshFromProcessor();
+            expect (ed->getDisplay().getBounds() == before);
+            expect (ed->getDisplay().getNodeCentre (band) == nodeBefore);
+        }
+    }
+};
+
+static PianoToggleTests pianoToggleTests;
 static OutputMeterTests outputMeterTests;
 static UiSizeTests uiSizeTests;
 static WordingAndFontTests wordingAndFontTests;
@@ -4442,7 +4548,7 @@ static int renderScreenshots (const juce::File& folder, float scale)
 {
     folder.createDirectory();
 
-    auto shoot = [&] (int width, int height, const juce::String& name, float uiScale = 1.0f)
+    auto shoot = [&] (int width, int height, const juce::String& name, float uiScale = 1.0f, bool piano = false)
     {
         SongsmithEQAudioProcessor p;
         p.prepareToPlay (48000.0, 512);
@@ -4482,6 +4588,7 @@ static int renderScreenshots (const juce::File& folder, float scale)
         }
 
         p.uiScale = uiScale;
+        p.showPianoStrip.store (piano);
         p.editorWidth = width;
         p.editorHeight = height;
         std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
@@ -4502,6 +4609,8 @@ static int renderScreenshots (const juce::File& folder, float scale)
     SongsmithEQAudioProcessor defaults;
     shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "default-size");
     shoot (EQ::EditorSize::minWidth, EQ::EditorSize::minHeight, "minimum-size");
+    shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "default-size-piano", 1.0f, true);
+    shoot (EQ::EditorSize::minWidth, EQ::EditorSize::minHeight, "minimum-size-piano", 1.0f, true);
     shoot (EQ::EditorSize::maxWidth, 2160, "maximum-size-4k");
 
     // Every interface size at its default window (design size 1280 x 760, scaled).
