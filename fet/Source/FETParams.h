@@ -61,3 +61,22 @@ namespace FET
     }
     inline constexpr int oversamplingDefault = 2;   // 4x: see docs/colour.md "Oversampling"
 }
+
+namespace FET
+{
+    // Interface sizes (editor menu). The editor is drawn in design units and scaled as a whole,
+    // so every option is equally sharp.
+    inline constexpr float uiScales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f };
+    inline constexpr int designWidth = 900, designHeight = 400;
+
+    inline float snapUiScale (float s)
+    {
+        if (! std::isfinite (s))
+            return 1.0f;
+        float best = 1.0f;
+        for (auto option : uiScales)
+            if (std::abs (option - s) < std::abs (best - s))
+                best = option;
+        return best;
+    }
+}

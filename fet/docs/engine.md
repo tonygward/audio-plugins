@@ -102,7 +102,7 @@ One sample lasts 22.7 µs at 44.1 kHz and 20.8 µs at 48 kHz. That is longer tha
 
 ## Metering
 
-The processor exposes the largest GR since the last read (`takeGainReductionDb()`, lock-free). The debug editor shows it with an instant rise and a ~300 ms fall. The step 4 needle meter adds proper VU ballistics.
+The processor exposes the largest GR since the last read (`takeGainReductionDb()`, lock-free). The editor shows it on a needle with VU ballistics, plus a numeric readout (see editor.md).
 
 ## CPU
 

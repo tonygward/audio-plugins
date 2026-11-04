@@ -69,26 +69,53 @@ namespace FET
         if (knob != releaseKnob) { releaseKnob = knob; updateCoefficients(); }
     }
 
+    void Engine::setAllButtons (bool on) noexcept
+    {
+        if (on != allButtons) { allButtons = on; updateCoefficients(); }
+    }
+
     void Engine::updateCoefficients() noexcept
     {
         const auto r = (size_t) ratioIndex;
         k = ratios[r] - 1.0f;
         thresholdDb = thresholdsDb[r];
         kneeDb = kneeWidthsDb[r];
+        const float ratio = allButtons ? abRatio : ratios[r];
+        overSlope = 0.0f;
+        overStartDb = 0.0f;
+        if (allButtons)
+        {
+            k = abRatio - 1.0f;
+            thresholdDb = abThresholdDb;
+            kneeDb = abKneeDb;
+            overSlope = abOverSlope;
+            overStartDb = abOverStartDb;
+        }
 
         // Above the knee the closed loop speeds the capacitor's time constant up by (1 + k) =
         // ratio, so the internal attack constant is scaled by the ratio to make the MEASURED
         // attack match the knob (docs/engine.md "Timing"). Release runs with the detector below
         // threshold, where the loop is open, so it needs no scaling.
-        attackCoeff  = coeffFor (attackSeconds (attackKnob) * ratios[r], fs);
+        attackCoeff  = coeffFor (attackSeconds (attackKnob) * ratio, fs);
         releaseCoeff = coeffFor (releaseSeconds (releaseKnob), fs);
         grOffCoeff   = coeffFor (grOffFadeSeconds, fs);
     }
 
     float Engine::solve (float levelDb, float g0) const noexcept
     {
-        const float target0 = k * knee (levelDb - g0 - thresholdDb, kneeDb);
-        const float a = target0 > g0 ? attackCoeff : releaseCoeff;
+        // All Buttons over-compression: extra GR from the input overshoot (independent of G).
+        const float extra = overSlope * std::max (0.0f, levelDb - thresholdDb - overStartDb);
+        const float target0 = k * knee (levelDb - g0 - thresholdDb, kneeDb) + extra;
+        float a = target0 > g0 ? attackCoeff : releaseCoeff;
+
+        if (allButtons)
+        {
+            // Attack lags while GR is small (transients get through), release speeds up with
+            // depth: the "constant changes in the attack and release times" (UM p. 9).
+            const float mul = target0 > g0 ? 1.0f + abAttackLag * std::exp (-g0 / abAttackLagDb)
+                                           : 1.0f / (1.0f + g0 / abReleaseDb);
+            a = 1.0f - std::pow (1.0f - a, 1.0f / mul);
+        }
 
         // f(G) = G - g0 - a (k knee(L - G - T) - g0) is increasing in G, so the root is unique
         // and lies between g0 and the explicit step g0 + a (target0 - g0).
@@ -99,7 +126,7 @@ namespace FET
         for (int it = 0; it < 8; ++it)
         {
             const float over = levelDb - g - thresholdDb;
-            const float f = g - g0 - a * (k * knee (over, kneeDb) - g0);
+            const float f = g - g0 - a * (k * knee (over, kneeDb) + extra - g0);
             if (std::abs (f) < 1.0e-6f)
                 break;
 
@@ -164,7 +191,8 @@ namespace FET
         for (int it = 0; it < 60; ++it)
         {
             const float mid = 0.5f * (lo + hi);
-            if (mid - k * knee (levelDb - mid - thresholdDb, kneeDb) > 0.0f) hi = mid; else lo = mid;
+            const float extra = overSlope * std::max (0.0f, levelDb - thresholdDb - overStartDb);
+            if (mid - k * knee (levelDb - mid - thresholdDb, kneeDb) - extra > 0.0f) hi = mid; else lo = mid;
         }
         return 0.5f * (lo + hi);
     }
