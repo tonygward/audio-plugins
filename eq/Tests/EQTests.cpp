@@ -4204,7 +4204,88 @@ public:
     }
 };
 
+//==============================================================================
+// Task 27: tall vertical output meter on the right of the graph.
+class OutputMeterTests final : public juce::UnitTest
+{
+public:
+    OutputMeterTests() : juce::UnitTest ("Vertical output meter", "EQ") {}
+
+    void runTest() override
+    {
+        beginTest ("Level to height: -60 dB at the bottom, +6 dB at the top, 0 dB on the scale mark");
+        {
+            OutputMeterDisplay m;
+            m.setSize (OutputMeterDisplay::preferredWidth, 400);
+            const auto bar = m.getBarArea();
+            expectWithinAbsoluteError (m.levelToY (-60.0f), bar.getBottom(), 1.0e-4f);
+            expectWithinAbsoluteError (m.levelToY (6.0f), bar.getY(), 1.0e-4f);
+            expectWithinAbsoluteError (m.levelToY (0.0f), bar.getBottom() - bar.getHeight() * 60.0f / 66.0f, 1.0e-3f);
+            expectWithinAbsoluteError (m.levelToY (-100.0f), bar.getBottom(), 1.0e-4f, "below the range: empty");
+            expectWithinAbsoluteError (m.levelToY (20.0f), bar.getY(), 1.0e-4f, "above the range: full");
+            expectLessThan (m.levelToY (-6.0f), m.levelToY (-12.0f), "fills bottom to top");
+            expect (bar.getBottom() <= (float) m.getHeight() - OutputMeterDisplay::bottomRow + 0.01f,
+                    "the peak number has the frequency-axis row");
+            expect (m.getClipBox().getBottom() < bar.getY(), "clip indicator above the bar");
+            expectEquals ((int) std::size (OutputMeterDisplay::scaleMarks), 6);
+        }
+
+        beginTest ("Clip indicator latches and a click resets it");
+        {
+            OutputMeterDisplay m;
+            m.setSize (OutputMeterDisplay::preferredWidth, 300);
+            m.update (0.1f, false, 0.0, 0.0);
+            expect (! m.isClipped());
+            m.update (1.2f, true, 0.1, 0.1);
+            expect (m.isClipped());
+            expectGreaterThan (m.getHoldDb(), 1.0f);
+            m.update (0.01f, false, 0.2, 0.1);
+            expect (m.isClipped(), "stays lit after the signal drops");
+            expectGreaterThan (m.getHoldDb(), 1.0f, "peak held");
+            m.update (0.01f, false, 5.0, 1.0);
+            expect (m.isClipped(), "still lit seconds later");
+            expectLessThan (m.getHoldDb(), 1.0f, "hold falls after 1.5 s");
+
+            m.mouseDown (UiSizeTests::mouseAt (m, m.getClipBox().getCentre()));
+            expect (! m.isClipped(), "click resets");
+        }
+
+        beginTest ("Ballistics: fast attack, about 24 dB/s fall-off");
+        {
+            OutputMeterDisplay m;
+            m.update (0.5f, false, 0.0, 0.0);
+            expectWithinAbsoluteError (m.getLevelDb(), juce::Decibels::gainToDecibels (0.5f), 0.01f);
+            m.update (0.0f, false, 0.5, 0.5);
+            expectWithinAbsoluteError (m.getLevelDb(), juce::Decibels::gainToDecibels (0.5f) - 12.0f, 0.01f);
+        }
+
+        beginTest ("Meter sits right of the graph, full height, at the minimum, default and largest sizes");
+        {
+            using namespace EQ::EditorSize;
+            struct Case { float scale; int w, h; };
+            for (auto c : { Case { 1.0f, minWidth, minHeight }, Case { 1.0f, defaultWidth, defaultHeight },
+                            Case { 1.0f, maxWidth, 2160 }, Case { 2.0f, minWidth * 2, minHeight * 2 },
+                            Case { 0.75f, juce::roundToInt (defaultWidth * 0.75f), juce::roundToInt (defaultHeight * 0.75f) } })
+            {
+                SongsmithEQAudioProcessor p;
+                auto ed = UiSizeTests::makeEditor (p, c.scale, c.w, c.h);
+                const auto context = juce::String (c.w) + " x " + juce::String (c.h) + " at " + juce::String (c.scale);
+                const auto meter = ed->getOutputMeter().getBounds();
+                const auto graph = ed->getDisplay().getBounds();
+                expect (meter.getX() >= graph.getRight(), context + ": meter right of the graph");
+                expect (! meter.intersects (graph), context + ": no overlap with the graph");
+                expectEquals (meter.getY(), graph.getY(), context + ": same top as the graph");
+                expectEquals (meter.getBottom(), graph.getBottom(), context + ": same bottom as the graph");
+                expectEquals (meter.getWidth(), OutputMeterDisplay::preferredWidth);
+                expect (ed->getContent().getLocalBounds().contains (meter), context + ": inside the editor");
+                WordingAndFontTests::checkLayout (*this, *ed, context);
+            }
+        }
+    }
+};
+
 static EdgeClickTests edgeClickTests;
+static OutputMeterTests outputMeterTests;
 static UiSizeTests uiSizeTests;
 static WordingAndFontTests wordingAndFontTests;
 static RenameTests renameTests;
@@ -4491,6 +4572,22 @@ static int renderScreenshots (const juce::File& folder, float scale)
         p.edits.setDynamic (dyn, true);
         p.edits.setValue (dyn, Param::Range, -4.0f);
         add (FilterType::HighShelf, 10000.0f, 1.5f, 0.71f);
+
+        // A 1 kHz tone at about -8 dBFS, so the output meter shows a level.
+        {
+            juce::AudioBuffer<float> buffer (2, 512);
+            juce::MidiBuffer midi;
+            for (int block = 0; block < 8; ++block)
+            {
+                for (int i = 0; i < 512; ++i)
+                {
+                    const float v = 0.4f * std::sin (juce::MathConstants<float>::twoPi * 1000.0f * (float) (block * 512 + i) / 48000.0f);
+                    buffer.setSample (0, i, v);
+                    buffer.setSample (1, i, v);
+                }
+                p.processBlock (buffer, midi);
+            }
+        }
 
         p.uiScale = uiScale;
         p.editorWidth = width;
