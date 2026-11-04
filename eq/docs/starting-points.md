@@ -132,3 +132,78 @@ This template is Tony's own Pro-Q 4 preset, *Abbey Road Reverb Trick* (`Document
 - **Joe on "Abbey Road":** the transcripts mention it only as a big drum room (*2019-01-22, My Favorite Reverb, 2:38*), not this EQ trick.
 - **The name:** it names a well-known technique. It doesn't claim any connection with the studio.
 - **Cut first:** boosts 0.95 dB against a 3 dB cut, so the template passes "boosts ≤ cuts" without an exception.
+
+## Tom presets (task 31)
+
+These are **Tony's own settings** from his 2021 album *Between You and Me*, not Joe Gilder's advice, so they're allowed to boost more than the other templates. `mixing/between-you-and-me.md` ("Lessons", 5) says saved chains for vocals, backing vocals, toms and cymbals kept the album consistent. All line numbers are in `music-recording/fx-chains/songs/tony-ward.md`.
+
+**The EQ alone won't recreate the album sound.** The tom chains also had the SSL's compressor and gate (ratio 3–10:1, gate range 40 dB), Neutron 3's compressor and transient shaper, and L1+ limiters. Those are out of scope here.
+
+**Translating the Waves SSL E-Channel.** Each SSL band becomes one Songsmith EQ band:
+
+| SSL band | Model |
+|---|---|
+| High-pass | 18 dB/oct (Waves manual) → Low Cut, 18 dB/oct, Q 0.707 |
+| LF, LF Type On | Bell, Q 0.7 (assumed) |
+| LF, no Type | Low Shelf, Q 0.707 |
+| LMF / HMF | Bell at the saved Q; HMF Q 1.0 (assumed, see below) |
+| HF, HF Type On | Bell, Q 0.7 (assumed) |
+| HF, no Type | High Shelf, Q 0.707 |
+
+- **What isn't saved or documented:** the E-Channel's LF and HF bell Q is fixed and isn't in its saved state. The HMF Q wasn't saved either (its range is 0.1–3.5). The Waves manual excerpts found don't give these numbers, and no measured curve was available. So the bell Qs are assumptions: Q 0.7 for the broad LF/HF bells, and Q 1.0 for the HMF. With one band per SSL band, the summed curve matches the SSL **under those assumptions**. It hasn't been checked against a measured SSL curve.
+- **What would change most if the assumptions are wrong:**
+  - the width of the 163 Hz and 10.3 kHz bells;
+  - the 4.07 kHz band's width (±1 to 2 dB at 2 and 8 kHz if the real Q is 0.7 or 1.5).
+
+### Rack tom (index 22)
+
+| Band | Setting | Source |
+|---|---|---|
+| Low Cut 162 Hz, 18 dB/oct | SSL HP Frq 162 Hz | lines 1114, 1123, 2295, 2315 |
+| Bell 163 Hz +4.6 dB, Q 0.7 | LF Gain 4.6 dB, LF Frq 163 Hz, LF Type On | same |
+| Bell 670 Hz −11.9 dB, Q 1.7 | LMF Gain −11.9 dB, 0.67 kHz, Q 1.70 | same |
+| Bell 4.07 kHz +5.9 dB, Q 1.0 | HMF Gain 5.9 dB, 4.07 kHz (Q not saved) | same |
+| Bell 10.32 kHz +3.3 dB, Q 0.7 | HF Type On, 10.32 kHz | 2295, 2315 (+3.3); 1123 (+3.0); 1114 (+4.3) |
+
+- **HF gain:** +3.3 dB. It's the median of the four occurrences (+4.3, +3.0, +3.3, +3.3). The *You Want More* tracks are from the 2023 remix, but the High Tom and Toms bus in *Gone from Here* (album-era) have the same EQ, so the shape is the album's.
+- **The resonant bump:** the 162 Hz high-pass with a +4.6 dB bell at 163 Hz makes a bump right at the cut. It's kept because it's on the album. Decide whether you want it on new songs. Lowering the bell, or moving the cut down to about 100 Hz, removes it.
+- **Output gain:** −2.6 dB (pink noise, K-weighted).
+- **Cut first:** it boosts more than it cuts (+13.8 dB against −11.9 dB). It's a commented exception in the test.
+
+### Floor tom (index 23)
+
+| Band | Setting | Source |
+|---|---|---|
+| Low Shelf 122 Hz +7.8 dB | LF Gain 7.8 dB, 122 Hz, no LF Type (shelf) | lines 2147, 2304 |
+| Bell 930 Hz −6.6 dB, Q 1.7 | LMF −6.6 dB, 0.93 kHz, Q 1.70 | same |
+| Bell 4.07 kHz +5.9 dB, Q 1.0 | HMF 5.9 dB, 4.07 kHz | same |
+| High Shelf 10.32 kHz +6.8 dB | HF Gain 6.8 dB, 10.32 kHz, no HF Type (shelf) | line 2147 (*Yesterday's Toy*) |
+
+- **Why *Yesterday's Toy*:** its file is album-era. *You Want More* (line 2304) is the 2023 remix, and there the HF is a +1.6 dB **bell** (`HF Type On`), not a shelf.
+- **High-pass:** *Yesterday's Toy* has HP Frq 18 Hz. That's below Songsmith EQ's 20 Hz minimum and inaudible, so it's left out.
+- **Output gain:** −4.0 dB.
+- **Cut first:** it boosts more than it cuts (+20.5 dB against −6.6 dB). It's a commented exception in the test.
+
+### Toms bus (index 24)
+
+The Neutron 3 Equalizer on the Toms bus has the same shape in four songs. Each value is the median of the four:
+
+| Band | Ethereal Engagement (985) | Gone from Here (1122) | Nothing Left To Give (1864) | You Want More (2322) | Preset |
+|---|---|---|---|---|---|
+| High-pass (Flat Highpass) | 68.6 Hz | 68.6 Hz | 31.9 Hz | 41.5 Hz | Low Cut **55 Hz**, 48 dB/oct |
+| Low cut-down | 130 Hz −4.34, Q 4.92 | 149 Hz −7.08, Q 3.63 | 89 Hz −5.00 (Band Shelf) | 108 Hz −4.53, Q 2.69 (Band Shelf) | Bell **119 Hz −4.8 dB, Q 2.0** |
+| 317 Hz cut | −8.02 | −8.02 | — | — | Bell 317 Hz −8 dB, Q 1.4, **off** |
+| Low-pass (Flat Lowpass) | 10.95 kHz | 10.95 kHz | 10.45 kHz | 10.13 kHz | High Cut **10.7 kHz**, 24 dB/oct |
+
+- **Q:** the median Q of the bells is 3.6, but two of the four songs use Neutron's "Band Shelf" (a flat-topped band, effectively wider). So Q 2.0 stands for the broad cut the prompt describes.
+- **Slopes:** Neutron's Q 40 on the Flat Highpass is the maximum (steepest), so the low cut is 48 dB/oct, Songsmith EQ's steepest. The low-pass Q 19.8–27 is about half way, so the high cut is 24 dB/oct. These are interpretations, not measurements.
+- **The 317 Hz cut:** it's on in only two of the four songs, so it's loaded off ("only if needed"). The Q is an assumption, since Neutron's default bell Q wasn't saved.
+- **Left out:** the small +2.6 dB band at 89 Hz (Ethereal Engagement, Gone from Here) and the +3 dB band at 1.45 kHz (Gone from Here only) aren't common to the songs.
+- **Output gain:** +1.4 dB.
+- **Gentler versions of the same idea:**
+  - *Anguish* (lines 643–644, Mid and High Tom): −3.3 dB band shelf at 299 Hz, +2.45 dB at 136 Hz and 1.9 kHz, high-pass 45 Hz, low-pass 13.6 kHz.
+  - *Escape Hatch* (lines 793–794, Toms bus): −2.9 dB at 117 Hz, −5.75 dB at 734 Hz, +3.7 dB at 3 kHz; SSL HP 50 Hz.
+  - Both are the same idea in a gentler form: a high-pass, a low-mid cut-down and a presence lift. They aren't separate presets.
+- **The saved chains:** the saved "Toms" chain in `fx-chains/saved-chains.md` (line 303) has no EQ (EKramer DR → L1+). The per-song chains carry the EQ.
+
+**Compared with Tony's later Pro-Q 4 tom presets** (*Drums - Floor Tom*, *Drums - Mid Tom*, Jan 2025): not done. The `.ffp` files are OneDrive cloud-only placeholders that couldn't be opened here, and they aren't decoded in the catalogue.

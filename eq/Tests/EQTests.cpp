@@ -3169,7 +3169,7 @@ public:
 
         beginTest ("The starting points are listed after the original factory presets");
         {
-            expectEquals ((int) list.size(), 14);
+            expectEquals ((int) list.size(), 17);
             const int firstTemplate = list.empty() ? 0 : list.front();
             expectEquals (firstTemplate, 8, "the 8 original presets keep their indices");
             for (size_t k = 0; k < list.size(); ++k)
@@ -3270,6 +3270,11 @@ public:
             {
                 const auto presetName = PresetManager::getFactoryName (i);
                 if (presetName == "Electric guitar bus")   // deliberate exception: the 360 Hz warmth boost is the move
+                    continue;
+                // Task 31 exceptions: Tony's own album tom EQ, copied as is rather than changed to fit the rule.
+                // Rack tom: +4.6/+5.9/+3.3 against -11.9 (SSL E-Channel, tony-ward.md lines 1114, 2295, 2315).
+                // Floor tom: +7.8/+5.9/+6.8 against -6.6 (Yesterday's Toy, tony-ward.md line 2147).
+                if (presetName == "Rack tom" || presetName == "Floor tom")
                     continue;
 
                 const auto d = PresetManager::getFactoryPreset (i);
@@ -3400,8 +3405,8 @@ public:
             const char* names[] = { "Flat", nullptr, nullptr, nullptr, nullptr, nullptr, "Bright acoustic", nullptr,
                                     nullptr, nullptr, nullptr, "Acoustic guitar", nullptr, nullptr, nullptr, nullptr,
                                     nullptr, nullptr, nullptr, "Acoustic guitar in a full mix", "Acoustic guitar pickup",
-                                    "Abbey Road reverb" };
-            expectGreaterOrEqual (PresetManager::getNumFactoryPresets(), 22);
+                                    "Abbey Road reverb", "Rack tom", "Floor tom", "Toms bus" };
+            expectGreaterOrEqual (PresetManager::getNumFactoryPresets(), 25);
             for (int i = 0; i < (int) std::size (names); ++i)
                 if (names[i] != nullptr)
                     expectEquals (PresetManager::getFactoryName (i), juce::String (names[i]), "index " + juce::String (i));
@@ -3446,6 +3451,61 @@ public:
                 expectEquals ((int) p.getBandValue (b, Param::Type), (int) expected[b].type);
                 expectWithinAbsoluteError (p.getBandValue (b, Param::Freq), expected[b].freq, expected[b].freq * 0.01f);
             }
+        }
+
+        beginTest ("Tom presets: Tony's album settings, band for band");
+        {
+            struct Expected { FilterType type; float freq, gain, q; bool enabled; int slope; };
+            auto checkPreset = [this] (int index, const char* presetLabel, std::initializer_list<Expected> bands)
+            {
+                expectEquals (PresetManager::getFactoryName (index), juce::String (presetLabel));
+                expect (PresetManager::isStartingPoint (index));
+                expectEquals (PresetManager::getFactoryUsedBands (index), (int) bands.size(), presetLabel);
+                const auto d = PresetManager::getFactoryPreset (index);
+                int b = 0;
+                for (const auto& e : bands)
+                {
+                    const auto& s = d.bands[(size_t) b];
+                    const auto what = juce::String (presetLabel) + " band " + juce::String (b + 1);
+                    expect (s.used && ! s.dynOn, what + " used, not dynamic");
+                    expect (s.enabled == e.enabled, what + (e.enabled ? " on" : " off"));
+                    expect (s.type == (int) e.type, what + " type");
+                    expectWithinAbsoluteError (s.freq, e.freq, e.freq * 0.01f, what + " frequency within 1 %");
+                    expectWithinAbsoluteError (s.gain, e.gain, 0.1f, what + " gain within 0.1 dB");
+                    expectWithinAbsoluteError (s.q, e.q, 0.01f, what + " Q");
+                    if (typeHasSlope (e.type))
+                        expectEquals (s.slope, e.slope, what + " slope");
+                    ++b;
+                }
+
+                for (double fs : { 44100.0, 48000.0, 96000.0 })
+                {
+                    SongsmithEQAudioProcessor p;
+                    juce::String error;
+                    expect (p.presets.load ({ presetLabel, index, {} }, error), error);
+                    p.prepareToPlay (fs, block);
+                    AutoGainTests::Pink pink;
+                    bool finite = true;
+                    for (float v : runProcessor (p, fs, block, (int) fs, [&] (int) { return pink.next() * 4.0f; }, [] (int) {}))
+                        finite = finite && std::isfinite (v);
+                    expect (finite, juce::String (presetLabel) + " finite at " + juce::String (fs));
+                }
+            };
+
+            using T = FilterType;
+            checkPreset (22, "Rack tom", { { T::LowCut, 162.0f, 0.0f, defaultQ, true, 2 },   // SSL high-pass, 18 dB/oct
+                                           { T::Bell, 163.0f, 4.6f, 0.7f, true, 1 },
+                                           { T::Bell, 670.0f, -11.9f, 1.7f, true, 1 },
+                                           { T::Bell, 4070.0f, 5.9f, 1.0f, true, 1 },
+                                           { T::Bell, 10320.0f, 3.3f, 0.7f, true, 1 } });
+            checkPreset (23, "Floor tom", { { T::LowShelf, 122.0f, 7.8f, defaultQ, true, 1 },
+                                            { T::Bell, 930.0f, -6.6f, 1.7f, true, 1 },
+                                            { T::Bell, 4070.0f, 5.9f, 1.0f, true, 1 },
+                                            { T::HighShelf, 10320.0f, 6.8f, defaultQ, true, 1 } });
+            checkPreset (24, "Toms bus", { { T::LowCut, 55.0f, 0.0f, defaultQ, true, 5 },
+                                           { T::Bell, 119.0f, -4.8f, 2.0f, true, 1 },
+                                           { T::Bell, 317.0f, -8.0f, 1.4f, false, 1 },
+                                           { T::HighCut, 10700.0f, 0.0f, defaultQ, true, 3 } });
         }
     }
 };

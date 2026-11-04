@@ -152,6 +152,32 @@ namespace EQ
                                          { T::Bell,    10094.0f,  0.41f, 2.158f },
                                          { T::Bell,    2000.0f,  -3.0f,  3.016f } },
                   1.6f, "Put this before the reverb. Raise the low cut towards 600 Hz for a cleaner, thinner tail.", true },
+
+                // ---- Task 31; append only ----
+                // Tony's own tom EQ from *Between You and Me* (music-recording/fx-chains/songs/tony-ward.md), not
+                // Joe Gilder's advice, so these boost more than the other templates. Waves SSL E-Channel bands
+                // modelled one for one: 18 dB/oct high-pass; LF/HF "Type On" = bell, else shelf. Bell Qs the
+                // E-Channel doesn't save are assumptions (LF/HF bell 0.7, HMF 1.0); see docs/starting-points.md.
+                // Rack tom: Gone from Here High Tom (line 1114), You Want More Mid/High Tom (2295, 2315).
+                { "Rack tom", { { T::LowCut,  162.0f,    0.0f, defaultQ, 2 },
+                                { T::Bell,    163.0f,    4.6f, 0.7f },
+                                { T::Bell,    670.0f,  -11.9f, 1.7f },
+                                { T::Bell,    4070.0f,   5.9f, 1.0f },
+                                { T::Bell,    10320.0f,  3.3f, 0.7f } },
+                  -2.6f, "Tony's rack-tom EQ from Between You and Me. Lower the 670 Hz cut if the tom sounds hollow.", true },
+                // Floor tom: Yesterday's Toy Floor Tom (line 2147), the album-era file; You Want More (2304) is a 2023 remix.
+                { "Floor tom", { { T::LowShelf,  122.0f,    7.8f, defaultQ },
+                                 { T::Bell,      930.0f,   -6.6f, 1.7f },
+                                 { T::Bell,      4070.0f,   5.9f, 1.0f },
+                                 { T::HighShelf, 10320.0f,  6.8f, defaultQ } },
+                  -4.0f, "Tony's floor-tom EQ from Between You and Me. Ease the 10 kHz shelf if the cymbals get harsh.", true },
+                // Toms bus: Neutron 3 Equalizer, median of Ethereal Engagement (985), Gone from Here (1122),
+                // Nothing Left To Give (1864) and You Want More (2322). The 317 Hz cut is in two of the four.
+                { "Toms bus", { { T::LowCut,   55.0f,    0.0f, defaultQ, 5 },
+                                { T::Bell,     119.0f,  -4.8f, 2.0f },
+                                off ({ T::Bell, 317.0f, -8.0f, 1.4f }),
+                                { T::HighCut,  10700.0f, 0.0f, defaultQ, 3 } },
+                  1.4f, "Tony's toms-bus EQ from the album. The 317 Hz cut is off: turn it on for a tighter bus.", true },
             };
             return presets;
         }
