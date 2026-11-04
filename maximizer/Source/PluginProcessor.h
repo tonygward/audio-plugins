@@ -3,13 +3,16 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "MaxParams.h"
 #include "BrickwallLimiter.h"
+#include "Dither.h"
+#include "EditorLogic.h"
 
 class SongsmithMaximiserAudioProcessor : public juce::AudioProcessor
 {
 public:
     // Saved-state format. 1 = threshold, ceiling, release, bypass. 2 = adds peak_mode, auto_release.
+    // 3 = adds dither and the UI child (link, editor width).
     // Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 2;
+    static constexpr int stateVersion = 3;
 
     SongsmithMaximiserAudioProcessor();
     ~SongsmithMaximiserAudioProcessor() override = default;
@@ -53,8 +56,13 @@ public:
     bool isBypassed() const noexcept      { return bypassParam->get(); }
     bool isTruePeak() const noexcept      { return peakModeParam->getIndex() == 1; }
     bool isAutoRelease() const noexcept   { return autoReleaseParam->get(); }
+    Max::Dither::Depth getDitherDepth() const noexcept { return (Max::Dither::Depth) juce::jlimit (0, 2, ditherParam->getIndex()); }
 
     juce::AudioProcessorValueTreeState apvts;
+
+    // UI state, saved with the session (not automatable).
+    std::atomic<bool> linkThresholdCeiling { false };
+    std::atomic<int> editorWidth { Max::EditorLayout::defaultWidth };
 
     // The versioned state tree (parameters + version). Used by sessions and the tests.
     juce::ValueTree createState();
@@ -78,6 +86,9 @@ private:
     juce::AudioParameterBool* bypassParam = nullptr;
     juce::AudioParameterChoice* peakModeParam = nullptr;
     juce::AudioParameterBool* autoReleaseParam = nullptr;
+    juce::AudioParameterChoice* ditherParam = nullptr;
+
+    Max::Dither dither;
 
     // Bypass: a short linear cross-fade between the processed and the dry signal.
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix { 0.0f };   // 1 = fully bypassed

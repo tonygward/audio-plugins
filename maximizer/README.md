@@ -58,3 +58,18 @@ New parameters (ID version 2; state version 2): `peak_mode` (Sample peak / True 
   | Auto (Release 1 ms) | 3.0 % | 0.26 dB | 4.4 ms | ~50–120 ns/sample |
 
   Timings are from a Windows dev machine and vary between runs. True-peak mode costs about 290 ns per stereo sample. Tested in "Auto release vs manual".
+
+## Editor and dither (step 04)
+
+- **Editor:** a vector UI laid out at 720 × 420 and scaled as a whole. The window resizes from 75 % to 300 % at a fixed aspect ratio, and its size is saved with the session. It reuses Songsmith EQ's palette, its embedded Inter font (copied into `Resources/Fonts`, SIL OFL) and its arc-knob drawing. Controls: Threshold and Out Ceiling faders, **Link**, Release with **Auto Release**, **Peak** (sample / true peak), **Dither**, Bypass, and the In, Atten (gain reduction, 0–24 dB, filling downwards like the L1's) and Out meters. `MaximizerTests --screenshot file.png [--scale 2]` renders it.
+- **Link (design choice):** with Link on, moving Threshold or Out Ceiling moves the other by the same amount, so C − T (the gain below threshold) stays exactly the same. The movement stops where either control would leave its range (the common movement range); C − T is never squashed. Link only follows the user's own moves. Host automation of one parameter never drags the other, which is why the two faders are driven by hand rather than by parameter attachments. Link is saved with the session (UI state, not automatable). Tested in "Linked move…" and "Link follows the user, not host automation".
+- **Meter ballistics:** these live in the editor only (`Max::MeterBallistics`: instant rise, 20 dB/s fall, 1.5 s peak hold). The audio thread only publishes raw block peaks and the deepest gain reduction. Tested in "Meter ballistics", plus a check that the audio is identical with and without an editor open.
+- **Dither (design choice; the legacy IDR controls were only a workflow reference):** new parameter `dither` (Off / 16-bit / 24-bit, ID version 3, state version 3, default Off).
+  - The last stage before the bypass mix applies TPDF dither (±1 LSB), rounds to the target bit depth and clamps to the largest code.
+  - Each channel has its own xorshift generator, seeded differently, so the noise floor is uncorrelated between channels.
+  - There is **no noise shaping**: none was added, because it couldn't be specified and tested independently in this step.
+  - Bypass passes the undithered dry signal.
+- **Dither headroom:** while dither is on, the limiter's ceiling is lowered by 1.5 LSB: 4.6e-5 at 16 bits (0.0004 dB at −1 dBFS) and 1.8e-7 at 24 bits. Since |dither| < 1 LSB and rounding adds at most ½ LSB, the quantised sample peak never exceeds Out Ceiling. In true-peak mode, the true peak after quantisation can additionally exceed the ceiling by at most 1.5 LSB, on top of the true-peak tolerance.
+  - Tested in "Ceiling holds after quantisation": every sample lands on the 16/24-bit grid and stays ≤ the ceiling.
+  - Tested in "TPDF noise": the noise power is q²/4, the spectrum stays within 0.1 dB across 8 bands, and the L/R and lag-1 correlations are < 0.02.
+  - Tested in "Bypass skips dither…": state recall, and version-2 sessions load with dither off.

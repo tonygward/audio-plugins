@@ -17,6 +17,17 @@ set(MAX_SOURCES
     Source/PluginEditor.cpp
     Source/BrickwallLimiter.cpp)
 
+# Embedded UI font: Inter (SIL Open Font License 1.1, see Resources/Fonts/OFL.txt), the same as
+# Songsmith EQ. Header MaxBinaryData.h, namespace MaxBinaryData.
+juce_add_binary_data(SongsmithMaximiserFonts
+    HEADER_NAME MaxBinaryData.h
+    NAMESPACE   MaxBinaryData
+    SOURCES
+        Resources/Fonts/Inter-Regular.ttf
+        Resources/Fonts/Inter-Medium.ttf
+        Resources/Fonts/Inter-SemiBold.ttf)
+set_target_properties(SongsmithMaximiserFonts PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 set(MAX_DEFINITIONS
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
@@ -66,6 +77,7 @@ target_compile_definitions(SongsmithMaximiser PUBLIC ${MAX_DEFINITIONS})
 
 target_link_libraries(SongsmithMaximiser
     PRIVATE
+        SongsmithMaximiserFonts
         juce::juce_audio_utils
         juce::juce_audio_processors
         juce::juce_dsp
@@ -91,6 +103,7 @@ if(MAX_BUILD_TESTS)
 
     target_link_libraries(MaximizerTests
         PRIVATE
+            SongsmithMaximiserFonts
             juce::juce_audio_utils
             juce::juce_audio_processors
             juce::juce_dsp

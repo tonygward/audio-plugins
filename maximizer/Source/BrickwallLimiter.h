@@ -71,6 +71,8 @@ namespace Max
         void setReleaseMs (float ms) noexcept;
         void setTruePeak (bool on) noexcept    { truePeak = on; }
         void setAutoRelease (bool on) noexcept { autoRelease = on; }
+        // Linear amount taken off the ceiling (dither headroom, see Dither.h). 0 when dither is off.
+        void setCeilingHeadroom (float linear) noexcept { headroom = juce::jmax (0.0f, linear); }
         bool isTruePeak() const noexcept       { return truePeak; }
         bool isAutoRelease() const noexcept    { return autoRelease; }
 
@@ -117,6 +119,7 @@ namespace Max
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> baseline { 1.0f };
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> ceiling { 1.0f };
         float thresholdDb = 0.0f, ceilingDb = 0.0f;
+        float headroom = 0.0f;
 
         float minGain = 1.0f, lastGain = 1.0f;
 
