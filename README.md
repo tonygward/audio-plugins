@@ -27,7 +27,7 @@ The plugins work in compatible recording software through VST3 (and Audio Units 
 ## Want to know more?
 
 - [Technical guide, installation details and troubleshooting](TECHNICAL.md)
-- [Product roadmap](docs/product-roadmap.md)
+- [Product roadmap](eq/ROADMAP.md)
 - [Songsmith EQ details](eq/README.md)
 - [Analog Compressor details](fet/README.md)
 - [Maximiser details](maximizer/README.md)
