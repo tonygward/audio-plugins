@@ -9,7 +9,7 @@ An original vector editor. Its control layout is informed by the hardware's fron
 - **GR Off** and **Bypass** under the meter;
 - **Oversampling** and **Size** in the top bar.
 
-It uses the same embedded Inter fonts as Songsmith EQ. The files are built from `eq/Resources/Fonts`, under the SIL OFL 1.1.
+It uses the same embedded Inter fonts, type sizes and title as every Songsmith plugin, from the shared UI library in `shared/` (fonts in `shared/Resources/Fonts`, SIL OFL 1.1). See `docs/style-guide.md`.
 
 ## Scaling
 

@@ -9,6 +9,12 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 | **Songsmith EQ**: parametric EQ with a spectrum analyser | [`eq/`](eq/) | VST3, AU (macOS), Standalone |
 | **Songsmith Analog Compressor** (v0.1, not yet released): FET feedback compressor inspired by the 1176LN, see [`fet/README.md`](fet/README.md) | [`fet/`](fet/) | VST3, AU (macOS), Standalone |
 
+Every plugin shares one look: the same typeface, type sizes and title, from the shared UI library in [`shared/`](shared/). See the [style guide](docs/style-guide.md).
+
+### Fonts
+
+Every editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold, v4.1) by The Inter Project Authors, embedded in the plugin so Windows and macOS look the same. One copy of the font files is kept in [`shared/Resources/Fonts`](shared/Resources/Fonts). Inter is licensed under the SIL Open Font License 1.1; the licence is in [`shared/Resources/Fonts/OFL.txt`](shared/Resources/Fonts/OFL.txt).
+
 ---
 
 ## Songsmith EQ
@@ -245,9 +251,3 @@ It asks for your password, removes `Songsmith EQ.vst3`, `Songsmith EQ.component`
 - **The DAW doesn't see the plugin:** check the install path, then force a full rescan in the DAW.
 - **CMake can't find JUCE:** check that `-DJUCE_DIR` points at the folder that contains JUCE's own `CMakeLists.txt`. If you change it, delete the `build` folder and configure again.
 - **The install script says the plugin is in use:** close the DAW and run it again.
-
----
-
-### Fonts
-
-The editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold, v4.1) by The Inter Project Authors, embedded in the plugin so Windows and macOS look the same. Inter is licensed under the SIL Open Font License 1.1; the licence is in [`eq/Resources/Fonts/OFL.txt`](eq/Resources/Fonts/OFL.txt).
