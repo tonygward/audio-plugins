@@ -141,7 +141,7 @@ public:
         }
 
         // Scale: ticks and labels to the right of the bar. Labels that would overlap are dropped.
-        const auto font = juce::Font (EQColours::numbers (EQColours::TextSize::gridLabel));
+        const auto font = juce::Font (EQColours::numbers (EQColours::Type::caption));
         g.setFont (font);
         const float labelX = r.getRight() + 4.0f, labelW = (float) getWidth() - labelX;
         float lastBottom = -1000.0f;

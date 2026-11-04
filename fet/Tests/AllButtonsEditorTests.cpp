@@ -8,6 +8,7 @@
 #include "FETEngine.h"
 #include "EngineMeasure.h"
 #include "ColourMeasure.h"
+#include "../../shared/Tests/SongsmithUITests.h"
 
 using namespace FET;
 using namespace FET::UI;
@@ -273,6 +274,13 @@ struct EditorTests4 final : juce::UnitTest
 
     void runTest() override
     {
+        beginTest ("Editor text uses the shared typeface and type scale");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+            Songsmith::UI::Testing::checkEditorFonts (*this, *editor, "Analog Compressor editor");
+        }
+
         beginTest ("100 %, 150 % and 200 % layouts keep the design proportions");
         for (float s : { 1.0f, 1.5f, 2.0f })
         {
@@ -393,3 +401,4 @@ struct EditorTests4 final : juce::UnitTest
 static AllButtonsTests allButtonsTests;
 static MeterTests meterTests;
 static EditorTests4 editorTests4;
+static SongsmithUITests sharedUITests { "FET" };

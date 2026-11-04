@@ -103,7 +103,7 @@ namespace FET::UI
             g.setColour (Colours::meterRed);
             g.strokePath (red, juce::PathStrokeType (3.0f));
 
-            g.setFont (numbers (11.0f, Weight::Medium));
+            g.setFont (numbers (Type::caption, Weight::Medium));
             for (float vu : { -20.0f, -10.0f, -7.0f, -5.0f, -3.0f, -2.0f, -1.0f, 0.0f, 1.0f, 2.0f, 3.0f })
             {
                 const float a = angleFor (vu);
@@ -120,7 +120,7 @@ namespace FET::UI
             }
 
             g.setColour (Colours::meterInk.withAlpha (0.8f));
-            g.setFont (font (12.0f, Weight::SemiBold));
+            g.setFont (font (Type::hint, Weight::SemiBold));
             g.drawText (modeLabel, face.withTrimmedTop (face.getHeight() * 0.48f).withHeight (16.0f), juce::Justification::centred);
 
             // Needle, clipped to the face.

@@ -71,10 +71,10 @@ void FETKnob::paint (juce::Graphics& g)
 {
     auto r = getLocalBounds().toFloat();
     g.setColour (Colours::text);
-    g.setFont (font (14.0f, Weight::SemiBold));
+    g.setFont (font (Type::heading, Weight::SemiBold));
     g.drawText (name, r.removeFromTop (20.0f), juce::Justification::centred);
 
-    g.setFont (numbers (13.0f));
+    g.setFont (numbers (Type::control));
     g.drawText (getValueText(), r.removeFromBottom (20.0f), juce::Justification::centred);
 
     // Printed scale around the knob.
@@ -83,7 +83,7 @@ void FETKnob::paint (juce::Graphics& g)
     const float radius = sb.getWidth() * 0.5f;
     const auto params = slider.getRotaryParameters();
     const auto range = slider.getNormalisableRange();
-    g.setFont (numbers (11.0f, Weight::Medium));
+    g.setFont (numbers (Type::caption, Weight::Medium));
     for (const auto& [value, label] : marks)
     {
         const float pos = (float) range.convertTo0to1 (value);
@@ -250,12 +250,8 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
     // Title bar.
     g.setColour (Colours::recess.withAlpha (0.6f));
     g.fillRect (r.withHeight (52.0f));
-    g.setColour (Colours::text);
-    g.setFont (font (18.0f, Weight::SemiBold));
-    g.drawText ("Songsmith", juce::Rectangle<float> (24.0f, 10.0f, 110.0f, 32.0f), juce::Justification::centredLeft);
-    g.setColour (Colours::accent);
-    g.setFont (font (18.0f, Weight::Regular));
-    g.drawText ("Analog Compressor", juce::Rectangle<float> (128.0f, 10.0f, 260.0f, 32.0f), juce::Justification::centredLeft);
+    Songsmith::UI::drawTitle (g, { Songsmith::UI::titleInset, 0.0f, 360.0f, Songsmith::UI::titleBarHeight },
+                              JucePlugin_Name, Colours::text, Colours::accent);
 
     // Section rules and captions.
     g.setColour (Colours::panelLight.brighter (0.1f));
@@ -263,13 +259,13 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
         g.drawLine (x, 70.0f, x, 340.0f, 1.0f);
 
     g.setColour (Colours::textDim);
-    g.setFont (font (12.0f, Weight::Medium));
+    g.setFont (font (Type::heading, Weight::Medium));
     g.drawText ("Ratio", juce::Rectangle<float> ((float) ratioArea.getX(), 52.0f, (float) ratioArea.getWidth(), 18.0f), juce::Justification::centred);
     g.drawText ("Meter", juce::Rectangle<float> ((float) meterModes.getX(), 52.0f, (float) meterModes.getWidth(), 18.0f), juce::Justification::centred);
 
     // Numeric GR under the needle (the needle has VU ballistics; this shows the value).
     g.setColour (Colours::text);
-    g.setFont (numbers (14.0f, Weight::Medium));
+    g.setFont (numbers (Type::heading, Weight::Medium));
     g.drawText ("GR " + juce::String (-grDisplayDb, 1) + " dB",
                 juce::Rectangle<float> ((float) meterArea.getX(), (float) meterArea.getBottom() + 10.0f, (float) meterArea.getWidth(), 20.0f),
                 juce::Justification::centred);
@@ -277,14 +273,14 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
     if (allButtonsOn)
     {
         g.setColour (Colours::accent);
-        g.setFont (font (12.0f, Weight::SemiBold));
+        g.setFont (font (Type::hint, Weight::SemiBold));
         g.drawText ("All Buttons", juce::Rectangle<float> ((float) meterArea.getX(), (float) meterArea.getBottom() + 30.0f, (float) meterArea.getWidth(), 16.0f),
                     juce::Justification::centred);
     }
 
     // The listening cue of the loaded starting point.
     g.setColour (Colours::textDim);
-    g.setFont (font (12.5f));
+    g.setFont (font (Type::hint));
     const auto hint = proc.presets.currentHint.isNotEmpty() ? proc.presets.currentHint
                                                              : juce::String ("Double-click a knob for its default.");
     g.drawFittedText (hint, juce::Rectangle<int> (24, 356, 852, 36), juce::Justification::centredLeft, 2);

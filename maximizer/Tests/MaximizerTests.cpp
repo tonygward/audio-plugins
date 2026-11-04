@@ -6,6 +6,7 @@
 #include <random>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "../../shared/Tests/SongsmithUITests.h"
 #include "MaxParams.h"
 
 namespace
@@ -1125,6 +1126,13 @@ public:
 
     void runTest() override
     {
+        beginTest ("Editor text uses the shared typeface and type scale");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+            Songsmith::UI::Testing::checkEditorFonts (*this, *editor, "Maximiser editor");
+        }
+
         beginTest ("Linked move keeps C - T within the common range");
         {
             auto m = Max::moveLinked (-6.0f, -1.0f, -12.0f, true);
@@ -1468,6 +1476,8 @@ static StartingPointTests startingPointTests;
 static StressTests stressTests;
 
 //==============================================================================
+static SongsmithUITests sharedUITests { "Maximiser" };
+
 struct ConsoleRunner final : juce::UnitTestRunner
 {
     void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); std::fflush (stdout); }

@@ -22,7 +22,7 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     {
         l.setText (text, juce::dontSendNotification);
         l.setJustificationType (just);
-        l.setFont (juce::Font (MaxColours::font (MaxColours::TextSize::control, MaxColours::Weight::Medium)));
+        l.setFont (juce::Font (MaxColours::font (MaxColours::Type::control, MaxColours::Weight::Medium)));
         l.setColour (juce::Label::textColourId, MaxColours::label);
         l.setInterceptsMouseClicks (false, false);
         content.addAndMakeVisible (l);
@@ -38,7 +38,7 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     setupLabel (ditherLabel, "Dither", juce::Justification::centredRight);
     setupLabel (gainLabel, {});
     gainLabel.setColour (juce::Label::textColourId, MaxColours::text);
-    gainLabel.setFont (juce::Font (MaxColours::numbers (MaxColours::TextSize::control)));
+    gainLabel.setFont (juce::Font (MaxColours::numbers (MaxColours::Type::control)));
 
     // Threshold and Out Ceiling: driven by hand so Link only follows the user (see faderMoved).
     auto setupFader = [this] (juce::Slider& s, juce::Colour colour, const char* id, bool isThreshold)
@@ -218,9 +218,8 @@ void SongsmithMaximiserAudioProcessorEditor::paintContent (juce::Graphics& g)
 {
     g.fillAll (MaxColours::background);
 
-    g.setColour (MaxColours::text);
-    g.setFont (juce::Font (MaxColours::font (MaxColours::TextSize::title, MaxColours::Weight::SemiBold)));
-    g.drawText (JucePlugin_Name, 20, 12, 260, 26, juce::Justification::centredLeft);
+    Songsmith::UI::drawTitle (g, { Songsmith::UI::titleInset, 0.0f, 360.0f, Songsmith::UI::titleBarHeight },
+                              JucePlugin_Name, MaxColours::text, MaxColours::accent);
 
     g.setColour (MaxColours::panelEdge);
     g.drawHorizontalLine (52, 16.0f, (float) designW - 16.0f);

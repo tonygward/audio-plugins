@@ -84,7 +84,6 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoGainAttachment;
     juce::TextButton analyserSettingsButton { "..." };   // analyser settings popup
     void showAnalyserMenu();
-    static juce::FontOptions titleFont();
     juce::Rectangle<int> titleBounds;   // the product name, painted
     OutputMeterDisplay outputMeter;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputAttachment;
