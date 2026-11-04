@@ -7,9 +7,9 @@
 class SongsmithMaximiserAudioProcessor : public juce::AudioProcessor
 {
 public:
-    // Saved-state format. 1 = first release (threshold, ceiling, release, bypass).
+    // Saved-state format. 1 = threshold, ceiling, release, bypass. 2 = adds peak_mode, auto_release.
     // Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 1;
+    static constexpr int stateVersion = 2;
 
     SongsmithMaximiserAudioProcessor();
     ~SongsmithMaximiserAudioProcessor() override = default;
@@ -51,6 +51,8 @@ public:
     float getCeilingDb() const noexcept   { return snapDb (ceilingRaw->load (std::memory_order_relaxed)); }
     float getReleaseMs() const noexcept   { return releaseRaw->load (std::memory_order_relaxed); }
     bool isBypassed() const noexcept      { return bypassParam->get(); }
+    bool isTruePeak() const noexcept      { return peakModeParam->getIndex() == 1; }
+    bool isAutoRelease() const noexcept   { return autoReleaseParam->get(); }
 
     juce::AudioProcessorValueTreeState apvts;
 
@@ -74,6 +76,8 @@ private:
     std::atomic<float>* ceilingRaw = nullptr;
     std::atomic<float>* releaseRaw = nullptr;
     juce::AudioParameterBool* bypassParam = nullptr;
+    juce::AudioParameterChoice* peakModeParam = nullptr;
+    juce::AudioParameterBool* autoReleaseParam = nullptr;
 
     // Bypass: a short linear cross-fade between the processed and the dry signal.
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix { 0.0f };   // 1 = fully bypassed

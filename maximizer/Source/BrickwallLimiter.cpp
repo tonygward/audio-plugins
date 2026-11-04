@@ -15,6 +15,8 @@ namespace Max
         dqVal.assign ((size_t) window + 1, 1.0f);
         dqIdx.assign ((size_t) window + 1, 0);
         boxRing.assign ((size_t) window, 1.0f);
+        for (auto& d : preDelay)
+            d.assign ((size_t) TruePeakDetector::delaySamples + 1, 0.0f);
 
         baseline.reset (sampleRate, parameterSmoothingSeconds);
         ceiling.reset (sampleRate, parameterSmoothingSeconds);
@@ -33,8 +35,12 @@ namespace Max
         resumCountdown = window;
         dqHead = dqSize = 0;
         sampleIndex = 0;
-        env = 1.0f;
+        env = sustained = 1.0f;
         minGain = lastGain = 1.0f;
+        detector.reset();
+        for (auto& d : preDelay)
+            std::fill (d.begin(), d.end(), 0.0f);
+        prePos = 0;
 
         baseline.setCurrentAndTargetValue (dbToGain (ceilingDb - thresholdDb));
         ceiling.setCurrentAndTargetValue (dbToGain (ceilingDb));
@@ -61,7 +67,14 @@ namespace Max
     void BrickwallLimiter::setReleaseMs (float ms) noexcept
     {
         releaseMs = juce::jlimit (minReleaseMs, maxReleaseMs, ms);
-        releaseCoef = (float) std::exp (-1.0 / ((double) releaseMs * 0.001 * fs));
+        auto coef = [this] (double timeMs) { return (float) std::exp (-1.0 / (timeMs * 0.001 * fs)); };
+        releaseCoef = coef ((double) releaseMs);
+
+        // Auto release (Songsmith recovery law, see the class comment): the slow stage is never
+        // faster than the manual Release.
+        slowCoef = coef (juce::jmax ((double) releaseMs, autoSlowReleaseMs));
+        sustainDownCoef = coef (autoSustainAttackMs);
+        sustainUpCoef = coef (autoSustainReleaseMs);
     }
 
     float BrickwallLimiter::slidingMin (float value) noexcept
@@ -103,19 +116,40 @@ namespace Max
             const float b = baseline.getNextValue();
             const float c = ceiling.getNextValue();
 
-            // Detect on the (baseline-gained) input and store it in the delay line.
-            float peak = 0.0f;
+            // Baseline gain, then the true-peak detector. Both peak modes use the audio delayed by
+            // the detector delay, so the latency is the same in both.
+            float x[maxChannels] = {};
+            for (int ch = 0; ch < numChannels; ++ch)
+                x[ch] = channels[ch][i] * b;
+
+            float samplePeak = 0.0f;
+            const float tp = detector.push (x, numChannels, samplePeak, truePeak);   // both for sample n - D
+            const float peak = truePeak ? tp : samplePeak;
+
+            const int preRead = prePos + 1 == (int) preDelay[0].size() ? 0 : prePos + 1;
             for (int ch = 0; ch < numChannels; ++ch)
             {
-                const float x = channels[ch][i] * b;
-                peak = juce::jmax (peak, std::abs (x));
-                delay[ch][(size_t) writePos] = x;
+                preDelay[ch][(size_t) prePos] = x[ch];
+                delay[ch][(size_t) writePos] = preDelay[ch][(size_t) preRead];
             }
+            prePos = preRead;
 
             const float need = peak > c ? (float) ((double) c / (double) peak) : 1.0f;
 
-            // Instant attack, exponential release, never above what this sample needs.
-            env = juce::jmin (need, env + (1.0f - env) * relGain);
+            if (! autoRelease)
+            {
+                // Manual: instant attack, exponential release, never above what this sample needs.
+                env = juce::jmin (need, env + (1.0f - env) * relGain);
+            }
+            else
+            {
+                // Auto release: recover quickly (manual Release) while the gain is below the
+                // sustained estimate, i.e. after a transient; slowly once it is back at the level
+                // the material keeps asking for, so sustained limiting doesn't pump or distort.
+                const float k = env < sustained ? relGain : 1.0f - slowCoef;
+                env = juce::jmin (need, env + (1.0f - env) * k);
+                sustained += (env - sustained) * (1.0f - (env < sustained ? sustainDownCoef : sustainUpCoef));
+            }
 
             // Sliding minimum, then the box-car mean over the same window.
             const float m = slidingMin (env);
