@@ -141,6 +141,7 @@ try {
 
     $iss = Get-Content (Join-Path $PSScriptRoot "SongsmithAnalogCompressor.iss") -Raw
     Check ($iss -notmatch '(?im)^\s*Type:.*\{(userappdata|commonappdata|localappdata|appdata)\}') "no delete entries for any app-data folder"
+    Check ($iss -notmatch '(?im)^\[Components\]') "no Components page: the VST3 and the standalone app always install together"
     Check ($iss -notmatch '(?im)^\s*Type:.*Songsmith EQ') "no delete entries for Songsmith EQ"
     Check ($iss -notmatch '2F8C1884-56C1-45D8-A78D-CF117EC69B44') "doesn't reuse Songsmith EQ's AppId"
 

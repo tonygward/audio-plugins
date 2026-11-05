@@ -18,7 +18,7 @@ Every editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold,
 **Songsmith Studio** is one installer with every plugin in it: `Songsmith-Studio-<version>-win64-setup.exe`, from the [Releases page](https://github.com/tonygward/audio-plugins/releases) (CI builds it on every change as the `Songsmith-Studio-Windows-setup` artifact). This is the one to use.
 
 1. Run it. Windows SmartScreen will probably say it "protected your PC", because the installer isn't code-signed: click **More info**, then **Run anyway**.
-2. Every plugin is ticked. Untick any you don't want; each plugin's standalone app can be unticked on its own too. The page shows how much disk space each one needs.
+2. Every plugin is ticked. Untick any you don't want. Each plugin comes with a standalone app that runs without recording software. The page shows how much disk space each one needs.
 3. Close your recording software first: if a plugin is loaded, Setup stops and changes nothing.
 4. Rescan plugins in your recording software.
 
@@ -26,7 +26,7 @@ Running it again (or a newer version) remembers what you ticked. Unticking a plu
 
 To build it: build the three plugins (Release), then run `.\installer\windows\build-installer.ps1` (Inno Setup 6, see below). `.\installer\windows\test-installer.ps1` builds it and tests installing, choosing plugins, upgrading, replacing a per-plugin install, a plugin in use and uninstalling, all inside a temp folder. The suite's version is in `installer/version.txt`; each plugin keeps its own.
 
-**On a Mac**, the same suite is `Songsmith-Studio-<version>-macOS.pkg` (CI artifact `Songsmith-Studio-macOS-pkg`), a universal installer for Apple Silicon and Intel. It isn't signed or notarised, so the first time macOS blocks it: try to open it, then go to **System Settings → Privacy & Security** and click **Open Anyway**. Everything is selected; click **Customize** to leave out a plugin, or just its VST3 plugin, Audio Unit (for Logic Pro and GarageBand) or standalone app. It replaces a plugin you installed with its own installer, so there's one copy. To uninstall, run `installer/macos/uninstall.sh`: it lists what it will remove, asks first, and keeps your presets.
+**On a Mac**, the same suite is `Songsmith-Studio-<version>-macOS.pkg` (CI artifact `Songsmith-Studio-macOS-pkg`), a universal installer for Apple Silicon and Intel. It isn't signed or notarised, so the first time macOS blocks it: try to open it, then go to **System Settings → Privacy & Security** and click **Open Anyway**. Everything is selected; click **Customize** to leave out a plugin. Each plugin comes with its VST3 plugin, its Audio Unit (for Logic Pro and GarageBand) and a standalone app that runs without recording software. It replaces a plugin you installed with its own installer, so there's one copy. To uninstall, run `installer/macos/uninstall.sh`: it lists what it will remove, asks first, and keeps your presets.
 
 To build it on a Mac: build the three plugins (Release), then run `installer/macos/build-installer.sh`. It builds each plugin's own `.pkg` and makes the suite from the same component packages, so the two can't drift apart. `installer/macos/test-installer.sh` installs for real, system-wide, so it only runs on CI (or with `--i-know-this-installs-system-wide`).
 
@@ -66,7 +66,7 @@ The [Songsmith Studio installer](#install-every-plugin-at-once) above includes S
 
 1. Download `Songsmith-EQ-<version>-win64-setup.exe` and run it.
 2. Windows SmartScreen will probably say it "protected your PC". The installer isn't code-signed (signing needs a paid certificate), so Windows doesn't recognise the publisher. Click **More info**, then **Run anyway**.
-3. Click through Setup. It installs the VST3 plugin into the standard VST3 folder and, if you leave it ticked, the standalone app. Close your DAW first: if the plugin is loaded, Setup stops and changes nothing.
+3. Click through Setup. It installs the VST3 plugin into the standard VST3 folder, along with a standalone app that runs without recording software. Close your DAW first: if the plugin is loaded, Setup stops and changes nothing.
 4. Rescan plugins in your DAW.
 
 Running a newer installer upgrades in place. Upgrading from TW Pro EQ? Setup removes the old `TW Pro EQ.vst3` for you, and your sessions and presets carry over. To uninstall, use **Settings → Apps → Installed apps → Songsmith EQ**. Your presets are kept.

@@ -4,7 +4,7 @@
 ;   iscc /DAppVersion=0.1.0 /DBuildDir=<analog-compressor\build\SongsmithAnalogCompressor_artefacts\Release> /O<out> SongsmithAnalogCompressor.iss
 ;
 ; Same pattern as eq\installer\SongsmithEQ.iss: the VST3 goes into the fixed VST3 folder
-; (Common Files\VST3) and, optionally, the standalone app into
+; (Common Files\VST3) and the standalone app into
 ; Program Files\Songsmith Studio\Songsmith Analog Compressor. Not code-signed.
 ;
 ; It is a separate product from Songsmith EQ (its own AppId, bundle and folders): installing,
@@ -65,40 +65,30 @@ WizardStyle=modern
 SetupLogging=yes
 
 [Messages]
-WelcomeLabel2=This installs [name/ver] on your computer.%n%nThe VST3 plugin goes into the standard VST3 folder (Common Files\VST3), where every VST3 host looks for it. You can also install the standalone app.%n%nPlease close your DAW before continuing. Songsmith EQ, if you have it, isn't affected.
+WelcomeLabel2=This installs [name/ver] on your computer.%n%nThe VST3 plugin goes into the standard VST3 folder (Common Files\VST3), where every VST3 host looks for it. It also installs a standalone app that runs without recording software.%n%nPlease close your DAW before continuing. Songsmith EQ, if you have it, isn't affected.
 FinishedLabel=Setup has installed [name] on your computer.%n%nRescan plugins in your DAW (or restart it) to find Songsmith Analog Compressor under Songsmith Studio.
 
-[Types]
-Name: "custom"; Description: "Custom"; Flags: iscustom
-
-[Components]
-Name: "vst3";       Description: "VST3 plugin";    Types: custom; Flags: fixed
-Name: "standalone"; Description: "Standalone app"; Types: custom
-
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut for the standalone app"; Components: standalone; Flags: unchecked
+Name: "desktopicon"; Description: "Create a desktop shortcut for the standalone app"; Flags: unchecked
 
 [InstallDelete]
 ; Replace the bundle cleanly: files from an older version must not linger.
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#BundleName}"
-Type: files; Name: "{app}\{#StandaloneExe}";            Components: not standalone
-Type: files; Name: "{autoprograms}\{#AppName}.lnk";     Components: not standalone
-Type: files; Name: "{autodesktop}\{#AppName}.lnk";      Components: not standalone
 
 [Dirs]
 ; The shared VST3 folder holds other plugins (Songsmith EQ among them): never remove it.
 Name: "{code:Vst3Dir}"; Flags: uninsneveruninstall
 
 [Files]
-Source: "{#BuildDir}\VST3\{#BundleName}\*"; DestDir: "{code:Vst3Dir}\{#BundleName}"; Components: vst3; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#BuildDir}\Standalone\{#StandaloneExe}"; DestDir: "{app}"; Components: standalone; Flags: ignoreversion
+Source: "{#BuildDir}\VST3\{#BundleName}\*"; DestDir: "{code:Vst3Dir}\{#BundleName}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BuildDir}\Standalone\{#StandaloneExe}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#StandaloneExe}"; Components: standalone
-Name: "{autodesktop}\{#AppName}";  Filename: "{app}\{#StandaloneExe}"; Components: standalone; Tasks: desktopicon
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#StandaloneExe}"
+Name: "{autodesktop}\{#AppName}";  Filename: "{app}\{#StandaloneExe}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#StandaloneExe}"; Description: "Open the Songsmith Analog Compressor standalone app"; Components: standalone; Flags: nowait postinstall skipifsilent unchecked
+Filename: "{app}\{#StandaloneExe}"; Description: "Open the Songsmith Analog Compressor standalone app"; Flags: nowait postinstall skipifsilent unchecked
 
 ; Uninstall removes only what Setup installed. User presets in
 ; %APPDATA%\Songsmith Studio\Songsmith Analog Compressor\Presets belong to the user and are never

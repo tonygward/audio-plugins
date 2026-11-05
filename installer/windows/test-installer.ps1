@@ -143,17 +143,17 @@ try {
     Expect-Installed @() "after uninstall"
 
     Write-Host "`n2. Only Songsmith EQ ticked"
-    Check ((Run-Suite $Installer "2-eq.log" "eq,eq\standalone") -eq 0) "installer exits with 0"
+    Check ((Run-Suite $Installer "2-eq.log" "eq") -eq 0) "installer exits with 0"
     Expect-Installed @("eq") "only the EQ"
 
     Write-Host "`n3. Run again and tick the compressor too"
-    Check ((Run-Suite $Installer "3-eq-fet.log" "eq,eq\standalone,fet,fet\standalone") -eq 0) "installer exits with 0"
+    Check ((Run-Suite $Installer "3-eq-fet.log" "eq,fet") -eq 0) "installer exits with 0"
     Expect-Installed @("eq", "fet") "EQ and compressor"
     Check ((Apps-Entries).Count -eq 1) "still one entry in Settings > Apps"
     Check (-not (Test-Path (Join-Path $suiteDir "unins001.exe"))) "still one uninstaller (upgraded in place)"
 
     Write-Host "`n4. Run again and untick Songsmith EQ"
-    Check ((Run-Suite $Installer "4-fet.log" "fet,fet\standalone") -eq 0) "installer exits with 0"
+    Check ((Run-Suite $Installer "4-fet.log" "fet") -eq 0) "installer exits with 0"
     Expect-Installed @("fet") "EQ removed, compressor kept"
     Check (-not (Test-Path (Join-Path $suiteDir "Songsmith EQ"))) "the EQ's app folder is gone"
     Uninstall $suiteUninstaller
@@ -163,7 +163,7 @@ try {
            "/DIR=`"$(Join-Path $suiteDir 'Songsmith EQ')`"", "/VST3DIR=`"$vst3Dir`"", "/LOG=`"$(Join-Path $root '5-eq-own.log')`""
     Check ($p.ExitCode -eq 0) "Songsmith EQ's own installer exits with 0"
     Check ((Test-Path $eqKey) -and (Test-Path (Dll "eq"))) "Songsmith EQ installed on its own, with its own Apps entry"
-    Check ((Run-Suite $Installer "5-suite.log" "eq,eq\standalone") -eq 0) "suite installer exits with 0"
+    Check ((Run-Suite $Installer "5-suite.log" "eq") -eq 0) "suite installer exits with 0"
     Check (-not (Test-Path $eqKey)) "the separate Songsmith EQ entry is gone"
     Check ((Apps-Entries).Count -eq 1) "one entry in Settings > Apps"
     Expect-Installed @("eq") "the EQ, once"
@@ -172,11 +172,15 @@ try {
     Uninstall $suiteUninstaller
 
     Write-Host "`n6. Upgrade from an older suite: the ticks are remembered"
-    Check ((Run-Suite $OlderInstaller "6-older.log" "fet,max,max\standalone") -eq 0) "older suite installer exits with 0"
+    Check ((Run-Suite $OlderInstaller "6-older.log" "fet,max") -eq 0) "older suite installer exits with 0"
     Check ((Get-ItemProperty $suiteKey).DisplayVersion -eq "0.9.0") "older suite installed (0.9.0)"
+    # Suite 1.x listed each standalone app as its own component, and let a plugin be ticked without
+    # its app. Rewrite what Setup remembered to that shape: the compressor ticked without its app,
+    # the maximiser with "max\standalone".
+    Set-ItemProperty $suiteKey -Name "Inno Setup: Selected Components" -Value "fet,max,max\standalone"
     Check ((Run-Suite $Installer "6-newer.log" "") -eq 0) "newer suite installer exits with 0 (no choices given)"
     Check ((Get-ItemProperty $suiteKey).DisplayVersion -ne "0.9.0") "upgraded to $((Get-ItemProperty $suiteKey).DisplayVersion)"
-    Check ((Test-Path (Dll "fet")) -and -not (Test-Path (Exe "fet"))) "compressor still without its standalone app"
+    Check ((Test-Path (Dll "fet")) -and (Test-Path (Exe "fet"))) "compressor, ticked without its app before, now has its app"
     Check ((Test-Path (Dll "max")) -and (Test-Path (Exe "max"))) "maximiser and its app still there"
     Check (-not (Test-Path (Dll "eq"))) "Songsmith EQ still not installed"
     Check ((Apps-Entries).Count -eq 1) "one entry in Settings > Apps"
@@ -200,6 +204,12 @@ try {
     Check (Test-Path $vst3Dir) "shared VST3 folder kept"
     foreach ($file in $presets) { Check (Test-Path $file) "preset kept: $file" }
     Check (-not (Test-Path $suiteKey)) "the Apps entry is removed"
+
+    # One tick box per plugin: no separate standalone-app components.
+    $iss = Get-Content (Join-Path $PSScriptRoot "SongsmithStudio.iss") -Raw
+    Check ($iss -notmatch '(?im)^Name:\s*"\w+\\standalone"') "the Components list has no standalone sub-components"
+    $componentLines = [regex]::Matches($iss, '(?im)^Name:\s*"(\w+)";\s+Description:.*Types:')
+    Check ($componentLines.Count -eq 3) "exactly three components (found $($componentLines.Count))"
 
     # The installer must never reach user presets, whatever folder they're in.
     $iss = Get-Content (Join-Path $PSScriptRoot "SongsmithStudio.iss") -Raw

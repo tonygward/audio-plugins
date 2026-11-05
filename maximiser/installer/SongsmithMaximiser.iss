@@ -3,7 +3,7 @@
 ; Build it with build-installer.ps1, which passes the version and the build folder:
 ;   iscc /DAppVersion=0.4.0 /DBuildDir=<eq\build\SongsmithMaximiser_artefacts\Release> /O<out> SongsmithMaximiser.iss
 ;
-; Installs the VST3 into the fixed VST3 folder (Common Files\VST3) and, optionally, the
+; Installs the VST3 into the fixed VST3 folder (Common Files\VST3) and the
 ; standalone app into Program Files\Songsmith Studio\Songsmith Maximiser. Not code-signed (see
 ; ROADMAP "Out of scope"), so SmartScreen warns on first run.
 ;
@@ -68,41 +68,30 @@ WizardStyle=modern
 SetupLogging=yes
 
 [Messages]
-WelcomeLabel2=This installs [name/ver] on your computer.%n%nThe VST3 plugin goes into the standard VST3 folder (Common Files\VST3), where every VST3 host looks for it. You can also install the standalone app.%n%nPlease close your DAW before continuing.
+WelcomeLabel2=This installs [name/ver] on your computer.%n%nThe VST3 plugin goes into the standard VST3 folder (Common Files\VST3), where every VST3 host looks for it. It also installs a standalone app that runs without recording software.%n%nPlease close your DAW before continuing.
 FinishedLabel=Setup has installed [name] on your computer.%n%nRescan plugins in your DAW (or restart it) to find Songsmith Maximiser under Songsmith Studio.
 
-[Types]
-Name: "custom"; Description: "Custom"; Flags: iscustom
-
-[Components]
-Name: "vst3";       Description: "VST3 plugin";    Types: custom; Flags: fixed
-Name: "standalone"; Description: "Standalone app"; Types: custom
-
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut for the standalone app"; Components: standalone; Flags: unchecked
+Name: "desktopicon"; Description: "Create a desktop shortcut for the standalone app"; Flags: unchecked
 
 [InstallDelete]
 ; Replace the bundle cleanly: files from an older version must not linger.
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#BundleName}"
-; Standalone app unticked on an upgrade: remove the copy an earlier install left.
-Type: files; Name: "{app}\{#StandaloneExe}";            Components: not standalone
-Type: files; Name: "{autoprograms}\{#AppName}.lnk";     Components: not standalone
-Type: files; Name: "{autodesktop}\{#AppName}.lnk";      Components: not standalone
 
 [Dirs]
 ; The shared VST3 folder holds other plugins: never remove it on uninstall.
 Name: "{code:Vst3Dir}"; Flags: uninsneveruninstall
 
 [Files]
-Source: "{#BuildDir}\VST3\{#BundleName}\*"; DestDir: "{code:Vst3Dir}\{#BundleName}"; Components: vst3; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#BuildDir}\Standalone\{#StandaloneExe}"; DestDir: "{app}"; Components: standalone; Flags: ignoreversion
+Source: "{#BuildDir}\VST3\{#BundleName}\*"; DestDir: "{code:Vst3Dir}\{#BundleName}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BuildDir}\Standalone\{#StandaloneExe}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#StandaloneExe}"; Components: standalone
-Name: "{autodesktop}\{#AppName}";  Filename: "{app}\{#StandaloneExe}"; Components: standalone; Tasks: desktopicon
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#StandaloneExe}"
+Name: "{autodesktop}\{#AppName}";  Filename: "{app}\{#StandaloneExe}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#StandaloneExe}"; Description: "Open the Songsmith Maximiser standalone app"; Components: standalone; Flags: nowait postinstall skipifsilent unchecked
+Filename: "{app}\{#StandaloneExe}"; Description: "Open the Songsmith Maximiser standalone app"; Flags: nowait postinstall skipifsilent unchecked
 
 ; Uninstall removes only what Setup installed (the bundle, the app, the shortcuts). Nothing in
 ; %APPDATA% belongs to Setup, so it is never touched.
