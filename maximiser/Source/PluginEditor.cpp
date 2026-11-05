@@ -104,6 +104,8 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     content.addAndMakeVisible (autoReleaseButton);
 
     bypassButton.setClickingTogglesState (true);
+    bypassButton.setTooltip ("Bypass: the sound passes through untouched");
+    Songsmith::UI::styleBypassButton (bypassButton);   // the suite's Bypass red
     bypassAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Max::bypassId, bypassButton);
     content.addAndMakeVisible (bypassButton);
 
