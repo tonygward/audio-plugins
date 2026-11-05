@@ -1,7 +1,7 @@
 Work through every prompt directly in the prompts folder named when this run
 was started, in order: a plugin's folder (eq/prompts/, analog-compressor/prompts/,
 maximiser/prompts/; numeric order) or shared/prompts/ for work across every plugin
-(S1, S2, ...). If no folder was named, use eq/prompts/. Only the numbered prompt
+(SUI-01, SUI-02, ...). If no folder was named, use eq/prompts/. Only the numbered prompt
 files are tasks: skip README.md, this file, and the done/ subfolder (those tasks
 are already merged). Ignore that folder's README.md wave table; it describes
 parallel waves, which don't apply here. Do read its notes on order and conflicts.
@@ -26,7 +26,7 @@ For each prompt, follow it exactly, with these overrides:
   checked, and merge (gh pr merge --merge --delete-branch).
 - In the same PR, before merging, move the task's prompt into the folder's
   done/ subfolder and update that folder's README status table, if it has one.
-  Keep the original scope-qualified ID (EQ-32, COMP-06, MAX-07, S11, A1, D1, F1),
+  Keep the original scope-qualified ID (EQ-32, COMP-06, MAX-07, SUI-11, OPT-01, CLN-01, ADV-01),
   record its PR number and canonical relative link, and update any related roadmap
   references. If a release checkpoint is delivered, also cross-link the prompt IDs
   in CHANGELOG.md. Check that all new Markdown links resolve; never infer completion
