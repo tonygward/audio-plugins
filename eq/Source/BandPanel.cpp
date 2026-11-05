@@ -53,7 +53,17 @@ BandPanel::BandPanel (SongsmithEQAudioProcessor& p) : processor (p)
         if (! updating && band >= 0 && typeBox.getSelectedItemIndex() >= 0)
             processor.edits.setType (band, EQ::typeFromIndex (typeBox.getSelectedItemIndex()));
     };
+    // Filter-shape pictures (EQ-33): in the drop-down list and beside the selected name.
+    {
+        int i = 0;
+        for (juce::PopupMenu::MenuItemIterator it (*typeBox.getRootMenu()); it.next(); ++i)
+            it.getItem().setImage (EQ::FilterShapes::makeDrawable (EQ::typeFromIndex (i), EQColours::text,
+                                                                  (float) EQ::FilterShapes::iconWidth,
+                                                                  (float) EQ::FilterShapes::iconHeight));
+    }
+    typeBox.getProperties().set ("textIndent", EQ::FilterShapes::textIndent);
     addAndMakeVisible (typeBox);
+    addAndMakeVisible (typeIcon);
 
     slopeBox.addItemList (EQ::getSlopeNames(), 1);
     slopeBox.setTooltip ("Cut slope (Low Cut / High Cut only)");
@@ -269,6 +279,7 @@ void BandPanel::refreshFromParams()
 
     if (typeBox.getSelectedItemIndex() != (int) type)
         typeBox.setSelectedItemIndex ((int) type, juce::dontSendNotification);
+    typeIcon.setType (type, EQColours::text);
 
     const int slope = (int) std::lround (processor.getBandValue (band, EQ::Param::Slope));
     if (slopeBox.getSelectedItemIndex() != slope)
@@ -377,6 +388,9 @@ void BandPanel::resized()
     title.setBounds (top);
     left.removeFromTop (6);
     typeBox.setBounds (left.removeFromTop (26));
+    typeIcon.setBounds (typeBox.getX() + EQ::FilterShapes::iconInset,
+                        typeBox.getY() + (typeBox.getHeight() - EQ::FilterShapes::iconHeight) / 2,
+                        EQ::FilterShapes::iconWidth, EQ::FilterShapes::iconHeight);
     left.removeFromTop (6);
     slopeBox.setBounds (left.removeFromTop (26));
     left.removeFromTop (6);

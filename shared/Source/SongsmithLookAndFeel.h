@@ -193,7 +193,9 @@ namespace Songsmith::UI
 
         void positionComboBoxText (juce::ComboBox& box, juce::Label& label) override
         {
-            label.setBounds (4, 1, box.getWidth() - 30, box.getHeight() - 2);
+            // A box can reserve room for a decorative icon at the left with the "textIndent" property.
+            const int indent = (int) box.getProperties().getWithDefault ("textIndent", 4);
+            label.setBounds (indent, 1, box.getWidth() - indent - 26, box.getHeight() - 2);
             label.setFont (getComboBoxFont (box));
         }
 
