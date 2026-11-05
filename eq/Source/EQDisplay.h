@@ -40,6 +40,13 @@ public:
     void setSelectedBand (int band);
     int getSelectedBand() const;
 
+    // The floating band panel (EQ-37): it can be dragged, and always stays inside the graph.
+    BandPanel& getPanel() noexcept { return panel; }
+    juce::Rectangle<float> getPanelLimits() const;   // where the whole panel must stay
+    void movePanelTo (juce::Point<int> topLeft);     // as if the user dragged it there
+    bool isPanelPlacedByUser() const noexcept { return panelPlaced; }
+    void childBoundsChanged (juce::Component*) override;
+
 private:
     void timerCallback() override;
 
@@ -75,10 +82,15 @@ private:
 
     void showContextMenu (int band);
     void positionPanel();
+    juce::Rectangle<int> fitPanelInside (juce::Rectangle<int> wanted) const;
+    void applyPanelBounds (juce::Rectangle<int> bounds);
     void endWheelEdit();
 
     SongsmithEQAudioProcessor& processor;
     BandPanel panel;
+    bool panelPlaced = false;          // the user has dragged it: keep it where they put it
+    juce::Point<float> panelPos;       // its top-left then, in this component's coordinates
+    bool adjustingPanel = false;       // we are the ones changing its bounds
 
     std::vector<float> lastValues;
 
