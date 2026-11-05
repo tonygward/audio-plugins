@@ -12,6 +12,12 @@ Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq
 | ✅ [S6 one installer entry per plugin](done/S6-one-entry-per-plugin.md) | One tick box per plugin in the Windows installers and the macOS suite installer: no separate standalone app or format choices |
 | ✅ [S7 one version number](done/S7-one-version-number.md) | One version for every plugin, installer and release, from a root `VERSION` file, starting at 1.1.0 |
 
+## Future candidate — Recording and Mixing Advisor
+
+- **Not queued for unattended execution:** [F1 musician-friendly advice across plugins](future/F1-musician-guidance.md) — clear, optional recommendations grounded in actual measurements and listening guidance (**Sonnet; Opus only if architecture requires it**).
+- **Not queued for unattended execution:** [F2 whole-file recording and streaming advisor](future/F2-file-recording-advisor.md) — standalone file metadata, LUFS and true-peak advice without false pass/fail claims (**Sonnet; Opus for measurement validation if needed**).
+- Both follow the standing rule in `CLAUDE.md`; promote to active prompts only after existing work is prioritised.
+
 ## Songsmith Plugins backlog
 
 **Model guide:** Start with Sonnet for routine implementation. Where a task says **Opus for design**, use Opus for the design and validation plan, then switch to Sonnet for implementation once those decisions are written down.
