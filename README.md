@@ -6,7 +6,7 @@ Songsmith Plugins, from Songsmith Studio, is a growing family of audio tools for
 
 ## Meet the plugins
 
-- **Songsmith EQ** — shape your sound and remove unwanted frequencies.
+- **Songsmith EQ** — shape your sound and remove unwanted frequencies, with an optional Frequency Guide that names what you hear.
 - **Songsmith Analog Compressor** — smooth out volume changes and add punch and character.
 - **Songsmith Maximiser** — control peaks and bring your finished mix up to level.
 
