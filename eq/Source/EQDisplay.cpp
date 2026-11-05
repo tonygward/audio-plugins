@@ -29,6 +29,7 @@ EQDisplay::EQDisplay (SongsmithEQAudioProcessor& p) : processor (p), panel (p)
 
     addChildComponent (panel);
     panel.onBandRemoved = [this] { setSelectedBand (-1); };
+    panel.onUserMove = [this] (juce::Point<int> p) { movePanelTo (p); };
 
     processor.analyser.activeViewers.fetch_add (1);
     startTimerHz (60);
@@ -917,6 +918,7 @@ void EQDisplay::positionPanel()
 
     if (b < 0)
     {
+        panelPlaced = false;   // closing the panel forgets where it was dragged: it opens beside its band again
         panel.setBand (-1);
         panel.setVisible (false);
         return;
@@ -924,20 +926,70 @@ void EQDisplay::positionPanel()
 
     panel.setBand (b);
 
-    // Don't move the panel out from under the mouse while it is being used.
-    if (panel.isVisible() && panel.isMouseOverOrDragging (true))
+    const int w = BandPanel::panelWidth, h = panel.getPreferredHeight();
+
+    if (panelPlaced)   // where the user put it, even when another band is chosen
+    {
+        applyPanelBounds (fitPanelInside ({ juce::roundToInt (panelPos.x), juce::roundToInt (panelPos.y), w, h }));
         return;
+    }
+
+    // Don't move the panel out from under the mouse while it is being used, but do keep all of it
+    // (for example the Dynamic row that has just opened) inside the graph.
+    if (panel.isVisible() && panel.isMouseOverOrDragging (true))
+    {
+        applyPanelBounds (fitPanelInside (panel.getBounds().withSize (w, h)));
+        return;
+    }
 
     const auto area = getPlotArea();
     const auto pos = getNodePosition (b);
-    const float w = (float) BandPanel::panelWidth, h = (float) panel.getPreferredHeight();
 
-    const float x = juce::jlimit (area.getX() + 6.0f, juce::jmax (area.getX() + 6.0f, area.getRight() - w - 6.0f), pos.x - w * 0.5f);
-    const bool nodeInLowerPart = pos.y > area.getBottom() - h - 30.0f;
-    const float y = nodeInLowerPart ? area.getY() + 6.0f : area.getBottom() - h - 6.0f;
+    const float x = juce::jlimit (area.getX() + 6.0f, juce::jmax (area.getX() + 6.0f, area.getRight() - (float) w - 6.0f), pos.x - (float) w * 0.5f);
+    const bool nodeInLowerPart = pos.y > area.getBottom() - (float) h - 30.0f;
+    const float y = nodeInLowerPart ? area.getY() + 6.0f : area.getBottom() - (float) h - 6.0f;
 
-    panel.setBounds (juce::Rectangle<float> (x, y, w, h).toNearestInt());
+    applyPanelBounds (fitPanelInside (juce::Rectangle<float> (x, y, (float) w, (float) h).toNearestInt()));
+}
+
+juce::Rectangle<float> EQDisplay::getPanelLimits() const
+{
+    return getPlotArea().reduced (6.0f);
+}
+
+// The nearest place to "wanted" where the whole panel is inside the graph. If the graph is too small
+// for the panel, the top-left corner stays visible so its first controls remain reachable.
+juce::Rectangle<int> EQDisplay::fitPanelInside (juce::Rectangle<int> wanted) const
+{
+    const auto limit = getPanelLimits().toNearestInt();
+    const int x = juce::jlimit (limit.getX(), juce::jmax (limit.getX(), limit.getRight() - wanted.getWidth()), wanted.getX());
+    const int y = juce::jlimit (limit.getY(), juce::jmax (limit.getY(), limit.getBottom() - wanted.getHeight()), wanted.getY());
+    return wanted.withPosition (x, y);
+}
+
+void EQDisplay::applyPanelBounds (juce::Rectangle<int> bounds)
+{
+    const juce::ScopedValueSetter<bool> guard (adjustingPanel, true);
+    panel.setBounds (bounds);
     panel.setVisible (true);
+    if (panelPlaced)
+        panelPos = bounds.getPosition().toFloat();   // stay where the panel ended up, also after a nudge
+}
+
+void EQDisplay::movePanelTo (juce::Point<int> topLeft)
+{
+    if (getSelectedBand() < 0)
+        return;
+    panelPlaced = true;
+    applyPanelBounds (fitPanelInside (panel.getBounds().withPosition (topLeft)));
+}
+
+// The panel grew or shrank by itself (the Dynamic row opening or closing): move it just enough to
+// keep all of it inside the graph, whatever the mouse is doing.
+void EQDisplay::childBoundsChanged (juce::Component* child)
+{
+    if (child == &panel && ! adjustingPanel && panel.isVisible())
+        applyPanelBounds (fitPanelInside (panel.getBounds()));
 }
 
 void EQDisplay::showContextMenu (int band)

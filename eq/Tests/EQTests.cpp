@@ -4791,6 +4791,214 @@ public:
 };
 static LinearPhaseTooltipTests linearPhaseTooltipTests;
 
+//==============================================================================
+// EQ-37: the floating band panel can be dragged and always stays inside the graph.
+class BandPanelDragTests final : public juce::UnitTest
+{
+public:
+    BandPanelDragTests() : juce::UnitTest ("Movable band panel", "EQ") {}
+
+    static bool inside (juce::Rectangle<int> panel, juce::Rectangle<int> limit)
+    {
+        return limit.expanded (1).contains (panel);
+    }
+
+    // Every control the panel shows is inside the panel and visible, so nothing is cut off.
+    static void checkControlsReachable (juce::UnitTest& t, BandPanel& panel, const juce::String& context)
+    {
+        int shown = 0;
+        for (auto* c : panel.getChildren())
+            if (c->isVisible())
+            {
+                ++shown;
+                t.expect (panel.getLocalBounds().contains (c->getBounds()), context + ": a control is inside the panel");
+            }
+        t.expectGreaterThan (shown, 8, context + ": the panel shows its controls");
+    }
+
+    void runTest() override
+    {
+        using namespace EQ;
+
+        beginTest ("The panel opens inside the graph for bands at every edge and corner, at 1x and 2x");
+        for (float scale : { 1.0f, 2.0f })
+        {
+            struct Spot { float freq, gain; const char* name; };
+            for (auto spot : { Spot { 25.0f, 20.0f, "top left" }, Spot { 19000.0f, 20.0f, "top right" },
+                               Spot { 25.0f, -20.0f, "bottom left" }, Spot { 19000.0f, -20.0f, "bottom right" },
+                               Spot { 1000.0f, 0.0f, "middle" }, Spot { 1000.0f, -20.0f, "bottom middle" } })
+            {
+                SongsmithEQAudioProcessor p;
+                const int band = p.edits.addBand (spot.freq, spot.gain, FilterType::Bell);
+                auto ed = UiSizeTests::makeEditor (p, scale, juce::roundToInt (1280 * scale), juce::roundToInt (788 * scale));
+                auto& display = ed->getDisplay();
+                display.setSelectedBand (band);
+                const auto context = juce::String (spot.name) + " at " + juce::String (scale) + "x";
+                expect (display.getPanel().isVisible(), context + ": the panel is shown");
+                expect (inside (display.getPanel().getBounds(), display.getPanelLimits().toNearestInt()), context + ": inside the graph");
+                checkControlsReachable (*this, display.getPanel(), context);
+            }
+        }
+
+        beginTest ("The panel stays inside the graph at the smallest editor size");
+        for (float s : EditorSize::uiScales)
+        {
+            SongsmithEQAudioProcessor p;
+            const int band = p.edits.addBand (1000.0f, -20.0f, FilterType::Bell);
+            p.edits.setDynamic (band, true);
+            const int w = juce::roundToInt ((float) EditorSize::minWidth * s), h = juce::roundToInt ((float) EditorSize::minHeight * s);
+            auto ed = UiSizeTests::makeEditor (p, s, w, h);
+            auto& display = ed->getDisplay();
+            display.setSelectedBand (band);
+            display.getPanel().refresh();
+            const auto context = "minimum size at " + juce::String (juce::roundToInt (s * 100.0f)) + "%";
+            const auto limit = display.getPanelLimits().toNearestInt();
+            const auto bounds = display.getPanel().getBounds();
+            if (limit.getWidth() >= bounds.getWidth() && limit.getHeight() >= bounds.getHeight())
+                expect (inside (bounds, limit), context + ": all of the panel, with the Dynamic row, is inside the graph");
+            else
+                expect (bounds.getX() == limit.getX() || bounds.getY() == limit.getY(), context + ": too small for the panel, so its top-left corner stays reachable");
+        }
+
+        beginTest ("Dragging moves the panel to where it is dropped, keeps it there, and keeps it inside the graph");
+        {
+            SongsmithEQAudioProcessor p;
+            const int a = p.edits.addBand (500.0f, 3.0f, FilterType::Bell);
+            const int b = p.edits.addBand (4000.0f, -3.0f, FilterType::Bell);
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 788);
+            auto& display = ed->getDisplay();
+            auto& panel = display.getPanel();
+            const auto limit = display.getPanelLimits().toNearestInt();
+            display.setSelectedBand (a);
+            expect (! display.isPanelPlacedByUser(), "automatic placement to begin with");
+
+            // Through the same path a real drag takes.
+            panel.onUserMove ({ limit.getX() + 40, limit.getY() + 30 });
+            expect (display.isPanelPlacedByUser(), "a drag marks it as placed by the user");
+            expectEquals (panel.getX(), limit.getX() + 40);
+            expectEquals (panel.getY(), limit.getY() + 30);
+
+            for (juce::Point<int> far : { juce::Point<int> (-5000, -5000), juce::Point<int> (9000, 9000), juce::Point<int> (-5000, 9000), juce::Point<int> (9000, -5000) })
+            {
+                panel.onUserMove (far);
+                expect (inside (panel.getBounds(), limit), "dragged far outside, it is stopped at the edge of the graph");
+            }
+
+            panel.onUserMove ({ limit.getX() + 100, limit.getY() + 60 });
+            const auto dropped = panel.getBounds();
+            ed->refreshFromProcessor();
+            display.setSelectedBand (a);
+            expect (panel.getBounds() == dropped, "it does not jump when the display refreshes");
+            display.setSelectedBand (b);
+            expect (panel.getBounds().getPosition() == dropped.getPosition(), "it stays put when another band is chosen");
+            expectEquals (display.getSelectedBand(), b);
+
+            display.setSelectedBand (-1);
+            expect (! panel.isVisible(), "no band, no panel");
+            display.setSelectedBand (a);
+            expect (! display.isPanelPlacedByUser(), "closing and reopening puts it beside its band again");
+            expect (inside (panel.getBounds(), limit));
+        }
+
+        beginTest ("Critical: Dynamic opens a taller panel near the bottom, and every control is kept in view");
+        for (float scale : { 1.0f, 2.0f })
+        {
+            SongsmithEQAudioProcessor p;
+            const int band = p.edits.addBand (1000.0f, 0.0f, FilterType::Bell);
+            auto ed = UiSizeTests::makeEditor (p, scale, juce::roundToInt (1280 * scale), juce::roundToInt (788 * scale));
+            auto& display = ed->getDisplay();
+            auto& panel = display.getPanel();
+            display.setSelectedBand (band);
+            const auto limit = display.getPanelLimits().toNearestInt();
+
+            panel.onUserMove ({ limit.getX() + 200, limit.getBottom() - panel.getHeight() });   // dragged right down to the bottom
+            expectEquals (panel.getBottom(), limit.getBottom(), "starts flush with the bottom");
+            const int compactHeight = panel.getHeight();
+            const int x = panel.getX();
+
+            int lastY = -1;
+            for (int round = 0; round < 4; ++round)
+            {
+                const auto context = "round " + juce::String (round) + " at " + juce::String (scale) + "x";
+                p.edits.setDynamic (band, true);
+                panel.refresh();
+                expectGreaterThan (panel.getHeight(), compactHeight, context + ": the Dynamic row makes it taller");
+                expect (inside (panel.getBounds(), limit), context + ": the expanded panel is inside the graph");
+                expectEquals (panel.getX(), x, context + ": it moves up, not sideways");
+                checkControlsReachable (*this, panel, context + " expanded");
+                for (auto* c : { (juce::Component*) panel.getChildren().getLast() }) juce::ignoreUnused (c);
+                if (lastY >= 0)
+                    expectEquals (panel.getY(), lastY, context + ": opening again does not jump");
+                lastY = panel.getY();
+
+                p.edits.setDynamic (band, false);
+                panel.refresh();
+                expectEquals (panel.getHeight(), compactHeight, context + ": back to compact");
+                expect (inside (panel.getBounds(), limit), context + ": the compact panel is inside the graph");
+                expectEquals (panel.getY(), lastY, context + ": closing Dynamic does not move it");
+            }
+        }
+
+        beginTest ("Dynamic also fits the panel when it was placed automatically");
+        {
+            SongsmithEQAudioProcessor p;
+            const int band = p.edits.addBand (1000.0f, 10.0f, FilterType::Bell);   // node in the upper part: panel opens low
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 788);
+            auto& display = ed->getDisplay();
+            display.setSelectedBand (band);
+            p.edits.setDynamic (band, true);
+            display.getPanel().refresh();
+            expect (inside (display.getPanel().getBounds(), display.getPanelLimits().toNearestInt()), "inside the graph");
+            checkControlsReachable (*this, display.getPanel(), "automatic placement");
+        }
+
+        beginTest ("Moving the panel changes no sound parameter and does not touch a node");
+        {
+            SongsmithEQAudioProcessor p;
+            const int band = p.edits.addBand (1000.0f, 6.0f, FilterType::Bell);
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 788);
+            auto& display = ed->getDisplay();
+            display.setSelectedBand (band);
+            juce::MemoryBlock before, after;
+            p.getStateInformation (before);
+            const auto node = display.getNodeCentre (band);
+            const auto limit = display.getPanelLimits().toNearestInt();
+            for (int i = 0; i < 10; ++i)
+                display.getPanel().onUserMove ({ limit.getX() + i * 37, limit.getY() + i * 21 });
+            p.getStateInformation (after);
+            expect (before == after, "the saved session is byte-for-byte the same");
+            expect (display.getNodeCentre (band) == node, "the node has not moved");
+            expectEquals (display.getSelectedBand(), band);
+        }
+
+        beginTest ("The background is the handle: move cursor and tooltip there, ordinary pointer on every control");
+        {
+            SongsmithEQAudioProcessor p;
+            const int band = p.edits.addBand (1000.0f, 0.0f, FilterType::Bell);
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 788);
+            ed->getDisplay().setSelectedBand (band);
+            auto& panel = ed->getDisplay().getPanel();
+            expectEquals (panel.getTooltip(), juce::String ("Drag to move these band controls."));
+            expect (panel.getMouseCursor() == juce::MouseCursor (juce::MouseCursor::UpDownLeftRightResizeCursor), "move cursor on the panel");
+            int controls = 0;
+            for (auto* c : panel.getChildren())
+            {
+                bool onSelf = true, onChildren = true;
+                c->getInterceptsMouseClicks (onSelf, onChildren);
+                if (! onSelf)
+                    continue;
+                ++controls;
+                expect (c->getMouseCursor() == juce::MouseCursor (juce::MouseCursor::NormalCursor)
+                            || dynamic_cast<juce::Slider*> (c) != nullptr,
+                        "a control keeps its own pointer");
+            }
+            expectGreaterThan (controls, 5, "the controls still take the mouse");
+            WordingAndFontTests::checkLayout (*this, *ed, "band panel");
+        }
+    }
+};
+static BandPanelDragTests bandPanelDragTests;
+
 static PianoToggleTests pianoToggleTests;
 static EdgeClickTests edgeClickTests;
 static OutputMeterTests outputMeterTests;
@@ -5061,7 +5269,7 @@ static int renderScreenshots (const juce::File& folder, float scale)
 {
     folder.createDirectory();
 
-    auto shoot = [&] (int width, int height, const juce::String& name, float uiScale = 1.0f, bool piano = false)
+    auto shoot = [&] (int width, int height, const juce::String& name, float uiScale = 1.0f, bool piano = false, bool panelAtBottom = false)
     {
         SongsmithEQAudioProcessor p;
         p.prepareToPlay (48000.0, 512);
@@ -5108,7 +5316,15 @@ static int renderScreenshots (const juce::File& folder, float scale)
         editor->setSize (width, height);
 
         if (auto* ed = dynamic_cast<SongsmithEQAudioProcessorEditor*> (editor.get()))
+        {
             ed->getDisplay().setSelectedBand (dyn);
+            if (panelAtBottom)   // EQ-37: dragged right down to the bottom edge; the Dynamic row still fits
+            {
+                auto& panel = ed->getDisplay().getPanel();
+                const auto limit = ed->getDisplay().getPanelLimits().toNearestInt();
+                panel.onUserMove ({ limit.getX() + 180, limit.getBottom() });
+            }
+        }
 
         const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, scale);
         const auto file = folder.getChildFile (name + (scale != 1.0f ? "@" + juce::String (scale, 0) + "x" : juce::String()) + ".png");
@@ -5122,6 +5338,7 @@ static int renderScreenshots (const juce::File& folder, float scale)
     SongsmithEQAudioProcessor defaults;
     shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "default-size");
     shoot (EQ::EditorSize::minWidth, EQ::EditorSize::minHeight, "minimum-size");
+    shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "panel-dragged-to-bottom", 1.0f, false, true);
     shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "default-size-piano", 1.0f, true);
     shoot (EQ::EditorSize::minWidth, EQ::EditorSize::minHeight, "minimum-size-piano", 1.0f, true);
     shoot (EQ::EditorSize::maxWidth, 2160, "maximum-size-4k");
