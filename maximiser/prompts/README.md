@@ -2,6 +2,8 @@
 
 There is one self-contained prompt per build step. They were run in order by the overnight run of 2026-11-03 with [`done/overnight-prompt.md`](done/overnight-prompt.md): each step got its own PR into the integration branch, which was merged into `main` in #48. Finished prompts are in [`done/`](done/). The code is in [`maximiser/`](../). (The prompts still say `maximizer/` and `MaximizerTests`: the folder and test executable were renamed afterwards.)
 
+Every task has a stable **MAX-##** reference (for example MAX-05), distinct from its GitHub PR number. See [traceability rules](../../shared/prompts/README.md#prompt-identity-and-traceability).
+
 | Prompt | Status | PR |
 |---|---|---|
 | [01 plug-in shell](done/01-maximiser-shell.md) | Done | #35 |
