@@ -6,6 +6,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
+#include "../../shared/Tests/SongsmithUITests.h"
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "EngineMeasure.h"
 #include "ColourMeasure.h"
@@ -301,6 +302,10 @@ struct EditorTests final : juce::UnitTest
         expect (e != nullptr);
         expectGreaterThan (e->getWidth(), 0);
         e.reset();
+
+        beginTest ("global Bypass is top-right and uses the suite's Bypass red (SUI-13)");
+        std::unique_ptr<juce::AudioProcessorEditor> ed (p.createEditor());
+        Songsmith::UI::Testing::checkGlobalBypass (*this, *ed, *p.apvts.getParameter (ID::bypass), "Analog Compressor");
     }
 };
 

@@ -13,6 +13,10 @@ namespace Songsmith::UI::Colours
     inline const juce::Colour text       { 0xffe7e6e3 };   // values and labels that matter
     inline const juce::Colour textDim    { 0xff9a9b97 };   // captions, hints, scales (4.5:1 or more on the panel)
 
+    // Global Bypass (SUI-13): red means processing is bypassed. One colour for every plugin, never a
+    // plugin's accent. Black text on it has a contrast of 4.9:1.
+    inline const juce::Colour bypass     { 0xffc9563c };   // #C9563C
+
     // Light comes from the top left. Raised surfaces get this on their top edge...
     inline const juce::Colour highlight  { 0x1fffffff };
     // ...and this on their bottom edge; recessed ones the other way round.

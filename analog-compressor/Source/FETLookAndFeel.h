@@ -18,7 +18,6 @@ namespace FET::UI
         inline const juce::Colour textDim    = Songsmith::UI::Colours::textDim;
         // ...the compressor's accent, and colours only it uses.
         inline const juce::Colour accent     { 0xffe8a33d };   // amber: lit buttons, pointers
-        inline const juce::Colour bypass     { 0xffc9563c };
         inline const juce::Colour meterFace  { 0xfff1e6c8 };
         inline const juce::Colour meterInk   { 0xff2a2620 };
         inline const juce::Colour meterRed   { 0xffb8402e };

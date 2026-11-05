@@ -3,6 +3,11 @@ name: Build
 # Build each change once: PRs build on pull_request, and main builds on push
 # (merges, which the release files come from). Branches without a PR can be
 # built by hand from the Actions tab (workflow_dispatch).
+# macOS builds are universal (Apple Silicon and Intel) on main and manual runs, which
+# is what the release installers come from. Pull requests build Apple Silicon only
+# (arm64), which halves the compile time; an Intel-only compile problem would show
+# up on main instead of in the pull request.
+#
 # Only source changes build: a change has to touch a file in one of the folders
 # below that isn't a doc, prompt or image (the "!" lines). Docs, READMEs,
 # prompts and screenshots alone never start a build. Keep both lists the same;
@@ -117,9 +122,9 @@ jobs:
             os: windows-latest
             configure: -A x64
             tests: eq/build/EQTests_artefacts/Release/EQTests.exe
-          - name: macOS (Xcode, universal)
+          - name: macOS (Xcode, ${{ github.event_name == 'pull_request' && 'arm64' || 'universal' }})
             os: macos-latest
-            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="${{ github.event_name == 'pull_request' && 'arm64' || 'arm64;x86_64' }}"
             tests: eq/build/EQTests_artefacts/Release/EQTests
 
     steps:
@@ -273,9 +278,9 @@ jobs:
             os: windows-latest
             configure: -A x64
             tests: analog-compressor/build/AnalogCompressorTests_artefacts/Release/AnalogCompressorTests.exe
-          - name: macOS (Xcode, universal)
+          - name: macOS (Xcode, ${{ github.event_name == 'pull_request' && 'arm64' || 'universal' }})
             os: macos-latest
-            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="${{ github.event_name == 'pull_request' && 'arm64' || 'arm64;x86_64' }}"
             tests: analog-compressor/build/AnalogCompressorTests_artefacts/Release/AnalogCompressorTests
 
     steps:
@@ -422,9 +427,9 @@ jobs:
             os: windows-latest
             configure: -A x64
             tests: maximiser/build/MaximiserTests_artefacts/Release/MaximiserTests.exe
-          - name: macOS (Xcode, universal)
+          - name: macOS (Xcode, ${{ github.event_name == 'pull_request' && 'arm64' || 'universal' }})
             os: macos-latest
-            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="${{ github.event_name == 'pull_request' && 'arm64' || 'arm64;x86_64' }}"
             tests: maximiser/build/MaximiserTests_artefacts/Release/MaximiserTests
 
     steps:

@@ -4644,6 +4644,25 @@ public:
 static DynamicTooltipTests dynamicTooltipTests;
 
 //==============================================================================
+// SUI-13: global Bypass is top-right and uses the suite's Bypass red.
+class GlobalBypassTests final : public juce::UnitTest
+{
+public:
+    GlobalBypassTests() : juce::UnitTest ("Global Bypass", "EQ") {}
+
+    void runTest() override
+    {
+        beginTest ("Bypass is top-right, uses the shared red, and follows the parameter");
+        for (float s : { 1.0f, 2.0f })
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = UiSizeTests::makeEditor (p, s, juce::roundToInt (1280 * s), juce::roundToInt (788 * s));
+            Songsmith::UI::Testing::checkGlobalBypass (*this, *ed, *p.apvts.getParameter (EQ::bypassId), "EQ at " + juce::String (s) + "x");
+        }
+    }
+};
+static GlobalBypassTests globalBypassTests;
+
 // EQ-33: each filter type shows a small picture of its response.
 class FilterShapeIconTests final : public juce::UnitTest
 {

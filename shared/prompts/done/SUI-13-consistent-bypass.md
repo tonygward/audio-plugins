@@ -1,6 +1,6 @@
 # SUI-13 — Consistent global Bypass position and active red
 
-**Status:** To do — **Priority 1, early UI consistency**  
+**Status:** Done in #82 — **Priority 1, early UI consistency**  
 **Model:** Sonnet  
 **Scope:** EQ, Analog Compressor, Maximiser, and every future Songsmith plugin with a global Bypass control.
 

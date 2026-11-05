@@ -376,6 +376,13 @@ public:
             std::unique_ptr<juce::AudioProcessorEditor> ed (p.createEditor());
             expect (ed != nullptr && ed->getWidth() > 0 && ed->getHeight() > 0);
         }
+
+        beginTest ("Global Bypass is top-right and uses the suite's Bypass red (SUI-13)");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            std::unique_ptr<juce::AudioProcessorEditor> ed (p.createEditor());
+            Songsmith::UI::Testing::checkGlobalBypass (*this, *ed, *p.apvts.getParameter (Max::bypassId), "Maximiser");
+        }
     }
 };
 
