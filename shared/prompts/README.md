@@ -31,6 +31,18 @@ Finish the existing suite work and develop the classic standalone plugins on two
 
 The [S8 suite branding](done/S8-songsmith-plugins-brand.md) is done. Apply [S9 curated and custom presets](S9-preset-library.md) **(Sonnet)** and [S10 resizable editors and control help](S10-resize-and-plain-language.md) **(Sonnet)** across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
 
+### Version alignment with delivery milestones
+
+**Current suite baseline: 1.1.0.** The EQ roadmap's earlier v0.3–v1.0 labels describe historical EQ work, not the shared suite version.
+
+Agree and record a **release checkpoint with a named, testable feature scope** before choosing the next semantic version. Intermediate prompt PRs need not bump `VERSION`; increment it once the whole checkpoint passes validation, and update `CHANGELOG.md`. Future research and proposed ideas have no target version until they are scheduled.
+
+| Release checkpoint | Version | Scope / decision |
+|---|---|---|
+| Current shared suite baseline | 1.1.0 | Existing shipped suite work (see changelog) |
+| Next release milestone | To agree | Choose and validate a coherent subset of priorities below |
+| Later milestones | Unscheduled | Further classic plugins, Channel Strip, Loudness Analyser and musical guidance |
+
 ### Delivery priority
 
 | Priority | Batch | Order and release checks |
