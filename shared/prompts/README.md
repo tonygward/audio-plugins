@@ -2,7 +2,7 @@
 
 ## Prompt identity and traceability
 
-Every task has a **stable, unique, scope-qualified ID**: `EQ-32` (file `eq/prompts/32-...`), `COMP-06` (`analog-compressor/prompts/06-...`), `MAX-07` (`maximiser/prompts/07-...`), `SUI-11` (shared suite), `OPT-01`/`CLN-01` (specific classic plugins) or `ADV-01` (future candidate). The ID **never changes** when a prompt moves to `done/`; historical numbers, names and GitHub PR numbers are not task IDs.
+Every task has a **stable, unique, scope-qualified ID**: `EQ-32` (file `eq/prompts/32-...`), `ACOMP-06` (`analog-compressor/prompts/06-...`), `MAX-07` (`maximiser/prompts/07-...`), `SUI-11` (shared suite), `OPT-01`/`CLN-01` (specific classic plugins) or `ADV-01` (future candidate). The ID **never changes** when a prompt moves to `done/`; historical numbers, names and GitHub PR numbers are not task IDs.
 
 For each completed prompt, keep a single canonical Markdown file in its own folder's `done/`, link it from the local prompt README (or this shared README), and record the delivery PR and release checkpoint when verified. **Done means merged**, not merely code written or a plan approved. If a prompt is archived retrospectively, label it as such and do not invent PR or test evidence. Update the release changelog with references to the IDs delivered at each checkpoint. Links must be relative to their source Markdown file. Do not mark an unmerged task done.
 
