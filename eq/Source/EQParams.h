@@ -27,6 +27,25 @@ namespace EQ
         return t == FilterType::Bell || t == FilterType::LowShelf || t == FilterType::HighShelf;
     }
 
+    // Tooltip for the band panel's Dynamic button. When the button is greyed out it says why and
+    // what to change, never offering a route that would not enable it (EQ-36).
+    inline juce::String dynamicTooltip (FilterType t, bool linearPhase)
+    {
+        const bool filterOk = typeHasGain (t);
+        if (filterOk && ! linearPhase)
+            return "Dynamic EQ changes this band's gain in response to the sound level in its frequency range.";
+
+        const auto name = getTypeNames()[(int) t];
+        if (! filterOk && linearPhase)
+            return "Dynamic EQ isn't available on " + name + " filters or in Linear phase mode. "
+                   "Select Bell, Low Shelf or High Shelf and switch to Zero latency mode.";
+        if (! filterOk)
+            return "Dynamic EQ isn't available on " + name + " filters. "
+                   "Use Bell, Low Shelf or High Shelf to enable dynamic processing.";
+        return "Dynamic EQ isn't available in Linear phase mode. "
+               "Switch to Zero latency mode to use it with Bell, Low Shelf or High Shelf filters.";
+    }
+
     constexpr float minFreq = 20.0f,   maxFreq = 20000.0f;
     constexpr float minGain = -30.0f,  maxGain = 30.0f;
     constexpr float minQ    = 0.1f,    maxQ    = 40.0f;

@@ -124,7 +124,7 @@ BandPanel::BandPanel (SongsmithEQAudioProcessor& p) : processor (p)
 
     // Dynamic EQ: toggle plus a row of controls that is only shown while dynamics are on.
     dynButton.setClickingTogglesState (true);
-    dynButton.setTooltip ("Dynamic EQ: the band's gain moves with the level in its own frequency region");
+    dynButton.setTooltip (EQ::dynamicTooltip (EQ::FilterType::Bell, false));
     dynButton.onClick = [this]
     {
         if (! updating && band >= 0)
@@ -330,8 +330,8 @@ void BandPanel::refreshFromParams()
     // Linear-phase mode has no dynamics or solo (they need the zero-latency engine).
     const bool linearPhase = processor.isLinearPhaseSelected();
     dynButton.setEnabled (hasGain && ! linearPhase);
-    dynButton.setTooltip (linearPhase ? "Dynamic EQ is not available in linear-phase mode"
-                                      : "Dynamic EQ: the band's gain moves with the level in its own frequency region");
+    // Disabled components still receive hover, so JUCE's TooltipWindow shows this while greyed out.
+    dynButton.setTooltip (EQ::dynamicTooltip (type, linearPhase));
     soloButton.setEnabled (! linearPhase);
     soloButton.setAlpha (linearPhase ? 0.35f : 1.0f);
     for (auto* k : { &thresholdKnob, &rangeKnob, &attackKnob, &releaseKnob })

@@ -1,6 +1,6 @@
 # EQ-36 — Context-sensitive Dynamic EQ disabled tooltips
 
-**Status:** To do · **Priority 1 (early UI usability fix)**  
+**Status:** Done in #78 · **Priority 1 (early UI usability fix)**  
 **Model:** Sonnet  
 **Scope:** Songsmith EQ Band Panel — Dynamic button only  
 **Evidence:** 5 November 2026 screenshot: Band 4, Low Cut, greyed-out Dynamic button.
