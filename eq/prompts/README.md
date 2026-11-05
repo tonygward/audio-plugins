@@ -14,9 +14,9 @@ References use the stable **EQ-##** IDs (for example EQ-27 means prompt 27 in th
 | 27–31 (in [`done/`](done/)) | Done overnight on 3–4 Nov 2026 (#37, #45, #40, #42, #49), merged into `main` in #52 and shipped in v0.5.0: [27 vertical output meter](done/27-vertical-output-meter.md), [28 piano notes toggle](done/28-piano-strip-toggle.md), [29 edge clicks add cuts](done/29-edge-click-cuts.md), [30 Abbey Road reverb template](done/30-abbey-road-reverb-template.md), [31 tom presets](done/31-tom-presets.md) |
 | [32 instrument frequency guide](32-frequency-guide.md) | **Sonnet** · To do: an optional overlay that names what you hear in each part of the graph (Rumble, Thump, Plastic, Air), starting with acoustic guitar. Concept picture: [32-frequency-guide.png](32-frequency-guide.png) |
 | [37 Draggable band panel and Dynamic visibility](37-draggable-band-panel.md) | **Sonnet · Priority 1 · To do:** drag floating band controls; auto-reposition when Dynamic opens so no controls are clipped |
-| [36 Disabled Dynamic tooltip](done/36-dynamic-disabled-tooltip.md) | **Done** in #78: the greyed-out Dynamic button explains why and lists Bell, Low Shelf and High Shelf, including the Linear phase cases. Release checkpoint pending (UI milestone with EQ-33 to EQ-35, SUI-12 and SUI-13) |
-| [35 Piano footer placement](done/35-piano-footer.md) | **Done** in #81: Piano button pinned to the far right of the bottom strip beside the piano-note strip, with [SUI-12](../../shared/prompts/done/SUI-12-processing-load-footer.md). Release checkpoint pending |
-| [34 Linear Phase tooltip](done/34-linear-phase-tooltip.md) | **Done** in #79: the processing-mode selector explains when to try Linear phase, why it adds delay and why Zero latency suits recording. Release checkpoint pending (UI milestone) |
+| [36 Disabled Dynamic tooltip](done/36-dynamic-disabled-tooltip.md) | **Done** in #78: the greyed-out Dynamic button explains why and lists Bell, Low Shelf and High Shelf, including the Linear phase cases. Shipped in 1.2.0 |
+| [35 Piano footer placement](done/35-piano-footer.md) | **Done** in #81: Piano button pinned to the far right of the bottom strip beside the piano-note strip, with [SUI-12](../../shared/prompts/done/SUI-12-processing-load-footer.md). Shipped in 1.2.0 |
+| [34 Linear Phase tooltip](done/34-linear-phase-tooltip.md) | **Done** in #79: the processing-mode selector explains when to try Linear phase, why it adds delay and why Zero latency suits recording. Shipped in 1.2.0 (UI milestone) |
 
 ## Overnight runs merge into `main`
 
@@ -39,7 +39,7 @@ Every prompt branches from the latest `main`. Tasks in the same wave are mostly 
 | 9 | 25 higher-resolution, scalable UI | Needs 24's embedded font and final label sizes. |
 | 10 | 27 vertical output meter · 29 edge clicks add cuts · 30 Abbey Road reverb | Independent of each other. |
 | 11 | 28 piano notes toggle · 31 tom presets | 28 relayouts row 3 after 27 changed rows 2 and the graph width; 31 adds presets after 30's, so both avoid conflicts by waiting a wave. |
-| [33 filter shape icons](done/33-filter-shape-icons.md) | **Done** in #80: a response picture beside each filter type in the band panel and the right-click menu. Release checkpoint pending |
+| [33 filter shape icons](done/33-filter-shape-icons.md) | **Done** in #80: a response picture beside each filter type in the band panel and the right-click menu. Shipped in 1.2.0 |
 
 ## Conflict hotspots
 
