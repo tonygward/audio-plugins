@@ -1,6 +1,6 @@
 # SUI-12 — Left-aligned Processing Load diagnostic toggle
 
-**Status:** To do  
+**Status:** Done in #81  
 **Model:** Sonnet  
 **Scope:** Every current and future Songsmith plugin (EQ, Analog Compressor, Maximiser, and plugins using the shared diagnostics bar).  
 **Reference:** User screenshot 5 November 2026 (EQ bottom status strip).  

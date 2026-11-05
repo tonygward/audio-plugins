@@ -15,7 +15,7 @@ References use the stable **EQ-##** IDs (for example EQ-27 means prompt 27 in th
 | [32 instrument frequency guide](32-frequency-guide.md) | **Sonnet** · To do: an optional overlay that names what you hear in each part of the graph (Rumble, Thump, Plastic, Air), starting with acoustic guitar. Concept picture: [32-frequency-guide.png](32-frequency-guide.png) |
 | [37 Draggable band panel and Dynamic visibility](37-draggable-band-panel.md) | **Sonnet · Priority 1 · To do:** drag floating band controls; auto-reposition when Dynamic opens so no controls are clipped |
 | [36 Disabled Dynamic tooltip](done/36-dynamic-disabled-tooltip.md) | **Done** in #78: the greyed-out Dynamic button explains why and lists Bell, Low Shelf and High Shelf, including the Linear phase cases. Release checkpoint pending (UI milestone with EQ-33 to EQ-35, SUI-12 and SUI-13) |
-| [35 Piano footer placement](35-piano-footer.md) | **Sonnet** · To do: pin Piano button to far right of EQ bottom diagnostics strip; coordinate with [SUI-12](../../shared/prompts/SUI-12-processing-load-footer.md) |
+| [35 Piano footer placement](done/35-piano-footer.md) | **Done** in #81: Piano button pinned to the far right of the bottom strip beside the piano-note strip, with [SUI-12](../../shared/prompts/done/SUI-12-processing-load-footer.md). Release checkpoint pending |
 | [34 Linear Phase tooltip](done/34-linear-phase-tooltip.md) | **Done** in #79: the processing-mode selector explains when to try Linear phase, why it adds delay and why Zero latency suits recording. Release checkpoint pending (UI milestone) |
 
 ## Overnight runs merge into `main`

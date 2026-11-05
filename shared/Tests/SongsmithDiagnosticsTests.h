@@ -26,20 +26,22 @@ namespace Songsmith::Diagnostics::Testing
         juce::File folder;
     };
 
-    // "128 samples (2.7 ms)" -> { 128, 2.7 }. Read back from the text itself, so a test compares what a
+    // "2.7ms (128 samples)" -> { 128, 2.7 }. Read back from the text itself, so a test compares what a
     // person sees with what the processor reports, not the formatter with itself.
     struct ParsedLatency { int samples = -1; double milliseconds = -1.0; };
 
     inline ParsedLatency parseLatency (const juce::String& text)
     {
         ParsedLatency r;
-        const auto samplesEnd = text.indexOf (" sample");
-        if (samplesEnd > 0)
-            r.samples = text.substring (0, samplesEnd).getIntValue();
         const auto open = text.indexOfChar ('(');
-        const auto ms = text.indexOf (" ms)");
-        if (open >= 0 && ms > open)
-            r.milliseconds = text.substring (open + 1, ms).getDoubleValue();
+        const auto samplesEnd = text.indexOf (" sample");
+        if (open >= 0 && samplesEnd > open)
+            r.samples = text.substring (open + 1, samplesEnd).getIntValue();
+        else if (open < 0 && samplesEnd > 0)
+            r.samples = text.substring (0, samplesEnd).getIntValue();   // no sample rate yet: samples only
+        const auto ms = text.indexOf ("ms (");
+        if (ms > 0)
+            r.milliseconds = text.substring (0, ms).getDoubleValue();
         return r;
     }
 
@@ -60,6 +62,53 @@ namespace Songsmith::Diagnostics::Testing
         if (rate > 0.0)
             t.expectWithinAbsoluteError (shown.milliseconds, 1000.0 * (double) reported / rate, 0.051,
                                          context + ": the milliseconds match the samples at " + juce::String (rate) + " Hz");
+    }
+
+    // SUI-12 / EQ-35 footer layout: the switch is at the far left, the readout appears directly to its
+    // right only while the switch is on, and a plugin's own control stays right-aligned either way.
+    inline void checkFooterLayout (juce::UnitTest& t, juce::AudioProcessor& processor, const juce::String& context)
+    {
+        TemporarySettings settings;
+        LoadMeter meter;
+        juce::TextButton probe ("Probe");
+        probe.setSize (90, 22);
+        Bar bar (processor, meter, "Test");
+        bar.setTrailingControl (&probe);
+
+        for (int width : { 720, 760, 1280, 2000 })
+        {
+            bar.setSize (width, Bar::designHeight);
+            for (bool on : { false, true })
+            {
+                bar.getLoadSwitch().setToggleState (on, juce::sendNotificationSync);
+                bar.resized();
+                bar.refresh();
+                const auto where = context + " at " + juce::String (width) + (on ? " px, Processing Load on" : " px, Processing Load off");
+                auto& sw = bar.getLoadSwitch();
+
+                t.expect (sw.getX() <= 20 && sw.getX() < bar.getWidth() / 10, where + ": the switch is at the far left");
+                t.expect (sw.getButtonText() == "Processing Load", where + ": the switch is named Processing Load");
+                t.expectEquals (probe.getRight(), bar.getWidth() - 16, where + ": the plugin's own control stays at the far right");
+                t.expect (! sw.getBounds().intersects (probe.getBounds()), where + ": no overlap");
+                t.expect (bar.isReadoutShown() == on, where + ": the readout is shown only while the switch is on");
+
+                if (on)
+                {
+                    auto& readout = bar.getReadout();
+                    const auto text = bar.getReadoutText();
+                    t.expect (text.startsWith ("CPU ") && text.contains (", Latency "), where + ": readout reads \"" + text + "\"");
+                    t.expect (readout.getX() >= sw.getRight() && readout.getX() - sw.getRight() <= 16, where + ": the readout follows the switch");
+                    t.expect (readout.getRight() <= probe.getX(), where + ": the readout stops before the plugin's own control");
+                    t.expect (text.contains (bar.getLatencyText()), where + ": the latency in the readout is the reported latency");
+
+                    juce::GlyphArrangement glyphs;
+                    glyphs.addLineOfText (static_cast<juce::Label&> (readout).getFont(), text, 0.0f, 0.0f);
+                    t.expect (glyphs.getBoundingBox (0, -1, false).getWidth() <= (float) readout.getWidth(), where + ": the readout is not clipped");
+                }
+                else
+                    t.expect (bar.getReadoutText().isEmpty(), where + ": no stale numbers left behind");
+            }
+        }
     }
 
     // Runs a few blocks of silence at different sizes with timing on and checks a load is published; with
@@ -227,12 +276,12 @@ public:
 
         beginTest ("Latency text: samples, and milliseconds at the current rate");
         {
-            expectEquals (latencyText (128, 48000.0), juce::String ("128 samples (2.7 ms)"));
-            expectEquals (latencyText (84, 48000.0), juce::String ("84 samples (1.8 ms)"));
-            expectEquals (latencyText (0, 48000.0), juce::String ("0 samples (0.0 ms)"));
-            expectEquals (latencyText (1, 44100.0), juce::String ("1 sample (0.0 ms)"));
-            expectEquals (latencyText (4410, 44100.0), juce::String ("4410 samples (100.0 ms)"));
-            expectEquals (latencyText (4096, 96000.0), juce::String ("4096 samples (42.7 ms)"));
+            expectEquals (latencyText (128, 48000.0), juce::String ("2.7ms (128 samples)"));
+            expectEquals (latencyText (84, 48000.0), juce::String ("1.8ms (84 samples)"));
+            expectEquals (latencyText (0, 48000.0), juce::String ("0.0ms (0 samples)"));
+            expectEquals (latencyText (1, 44100.0), juce::String ("0.0ms (1 sample)"));
+            expectEquals (latencyText (4410, 44100.0), juce::String ("100.0ms (4410 samples)"));
+            expectEquals (latencyText (4096, 96000.0), juce::String ("42.7ms (4096 samples)"));
             expectEquals (latencyText (128, 0.0), juce::String ("128 samples"), "no sample rate yet: just the samples");
 
             const auto p = parseLatency (latencyText (2048, 44100.0));
@@ -243,18 +292,24 @@ public:
         beginTest ("Load text has enough digits for light loads");
         {
             expectEquals (loadText (std::nullopt), juce::String ("Unavailable"));
-            expectEquals (loadText (0.0f), juce::String ("0.00 %"));
-            expectEquals (loadText (0.0007f), juce::String ("0.07 %"));
-            expectEquals (loadText (0.032f), juce::String ("3.2 %"));
-            expectEquals (loadText (0.14f), juce::String ("14 %"));
-            expectEquals (loadText (1.5f), juce::String ("150 %"), "over budget is shown, not capped");
-            expectEquals (loadText (-0.5f), juce::String ("0.00 %"), "never negative");
+            expectEquals (loadText (0.0f), juce::String ("0%"), "a real zero reads 0%");
+            expectEquals (loadText (0.0035f), juce::String ("0.35%"), "light loads are not rounded to zero");
+            expectEquals (loadText (0.0007f), juce::String ("0.07%"));
+            expectEquals (loadText (0.032f), juce::String ("3.2%"));
+            expectEquals (loadText (0.14f), juce::String ("14%"));
+            expectEquals (loadText (1.5f), juce::String ("150%"), "over budget is shown, not capped");
+            expectEquals (loadText (-0.5f), juce::String ("0%"), "never negative");
         }
 
         beginTest ("Everything on the strip is plain words, and the tooltips say what the numbers mean");
         {
-            const juce::StringArray everything { "Latency", "Processing Load", "Off", "Unavailable", loadText (0.04f), latencyText (128, 48000.0),
+            const juce::StringArray everything { "Processing Load", "Off", "Unavailable", loadText (0.04f), latencyText (128, 48000.0),
+                                                 readoutText (0.0035f, 0, 48000.0), readoutText (std::nullopt, 1, 44100.0),
                                                  latencyTooltip(), loadTooltip() };
+            expectEquals (readoutText (0.0035f, 0, 48000.0), juce::String ("CPU 0.35%, Latency 0.0ms (0 samples)"), "the readout in the agreed order and wording");
+            expectEquals (readoutText (std::nullopt, 128, 48000.0), juce::String ("CPU Unavailable, Latency 2.7ms (128 samples)"),
+                          "no measurement: unavailable, never a made-up zero, and the latency is still shown");
+            expect (Songsmith::UI::Wording::findBanned ("CPU is busy").isNotEmpty(), "CPU stays banned everywhere else");
             for (const auto& text : everything)
                 expect (Songsmith::UI::Wording::findBanned (text).isEmpty(),
                         "no abbreviation in \"" + text + "\" (found \"" + Songsmith::UI::Wording::findBanned (text) + "\")");

@@ -48,24 +48,33 @@ namespace Songsmith::Diagnostics
         return smoothed + (float) alpha * (instant - smoothed);
     }
 
-    // "128 samples (2.9 ms)". The milliseconds use the sample rate the host is running at.
+    // "2.7ms (128 samples)". The milliseconds use the sample rate the host is running at.
     inline juce::String latencyText (int samples, double sampleRate)
     {
         const juce::String count (samples);
         const juce::String unit = samples == 1 ? " sample" : " samples";
         if (sampleRate <= 0.0)
             return count + unit;
-        return count + unit + " (" + juce::String (1000.0 * (double) samples / sampleRate, 1) + " ms)";
+        return juce::String (1000.0 * (double) samples / sampleRate, 1) + "ms (" + count + unit + ")";
     }
 
-    // Enough digits for light loads: "0.07 %", "3.2 %", "14 %". No measurement reads "Unavailable".
+    // Enough digits for light loads: "0.07%", "3.2%", "14%". A genuine zero reads "0%". No
+    // measurement reads "Unavailable", never a made-up zero.
     inline juce::String loadText (std::optional<float> fraction)
     {
         if (! fraction.has_value())
             return "Unavailable";
         const double percent = 100.0 * (double) juce::jmax (0.0f, *fraction);
+        if (percent <= 0.0)
+            return "0%";
         const int decimals = percent < 1.0 ? 2 : (percent < 10.0 ? 1 : 0);
-        return juce::String (percent, decimals) + " %";
+        return juce::String (percent, decimals) + "%";
+    }
+
+    // The whole readout beside the Processing Load switch: "CPU 0.35%, Latency 0.0ms (0 samples)".
+    inline juce::String readoutText (std::optional<float> fraction, int samples, double sampleRate)
+    {
+        return "CPU " + loadText (fraction) + ", Latency " + latencyText (samples, sampleRate);
     }
 
     inline const char* latencyTooltip()
@@ -204,8 +213,10 @@ namespace Songsmith::Diagnostics
     }
 
     //==============================================================================
-    // The strip: Latency on the left, the Processing Load switch and value on the right. Laid out at
-    // a fixed design size, so it scales with the editor like everything else.
+    // The strip (SUI-12): the Processing Load switch at the far left and, only while it is on, the
+    // CPU and latency readout directly to its right. The right end is left free for a plugin's own
+    // control that belongs beside what it affects (setTrailingControl: the EQ's Piano button).
+    // Laid out at a fixed design size, so it scales with the editor like everything else.
     class Bar : public juce::Component, private juce::Timer
     {
     public:
@@ -214,14 +225,9 @@ namespace Songsmith::Diagnostics
         Bar (juce::AudioProcessor& processorToShow, LoadMeter& meterToShow, const juce::String& pluginName)
             : processor (processorToShow), meter (meterToShow), name (pluginName)
         {
-            setupLabel (latencyCaption, "Latency", UI::Weight::Medium, Colours::textDim);
-            setupLabel (latencyValue, {}, UI::Weight::Regular, Colours::text);
-            setupLabel (loadValue, {}, UI::Weight::Regular, Colours::text);
-            latencyValue.setTooltip (latencyTooltip());
-            latencyCaption.setTooltip (latencyTooltip());
-            latencyCaption.setInterceptsMouseClicks (true, false);
-            latencyValue.setInterceptsMouseClicks (true, false);
-            loadValue.setJustificationType (juce::Justification::centredLeft);
+            setupLabel (readout, {}, UI::Weight::Regular, Colours::text);
+            readout.setTooltip (latencyTooltip());
+            readout.setInterceptsMouseClicks (true, false);
 
             loadSwitch.setButtonText ("Processing Load");
             loadSwitch.setClickingTogglesState (true);
@@ -236,8 +242,7 @@ namespace Songsmith::Diagnostics
             addAndMakeVisible (loadSwitch);
             meter.setEnabled (loadSwitch.getToggleState());
 
-            for (auto* l : { &latencyCaption, &latencyValue, &loadValue })
-                addAndMakeVisible (*l);
+            addAndMakeVisible (readout);
 
             refresh();
             startTimerHz (4);
@@ -250,14 +255,30 @@ namespace Songsmith::Diagnostics
         }
 
         // The texts as shown now (the tests compare them with what the processor reports).
-        juce::String getLatencyText() const { return latencyValue.getText(); }
-        juce::String getLoadText() const    { return loadValue.getText(); }
+        // The latency part is always current, even while the readout is hidden.
+        juce::String getLatencyText() const { return latencyText (processor.getLatencySamples(), processor.getSampleRate()); }
+        juce::String getLoadText() const    { return meter.isEnabled() ? loadText (meter.read()) : juce::String ("Off"); }
+        juce::String getReadoutText() const { return readout.getText(); }
+        bool isReadoutShown() const         { return readout.isVisible(); }
         juce::TextButton& getLoadSwitch()   { return loadSwitch; }
+        juce::Component& getReadout()       { return readout; }
+
+        // A plugin's own control for the right end of the strip. The bar lays it out right-aligned at
+        // the component's current size and does not own it.
+        void setTrailingControl (juce::Component* c)
+        {
+            trailing = c;
+            if (c != nullptr)
+                addAndMakeVisible (*c);
+            resized();
+        }
 
         void refresh()
         {
-            setText (latencyValue, latencyText (processor.getLatencySamples(), processor.getSampleRate()));
-            setText (loadValue, meter.isEnabled() ? loadText (meter.read()) : juce::String ("Off"));
+            const bool show = meter.isEnabled();
+            readout.setVisible (show);
+            setText (readout, show ? readoutText (meter.read(), processor.getLatencySamples(), processor.getSampleRate())
+                                   : juce::String());
         }
 
         void paint (juce::Graphics& g) override
@@ -269,12 +290,16 @@ namespace Songsmith::Diagnostics
         void resized() override
         {
             auto r = getLocalBounds().reduced (16, 2).withTrimmedTop (1);
-            latencyCaption.setBounds (r.removeFromLeft (58));
-            latencyValue.setBounds (r.removeFromLeft (200));
+            loadSwitch.setBounds (r.removeFromLeft (130).withSizeKeepingCentre (130, 22));
+            r.removeFromLeft (10);
 
-            loadValue.setBounds (r.removeFromRight (96));
-            r.removeFromRight (6);
-            loadSwitch.setBounds (r.removeFromRight (130).withSizeKeepingCentre (130, 22));
+            if (trailing != nullptr)
+            {
+                const int w = trailing->getWidth() > 0 ? trailing->getWidth() : 80;
+                trailing->setBounds (r.removeFromRight (w).withSizeKeepingCentre (w, 22));
+                r.removeFromRight (10);
+            }
+            readout.setBounds (r);
         }
 
     private:
@@ -300,7 +325,8 @@ namespace Songsmith::Diagnostics
         juce::AudioProcessor& processor;
         LoadMeter& meter;
         juce::String name;
-        juce::Label latencyCaption, latencyValue, loadValue;
+        juce::Label readout;
+        juce::Component* trailing = nullptr;
         juce::TextButton loadSwitch;
     };
 }

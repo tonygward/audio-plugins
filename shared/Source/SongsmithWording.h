@@ -35,6 +35,11 @@ namespace Songsmith::UI::Wording
     // digit), numbers with units (2x, 16-bit).
     inline juce::String findBanned (const juce::String& text)
     {
+        // The one narrow exception (SUI-12): the Processing Load readout starts "CPU 0.35%, Latency ...".
+        // "CPU" is allowed there and nowhere else.
+        if (text.startsWith ("CPU ") && text.contains (", Latency "))
+            return findBanned (text.substring (3));
+
         juce::String word;
         juce::juce_wchar before = 0, previous = 0;
         bool sentenceStart = true, wordStartsSentence = true;   // at the start, or after . : ! ? (

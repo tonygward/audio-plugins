@@ -194,7 +194,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
         processor.notifyNonParameterStateChanged();
         display.repaint();
     };
-    content.addAndMakeVisible (pianoButton);
+    // The button lives at the right end of the footer strip, beside the piano-note strip it shows (EQ-35).
 
     bandCountLabel.setFont (EQColours::numbers (EQColours::Type::control));
     bandCountLabel.setJustificationType (juce::Justification::centredLeft);
@@ -210,6 +210,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
 
     diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (processor, processor.loadMeter, JucePlugin_Name);
     content.addAndMakeVisible (*diagnostics);
+    diagnostics->setTrailingControl (&pianoButton);
 
     timerCallback();
 
@@ -447,15 +448,20 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
     //   1: title | presets | undo | redo | scale ............ band count | bypass
     //   2: phase mode | oversampling ............... auto gain | output gain
     //   graph ..................................................... | output meter
-    //   3: display range | analyser | settings | curve view | side chain | piano ...... hint
+    //   3: display range | analyser | settings | curve view | side chain ...... hint
+    //   footer: Processing Load | CPU and latency (when on) ...... piano
     // Widths come from the text in the embedded font, so nothing is cut short. Optional
     // items (band count, hint) are hidden when there's no room for them.
     auto area = content.getLocalBounds();
     constexpr int gap = 8;
 
     const auto strip = area.removeFromBottom (EQ::EditorSize::diagnosticsHeight);
+    pianoButton.setSize (buttonWidth ({ pianoButton.getButtonText() }), 22);
     if (diagnostics != nullptr)
+    {
         diagnostics->setBounds (strip);
+        diagnostics->resized();   // places the Piano button at the right end
+    }
 
     {
         auto row = area.removeFromTop (row1Height).reduced (margin, 7);
@@ -499,8 +505,7 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         row.removeFromLeft (gap);
         sidechainBox.setBounds (row.removeFromLeft (comboWidth (sidechainBox)));
         row.removeFromLeft (gap);
-        pianoButton.setBounds (row.removeFromLeft (buttonWidth ({ pianoButton.getButtonText() })));
-        row.removeFromLeft (gap * 2);
+        row.removeFromLeft (gap);
 
         const int hintWidth = (int) std::ceil (juce::GlyphArrangement::getStringWidth (hintLabel.getFont(), hintLabel.getText()))
                               + hintLabel.getBorderSize().getLeftAndRight() + 2;

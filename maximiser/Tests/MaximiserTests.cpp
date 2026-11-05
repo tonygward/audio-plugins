@@ -1569,6 +1569,7 @@ public:
             SongsmithMaximiserAudioProcessor p;
             expect (! p.loadMeter.isEnabled(), "off by default");
             Testing::checkLoadMeasured (*this, p, p.loadMeter, "Maximiser");
+            Testing::checkFooterLayout (*this, p, JucePlugin_Name);
 
             Bar bar (p, p.loadMeter, JucePlugin_Name);
             expectEquals (bar.getLoadText(), juce::String ("Off"));
