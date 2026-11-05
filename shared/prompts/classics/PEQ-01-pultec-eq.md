@@ -1,5 +1,9 @@
 # PEQ-01 · Analog · Pultec-style EQ
 
+**Recommended model:** Opus for DSP design/validation; Sonnet for implementation.  
+**Estimated effort / usage:** High (relative, not a token estimate).  
+**Model escalation:** Use Sonnet after filter behaviour and reference tests are specified. Never switch to Opus silently: record why, scope its use to the difficult design/validation step, then return to Sonnet.  
+
 Follow `CLAUDE.md` and the [suite backlog](../README.md). This is a standalone plugin for Songsmith Plugins.
 
 Build a Pultec EQP-1A-inspired tone EQ. Research and test the interaction of simultaneous low boost and cut, the selectable frequency points, and the high boost bandwidth. Validate response curves and document any modeled colour. Start preset research with Joe Gilder’s broad tone-shaping tutorials.
