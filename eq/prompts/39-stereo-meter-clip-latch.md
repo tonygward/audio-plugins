@@ -1,6 +1,6 @@
 # EQ-39 — Mono/stereo output meter and latched clipping warning
 
-**Status:** To do. **Priority:** 2 — early EQ improvements (after v1.3.0; near EQ-38). **Model:** Sonnet, escalate to Opus only if the existing meter transport/host-layout design needs architectural review.
+**Status:** To do. **Priority:** 2 — early EQ improvements (after v1.3.0; near EQ-38). **Recommended model:** Sonnet. **Estimated effort / usage:** Medium. **Escalation:** Opus only for meter transport/host-layout architecture review, returning to Sonnet for implementation.
 **Branch:** `roadmap/39-stereo-meter-clip-latch`.
 **Related:** [EQ-27 vertical output meter](done/27-vertical-output-meter.md) (shipped), [EQ-38 Frequency Guide icons](38-frequency-guide-instrument-icons.md).
 
