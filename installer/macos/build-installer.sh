@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds the Songsmith Studio macOS installer: one unsigned flat .pkg with every plugin, each one
+# Builds the Songsmith Plugins macOS installer: one unsigned flat .pkg with every plugin, each one
 # selected by default (Apple's pkgutil and productbuild, installed with Xcode).
 #
 #   installer/macos/build-installer.sh       # build each plugin's own .pkg first, then the suite
@@ -12,7 +12,7 @@
 # installers can't drift apart, and installing from either updates the same receipts.
 #
 # Every plugin and the suite share the one version in VERSION at the repository root. The last
-# line of the output is the path of the .pkg (default: build/suite-installer/Songsmith-Studio-<version>-macOS.pkg).
+# line of the output is the path of the .pkg (default: build/suite-installer/Songsmith-Plugins-<version>-macOS.pkg).
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -55,7 +55,7 @@ max_version="$shared_version"
 mkdir -p "$out_dir"
 out_dir="$(cd "$out_dir" && pwd)"
 work="$out_dir/macos-suite-work"
-pkg="$out_dir/Songsmith-Studio-$suite_version-macOS.pkg"
+pkg="$out_dir/Songsmith-Plugins-$suite_version-macOS.pkg"
 rm -rf "$work"
 mkdir -p "$work/pkgs" "$work/resources"
 rm -f "$pkg"

@@ -511,12 +511,12 @@ jobs:
             maximiser/build/SongsmithMaximiser_artefacts/Release/AU/
             maximiser/build/SongsmithMaximiser_artefacts/Release/Standalone/
 
-  # Songsmith Studio: one Windows installer with every plugin (installer/windows). Built from the
+  # Songsmith Plugins: one Windows installer with every plugin (installer/windows). Built from the
   # Release builds the three plugin jobs upload, then tested end to end (per-user, in a temp
   # folder), including replacing Songsmith EQ's own installer. (needs: waits for each job's
   # macOS leg too; a job's matrix legs can't be waited for separately.)
   suite-windows:
-    name: Songsmith Studio installer - Windows
+    name: Songsmith Plugins installer - Windows
     needs: [eq, analog-compressor, maximiser]
     runs-on: windows-latest
     steps:
@@ -562,15 +562,15 @@ jobs:
       - name: Upload the suite installer
         uses: actions/upload-artifact@v4
         with:
-          name: Songsmith-Studio-Windows-setup
+          name: Songsmith-Plugins-Windows-setup
           path: build/suite-installer/*-win64-setup.exe
 
-  # Songsmith Studio: one macOS installer with every plugin (installer/macos). Made from the same
+  # Songsmith Plugins: one macOS installer with every plugin (installer/macos). Made from the same
   # component packages as each plugin's own .pkg (the macOS legs above upload those), then
   # installed system-wide on this throwaway runner and tested, with auval for each Audio Unit.
   # (needs: waits for the Windows legs too; a job's matrix legs can't be waited for separately.)
   suite-macos:
-    name: Songsmith Studio installer - macOS
+    name: Songsmith Plugins installer - macOS
     needs: [eq, analog-compressor, maximiser]
     runs-on: macos-latest
     steps:
@@ -607,5 +607,5 @@ jobs:
       - name: Upload the suite installer
         uses: actions/upload-artifact@v4
         with:
-          name: Songsmith-Studio-macOS-pkg
+          name: Songsmith-Plugins-macOS-pkg
           path: build/suite-installer/*-macOS.pkg

@@ -1,4 +1,4 @@
-; Songsmith Studio - one Windows installer for every plugin (Inno Setup 6).
+; Songsmith Plugins - one Windows installer for every plugin (Inno Setup 6).
 ;
 ; Build it with build-installer.ps1, which reads the one version from VERSION and passes the build folders:
 ;   iscc /DSuiteVersion=<VERSION> /DEqVersion=<VERSION> /DFetVersion=<VERSION> /DMaxVersion=<VERSION>
@@ -23,7 +23,8 @@
   #error Pass the versions and build folders (build-installer.ps1 does this)
 #endif
 
-#define AppName      "Songsmith Studio"
+; The suite's display name. Songsmith Studio stays the publisher and the install folder, so upgrades find what is already there.
+#define AppName      "Songsmith Plugins"
 #define AppPublisher "Songsmith Studio"
 #define AppURL       "https://github.com/tonygward/audio-plugins"
 
@@ -79,19 +80,19 @@ ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=no
 RestartIfNeededByRun=no
 
-OutputBaseFilename=Songsmith-Studio-{#SuiteVersion}-win64-setup
+OutputBaseFilename=Songsmith-Plugins-{#SuiteVersion}-win64-setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 SetupLogging=yes
 
 [Messages]
-SetupAppTitle=Songsmith Studio plugins
-SetupWindowTitle=Songsmith Studio plugins %1
-WelcomeLabel1=Songsmith Studio plugins
-WelcomeLabel2=This installs the Songsmith Studio plugins on your computer:%n%n    {#EqName} {#EqVersion}%n    {#FetName} {#FetVersion}%n    {#MaxName} {#MaxVersion}%n%nOn the next page, untick any plugin you don't want. Each plugin goes into the standard VST3 folder (Common Files\VST3), where every VST3 host looks for it, and comes with a standalone app that runs on its own.%n%nPlease close your recording software before continuing.
+SetupAppTitle=Songsmith Plugins
+SetupWindowTitle=Songsmith Plugins %1
+WelcomeLabel1=Songsmith Plugins
+WelcomeLabel2=This installs Songsmith Plugins on your computer:%n%n    {#EqName} {#EqVersion}%n    {#FetName} {#FetVersion}%n    {#MaxName} {#MaxVersion}%n%nOn the next page, untick any plugin you don't want. Each plugin goes into the standard VST3 folder (Common Files\VST3), where every VST3 host looks for it, and comes with a standalone app that runs on its own.%n%nPlease close your recording software before continuing.
 SelectComponentsLabel2=Tick the plugins to install. Unticking a plugin that is already installed removes it. Your presets are always kept.
-FinishedLabel=Setup has installed the Songsmith Studio plugins on your computer.%n%nRescan plugins in your recording software (or restart it) to find them under Songsmith Studio.
+FinishedLabel=Setup has installed Songsmith Plugins on your computer.%n%nRescan plugins in your recording software (or restart it) to find them under Songsmith Studio.
 
 [Types]
 Name: "full";   Description: "Every plugin"
@@ -175,7 +176,7 @@ begin
   { Per-user mode exists only for the tests: a real install must reach Common Files. }
   if not IsAdminInstallMode and (ExpandConstant ('{param:VST3DIR|}') = '') then
   begin
-    SuppressibleMsgBox ('The Songsmith Studio plugins must be installed for all users (the VST3 folder needs administrator rights). Run Setup without /CURRENTUSER.',
+    SuppressibleMsgBox ('Songsmith Plugins must be installed for all users (the VST3 folder needs administrator rights). Run Setup without /CURRENTUSER.',
                         mbCriticalError, MB_OK, IDOK);
     Result := False;
   end;

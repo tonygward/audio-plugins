@@ -1,7 +1,7 @@
-# Builds the Songsmith Studio Windows installer (Inno Setup 6): every plugin in one Setup, each
+# Builds the Songsmith Plugins Windows installer (Inno Setup 6): every plugin in one Setup, each
 # one ticked by default. Uses existing Release builds of the three plugins.
 #
-#   .\installer\windows\build-installer.ps1                  # -> build\suite-installer\Songsmith-Studio-<version>-win64-setup.exe
+#   .\installer\windows\build-installer.ps1                  # -> build\suite-installer\Songsmith-Plugins-<version>-win64-setup.exe
 #   .\installer\windows\build-installer.ps1 -EqDir <folder>  # a plugin's Release artefacts from somewhere else (CI)
 #   .\installer\windows\build-installer.ps1 -SuiteVersion <older version> -OutDir <folder>   # tests: an "older" suite
 #
@@ -67,7 +67,7 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 & $iscc /Q @defines "/O$OutDir" (Join-Path $PSScriptRoot "SongsmithStudio.iss")
 if ($LASTEXITCODE -ne 0) { throw "iscc failed with exit code $LASTEXITCODE" }
 
-$setup = Join-Path $OutDir "Songsmith-Studio-$SuiteVersion-win64-setup.exe"
+$setup = Join-Path $OutDir "Songsmith-Plugins-$SuiteVersion-win64-setup.exe"
 if (-not (Test-Path $setup)) { throw "iscc didn't produce $setup" }
 
 Write-Host "Installer: $setup"

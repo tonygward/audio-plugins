@@ -3,7 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "SongsmithFonts.h"
 
-// Text for every Songsmith Studio plugin: one embedded typeface, one type scale and one title.
+// Text for every Songsmith plugin: one embedded typeface, one type scale and one title.
 // See docs/style-guide.md. Plugins link this library (shared/) instead of copying it.
 namespace Songsmith::UI
 {

@@ -1,6 +1,6 @@
-# Songsmith Studio style guide
+# Songsmith Plugins style guide
 
-How every Songsmith Studio plugin looks, so they read as one family. The code for all of this lives in the shared UI library, [`shared/`](../shared/). New plugins link it; they don't copy fonts or look-and-feel code.
+How every Songsmith plugin looks, so they read as one family. The code for all of this lives in the shared UI library, [`shared/`](../shared/). New plugins link it; they don't copy fonts or look-and-feel code.
 
 ## Shared UI library
 

@@ -1,5 +1,5 @@
 # Songsmith shared UI library: the embedded Inter font, the type scale, the title and the base
-# look-and-feel that every Songsmith Studio plugin uses (see docs/style-guide.md).
+# look-and-feel that every Songsmith plugin uses (see docs/style-guide.md).
 #
 # Each plugin pulls it in from its own CMakeLists.txt, so every plugin still builds on its own:
 #

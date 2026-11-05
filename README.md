@@ -1,8 +1,8 @@
-# Welcome to Songsmith Studio
+# Welcome to Songsmith Plugins
 
 **Great sound, without the complicated controls.**
 
-Songsmith Studio is a growing family of audio tools for musicians who record and mix their own music. Whether you're polishing a vocal, shaping a guitar tone or preparing a finished song, the aim is simple: make it easier to get the sound you want.
+Songsmith Plugins, from Songsmith Studio, is a growing family of audio tools for musicians who record and mix their own music. Whether you're polishing a vocal, shaping a guitar tone or preparing a finished song, the aim is simple: make it easier to get the sound you want.
 
 ## Meet the plugins
 
@@ -14,10 +14,10 @@ Each plugin uses familiar controls, clear explanations and practical starting po
 
 ## Get started
 
-Download **Songsmith Studio** from the [Releases page](https://github.com/tonygward/audio-plugins/releases).
+Download **Songsmith Plugins** from the [Releases page](https://github.com/tonygward/audio-plugins/releases).
 
-- **Windows:** run the Songsmith Studio setup file.
-- **Mac:** open the Songsmith Studio `.pkg` installer.
+- **Windows:** run the Songsmith Plugins setup file.
+- **Mac:** open the Songsmith Plugins `.pkg` installer.
 - Choose the plugins you want, finish installation, then reopen your recording software.
 
 The plugins work in compatible recording software through VST3 (and Audio Units on Mac). Standalone versions are also available.
