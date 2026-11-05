@@ -22,6 +22,8 @@ Keep validating and improving what already exists before fixing the order of new
 
 ---
 
+**Versioning note:** the EQ version numbers on the historical phases below are not current suite release numbers. New releases use the shared root `VERSION`, aligned to the delivery milestones in [the suite backlog](../shared/prompts/README.md).
+
 ## Songsmith EQ — existing development roadmap
 
 Songsmith EQ was called TW Pro EQ up to v0.2; the notes below keep the names used at the time.
