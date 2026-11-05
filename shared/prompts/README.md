@@ -23,8 +23,8 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 
 | Priority | Area | Next outcome |
 |---|---|---|
-| 1 | **Suite validation** | Verify installation, session recall, reported latency, processing load, Studio One and Cakewalk workflows. |
-| 2 | **EQ** | Filter shape icons, plain-English Linear Phase explanation and **instrument-specific frequency guide** ([EQ 32](../../eq/prompts/32-frequency-guide.md), grounded in Joe Gilder and the recording notes). |
+| 1 | **Suite validation** | Implement [SUI-12 shared footer](SUI-12-processing-load-footer.md), then verify installation, session recall, reported latency, processing load, Studio One and Cakewalk workflows. |
+| 2 | **EQ** | Piano button moved to bottom-right ([EQ-35](../../eq/prompts/35-piano-footer.md)), filter shape icons, plain-English Linear Phase explanation and **instrument-specific frequency guide** ([EQ 32](../../eq/prompts/32-frequency-guide.md), grounded in Joe Gilder and the recording notes). |
 | 3 | **Analog Compressor** | Oversampling default, detector Low Cut, improved editor and accessible help. |
 | 4 | **Maximiser** | True-peak checks on exports, suitable defaults, LUFS measurement. |
 | 5 | **FET models** | Blue Stripe, Anniversary, Lindell-inspired, with clearly named acoustic-guitar presets. |
@@ -54,6 +54,7 @@ Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq
 | ✅ [SUI-07 one version number](done/SUI-07-one-version-number.md) | One version for every plugin, installer and release, from a root `VERSION` file, starting at 1.1.0 |
 | ✅ [SUI-08 Songsmith Plugins branding](done/SUI-08-songsmith-plugins-brand.md) | Consistent suite naming without changing plugin identities |
 | ✅ [SUI-11 latency and processing load](done/SUI-11-latency-and-processing-load.md) | Diagnostics strip in each editor; shipped in 1.1.0 |
+| ⏳ [SUI-12 left-side Processing Load](SUI-12-processing-load-footer.md) | **Sonnet · To do:** toggle at far left of every plugin; when on, show CPU and latency immediately to its right; EQ Piano moves via EQ-35 |
 
 ## Future candidate — Recording and Mixing Advisor
 
