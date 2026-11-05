@@ -4358,7 +4358,7 @@ public:
 };
 
 //==============================================================================
-// Task 28: a "Piano" toggle in row 3 for the piano strip.
+// Task 28 / EQ-35: a "Piano" toggle at the far right of the footer for the piano strip.
 class PianoToggleTests final : public juce::UnitTest
 {
 public:
@@ -4367,8 +4367,13 @@ public:
     static juce::TextButton* findButton (juce::Component& content, const juce::String& text)
     {
         for (auto* c : content.getChildren())
+        {
             if (auto* b = dynamic_cast<juce::TextButton*> (c); b != nullptr && b->getButtonText() == text)
                 return b;
+            if (dynamic_cast<Songsmith::Diagnostics::Bar*> (c) != nullptr)   // the footer strip (EQ-35)
+                if (auto* b = findButton (*c, text))
+                    return b;
+        }
         return nullptr;
     }
 
@@ -4422,7 +4427,7 @@ public:
             expect (! restoredOff.showPianoStrip.load(), "off round-trips too");
         }
 
-        beginTest ("Row 3 fits at the minimum size at every UI size, with the side chain slot reserved");
+        beginTest ("The Piano button sits at the far right of the footer, beside the strip it controls (EQ-35)");
         {
             using namespace EQ::EditorSize;
             for (auto s : uiScales)
@@ -4433,16 +4438,19 @@ public:
                 const auto context = juce::String (juce::roundToInt (s * 100.0f)) + "% at " + juce::String (w) + " x " + juce::String (h);
                 auto& content = ed->getContent();
                 auto* piano = findButton (content, "Piano");
-                auto* sidechain = findCombo (content, "Side Chain: off");
-                auto* curve = findCombo (content, "Curve: all bands");
-                expect (piano != nullptr && sidechain != nullptr && curve != nullptr);
-                if (piano == nullptr || sidechain == nullptr || curve == nullptr)
+                expect (piano != nullptr);
+                if (piano == nullptr)
                     continue;
+                auto* footer = piano->getParentComponent();
+                expect (dynamic_cast<Songsmith::Diagnostics::Bar*> (footer) != nullptr, context + ": the button lives in the footer strip");
+                if (footer == nullptr)
+                    continue;
+                const auto inContent = piano->getBounds() + footer->getPosition();
                 expect (piano->isVisible(), context + ": the button is shown");
-                expect (piano->getX() >= sidechain->getRight(), context + ": after the side chain box");
-                expect (! piano->getBounds().intersects (sidechain->getBounds()), context + ": no overlap with the side chain slot");
-                expect (piano->getRight() <= content.getWidth() - 12, context + ": inside the margin");
-                expectEquals (piano->getY(), curve->getY(), context + ": in row 3");
+                expectEquals (inContent.getRight(), content.getWidth() - 16, context + ": right-aligned at the far right");
+                expect (inContent.getY() >= ed->getDisplay().getBottom(), context + ": below the graph and its piano-note strip");
+                expect (inContent.getX() > content.getWidth() / 2, context + ": in the right half");
+                expect (findButton (content, "Piano") == piano, context + ": only one Piano button");
                 WordingAndFontTests::checkLayout (*this, *ed, context);
             }
         }
@@ -4533,6 +4541,7 @@ public:
             SongsmithEQAudioProcessor p;
             expect (! p.loadMeter.isEnabled(), "off by default");
             Testing::checkLoadMeasured (*this, p, p.loadMeter, "EQ");
+            Testing::checkFooterLayout (*this, p, JucePlugin_Name);
 
             Bar bar (p, p.loadMeter, JucePlugin_Name);
             expectEquals (bar.getLoadText(), juce::String ("Off"));

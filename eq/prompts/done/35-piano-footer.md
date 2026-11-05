@@ -1,9 +1,9 @@
 # EQ-35 — Move Piano button to far right of EQ footer
 
-**Status:** To do  
+**Status:** Done in #81  
 **Model:** Sonnet  
 **Scope:** Songsmith EQ only.  
-**Dependency:** Coordinate with [SUI-12](../../shared/prompts/SUI-12-processing-load-footer.md).
+**Dependency:** Coordinate with [SUI-12](../../../shared/prompts/done/SUI-12-processing-load-footer.md).
 
 ## Rationale — standing Songsmith UI rule
 **Controls must be near the thing they affect.** The Piano toggle controls the piano-note strip drawn along the bottom of the EQ graph, so its natural home is at the **bottom-right next to that strip**, not in a distant top toolbar or unrelated control group. This placement is intentional functional proximity, not merely footer symmetry. See the [shared style guide](../../docs/style-guide.md#control-proximity) and `CLAUDE.md`.
