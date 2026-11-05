@@ -8,7 +8,7 @@
 // Compact floating editor for the selected band. Lives inside EQDisplay and
 // follows the selected node. All edits go through EQ::EditController so they
 // are automatable and undoable.
-class BandPanel : public juce::Component, private juce::Timer
+class BandPanel : public juce::Component, public juce::SettableTooltipClient, private juce::Timer
 {
 public:
     explicit BandPanel (SongsmithEQAudioProcessor&);
@@ -19,6 +19,15 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+
+    // Drag the panel by its background or title (EQ-37). It reports where the user wants its top-left
+    // corner, in its parent's coordinates; the parent keeps it inside the graph.
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseDrag (const juce::MouseEvent&) override;
+    std::function<void (juce::Point<int>)> onUserMove;
+
+    // Re-reads the band's parameters now (the panel also does this on a timer).
+    void refresh() { refreshFromParams(); }
 
     static constexpr int panelWidth  = 640;
     static constexpr int panelHeight = 150;          // without the dynamics row
@@ -43,6 +52,8 @@ private:
     void timerCallback() override { refreshFromParams(); }
 
     SongsmithEQAudioProcessor& processor;
+    juce::Point<int> dragStartPosition;
+    juce::Point<float> dragStartMouse;
     int band = -1;
     bool updating = false;
 

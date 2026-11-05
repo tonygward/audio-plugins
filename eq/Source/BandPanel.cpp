@@ -189,6 +189,20 @@ BandPanel::BandPanel (SongsmithEQAudioProcessor& p) : processor (p)
     for (auto* k : { &freqKnob, &gainKnob, &qKnob, &thresholdKnob, &rangeKnob, &attackKnob, &releaseKnob })
         k->slider.updateText();
 
+    // The panel itself moves when dragged from its background (EQ-37): it shows the move cursor
+    // there, while every control keeps the ordinary pointer and its own behaviour.
+    setTooltip ("Drag to move these band controls.");
+    setMouseCursor (juce::MouseCursor::UpDownLeftRightResizeCursor);
+    for (auto* child : getChildren())
+    {
+        bool onSelf = true, onChildren = true;
+        child->getInterceptsMouseClicks (onSelf, onChildren);
+        if (auto* label = dynamic_cast<juce::Label*> (child); label != nullptr && child != &dynGainLabel)
+            label->setInterceptsMouseClicks (false, false);   // captions are part of the background
+        else if (onSelf)
+            child->setMouseCursor (juce::MouseCursor::NormalCursor);
+    }
+
     setSize (panelWidth, panelHeight);
     startTimerHz (30);
 }
@@ -367,6 +381,24 @@ void BandPanel::refreshFromParams()
     }
 }
 
+void BandPanel::mouseDown (const juce::MouseEvent& e)
+{
+    if (auto* parent = getParentComponent())
+    {
+        dragStartPosition = getPosition();
+        dragStartMouse = e.getEventRelativeTo (parent).position;
+    }
+}
+
+void BandPanel::mouseDrag (const juce::MouseEvent& e)
+{
+    if (auto* parent = getParentComponent(); parent != nullptr && onUserMove)
+    {
+        const auto delta = e.getEventRelativeTo (parent).position - dragStartMouse;
+        onUserMove (dragStartPosition + delta.roundToInt());
+    }
+}
+
 void BandPanel::paint (juce::Graphics& g)
 {
     const auto r = getLocalBounds().toFloat().reduced (0.5f);
@@ -375,6 +407,12 @@ void BandPanel::paint (juce::Graphics& g)
     g.fillRoundedRectangle (r, 9.0f);
     g.setColour (band >= 0 ? EQColours::band (band).withAlpha (0.7f) : EQColours::panelEdge);
     g.drawRoundedRectangle (r, 9.0f, 1.2f);
+
+    // A small grip of dots at the top edge says "you can move this".
+    g.setColour (Songsmith::UI::Colours::textDim.withAlpha (0.55f));
+    for (int row = 0; row < 2; ++row)
+        for (int col = 0; col < 5; ++col)
+            g.fillEllipse ((float) getWidth() * 0.5f + ((float) col - 2.0f) * 6.0f - 1.0f, 4.0f + (float) row * 4.0f, 2.0f, 2.0f);
 }
 
 void BandPanel::resized()
