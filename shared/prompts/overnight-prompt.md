@@ -38,14 +38,25 @@ the version is released straight away, without asking:
 1. Wait for main's Build run of the merge commit (gh run list --branch main
    --event push --commit <merge sha>, then gh run watch). If it fails, fix it
    with a new PR as the next task; don't release a red build.
-2. Download its installer and zip artifacts (gh run download <run id>), and
-   check that every file name carries the new version.
-3. Publish: gh release create vX.Y.Z --target <merge sha> --title
-   "Songsmith Plugins vX.Y.Z" with those files and plain-language notes in the
-   style of the previous releases (gh release view): what's new for each
-   plugin, downloads, the unsigned-installer warnings, uninstalling, and
-   known limitations ("Not yet verified in a recording application" when
-   that's true).
+2. Download **only** the two suite-installer CI artifacts:
+   `gh run download <run id> -n Songsmith-Plugins-Windows-setup -D release-assets/windows`
+   and `gh run download <run id> -n Songsmith-Plugins-macOS-pkg -D release-assets/macos`.
+   Check there is **exactly one** correctly versioned `Songsmith-Plugins-X.Y.Z-win64-setup.exe`
+   and **exactly one** `Songsmith-Plugins-X.Y.Z-macOS.pkg`. Both must be built
+   from the tested CI run on the intended release commit. Fail the release on
+   unexpected files, missing packages or mismatched versions.
+3. Publish: `gh release create vX.Y.Z --target <merge sha> --title
+   "Songsmith Plugins vX.Y.Z" release-assets/windows/Songsmith-Plugins-X.Y.Z-win64-setup.exe
+   release-assets/macos/Songsmith-Plugins-X.Y.Z-macOS.pkg`, with plain-language
+   notes on what's new, the **one installer per platform / one tick box per plugin**
+   installation, the unsigned-installer warnings, uninstalling and known limits.
+   **Public GitHub releases contain exactly these two installers.** NEVER attach
+   any individual plugin installers, ZIP files, raw VST3/AU packages or CI
+   screenshots to the public release. Those may be retained as internal
+   Actions artifacts for building, testing, diagnosing and PR/README screenshots.
+   If editing an existing release, first remove superseded individual release
+   assets; leave its two suite installers intact and do not republish/rebuild
+   old assets from a different commit.
 Follow the Releasing section of TECHNICAL.md. There is one version for every
 plugin and installer (the VERSION file), so there is one tag, vX.Y.Z, and one
 release per version.

@@ -16,9 +16,9 @@ Each plugin uses familiar controls, clear explanations and practical starting po
 
 Download **Songsmith Plugins** from the [Releases page](https://github.com/tonygward/audio-plugins/releases).
 
-- **Windows:** run the Songsmith Plugins setup file.
-- **Mac:** open the Songsmith Plugins `.pkg` installer.
-- Choose the plugins you want, finish installation, then reopen your recording software.
+- **Windows:** download `Songsmith-Plugins-<version>-win64-setup.exe`.
+- **Mac:** download `Songsmith-Plugins-<version>-macOS.pkg`.
+- **Only two downloads:** one installer per operating system. Inside either installer, **each plugin has its own tick box** (selected by default). Choose the plugins you want, finish installation, then reopen your recording software.
 
 The plugins work in compatible recording software through VST3 (and Audio Units on Mac). Standalone versions are also available.
 

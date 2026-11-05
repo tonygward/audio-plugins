@@ -17,6 +17,8 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 
 ## Backlog at a glance
 
+**Release packaging rule:** publish **one Songsmith Plugins installer for Windows** and **one for macOS**, each with one tick box per plugin. The public release must have **exactly two assets**; individual plugin installer/ZIP artifacts stay internal to CI. See [release instructions](../../TECHNICAL.md#releasing).
+
 **Three product goals:** **6–12 standalone plugins**, a **Channel Strip reusing proven processing engines**, and a **separate whole-track Loudness Analyser**. The foundation is Songsmith EQ, Analog Compressor and Maximiser. [Full product direction](../../eq/ROADMAP.md).
 
 | Priority | Area | Next outcome |
