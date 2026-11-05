@@ -1,4 +1,4 @@
-# Songsmith Studio plugins
+# Songsmith Plugins
 
 JUCE + CMake audio plugins (VST3, AU on macOS, Standalone) by **Songsmith Studio**.
 

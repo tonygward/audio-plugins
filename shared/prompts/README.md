@@ -23,7 +23,7 @@ Finish the existing suite work and develop the classic standalone plugins on two
 | Analog emulation | Existing 1176-inspired FET compressor: [Low Cut](../../analog-compressor/prompts/07-detector-low-cut.md) **(Sonnet)** then [editor polish](../../analog-compressor/prompts/08-1176-editor.md) **(Sonnet)**. Next [A1 Optical Leveller](classics/A1-optical-leveller.md) **(Opus for design, Sonnet for implementation)**, [A2 Pultec-style EQ](classics/A2-pultec-eq.md) **(Opus for design, Sonnet for implementation)**, then [A3 SSL-style compressor](classics/A3-ssl.md) **(Opus for design, Sonnet for implementation)**. |
 | Digital | Existing EQ: [filter icons](../../eq/prompts/33-filter-shape-icons.md) **(Sonnet)**. Existing Maximiser: [defaults and loudness meter](../../maximiser/prompts/README.md). Next [D1 Clean Compressor](classics/D1-clean-compressor.md) **(Opus for design, Sonnet for implementation)**. |
 
-Apply [S8 suite branding](S8-songsmith-plugins-brand.md) **(Sonnet)**, [S9 curated and custom presets](S9-preset-library.md) **(Sonnet)**, and [S10 resizable editors and control help](S10-resize-and-plain-language.md) **(Sonnet)** across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
+The [S8 suite branding](done/S8-songsmith-plugins-brand.md) is done. Apply [S9 curated and custom presets](S9-preset-library.md) **(Sonnet)** and [S10 resizable editors and control help](S10-resize-and-plain-language.md) **(Sonnet)** across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
 
 ### Delivery priority
 

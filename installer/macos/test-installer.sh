@@ -1,5 +1,5 @@
 #!/bin/bash
-# End-to-end test of the Songsmith Studio macOS installer. CI runs it in the suite-macos job.
+# End-to-end test of the Songsmith Plugins macOS installer. CI runs it in the suite-macos job.
 #
 #   installer/macos/test-installer.sh --i-know-this-installs-system-wide \
 #       --pkg <suite pkg> --eq-pkg <pkg> --fet-pkg <pkg> --max-pkg <pkg>
@@ -135,6 +135,8 @@ check "no separate format or app choices" test "$(grep -cE '<string>(eq|fet|max)
 for k in "${keys[@]}"; do
     check "the welcome page names $(name_of "$k") $(version_of "$k")" grep -rq "$(name_of "$k") $(version_of "$k")" "$work/expanded/Resources"
 done
+check "the welcome page names the suite Songsmith Plugins $(version_of eq)" grep -rq "Songsmith Plugins $(version_of eq)" "$work/expanded/Resources"
+check "the installer file is named Songsmith-Plugins-<version>-macOS.pkg" test "$(basename "$pkg")" = "Songsmith-Plugins-$(version_of eq)-macOS.pkg"
 
 # A dummy preset in each plugin's preset folder: nothing may touch these.
 for k in "${keys[@]}"; do

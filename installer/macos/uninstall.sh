@@ -1,5 +1,5 @@
 #!/bin/bash
-# Uninstalls every Songsmith Studio plugin and app the suite installer (or a plugin's own
+# Uninstalls every Songsmith plugin and app the suite installer (or a plugin's own
 # installer) can put on this Mac.
 #
 #   installer/macos/uninstall.sh          # lists what it will remove and asks first
@@ -40,7 +40,7 @@ for prefix in "${prefixes[@]}"; do
 done
 
 if [ ${#bundles[@]} -eq 0 ] && [ ${#receipts[@]} -eq 0 ]; then
-    echo "No Songsmith Studio plugins are installed. Nothing to remove."
+    echo "No Songsmith plugins are installed. Nothing to remove."
     exit 0
 fi
 
@@ -77,4 +77,4 @@ done
 # Make Audio Unit hosts notice the components have gone.
 killall -9 AudioComponentRegistrar >/dev/null 2>&1 || true
 
-echo "The Songsmith Studio plugins are uninstalled. Your presets were kept."
+echo "Songsmith Plugins is uninstalled. Your presets were kept."

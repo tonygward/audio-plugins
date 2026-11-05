@@ -38,7 +38,7 @@ the version is released straight away, without asking:
 2. Download its installer and zip artifacts (gh run download <run id>), and
    check that every file name carries the new version.
 3. Publish: gh release create vX.Y.Z --target <merge sha> --title
-   "Songsmith Studio vX.Y.Z" with those files and plain-language notes in the
+   "Songsmith Plugins vX.Y.Z" with those files and plain-language notes in the
    style of the previous releases (gh release view): what's new for each
    plugin, downloads, the unsigned-installer warnings, uninstalling, and
    known limitations ("Not yet verified in a recording application" when

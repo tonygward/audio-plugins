@@ -1,4 +1,4 @@
-# End-to-end test of the Songsmith Studio suite installer. CI runs it after building the plugins.
+# End-to-end test of the Songsmith Plugins suite installer. CI runs it after building the plugins.
 #
 #   .\installer\windows\test-installer.ps1                                   # build both installers, then test
 #   .\installer\windows\test-installer.ps1 -Installer <exe> -EqInstaller <exe> -OlderInstaller <exe>
@@ -116,7 +116,7 @@ function RealVst3State {
 $realBefore = RealVst3State
 
 if ((Test-Path $suiteKey) -or (Test-Path $eqKey)) {
-    throw "A per-user Songsmith Studio or Songsmith EQ install is registered for this user already; this test would replace it. Uninstall it first."
+    throw "A per-user Songsmith Plugins (or earlier Songsmith Studio) or Songsmith EQ install is registered for this user already; this test would replace it. Uninstall it first."
 }
 
 try {
@@ -140,6 +140,9 @@ try {
     Check ((Run-Suite $Installer "1-all.log" "") -eq 0) "installer exits with 0"
     Expect-Installed @("eq", "fet", "max") "everything"
     Check (Test-Path $suiteUninstaller) "one uninstaller"
+    Check ((Split-Path $Installer -Leaf) -like "Songsmith-Plugins-*-win64-setup.exe") "the installer file is named Songsmith-Plugins-<version>-win64-setup.exe"
+    Check ((Get-ItemProperty $suiteKey).DisplayName -like "Songsmith Plugins (*") "the Apps entry is called Songsmith Plugins: $((Get-ItemProperty $suiteKey).DisplayName)"
+    Check ((Get-ItemProperty $suiteKey).Publisher -eq "Songsmith Studio") "the publisher is still Songsmith Studio"
     $name = (Get-ItemProperty $suiteKey).DisplayName
     Check ($name -match "EQ \d+\.\d+\.\d+" -and $name -match "Analog Compressor \d+\.\d+\.\d+" -and $name -match "Maximiser \d+\.\d+\.\d+") "the Apps entry lists each plugin's version: $name"
     Uninstall $suiteUninstaller
@@ -181,8 +184,11 @@ try {
     # its app. Rewrite what Setup remembered to that shape: the compressor ticked without its app,
     # the maximiser with "max\standalone".
     Set-ItemProperty $suiteKey -Name "Inno Setup: Selected Components" -Value "fet,max,max\standalone"
+    # The old suite called itself Songsmith Studio: the same entry (same AppId) must take the new name.
+    Set-ItemProperty $suiteKey -Name "DisplayName" -Value "Songsmith Studio (the name before Songsmith Plugins)"
     Check ((Run-Suite $Installer "6-newer.log" "") -eq 0) "newer suite installer exits with 0 (no choices given)"
     Check ((Get-ItemProperty $suiteKey).DisplayVersion -eq $sharedVersion) "upgraded to $((Get-ItemProperty $suiteKey).DisplayVersion)"
+    Check ((Get-ItemProperty $suiteKey).DisplayName -like "Songsmith Plugins (*") "the old Songsmith Studio entry is now called Songsmith Plugins: $((Get-ItemProperty $suiteKey).DisplayName)"
     Check ((Test-Path (Dll "fet")) -and (Test-Path (Exe "fet"))) "compressor, ticked without its app before, now has its app"
     Check ((Test-Path (Dll "max")) -and (Test-Path (Exe "max"))) "maximiser and its app still there"
     Check (-not (Test-Path (Dll "eq"))) "Songsmith EQ still not installed"

@@ -1,4 +1,4 @@
-# Songsmith Studio — technical guide
+# Songsmith Plugins — technical guide
 
 Audio plugins built with [JUCE](https://juce.com) and CMake.
 
@@ -15,18 +15,18 @@ Every editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold,
 
 ## Install every plugin at once
 
-**Songsmith Studio** is one installer with every plugin in it: `Songsmith-Studio-<version>-win64-setup.exe`, from the [Releases page](https://github.com/tonygward/audio-plugins/releases) (CI builds it on every change as the `Songsmith-Studio-Windows-setup` artifact). This is the one to use.
+**Songsmith Plugins** is one installer with every plugin in it: `Songsmith-Plugins-<version>-win64-setup.exe`, from the [Releases page](https://github.com/tonygward/audio-plugins/releases) (CI builds it on every change as the `Songsmith-Plugins-Windows-setup` artifact). This is the one to use.
 
 1. Run it. Windows SmartScreen will probably say it "protected your PC", because the installer isn't code-signed: click **More info**, then **Run anyway**.
 2. Every plugin is ticked. Untick any you don't want. Each plugin comes with a standalone app that runs without recording software. The page shows how much disk space each one needs.
 3. Close your recording software first: if a plugin is loaded, Setup stops and changes nothing.
 4. Rescan plugins in your recording software.
 
-Running it again (or a newer version) remembers what you ticked. Unticking a plugin that's installed removes it. If you installed a plugin with its own installer before, the suite replaces that install, so each plugin is installed once and there's one **Songsmith Studio** entry in **Settings → Apps**. Uninstalling it there removes every plugin and keeps your presets.
+Running it again (or a newer version) remembers what you ticked. Unticking a plugin that's installed removes it. If you installed a plugin with its own installer before, the suite replaces that install, so each plugin is installed once and there's one **Songsmith Plugins** entry in **Settings → Apps**. Uninstalling it there removes every plugin and keeps your presets.
 
 To build it: build the three plugins (Release), then run `.\installer\windows\build-installer.ps1` (Inno Setup 6, see below). `.\installer\windows\test-installer.ps1` builds it and tests installing, choosing plugins, upgrading, replacing a per-plugin install, a plugin in use and uninstalling, all inside a temp folder. Every plugin and the installer share the one version in the `VERSION` file at the top of the repository.
 
-**On a Mac**, the same suite is `Songsmith-Studio-<version>-macOS.pkg` (CI artifact `Songsmith-Studio-macOS-pkg`), a universal installer for Apple Silicon and Intel. It isn't signed or notarised, so the first time macOS blocks it: try to open it, then go to **System Settings → Privacy & Security** and click **Open Anyway**. Everything is selected; click **Customize** to leave out a plugin. Each plugin comes with its VST3 plugin, its Audio Unit (for Logic Pro and GarageBand) and a standalone app that runs without recording software. It replaces a plugin you installed with its own installer, so there's one copy. To uninstall, run `installer/macos/uninstall.sh`: it lists what it will remove, asks first, and keeps your presets.
+**On a Mac**, the same suite is `Songsmith-Plugins-<version>-macOS.pkg` (CI artifact `Songsmith-Plugins-macOS-pkg`), a universal installer for Apple Silicon and Intel. It isn't signed or notarised, so the first time macOS blocks it: try to open it, then go to **System Settings → Privacy & Security** and click **Open Anyway**. Everything is selected; click **Customize** to leave out a plugin. Each plugin comes with its VST3 plugin, its Audio Unit (for Logic Pro and GarageBand) and a standalone app that runs without recording software. It replaces a plugin you installed with its own installer, so there's one copy. To uninstall, run `installer/macos/uninstall.sh`: it lists what it will remove, asks first, and keeps your presets.
 
 To build it on a Mac: build the three plugins (Release), then run `installer/macos/build-installer.sh`. It builds each plugin's own `.pkg` and makes the suite from the same component packages, so the two can't drift apart. `installer/macos/test-installer.sh` installs for real, system-wide, so it only runs on CI (or with `--i-know-this-installs-system-wide`).
 
@@ -34,7 +34,7 @@ To build it on a Mac: build the three plugins (Release), then run `installer/mac
 
 ## Releasing
 
-Every plugin, installer and release shares one version number, kept in the `VERSION` file (one line, `x.y.z`). Nothing else holds a version: the plugins' `CMakeLists.txt`, every installer script and the CI zip steps read that file, and `installer/check-version.ps1` (run by CI) fails if anything starts holding its own, or if a built plugin reports a different version. There is one tag and one GitHub release per version, `vX.Y.Z`, titled **Songsmith Studio vX.Y.Z**. Older tags (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`) stay as they are.
+Every plugin, installer and release shares one version number, kept in the `VERSION` file (one line, `x.y.z`). Nothing else holds a version: the plugins' `CMakeLists.txt`, every installer script and the CI zip steps read that file, and `installer/check-version.ps1` (run by CI) fails if anything starts holding its own, or if a built plugin reports a different version. There is one tag and one GitHub release per version, `vX.Y.Z`, titled **Songsmith Plugins vX.Y.Z**. Older tags (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`) stay as they are.
 
 To release (the overnight runner in `shared/prompts/overnight-prompt.md` does the same):
 
@@ -42,7 +42,11 @@ To release (the overnight runner in `shared/prompts/overnight-prompt.md` does th
 2. Add the entry to the root `CHANGELOG.md` (a section per version, a heading per plugin) and merge the pull request.
 3. Wait for the **Build** run of the merge commit on `main` to finish and pass.
 4. Download its installer and zip files: `gh run download <run id>`. Check every file name carries the new version.
-5. Publish: `gh release create vX.Y.Z --target <merge commit> --title "Songsmith Studio vX.Y.Z"` with those files and plain-language notes. That's the suite installers plus each plugin's own installer and zip, for Windows and macOS.
+5. Publish: `gh release create vX.Y.Z --target <merge commit> --title "Songsmith Plugins vX.Y.Z"` with those files and plain-language notes. That's the suite installers plus each plugin's own installer and zip, for Windows and macOS.
+### What keeps the name Songsmith Studio
+
+**Songsmith Plugins** is the name of the family. **Songsmith Studio** is the publisher, so it stays wherever a name identifies something that already exists on a computer or in a session: the VST3 and Audio Unit manufacturer (hosts list the plugins under Songsmith Studio), the `Program Files\Songsmith Studio` folder, the preset folders (`%APPDATA%\Songsmith Studio`, `~/Library/Songsmith Studio`), the installers' application and package IDs, the plugin codes and bundle IDs, and the release tags already published (`studio-v1.0.0` and the others). Changing any of those would orphan installs, presets or projects.
+
 ## Songsmith EQ
 
 Songsmith EQ, by Songsmith Studio, was called TW Pro EQ before v0.3. Sessions and presets carry over.
@@ -73,7 +77,7 @@ Pre-built **Windows** downloads are on the [Releases page](https://github.com/to
 
 **Installer**
 
-The [Songsmith Studio installer](#install-every-plugin-at-once) above includes Songsmith EQ and is the one to use. Songsmith EQ also still has its own installer:
+The [Songsmith Plugins installer](#install-every-plugin-at-once) above includes Songsmith EQ and is the one to use. Songsmith EQ also still has its own installer:
 
 1. Download `Songsmith-EQ-<version>-win64-setup.exe` and run it.
 2. Windows SmartScreen will probably say it "protected your PC". The installer isn't code-signed (signing needs a paid certificate), so Windows doesn't recognise the publisher. Click **More info**, then **Run anyway**.

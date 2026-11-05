@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Songsmith Studio - one macOS installer for every plugin (productbuild distribution file).
+  Songsmith Plugins - one macOS installer for every plugin (productbuild distribution file).
 
   build-installer.sh fills in the versions and @MIN_MACOS@ and passes productbuild the component
   packages taken from each plugin's own .pkg (the same packages, not copies, so the two
@@ -18,7 +18,7 @@
   them): installing from either installer updates the same receipts, so there is one copy.
 -->
 <installer-gui-script minSpecVersion="2">
-    <title>Songsmith Studio plugins @SUITE_VERSION@</title>
+    <title>Songsmith Plugins @SUITE_VERSION@</title>
     <organization>com.songsmithstudio</organization>
 
     <welcome    file="welcome.html"    mime-type="text/html"/>
