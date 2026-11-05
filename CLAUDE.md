@@ -31,7 +31,13 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 - Every editor is vector-drawn, scales as a whole (interface size 75–200 % or more), and stays crisp on Retina and Windows display scaling.
 - New plugins link the shared UI library; they don't copy fonts or look-and-feel code.
 
-### 4. Plain words, no abbreviations
+### 4. Controls belong beside what they affect
+- **Place each UI widget near the feature, graph, value, meter, or region it controls.** Spatial proximity should make its effect obvious without requiring the user to search the interface. Do not put controls into a generic toolbar simply because it has spare space.
+- Example: Songsmith EQ's **Piano** toggle belongs at the **bottom-right**, beside the piano-note strip along the bottom of the EQ graph, rather than in the top toolbar. The Processing Load toggle belongs on the left of the shared bottom diagnostics strip, directly beside its CPU/latency readout.
+- Group related controls together, preserve this relationship across resize/DPI changes, and prefer a local control or contextual action over a distant global toggle. Document and justify any unavoidable exception in the relevant prompt/PR.
+- Validate location as well as appearance and function in editor UI tests and before/after screenshots. See `docs/style-guide.md#control-proximity`.
+
+### 5. Plain words, no abbreviations
 - Every word on screen is spelled out: labels, buttons, menus, tooltips, hints, parameter display names, preset names. `SC` is "Side Chain", `GR` is "Gain Reduction", `Out` is "Output".
 - Allowed short forms only: units (`Hz`, `kHz`, `dB`, `dB/oct`, `dBFS`, `dBTP`, `LUFS`, `ms`, `s`, `%`, `×`), note names (`A4`), key names (`Ctrl`, `Alt`, `Cmd`, `Shift`), `Q`, and format names (`VST3`, `AU`).
 - Simple language: say what a control does. When a technical term is the right name, keep it and explain it in one short tooltip sentence.
@@ -40,11 +46,11 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 
 - Name every factory preset for its practical use case in clear, concise language, such as **Acoustic Guitar Smoothing** or **Lead Vocal Control**. Keep hardware and model names, tutorial titles, and playful names out of the preset title. Record model selection in preset data and tutorial attribution in the preset notes. Users choose their own custom preset names.
 
-### 5. Honest modelling
+### 6. Honest modelling
 - Plugins inspired by hardware (1176, L1) cite their sources. Say which behaviour is published and which is a Songsmith design choice, and which test checks each.
 - The editors are original designs informed by the hardware's control layout, not copies of a faceplate.
 
-### 6. Tell musicians what matters
+### 7. Tell musicians what matters
 
 - **Every guidance message answers three questions:** what matters, why it matters, and **whether the musician needs to do anything**. Prefer reassuring, actionable, one- or two-sentence advice over engineering jargon, alarms or unnecessary changes.
 - Separate **measured facts** (actual levels, gain reduction, file sample rate and bit depth) from **listening suggestions**, estimates and uncertain inferences. Do not claim that a plugin knows the source WAV bit depth merely from host audio buffers, that it can hear 'mud', or that streaming platforms have a universal LUFS pass/fail requirement.
@@ -52,7 +58,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 - **Recording guidance:** 44.1 kHz/16-bit is legitimate CD quality, not ruined or unsuitable for streaming. 24-bit capture offers more recording headroom and flexibility, not retroactive recovery of detail. 48 kHz is a useful optional workflow choice, not an automatic audible upgrade. Don't recommend converting 16-bit to 24-bit to improve the original recording.
 - Make advice accurate, testable, accessible and consistent throughout every current and future Songsmith plugin and the separate Loudness Analyser. Use British English and the existing plain-language terminology.
 
-### 7. Align releases with roadmap milestones
+### 8. Align releases with roadmap milestones
 - The root `VERSION` is the single version for every plugin and installer. Roadmap phases are milestones, **not** software versions; the historical EQ v0.3–v1.0 headings must not be treated as the current suite version.
 - Before implementing a planned release, document its agreed feature scope and intended version in `shared/prompts/README.md`. Do not assign versions to exploratory features. Keep existing published versions and tags unchanged, and only increase versions.
 - Intermediate feature PRs can merge without changing `VERSION`. Increment `VERSION` **once at a validated release checkpoint**, not automatically per prompt. Update `CHANGELOG.md` and the roadmap together.
