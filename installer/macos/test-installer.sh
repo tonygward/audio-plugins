@@ -129,8 +129,12 @@ for c in eq fet max; do
     check "choice '$c' offered" grep -q "<string>$c</string>" "$work/choices.xml"
 done
 # One choice per plugin: exactly three, and none of the old per-format or per-app sub-choices.
-choice_ids=$(grep -A1 '<key>choiceIdentifier</key>' "$work/choices.xml" | grep -o '<string>[^<]*</string>' | sort -u | wc -l | tr -d ' ')
-check "exactly three choices offered (found $choice_ids)" test "$choice_ids" -eq 3
+# -showChoicesXML lists the choices as a tree, which may hold the installer's own root entry
+# ("default") as well. Apart from that, exactly the three plugin choices must be offered.
+choice_ids=$(grep -A1 '<key>choiceIdentifier</key>' "$work/choices.xml" | grep -o '<string>[^<]*</string>' | sed -E 's/<\/?string>//g' | sort -u | tr '\n' ' ')
+echo "  choices offered: $choice_ids"
+plugin_choices=$(printf '%s\n' $choice_ids | grep -vx 'default' | tr '\n' ' ')
+check "exactly the three plugin choices are offered (found: $choice_ids)" test "$plugin_choices" = "eq fet max "
 check "no separate format or app choices" test "$(grep -cE '<string>(eq|fet|max)_(vst3|au|app)</string>' "$work/choices.xml" | tr -d ' ')" -eq 0
 for k in "${keys[@]}"; do
     check "the welcome page names $(name_of "$k") $(version_of "$k")" grep -rq "$(name_of "$k") $(version_of "$k")" "$work/expanded/Resources"
