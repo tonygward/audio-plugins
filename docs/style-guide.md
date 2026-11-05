@@ -18,6 +18,14 @@ How every Songsmith plugin looks, so they read as one family. The code for all o
 - `shared/Source/SongsmithWording.h`: the wording check (below), run by every plugin's tests on its editor, parameter names and presets.
 - `shared/Tests/SongsmithControlSheet.h`: renders every control state for screenshots (`controls.png` next to each plugin's editor screenshots).
 
+## Control proximity
+
+**Standing UI rule: a widget belongs near the thing it affects.** Location is part of usability, not merely decoration. Place toggles and controls next to their graph, note strip, meter, readout or processing section so the connection is self-evident. Avoid moving a control to an unrelated global toolbar just to fill space. Group related controls, maintain the spatial relationship at minimum and maximum window sizes and at high DPI, and check both enabled and disabled states. If a control truly affects the entire plugin, a shared toolbar can be appropriate; explain exceptions.
+
+**EQ example:** the Piano toggle belongs at the **bottom-right of the interface beside the piano-note strip** it shows/hides, as required by [EQ-35](../eq/prompts/35-piano-footer.md). The Processing Load toggle sits at the **far left of the bottom status strip immediately beside its conditional CPU/latency values**, as required by [SUI-12](../shared/prompts/SUI-12-processing-load-footer.md). Consistent proximity takes precedence over arbitrary alignment or symmetry.
+
+For each new or moved control, ask: *Can a musician see what it affects without searching elsewhere?* Test across resizing, scaling, keyboard focus and state changes. Include a representative screenshot in UI PRs.
+
 ## Typeface
 
 [Inter](https://rsms.me/inter/) v4.1, embedded in every plugin in three weights: Regular, Medium and SemiBold. It is built for screens, stays clear at small sizes, and has tabular figures, so numbers that change while you drag don't jitter. Embedding it means Windows and macOS look the same, and no plugin falls back to a system font. The files and the licence (SIL Open Font License 1.1) are in [`shared/Resources/Fonts`](../shared/Resources/Fonts).
