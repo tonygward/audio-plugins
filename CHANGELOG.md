@@ -2,8 +2,28 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
 
-## 1.2.0
+## 1.3.0
 
+**Delivery traceability:** this release is the agreed **Interface and Frequency Guide** milestone. Prompts: [EQ-37 movable band panel](eq/prompts/done/37-draggable-band-panel.md) (#87), [ACOMP-08 Analog Compressor editor refinements](analog-compressor/prompts/done/08-1176-editor.md) (#88) and [EQ-32 Instrument Frequency Guide](eq/prompts/done/32-frequency-guide.md) (#89). Nothing outside this scope is in the release.
+
+### Songsmith EQ
+- **Move the band controls:** drag the floating band panel by its background or title to put it where you want. It always stays inside the graph, and when you open Dynamic it moves just enough to show every new control. It stays where you put it when you choose another band, and opens beside its band again after you close it. Dragging the panel never changes a band or a setting.
+- **Frequency Guide:** an optional overlay, off by default. Press **Frequency Guide** above the graph and choose an instrument: Acoustic Guitar, Nylon Guitar, Electric Guitar, Bass Guitar, Vocal, Kick Drum, Snare Drum, Toms, Drum Bus or Any Instrument. Soft coloured regions appear behind the curve, each with a plain word (Rumble, Thump, Plastic, Air and so on). Hover a region to read what it adds, what too much sounds like, and when it is usually moved. The regions are places to listen, not rules, and the guide only draws: it never changes a band or the sound. It is saved with your session. The words come from Joe Gilder's Home Studio Corner videos and Tony's own notes; the guide is not endorsed by Joe Gilder. See [the Frequency Guide notes](eq/docs/frequency-guide.md).
+- **A wider smallest window:** the controls for the guide need more room, so the smallest Songsmith EQ window is now 980 pixels wide at 100 % (it was 760). A window you saved smaller opens at the new smallest size.
+
+### Songsmith Analog Compressor
+- **A larger needle meter** with bigger scale numbers, about 45 % more face than before. The meter modes and how the needle moves are unchanged.
+- **A textured faceplate** with a fine brushed grain, a lit edge and four screws, drawn so it stays sharp at every interface size.
+- **Clearer ratio buttons:** they now read 4:1, 8:1, 12:1 and 20:1, each with a plain tooltip. **All Buttons** is now called **All**; it still presses every ratio button at once.
+- **Room for a future control:** a place beside Gain Reduction Off is kept free for a detector Low Cut control. Nothing is there yet.
+- The window is a little wider at every interface size to make room for the larger meter.
+
+### Compatibility and known limits
+- The sound is unchanged in every plugin. No parameter, saved setting or preset changed, so your sessions and presets load as before; a session saved before this version opens with the Frequency Guide off.
+- These changes were checked by the automated tests on Windows and macOS. They have **not** been tried in Studio One, Cakewalk or Logic.
+- The installers are not signed. Windows may show a SmartScreen warning, and macOS may ask you to allow the installer in System Settings → Privacy & Security.
+
+## 1.2.0
 **Delivery traceability:** this release is the agreed **UI refinements** milestone. Prompts: [EQ-33 filter shape icons](eq/prompts/done/33-filter-shape-icons.md) (#80), [EQ-34 Linear Phase tooltip](eq/prompts/done/34-linear-phase-tooltip.md) (#79), [EQ-35 Piano button placement](eq/prompts/done/35-piano-footer.md) (#81), [EQ-36 Dynamic tooltip](eq/prompts/done/36-dynamic-disabled-tooltip.md) (#78), [SUI-12 Processing Load footer](shared/prompts/done/SUI-12-processing-load-footer.md) (#81) and [SUI-13 consistent Bypass](shared/prompts/done/SUI-13-consistent-bypass.md) (#82). Nothing outside this scope is in the release.
 
 ### Every plugin

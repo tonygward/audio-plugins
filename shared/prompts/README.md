@@ -39,7 +39,7 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 
 **Future, not queued:** [ADV-01 musician-friendly guidance for each plugin](future/ADV-01-musician-guidance.md) and [REC-01 whole-file Recording and Streaming Advisor](future/REC-01-file-recording-advisor.md). The rule for both is **“What matters? Why does it matter? Do I need to do anything?”**
 
-**Release discipline:** shared suite version **1.2.0** is the current documented baseline; future versions are set against agreed, validated roadmap milestones (not individual prompts). Preserve useful screenshots in PRs and READMEs, and distinguish mockups from shipped features. Details and execution order follow below.
+**Release discipline:** shared suite version **1.3.0** is the current documented baseline; future versions are set against agreed, validated roadmap milestones (not individual prompts). Preserve useful screenshots in PRs and READMEs, and distinguish mockups from shipped features. Details and execution order follow below.
 
 Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq/`), Songsmith Analog Compressor (`analog-compressor/`) and Songsmith Maximiser (`maximiser/`), plus any plugin added later. Each file can be handed to an agent as it is. They use the same working rules as the [EQ roadmap prompts](../../eq/prompts/README.md): branch from `main`, keep parameter IDs and plugin codes stable, keep the audio thread real-time safe, build and test every plugin, don't install system-wide, and finish with a **draft PR**. Finished prompts move to `done/` once merged.
 
@@ -78,13 +78,14 @@ The [SUI-08 suite branding](done/SUI-08-songsmith-plugins-brand.md) is done. App
 
 ### Version alignment with delivery milestones
 
-**Current suite baseline: 1.2.0.** The EQ roadmap's earlier v0.3–v1.0 labels describe historical EQ work, not the shared suite version.
+**Current suite baseline: 1.3.0.** The EQ roadmap's earlier v0.3–v1.0 labels describe historical EQ work, not the shared suite version.
 
 Agree and record a **release checkpoint with a named, testable feature scope** before choosing the next semantic version. Intermediate prompt PRs need not bump `VERSION`; increment it once the whole checkpoint passes validation, and update `CHANGELOG.md`. Future research and proposed ideas have no target version until they are scheduled.
 
 | Release checkpoint | Version | Scope / decision |
 |---|---|---|
-| Current shared suite baseline | 1.2.0 | **UI refinements:** EQ-33 filter shape icons, EQ-34 Linear Phase tooltip, EQ-35 Piano placement, EQ-36 Dynamic tooltip, SUI-12 Processing Load footer and SUI-13 consistent Bypass (see [changelog](../../CHANGELOG.md)) |
+| Current shared suite baseline | 1.3.0 | **Interface and Frequency Guide:** EQ-37 movable band panel, ACOMP-08 Analog Compressor editor refinements and EQ-32 Instrument Frequency Guide (see [changelog](../../CHANGELOG.md)) |
+| Previous release | 1.2.0 | **UI refinements:** EQ-33 filter shape icons, EQ-34 Linear Phase tooltip, EQ-35 Piano placement, EQ-36 Dynamic tooltip, SUI-12 Processing Load footer and SUI-13 consistent Bypass (see [changelog](../../CHANGELOG.md)) |
 | Previous release | 1.1.0 | Existing shipped suite work (see changelog) |
 | Next release milestone | To agree | Choose and validate a coherent subset of priorities below |
 | Later milestones | Unscheduled | Further classic plugins, Channel Strip, Loudness Analyser and musical guidance |
