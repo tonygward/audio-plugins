@@ -26,6 +26,11 @@ For each prompt, follow it exactly, with these overrides:
   checked, and merge (gh pr merge --merge --delete-branch).
 - In the same PR, before merging, move the task's prompt into the folder's
   done/ subfolder and update that folder's README status table, if it has one.
+  Keep the original scope-qualified ID (EQ-32, COMP-06, MAX-07, S11, A1, D1, F1),
+  record its PR number and canonical relative link, and update any related roadmap
+  references. If a release checkpoint is delivered, also cross-link the prompt IDs
+  in CHANGELOG.md. Check that all new Markdown links resolve; never infer completion
+  from a draft PR. See shared/prompts/README.md#prompt-identity-and-traceability.
 - Align versions to the agreed delivery checkpoints in `shared/prompts/README.md`, following `CLAUDE.md`. Do not automatically bump VERSION for every completed implementation prompt. Intermediate PRs can merge without a version change. At a planned release checkpoint, after its agreed scope passes validation, bump the shared VERSION once and update CHANGELOG.md. If no release checkpoint is agreed, leave VERSION unchanged and record that a release decision is pending. Docs-only changes never bump VERSION.
 
 Releasing is automatic too. Tony has agreed that every merged PR that bumps
