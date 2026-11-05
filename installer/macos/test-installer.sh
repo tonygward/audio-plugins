@@ -124,9 +124,18 @@ for k in "${keys[@]}"; do
     done
 done
 installer -pkg "$pkg" -target / -showChoicesXML > "$work/choices.xml" 2>/dev/null
-for c in eq eq_vst3 eq_au eq_app fet fet_vst3 fet_au fet_app max max_vst3 max_au max_app; do
+for c in eq fet max; do
     check "choice '$c' offered" grep -q "<string>$c</string>" "$work/choices.xml"
 done
+# One choice per plugin: exactly three, and none of the old per-format or per-app sub-choices.
+# -showChoicesXML lists the choices as a tree, with the installer's own root entry first (named
+# __ROOT_CHOICE_IDENT_ plus the installer's title, spaces included). Apart from that root, exactly
+# the three plugin choices must be offered.
+choice_ids=$(grep -A1 '<key>choiceIdentifier</key>' "$work/choices.xml" | grep -o '<string>[^<]*</string>' | sed -E 's/<\/?string>//g' | sort -u)
+plugin_choices=$(printf '%s\n' "$choice_ids" | grep -v '^__ROOT_CHOICE_IDENT_' | tr '\n' ' ')
+echo "  choices offered: $(printf '%s' "$choice_ids" | tr '\n' ',')"
+check "exactly the three plugin choices are offered (found: $plugin_choices)" test "$plugin_choices" = "eq fet max "
+check "no separate format or app choices" test "$(grep -cE '<string>(eq|fet|max)_(vst3|au|app)</string>' "$work/choices.xml" | tr -d ' ')" -eq 0
 for k in "${keys[@]}"; do
     check "the welcome page names $(name_of "$k") $(version_of "$k")" grep -rq "$(name_of "$k") $(version_of "$k")" "$work/expanded/Resources"
 done
@@ -166,7 +175,7 @@ uninstall_all
     echo '<?xml version="1.0" encoding="UTF-8"?>'
     echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
     echo '<plist version="1.0"><array>'
-    for c in eq eq_vst3 eq_au eq_app fet fet_vst3 fet_au fet_app max max_vst3 max_au max_app; do
+    for c in eq fet max; do
         setting=0; [[ "$c" == max* ]] && setting=1
         echo "<dict><key>attributeSetting</key><integer>$setting</integer><key>choiceAttribute</key><string>selected</string><key>choiceIdentifier</key><string>$c</string></dict>"
     done

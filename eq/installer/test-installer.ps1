@@ -119,6 +119,7 @@ try {
     # The uninstall must never reach user presets, whatever folder they're in.
     $iss = Get-Content (Join-Path $PSScriptRoot "SongsmithEQ.iss") -Raw
     Check ($iss -notmatch '(?im)^\s*Type:.*\{(userappdata|commonappdata|localappdata|appdata)\}') "no delete entries for any app-data folder"
+    Check ($iss -notmatch '(?im)^\[Components\]') "no Components page: the VST3 and the standalone app always install together"
 
     $key = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{2F8C1884-56C1-45D8-A78D-CF117EC69B44}_is1"
     Check (-not (Test-Path $key)) "test install's 'Installed apps' entry removed"

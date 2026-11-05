@@ -18,9 +18,9 @@ Download the installers from the [releases page](https://github.com/tonygward/au
 
 | File (CI artifact) | What it is |
 |---|---|
-| `Songsmith-Analog-Compressor-Windows-setup` | `Songsmith-Analog-Compressor-<version>-win64-setup.exe`: VST3 into Common Files\VST3, plus the optional standalone app. Upgrades in place. Uninstall from **Settings → Apps**. Your presets are kept. |
+| `Songsmith-Analog-Compressor-Windows-setup` | `Songsmith-Analog-Compressor-<version>-win64-setup.exe`: VST3 into Common Files\VST3, plus a standalone app. Upgrades in place. Uninstall from **Settings → Apps**. Your presets are kept. |
 | `Songsmith-Analog-Compressor-Windows-zip` | The VST3 bundle and the standalone `.exe`, for a manual install |
-| `Songsmith-Analog-Compressor-macOS-pkg` | Universal installer: VST3, AU and the standalone app (each optional) |
+| `Songsmith-Analog-Compressor-macOS-pkg` | Universal installer: VST3, AU and the standalone app |
 | `Songsmith-Analog-Compressor-macOS-zip` | Universal VST3, AU and `.app`, for a manual install |
 
 It installs alongside Songsmith EQ and never touches it. To uninstall on macOS, run `installer/macos/uninstall.sh`.

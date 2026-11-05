@@ -4,8 +4,8 @@
 ;   iscc /DSuiteVersion=1.0.0 /DEqVersion=0.5.0 /DFetVersion=0.1.0 /DMaxVersion=0.1.0
 ;        /DEqDir=<...\SongsmithEQ_artefacts\Release> /DFetDir=<...> /DMaxDir=<...> /O<out> SongsmithStudio.iss
 ;
-; Each plugin is a component, ticked by default, with its standalone app as a ticked
-; sub-component. Every plugin goes where its own installer puts it: the VST3 into the fixed
+; Each plugin is one component, ticked by default, and brings its standalone app with it.
+; Every plugin goes where its own installer puts it: the VST3 into the fixed
 ; VST3 folder (Common Files\VST3), the app into Program Files\Songsmith Studio\<plugin>.
 ; Not code-signed (see README), so SmartScreen warns on first run.
 ;
@@ -100,11 +100,8 @@ Name: "custom"; Description: "Choose plugins"; Flags: iscustom
 [Components]
 ; The VST3 comes with its plugin and can't be unticked on its own: untick the plugin instead.
 Name: "eq";             Description: "{#EqName} {#EqVersion}: shape the tone of a track";                        Types: full custom; Flags: checkablealone
-Name: "eq\standalone";  Description: "Standalone app (runs without recording software)";                         Types: full custom
 Name: "fet";            Description: "{#FetName} {#FetVersion}: even out the level and add analogue warmth";     Types: full custom; Flags: checkablealone
-Name: "fet\standalone"; Description: "Standalone app (runs without recording software)";                         Types: full custom
 Name: "max";            Description: "{#MaxName} {#MaxVersion}: make a finished mix louder without clipping";    Types: full custom; Flags: checkablealone
-Name: "max\standalone"; Description: "Standalone app (runs without recording software)";                         Types: full custom
 
 [InstallDelete]
 ; Replace each ticked plugin's bundle cleanly: files from an older version must not linger.
@@ -120,15 +117,17 @@ Type: filesandordirs; Name: "{code:Vst3Dir}\3-Band EQ.vst3";  Components: eq
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#EqName}.vst3";      Components: not eq;  Check: SuiteHad ('eq')
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#FetName}.vst3";     Components: not fet; Check: SuiteHad ('fet')
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#MaxName}.vst3";     Components: not max; Check: SuiteHad ('max')
-Type: files;          Name: "{app}\{#EqName}\{#EqName}.exe";      Components: not eq\standalone;  Check: SuiteHad ('eq\standalone')
-Type: files;          Name: "{app}\{#FetName}\{#FetName}.exe";    Components: not fet\standalone; Check: SuiteHad ('fet\standalone')
-Type: files;          Name: "{app}\{#MaxName}\{#MaxName}.exe";    Components: not max\standalone; Check: SuiteHad ('max\standalone')
-Type: files;          Name: "{autoprograms}\{#EqName}.lnk";       Components: not eq\standalone;  Check: SuiteHad ('eq\standalone')
-Type: files;          Name: "{autoprograms}\{#FetName}.lnk";      Components: not fet\standalone; Check: SuiteHad ('fet\standalone')
-Type: files;          Name: "{autoprograms}\{#MaxName}.lnk";      Components: not max\standalone; Check: SuiteHad ('max\standalone')
-Type: dirifempty;     Name: "{app}\{#EqName}";                    Components: not eq\standalone;  Check: SuiteHad ('eq\standalone')
-Type: dirifempty;     Name: "{app}\{#FetName}";                   Components: not fet\standalone; Check: SuiteHad ('fet\standalone')
-Type: dirifempty;     Name: "{app}\{#MaxName}";                   Components: not max\standalone; Check: SuiteHad ('max\standalone')
+; ...and its standalone app and Start menu shortcut go with it. An earlier suite 1.x install
+; may have recorded "eq\standalone" as well; the plugin's own entry is the one that decides.
+Type: files;          Name: "{app}\{#EqName}\{#EqName}.exe";      Components: not eq;  Check: SuiteHad ('eq')
+Type: files;          Name: "{app}\{#FetName}\{#FetName}.exe";    Components: not fet; Check: SuiteHad ('fet')
+Type: files;          Name: "{app}\{#MaxName}\{#MaxName}.exe";    Components: not max; Check: SuiteHad ('max')
+Type: files;          Name: "{autoprograms}\{#EqName}.lnk";       Components: not eq;  Check: SuiteHad ('eq')
+Type: files;          Name: "{autoprograms}\{#FetName}.lnk";      Components: not fet; Check: SuiteHad ('fet')
+Type: files;          Name: "{autoprograms}\{#MaxName}.lnk";      Components: not max; Check: SuiteHad ('max')
+Type: dirifempty;     Name: "{app}\{#EqName}";                    Components: not eq;  Check: SuiteHad ('eq')
+Type: dirifempty;     Name: "{app}\{#FetName}";                   Components: not fet; Check: SuiteHad ('fet')
+Type: dirifempty;     Name: "{app}\{#MaxName}";                   Components: not max; Check: SuiteHad ('max')
 
 [Dirs]
 ; The shared VST3 folder holds other plugins: never remove it on uninstall.
@@ -138,14 +137,14 @@ Name: "{code:Vst3Dir}"; Flags: uninsneveruninstall
 Source: "{#EqDir}\VST3\{#EqName}.vst3\*";   DestDir: "{code:Vst3Dir}\{#EqName}.vst3";  Components: eq;  Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#FetDir}\VST3\{#FetName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#FetName}.vst3"; Components: fet; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MaxDir}\VST3\{#MaxName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#MaxName}.vst3"; Components: max; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#EqDir}\Standalone\{#EqName}.exe";   DestDir: "{app}\{#EqName}";  Components: eq\standalone;  Flags: ignoreversion
-Source: "{#FetDir}\Standalone\{#FetName}.exe"; DestDir: "{app}\{#FetName}"; Components: fet\standalone; Flags: ignoreversion
-Source: "{#MaxDir}\Standalone\{#MaxName}.exe"; DestDir: "{app}\{#MaxName}"; Components: max\standalone; Flags: ignoreversion
+Source: "{#EqDir}\Standalone\{#EqName}.exe";   DestDir: "{app}\{#EqName}";  Components: eq;  Flags: ignoreversion
+Source: "{#FetDir}\Standalone\{#FetName}.exe"; DestDir: "{app}\{#FetName}"; Components: fet; Flags: ignoreversion
+Source: "{#MaxDir}\Standalone\{#MaxName}.exe"; DestDir: "{app}\{#MaxName}"; Components: max; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#EqName}";  Filename: "{app}\{#EqName}\{#EqName}.exe";   Components: eq\standalone
-Name: "{autoprograms}\{#FetName}"; Filename: "{app}\{#FetName}\{#FetName}.exe"; Components: fet\standalone
-Name: "{autoprograms}\{#MaxName}"; Filename: "{app}\{#MaxName}\{#MaxName}.exe"; Components: max\standalone
+Name: "{autoprograms}\{#EqName}";  Filename: "{app}\{#EqName}\{#EqName}.exe";   Components: eq
+Name: "{autoprograms}\{#FetName}"; Filename: "{app}\{#FetName}\{#FetName}.exe"; Components: fet
+Name: "{autoprograms}\{#MaxName}"; Filename: "{app}\{#MaxName}\{#MaxName}.exe"; Components: max
 
 ; Uninstall removes only what Setup installed (the bundles, the apps, the shortcuts). User
 ; presets in %APPDATA%\Songsmith Studio\<plugin> (and the old %APPDATA%\TW Pro EQ) belong to
@@ -184,7 +183,8 @@ end;
 
 { --- What is installed now ---------------------------------------------------------------- }
 
-{ The components the last suite install selected, as ",eq,eq\standalone,fet," (empty if none). }
+{ The components the last suite install selected, as ",eq,fet," (empty if none). Installs made by suite 1.x may also list "eq\standalone" and
+  friends; those names are ignored, because each plugin now brings its app with it. }
 function PreviousComponents(): String;
 var
   S: String;
@@ -321,12 +321,9 @@ begin
   if Selected ('max') and (PerPluginUninstaller ('{#MaxAppId}') <> '') then Replaced := Replaced + Space + '{#MaxName}' + NewLine;
 
   Removed := '';
-  if Removing ('eq') then Removed := Removed + Space + '{#EqName}' + NewLine
-  else if Removing ('eq\standalone') then Removed := Removed + Space + '{#EqName} standalone app' + NewLine;
-  if Removing ('fet') then Removed := Removed + Space + '{#FetName}' + NewLine
-  else if Removing ('fet\standalone') then Removed := Removed + Space + '{#FetName} standalone app' + NewLine;
-  if Removing ('max') then Removed := Removed + Space + '{#MaxName}' + NewLine
-  else if Removing ('max\standalone') then Removed := Removed + Space + '{#MaxName} standalone app' + NewLine;
+  if Removing ('eq') then Removed := Removed + Space + '{#EqName}' + NewLine;
+  if Removing ('fet') then Removed := Removed + Space + '{#FetName}' + NewLine;
+  if Removing ('max') then Removed := Removed + Space + '{#MaxName}' + NewLine;
 
   Result := MemoComponentsInfo;
   if Replaced <> '' then
