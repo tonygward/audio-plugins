@@ -31,7 +31,7 @@ Add explicit tooltips for the Attack and Release knobs. Attack explains how quic
 
 Keep all variants in one **Songsmith Analog Compressor** plugin. Add a clearly labelled **Model** selector that switches both the DSP and a distinct, subtle faceplate texture. Keep the existing model for session compatibility and use the named references below for the new models. Confirm Tony's exact Lindell reference before choosing a circuit or voicing. Use original faceplates and cite the references. Document which differences are supported by measurements or published material and which are Songsmith voicing choices.
 
-Define meaningful differences in gain reduction, timing and harmonic colour. Keep shared controls familiar and give each model a plain-language description. Persist the selection in projects and custom presets. Older sessions must open with the existing model and sound. Retain IDs and verify safe switching during playback, output levels, bypass, latency and calibration for each model. Use repeatable measurements and level-matched listening on real material to verify the variants.
+Define meaningful differences in gain reduction, timing and harmonic colour. Keep shared controls familiar and give each model a plain-language description. Save and recall the model in every factory preset, every custom preset and every host project. Use stable model IDs. Older presets without a model must load the original Rev D Blackface sound. Verify factory preset recall, custom preset round-trips and legacy preset migration. Older sessions must open with the existing model and sound. Retain IDs and verify safe switching during playback, output levels, bypass, latency and calibration for each model. Use repeatable measurements and level-matched listening on real material to verify the variants.
 
 ### Model choices and tooltip copy
 
@@ -54,3 +54,7 @@ Support the AE’s 2:1 ratio and Slow Attack as explicit model-specific choices.
 - [Plugin Alliance Lindell 7X-500 product reference](https://www.plugin-alliance.com/products/7x-500)
 
 Use the UA collection notes for model-specific features and the hardware manuals for the specifications of the units they cover. Keep published facts, measured behaviour and Songsmith design choices separate in the implementation notes.
+
+### Required factory preset · Butter Compression
+
+Add **Butter Compression**, based on Joe Gilder’s tutorial, with the **Lindell-inspired model** explicitly selected in the preset data. Locate the original tutorial and record its link, timestamp and demonstrated settings in the preset source notes. Map the settings to Songsmith controls, documenting any adaptations and setting Input and Output against a representative acoustic guitar recording where needed. Keep the preset pending if the tutorial or its settings cannot be verified. Audition it on Tony’s strummed and picked acoustic guitar recordings. Test that loading the preset switches to Lindell from another model, recalls the intended controls, and retains that model if saved as a custom preset.
