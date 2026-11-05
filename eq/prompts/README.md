@@ -39,7 +39,7 @@ Every prompt branches from the latest `main`. Tasks in the same wave are mostly 
 | 9 | 25 higher-resolution, scalable UI | Needs 24's embedded font and final label sizes. |
 | 10 | 27 vertical output meter · 29 edge clicks add cuts · 30 Abbey Road reverb | Independent of each other. |
 | 11 | 28 piano notes toggle · 31 tom presets | 28 relayouts row 3 after 27 changed rows 2 and the graph width; 31 adds presets after 30's, so both avoid conflicts by waiting a wave. |
-| [33 filter shape icons](33-filter-shape-icons.md) | **Sonnet** · To do: show the response shape next to each filter type name |
+| [33 filter shape icons](done/33-filter-shape-icons.md) | **Done** in the EQ-33 PR: a response picture beside each filter type in the band panel and the right-click menu. Release checkpoint pending |
 
 ## Conflict hotspots
 
