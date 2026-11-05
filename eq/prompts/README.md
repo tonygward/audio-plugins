@@ -2,6 +2,8 @@
 
 There is one self-contained prompt per item in [`eq/ROADMAP.md`](../ROADMAP.md). Prompts still to run sit in this folder; finished ones move to [`done/`](done/) once their PR is merged into `main`. Each file starts with the same working rules: branch from `main`, don't break parameter IDs or saved sessions, keep the audio thread real-time safe, build and test, never run `install.ps1`, and finish with a **draft PR**. Each file can be handed to an agent as it is.
 
+References use the stable **EQ-##** IDs (for example EQ-27 means prompt 27 in this folder). The ID is preserved in `done/`; the linked PR numbers are separate delivery records. See [suite traceability rules](../../shared/prompts/README.md#prompt-identity-and-traceability).
+
 ## Status
 
 | Prompt | Status |
