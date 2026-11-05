@@ -23,9 +23,9 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 
 | Priority | Area | Next outcome |
 |---|---|---|
-| 1 | **Suite validation** | Implement [SUI-12 shared footer](SUI-12-processing-load-footer.md), then verify installation, session recall, reported latency, processing load, Studio One and Cakewalk workflows. |
+| 1 | **Suite UI and validation** | Implement [SUI-12 shared footer](SUI-12-processing-load-footer.md) and **[ACOMP-08 Analog Compressor editor refinements](../../analog-compressor/prompts/08-1176-editor.md) early**, then verify installation, session recall, reported latency, processing load, Studio One and Cakewalk workflows. |
 | 2 | **EQ** | Piano button moved to bottom-right ([EQ-35](../../eq/prompts/35-piano-footer.md)), filter shape icons, plain-English Linear Phase explanation and **instrument-specific frequency guide** ([EQ 32](../../eq/prompts/32-frequency-guide.md), grounded in Joe Gilder and the recording notes). |
-| 3 | **Analog Compressor** | Oversampling default, detector Low Cut, improved editor and accessible help. |
+| 3 | **Analog Compressor DSP** | Oversampling default ([ACOMP-06](../../analog-compressor/prompts/06-oversampling-off-by-default.md)) and detector Low Cut ([ACOMP-07](../../analog-compressor/prompts/07-detector-low-cut.md)); editor polish is already in Priority 1. |
 | 4 | **Maximiser** | True-peak checks on exports, suitable defaults, LUFS measurement. |
 | 5 | **FET models** | Blue Stripe, Anniversary, Lindell-inspired, with clearly named acoustic-guitar presets. |
 | 6 | **Compressor workflow** | Optional guided **Set Levels** adjustment. |
@@ -70,7 +70,7 @@ Finish the existing suite work and develop the classic standalone plugins on two
 
 | Track | Sequence |
 |---|---|
-| Analog emulation | Existing 1176-inspired FET compressor: [Low Cut](../../analog-compressor/prompts/07-detector-low-cut.md) **(Sonnet)** then [editor polish](../../analog-compressor/prompts/08-1176-editor.md) **(Sonnet)**. Next [OPT-01 Optical Leveller](classics/OPT-01-optical-leveller.md) **(Opus for design, Sonnet for implementation)**, [PEQ-01 Pultec-style EQ](classics/PEQ-01-pultec-eq.md) **(Opus for design, Sonnet for implementation)**, then [BUS-01 SSL-style compressor](classics/BUS-01-ssl.md) **(Opus for design, Sonnet for implementation)**. |
+| Analog emulation | Existing 1176-inspired FET compressor: **[ACOMP-08 editor polish](../../analog-compressor/prompts/08-1176-editor.md) first (Sonnet; Priority 1)**, then [ACOMP-06 oversampling default](../../analog-compressor/prompts/06-oversampling-off-by-default.md) **(Sonnet)** and [ACOMP-07 detector Low Cut](../../analog-compressor/prompts/07-detector-low-cut.md) **(Sonnet)**. Next [OPT-01 Optical Leveller](classics/OPT-01-optical-leveller.md) **(Opus for design, Sonnet for implementation)**, [PEQ-01 Pultec-style EQ](classics/PEQ-01-pultec-eq.md) **(Opus for design, Sonnet for implementation)**, then [BUS-01 SSL-style compressor](classics/BUS-01-ssl.md) **(Opus for design, Sonnet for implementation)**. |
 | Digital | Existing EQ: [filter icons](../../eq/prompts/33-filter-shape-icons.md) **(Sonnet)**. Existing Maximiser: [defaults and loudness meter](../../maximiser/prompts/README.md). Next [CLN-01 Clean Compressor](classics/CLN-01-clean-compressor.md) **(Opus for design, Sonnet for implementation)**. |
 
 The [SUI-08 suite branding](done/SUI-08-songsmith-plugins-brand.md) is done. Apply [SUI-09 curated and custom presets](SUI-09-preset-library.md) **(Sonnet)** and [SUI-10 resizable editors and control help](SUI-10-resize-and-plain-language.md) **(Sonnet)** across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
@@ -91,9 +91,9 @@ Agree and record a **release checkpoint with a named, testable feature scope** b
 
 | Priority | Batch | Order and release checks |
 |---|---|---|
-| 1 | Suite release | SUI-06–SUI-08 and SUI-11: installer choices, versioning, Songsmith Plugins branding, and per-plugin latency and optional Processing Load readouts. Verify reported latency in each latency-changing mode in a host and benchmark the timing overhead. Validate upgrade, scanning and old project recall in Studio One and Cakewalk. |
+| 1 | Suite release and **early compressor UI** | Run SUI-12 and **ACOMP-08 editor polish now**, ahead of ACOMP-06/07: enlarge the analogue meter, refine the scalable textured faceplate, improve layout/ratio wording and prepare the future Low Cut position without adding its DSP control yet. Coordinate with SUI-10; preserve screenshots and verify responsiveness, meter behaviour and old session recall. Also validate existing SUI-06–SUI-08/SUI-11 packaging, versioning, reported latency and load, upgrade/scanning and Studio One/Cakewalk recall. |
 | 2 | EQ improvements | EQ 33 filter shape icons, EQ 34 Linear Phase tooltip and EQ 32 instrument frequency guide. The guide can ship independently of the smaller fixes. |
-| 3 | Blackface workflow | Compressor 06 → 07 → 08: oversampling default, detector Low Cut, then the larger meter and textured editor. Apply SUI-10 resize and tooltip rules and SUI-09 preset rules to the compressor here. |
+| 3 | Blackface DSP and workflow | **ACOMP-06 → ACOMP-07**: oversampling default followed by detector Low Cut. Integrate Low Cut into the space reserved by already-prioritised **ACOMP-08**; do not redo editor polish. Apply SUI-09 preset rules and ensure SUI-10 wording/resize consistency. |
 | 4 | Digital polish | Verify the Maximiser true-peak ceiling on exported files, then run Maximiser 06 → 07 for the default and LUFS meter. |
 | 5 | FET compressor models | Deliver compressor 10 in checkpoints: model selector and texture switching with Blue Stripe first, then Anniversary Edition (2:1 and Slow Attack), then Lindell and Acoustic Guitar Smoothing once the exact Lindell reference is confirmed. Preserve legacy Blackface recall and validate each model independently. |
 | 6 | Set Levels | Deliver compressor 09 against the selected model. Validate on Blackface and each new model as it becomes available. |
