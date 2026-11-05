@@ -24,7 +24,7 @@ Every editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold,
 
 ## Install every plugin at once
 
-**Songsmith Plugins** is one installer with every plugin in it: `Songsmith-Plugins-<version>-win64-setup.exe`, from the [Releases page](https://github.com/tonygward/audio-plugins/releases) (CI builds it on every change as the `Songsmith-Plugins-Windows-setup` artifact). This is the one to use.
+**Songsmith Plugins** is one installer with every plugin in it: `Songsmith-Plugins-<version>-win64-setup.exe`, from the [Releases page](https://github.com/tonygward/audio-plugins/releases) (CI builds it on every merge to `main`, and on pull requests that change shared or installer files, as the `Songsmith-Plugins-Windows-setup` artifact; a pull request that changes only one plugin builds only that plugin). This is the one to use.
 
 1. Run it. Windows SmartScreen will probably say it "protected your PC", because the installer isn't code-signed: click **More info**, then **Run anyway**.
 2. Every plugin is ticked. Untick any you don't want. Each plugin comes with a standalone app that runs without recording software. The page shows how much disk space each one needs.
