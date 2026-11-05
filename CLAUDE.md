@@ -42,6 +42,14 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 - Plugins inspired by hardware (1176, L1) cite their sources. Say which behaviour is published and which is a Songsmith design choice, and which test checks each.
 - The editors are original designs informed by the hardware's control layout, not copies of a faceplate.
 
+### 6. Tell musicians what matters
+
+- **Every guidance message answers three questions:** what matters, why it matters, and **whether the musician needs to do anything**. Prefer reassuring, actionable, one- or two-sentence advice over engineering jargon, alarms or unnecessary changes.
+- Separate **measured facts** (actual levels, gain reduction, file sample rate and bit depth) from **listening suggestions**, estimates and uncertain inferences. Do not claim that a plugin knows the source WAV bit depth merely from host audio buffers, that it can hear 'mud', or that streaming platforms have a universal LUFS pass/fail requirement.
+- Offer help **at the point of use**: concise, optional, dismissible and non-disruptive; avoid constant notifications, over-automation and advice on silence or insufficient evidence. Give the next useful action only when warranted, and explain that doing nothing is often fine.
+- **Recording guidance:** 44.1 kHz/16-bit is legitimate CD quality, not ruined or unsuitable for streaming. 24-bit capture offers more recording headroom and flexibility, not retroactive recovery of detail. 48 kHz is a useful optional workflow choice, not an automatic audible upgrade. Don't recommend converting 16-bit to 24-bit to improve the original recording.
+- Make advice accurate, testable, accessible and consistent throughout every current and future Songsmith plugin and the separate Loudness Analyser. Use British English and the existing plain-language terminology.
+
 ## Working rules
 
 - Branch from an up-to-date `main`; never push commits straight to `main`, never force-push. Every change goes through a PR.
