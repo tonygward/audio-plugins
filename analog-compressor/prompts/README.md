@@ -2,6 +2,8 @@
 
 There is one self-contained prompt per build step. They were run in order by the overnight run of 2026-11-03: each step branched from the integration branch `compressor/overnight-2026-11-03`, got a draft PR, and was merged once CI was green. Finished prompts are in [`done/`](done/). The code is in [`analog-compressor/`](../). (The prompts still say `fet/` and `FETTests`: the folder and test executable were renamed afterwards.)
 
+Every task has a stable **COMP-##** reference (for example COMP-05), distinct from its GitHub PR number. See [traceability rules](../../shared/prompts/README.md#prompt-identity-and-traceability).
+
 | Prompt | Status | PR |
 |---|---|---|
 | [01 plugin shell](done/01-plugin-shell.md) | Done | #36 |

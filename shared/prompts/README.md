@@ -1,5 +1,20 @@
 # Suite prompts
 
+## Prompt identity and traceability
+
+Every task has a **stable, unique, scope-qualified ID**: `EQ-32` (file `eq/prompts/32-...`), `COMP-06` (`analog-compressor/prompts/06-...`), `MAX-07` (`maximiser/prompts/07-...`), `S11` (shared suite), `A1`/`D1` (classic analogue/digital) or `F1` (future candidate). The ID **never changes** when a prompt moves to `done/`; historical numbers, names and GitHub PR numbers are not task IDs.
+
+For each completed prompt, keep a single canonical Markdown file in its own folder's `done/`, link it from the local prompt README (or this shared README), and record the delivery PR and release checkpoint when verified. **Done means merged**, not merely code written or a plan approved. If a prompt is archived retrospectively, label it as such and do not invent PR or test evidence. Update the release changelog with references to the IDs delivered at each checkpoint. Links must be relative to their source Markdown file. Do not mark an unmerged task done.
+
+| Scope prefix | Canonical location | Completed location |
+|---|---|---|
+| `EQ-` | `eq/prompts/` | `eq/prompts/done/` |
+| `COMP-` | `analog-compressor/prompts/` | `analog-compressor/prompts/done/` |
+| `MAX-` | `maximiser/prompts/` | `maximiser/prompts/done/` |
+| `S` | `shared/prompts/` | `shared/prompts/done/` |
+| `A` / `D` | `shared/prompts/classics/` | `shared/prompts/classics/done/` when delivered |
+| `F` | `shared/prompts/future/` | `shared/prompts/future/done/` only after implemented |
+
 ## Backlog at a glance
 
 **Three product goals:** **6–12 standalone plugins**, a **Channel Strip reusing proven processing engines**, and a **separate whole-track Loudness Analyser**. The foundation is Songsmith EQ, Analog Compressor and Maximiser. [Full product direction](../../eq/ROADMAP.md).
@@ -35,6 +50,8 @@ Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq
 | ✅ [S5 macOS suite installer](done/S5-macos-suite-installer.md) | One macOS `.pkg` for all plugins, with a choice per plugin and format |
 | ✅ [S6 one installer entry per plugin](done/S6-one-entry-per-plugin.md) | One tick box per plugin in the Windows installers and the macOS suite installer: no separate standalone app or format choices |
 | ✅ [S7 one version number](done/S7-one-version-number.md) | One version for every plugin, installer and release, from a root `VERSION` file, starting at 1.1.0 |
+| ✅ [S8 Songsmith Plugins branding](done/S8-songsmith-plugins-brand.md) | Consistent suite naming without changing plugin identities |
+| ✅ [S11 latency and processing load](done/S11-latency-and-processing-load.md) | Diagnostics strip in each editor; shipped in 1.1.0 |
 
 ## Future candidate — Recording and Mixing Advisor
 
@@ -85,18 +102,9 @@ Agree and record a **release checkpoint with a named, testable feature scope** b
 
 The priorities describe release order. Independent work can proceed alongside the current batch. Use the model recommendations on each prompt.
 
-### ✅ S11 · Show latency and processing load in every plugin
+### ✅ S11 · Latency and Processing Load
 
-**Done** (see the Latency and Processing Load strip in the [style guide](../../docs/style-guide.md#latency-and-processing-load-strip)). Kept here as the written requirements for future plugins.
-
-**Model: Sonnet.** Use Opus for review if safe timing or publication from the audio thread proves difficult.
-
-Follow `CLAUDE.md` and the suite editor requirements. Add a consistent diagnostics view to every current and future Songsmith plugin.
-
-- **Latency:** Show the processing delay this instance reports to the host, in samples and milliseconds at the current sample rate. Refresh it when the sample rate or processing mode changes. Use a plain tooltip such as “The delay this plugin adds. Your recording software may compensate for it.”
-- **Processing Load:** Offer optional per-instance timing, off by default. Estimate the percentage of the audio block's time budget used by this instance. Use a smoothed readout with enough precision for light loads, and show unavailable when there is no recent measurement. Explain in a tooltip that the value describes this plugin and varies with the computer, settings and buffer size.
-- Keep timing overhead low and benchmark it. Avoid allocations, locks, logging and UI updates in the audio callback. Publish measurements safely and refresh the display on the UI thread. Keep diagnostic settings separate from sound presets.
-- Check the displayed delay against the reported samples and sample rate in every latency-changing mode. Verify the load calculation at different block sizes, behaviour when processing stops, and the UI at supported window sizes. Test VST3, Audio Unit and standalone where supported.
+**Done — [archived prompt S11](done/S11-latency-and-processing-load.md)**. Implemented behaviour is described in the [style guide](../../docs/style-guide.md#latency-and-processing-load-strip) and included in the [1.1.0 changelog](../../CHANGELOG.md#110). The original requirements have been preserved in the archive, rather than embedded here as an active instruction.
 
 ## Overnight runs merge into `main`
 

@@ -4,6 +4,9 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 ## 1.1.0
 
+**Delivery traceability:** Shared-suite prompts [S6 — one installer entry per plugin](shared/prompts/done/S6-one-entry-per-plugin.md), [S7 — one version number](shared/prompts/done/S7-one-version-number.md), [S8 — suite branding](shared/prompts/done/S8-songsmith-plugins-brand.md), and [S11 — latency and processing load](shared/prompts/done/S11-latency-and-processing-load.md). S11 is a retrospectively archived specification; delivery verification belongs to the original implementation PR and CI. The shared UI and installer foundations are documented in [S1–S5](shared/prompts/README.md). No new feature or version bump results from this documentation correction.
+
+
 ### Every plugin
 - **One version number:** every Songsmith plugin now shares one version number. Songsmith EQ moves up from 0.5.0, and the Songsmith Analog Compressor and Songsmith Maximiser move up from 0.1.0, so each of them upgrades cleanly over what you have installed.
 - **Named Songsmith Plugins:** the family is now called Songsmith Plugins in the installers, the welcome pages, the Settings → Apps entry and the release notes. Each plugin keeps its own name, and Songsmith Studio stays the publisher. Upgrading from Songsmith Studio 1.0.0 replaces the old entry, so you still see one, and your projects and presets are untouched.
