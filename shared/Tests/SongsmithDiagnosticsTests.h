@@ -16,14 +16,16 @@ namespace Songsmith::Diagnostics::Testing
     // writes the real one.
     struct TemporarySettings
     {
-        TemporarySettings() : folder (juce::File::getSpecialLocation (juce::File::tempDirectory)
+        TemporarySettings() : previous (Settings::fileOverrideForTests()), folder (juce::File::getSpecialLocation (juce::File::tempDirectory)
                                           .getChildFile ("songsmith-diagnostics-test-" + juce::String::toHexString (juce::Random::getSystemRandom().nextInt())))
         {
             folder.createDirectory();
             Settings::fileOverrideForTests() = folder.getChildFile ("Diagnostics.xml");
         }
-        ~TemporarySettings() { Settings::fileOverrideForTests() = juce::File(); folder.deleteRecursively(); }
-        juce::File folder;
+        // Puts back whatever was in force before, so a test can nest these safely and never fall
+        // through to the real machine setting.
+        ~TemporarySettings() { Settings::fileOverrideForTests() = previous; folder.deleteRecursively(); }
+        juce::File previous, folder;
     };
 
     // "2.7ms (128 samples)" -> { 128, 2.7 }. Read back from the text itself, so a test compares what a
@@ -319,6 +321,18 @@ public:
             expect (juce::String (loadTooltip()).containsIgnoreCase ("computer") && juce::String (loadTooltip()).containsIgnoreCase ("buffer size"),
                     "the load tooltip says it varies with the computer, the settings and the buffer size");
             expect (juce::String (loadTooltip()).containsIgnoreCase ("settings"));
+        }
+
+        beginTest ("Nested temporary settings put the outer one back, so a test never touches the real machine setting");
+        {
+            TemporarySettings outer;
+            const auto outerFile = Settings::file ("Test");
+            {
+                TemporarySettings inner;
+                expect (Settings::file ("Test") != outerFile, "the inner one is in force while it lives");
+            }
+            expect (Settings::file ("Test") == outerFile, "the outer one is back afterwards");
+            expect (Settings::file ("Test").getFullPathName().containsIgnoreCase ("songsmith-diagnostics-test"), "never the real file");
         }
 
         beginTest ("Processing Load is off by default and kept in its own file, away from presets and sessions");

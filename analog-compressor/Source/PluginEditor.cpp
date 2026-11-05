@@ -144,7 +144,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     }
     grOffButton.setTooltip ("Gain Reduction Off: stops compressing, but the sound still passes through the amplifiers and keeps their colour");
     bypassButton.setTooltip ("Bypass: the sound passes through untouched");
-    bypassButton.setColour (juce::TextButton::buttonOnColourId, Colours::bypass);
+    Songsmith::UI::styleBypassButton (bypassButton);   // the suite's Bypass red
 
     for (int m = 0; m < 3; ++m)
     {
@@ -245,11 +245,12 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     meterButtons[2].setBounds (modes);
 
     grOffButton.setBounds (584, 300, 144, 36);
-    bypassButton.setBounds (736, 300, 144, 36);
 
-    presetBox.setBounds (300, 14, 186, 26);
-    oversampling.setBounds (498, 14, 170, 26);
-    sizeBox.setBounds (680, 14, 200, 26);
+    // Top bar: global Bypass at the top-right, in the same place and size as in the other plugins (SUI-13).
+    bypassButton.setBounds (designWidth - 16 - 84, 14, 84, 26);
+    presetBox.setBounds (292, 14, 170, 26);
+    oversampling.setBounds (presetBox.getRight() + 8, 14, 160, 26);
+    sizeBox.setBounds (oversampling.getRight() + 8, 14, 156, 26);
 
     diagnostics->setBounds (0, FET::contentHeight, FET::designWidth, FET::footerHeight);
 }

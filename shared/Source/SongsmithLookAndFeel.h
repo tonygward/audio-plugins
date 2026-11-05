@@ -416,4 +416,12 @@ namespace Songsmith::UI
 
         juce::Colour accent;
     };
+    // The look of every plugin's global Bypass button (SUI-13): the shared red when engaged, the
+    // neutral raised button otherwise. Use it for the one global Bypass only, not for band toggles
+    // or the compressor's Gain Reduction Off.
+    inline void styleBypassButton (juce::TextButton& b)
+    {
+        b.setColour (juce::TextButton::buttonOnColourId, Colours::bypass);
+        b.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
+    }
 }

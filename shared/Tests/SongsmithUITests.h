@@ -46,6 +46,47 @@ namespace Songsmith::UI::Testing
         }
     }
 
+    // Global Bypass (SUI-13): the shared red when engaged, in the top-right of the editor's content
+    // (the same corner in every plugin), and it follows the real bypass parameter.
+    inline juce::TextButton* findButton (juce::Component& root, const juce::String& text)
+    {
+        for (auto* c : root.getChildren())
+        {
+            if (auto* b = dynamic_cast<juce::TextButton*> (c); b != nullptr && b->getButtonText() == text)
+                return b;
+            if (auto* found = findButton (*c, text))
+                return found;
+        }
+        return nullptr;
+    }
+
+    // Finds the editor's Bypass button itself; its parent is the editor's content, laid out at the design size.
+    inline void checkGlobalBypass (juce::UnitTest& t, juce::Component& editor, juce::AudioProcessorParameter& parameter, const juce::String& context)
+    {
+        auto* found = findButton (editor, "Bypass");
+        t.expect (found != nullptr, context + ": there is a Bypass button");
+        if (found == nullptr)
+            return;
+        auto& bypass = *found;
+        auto& content = *bypass.getParentComponent();
+
+        t.expect (bypass.getButtonText() == "Bypass", context + ": the button is labelled Bypass");
+        t.expect (bypass.findColour (juce::TextButton::buttonOnColourId) == Colours::bypass, context + ": engaged colour is the shared bypass token");
+        t.expect (Colours::bypass == juce::Colour (0xffc9563c), context + ": the token is #C9563C");
+        t.expect (bypass.findColour (juce::TextButton::buttonColourId) != Colours::bypass, context + ": not engaged is the neutral button");
+
+        const auto bounds = bypass.getBounds();
+        const auto inContent = bounds;
+        t.expect (inContent.getRight() >= content.getWidth() - 24 && inContent.getRight() <= content.getWidth() - 12, context + ": at the right edge");
+        t.expect (inContent.getY() < 50 && inContent.getBottom() <= 50, context + ": in the top bar");
+        t.expect (bypass.getWidth() >= 70 && bypass.getHeight() >= 24, context + ": a comfortable click target");
+
+        parameter.setValueNotifyingHost (1.0f);
+        t.expect (bypass.getToggleState(), context + ": engaged follows the parameter");
+        parameter.setValueNotifyingHost (0.0f);
+        t.expect (! bypass.getToggleState(), context + ": released follows the parameter");
+    }
+
     // Every button, slider and combo box in the editor is drawn by a look-and-feel derived from
     // the shared base, so no control slips back to a plain JUCE look.
     inline void checkControlsUseSharedLook (juce::UnitTest& t, juce::Component& editor, const juce::String& context)

@@ -23,7 +23,7 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 
 | Priority | Area | Next outcome |
 |---|---|---|
-| 1 | **Suite UI and validation** | Implement [SUI-12 shared footer](done/SUI-12-processing-load-footer.md) (done, #81), [SUI-13 standard Bypass position and red](SUI-13-consistent-bypass.md), [EQ-37 draggable band panel and Dynamic visibility](../../eq/prompts/37-draggable-band-panel.md), **[EQ-36 Dynamic disabled tooltip](../../eq/prompts/done/36-dynamic-disabled-tooltip.md)** (done, #78) and **[ACOMP-08 Analog Compressor editor refinements](../../analog-compressor/prompts/08-1176-editor.md) early**, then verify installation, session recall, reported latency, processing load, Studio One and Cakewalk workflows. |
+| 1 | **Suite UI and validation** | Implement [SUI-12 shared footer](done/SUI-12-processing-load-footer.md) (done, #81), [SUI-13 standard Bypass position and red](done/SUI-13-consistent-bypass.md) (done, #82), [EQ-37 draggable band panel and Dynamic visibility](../../eq/prompts/37-draggable-band-panel.md), **[EQ-36 Dynamic disabled tooltip](../../eq/prompts/done/36-dynamic-disabled-tooltip.md)** (done, #78) and **[ACOMP-08 Analog Compressor editor refinements](../../analog-compressor/prompts/08-1176-editor.md) early**, then verify installation, session recall, reported latency, processing load, Studio One and Cakewalk workflows. |
 | 2 | **EQ** | Piano button moved to bottom-right ([EQ-35](../../eq/prompts/done/35-piano-footer.md)), filter shape icons, plain-English Linear Phase explanation and **instrument-specific frequency guide** ([EQ 32](../../eq/prompts/32-frequency-guide.md), grounded in Joe Gilder and the recording notes). |
 | 3 | **Analog Compressor DSP** | Oversampling default ([ACOMP-06](../../analog-compressor/prompts/06-oversampling-off-by-default.md)) and detector Low Cut ([ACOMP-07](../../analog-compressor/prompts/07-detector-low-cut.md)); editor polish is already in Priority 1. |
 | 4 | **Maximiser** | True-peak checks on exports, suitable defaults, LUFS measurement. |
@@ -55,7 +55,7 @@ Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq
 | ✅ [SUI-08 Songsmith Plugins branding](done/SUI-08-songsmith-plugins-brand.md) | Consistent suite naming without changing plugin identities |
 | ✅ [SUI-11 latency and processing load](done/SUI-11-latency-and-processing-load.md) | Diagnostics strip in each editor; shipped in 1.1.0 |
 | ✅ [SUI-12 left-side Processing Load](done/SUI-12-processing-load-footer.md) | Done in #81: toggle at the far left of every plugin; when on, CPU and latency show immediately to its right; EQ Piano moved via EQ-35. Release checkpoint pending |
-| ⏳ [SUI-13 standard Bypass position and red](SUI-13-consistent-bypass.md) | **Sonnet · Priority 1 · To do:** global Bypass top-right on every plugin, engaged shade #C9563C; move Analog Compressor, align EQ and Maximiser colours |
+| ✅ [SUI-13 standard Bypass position and red](done/SUI-13-consistent-bypass.md) | Done in #82: global Bypass top-right on every plugin, engaged in the shared #C9563C red (`Songsmith::UI::Colours::bypass`). Release checkpoint pending |
 
 ## Future candidate — Recording and Mixing Advisor
 

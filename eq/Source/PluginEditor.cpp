@@ -147,8 +147,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
         processor.apvts, EQ::bypassId, bypassButton);
     bypassButton.setClickingTogglesState (true);
     bypassButton.setTooltip ("Bypass the whole EQ (smooth cross-fade)");
-    bypassButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffff9f43));
-    bypassButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
+    Songsmith::UI::styleBypassButton (bypassButton);   // the suite's Bypass red
     content.addAndMakeVisible (bypassButton);
 
     content.addAndMakeVisible (outputMeter);
@@ -475,7 +474,7 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         row.removeFromLeft (gap + 4);
         scaleSlider.setBounds (row.removeFromLeft (barWidth ({ "Scale -100%", "Scale 200%" })));
 
-        bypassButton.setBounds (row.removeFromRight (buttonWidth ({ "Bypass" })));
+        bypassButton.setBounds (row.removeFromRight (juce::jmax (84, buttonWidth ({ "Bypass" }))));   // the same size in every plugin (SUI-13)
         row.removeFromRight (gap + 4);
         const int countWidth = (int) std::ceil (textWidth ("24 / 24 bands", EQColours::numbers (EQColours::Type::control))) + 8;
         bandCountLabel.setVisible (row.getWidth() >= countWidth + gap);
