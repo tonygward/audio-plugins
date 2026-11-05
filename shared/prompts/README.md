@@ -65,7 +65,7 @@ Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq
 
 ## Songsmith Plugins backlog
 
-**Model guide:** Start with Sonnet for routine implementation. Where a task says **Opus for design**, use Opus for the design and validation plan, then switch to Sonnet for implementation once those decisions are written down.
+**Model guide:** Every active prompt must state its **recommended model**, **relative effort / usage** (Low, Medium or High), and **Opus escalation conditions**. Default to **Sonnet** for implementation and tests. If **Opus for design** is specified, use it only for the difficult design/validation step, document the decision, then return to Sonnet. Never escalate silently. Effort estimates are not token guarantees.
 
 Finish the existing suite work and develop the classic standalone plugins on two tracks. **The Channel Strip follows the standalone classics.**
 
