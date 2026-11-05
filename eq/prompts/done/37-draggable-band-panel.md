@@ -1,6 +1,6 @@
 # EQ-37 — Movable band panel with automatic visibility on Dynamic expansion
 
-**Status:** To do · **Priority 1 (early EQ usability)**  
+**Status:** Done in #87 · **Priority 1 (early EQ usability)**  
 **Model:** Sonnet  
 **Scope:** Songsmith EQ floating band control panel (`eq/Source/BandPanel.*`, `eq/Source/EQDisplay.*`).
 
