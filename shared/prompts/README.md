@@ -29,18 +29,18 @@ Apply [S8 suite branding](S8-songsmith-plugins-brand.md) **(Sonnet)**, [S9 curat
 
 | Priority | Batch | Order and release checks |
 |---|---|---|
-| 1 | Suite release | S6–S8 together: installer choices, versioning and Songsmith Plugins branding. Validate upgrade, scanning and old project recall in Studio One and Cakewalk. EQ 33 filter icons and 34 Linear Phase tooltip can join if ready. |
+| 1 | Suite release | S6–S8 and S11: installer choices, versioning, Songsmith Plugins branding, and per-plugin latency and optional Processing Load readouts. Verify reported latency in each latency-changing mode in a host and benchmark the timing overhead. Validate upgrade, scanning and old project recall in Studio One and Cakewalk. EQ 33 filter icons and 34 Linear Phase tooltip can join if ready. |
 | 2 | Blackface workflow | Compressor 06 → 07 → 08: oversampling default, detector Low Cut, then the larger meter and textured editor. Apply S10 resize and tooltip rules and S9 preset rules to the compressor here. |
 | 3 | Digital polish | Verify the Maximiser true-peak ceiling on exported files, then run Maximiser 06 → 07 for the default and LUFS meter. EQ 32 instrument guide can run independently. |
-| 4a | Optical Leveller | Deliver A1 as the first new analog classic. Validate vocal and bass presets and host recall before release. |
-| 4b | Clean Compressor | Deliver D1 as its own digital release. It can proceed independently of 4a. |
-| 4c | FET model foundation and Blue Stripe | Scope compressor 10 to stable model IDs, legacy Blackface recall, selector and texture switching, and one new model. Validate Blue Stripe before adding another. |
-| 4d | Set Levels | Deliver compressor 09 against the selected model. Verify calibration on Blackface and Blue Stripe before expanding. |
-| 4e | Anniversary Edition | Add the AE as a separate increment. Validate its 2:1 ratio and Slow Attack. |
-| 4f | Lindell and acoustic preset | Confirm the Lindell reference, then deliver that model with Acoustic Guitar Smoothing and verify model recall and calibration. This increment can wait independently for the reference. |
-| 5 | Complete the classics | A2 Pultec-style EQ → A3 SSL-style Bus Compressor. Finish S9 and S10 across the suite as each plugin is released. Add S11 latency and processing load after host validation of latency-changing modes. |
-| 6 | Standalone Loudness Analyser | Can start once the Maximiser measurement engine is validated and reusable. |
-| 7 | Channel Strip | Start after the standalone classics are released and validated in both tracks. Include the internal Abbey Road reverb bus. |
+| 4 | Optical Leveller | Deliver A1 as the first new analog classic. Validate vocal and bass presets and host recall before release. |
+| 5 | Clean Compressor | Deliver D1 as its own digital release. It can proceed independently of Phase 4. |
+| 6 | FET model foundation and Blue Stripe | Scope compressor 10 to stable model IDs, legacy Blackface recall, selector and texture switching, and one new model. Validate Blue Stripe before adding another. |
+| 7 | Set Levels | Deliver compressor 09 against the selected model. Verify calibration on Blackface and Blue Stripe before expanding. |
+| 8 | Anniversary Edition | Add the AE as a separate increment. Validate its 2:1 ratio and Slow Attack. |
+| 9 | Lindell and acoustic preset | Confirm the Lindell reference, then deliver that model with Acoustic Guitar Smoothing and verify model recall and calibration. This increment can wait independently for the reference. |
+| 10 | Complete the classics | A2 Pultec-style EQ → A3 SSL-style Bus Compressor. Finish S9 and S10 across the suite as each plugin is released. |
+| 11 | Standalone Loudness Analyser | Can start once the Maximiser measurement engine is validated and reusable. |
+| 12 | Channel Strip | Start after the standalone classics are released and validated in both tracks. Include the internal Abbey Road reverb bus. |
 
 The priorities describe release order. Independent work can proceed alongside the current batch. Use the model recommendations on each prompt.
 
