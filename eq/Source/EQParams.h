@@ -46,6 +46,15 @@ namespace EQ
                "Switch to Zero latency mode to use it with Bell, Low Shelf or High Shelf filters.";
     }
 
+    // Tooltip for the processing-mode selector (EQ-34): what Linear phase does, when to try it,
+    // why it adds delay (the filter has to look ahead) and why Zero latency suits recording.
+    inline const char* linearPhaseTooltip()
+    {
+        return "Try Linear phase when blending a filtered track with a copy of the same sound. "
+               "It avoids shifting the timing of some frequencies more than others, but adds delay "
+               "(about 43 to 186 ms at 44.1 or 48 kHz, longer for higher quality) and turns off "
+               "Dynamic EQ and Solo. Leave it on Zero latency for recording and most mixing.";
+    }
     constexpr float minFreq = 20.0f,   maxFreq = 20000.0f;
     constexpr float minGain = -30.0f,  maxGain = 30.0f;
     constexpr float minQ    = 0.1f,    maxQ    = 40.0f;

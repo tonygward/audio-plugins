@@ -73,9 +73,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
 
     // Phase mode + linear-phase quality in one selector (two host parameters).
     phaseBox.addItemList ({ "Zero latency", "Linear phase: low", "Linear phase: medium", "Linear phase: high" }, 1);
-    phaseBox.setTooltip ("Zero latency (minimum phase) or linear phase. Linear phase adds latency "
-                         "(at 44.1/48 kHz: low 43-46 ms, medium 85-93 ms, high 171-186 ms) and "
-                         "turns off dynamic EQ and solo.");
+    phaseBox.setTooltip (EQ::linearPhaseTooltip());
     phaseBox.onChange = [this]
     {
         const int i = phaseBox.getSelectedItemIndex();
