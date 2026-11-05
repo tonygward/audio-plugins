@@ -101,6 +101,7 @@ Requests from using the plugin on real mixes. Prompts 27–31 in [`prompts/done/
 
 - [x] **Vertical output meter on the right** of the graph, full height, with a dB scale, peak hold and clip indicator, in place of the small bar in control row 2.
 - [ ] **EQ-39 — early Priority 2 follow-up:** [automatic mono/stereo output meter and sticky red CLIP warning](prompts/39-stereo-meter-clip-latch.md). One bar for mono; independent L/R for stereo. Clip on either channel latches until sustained silence. UI and real-time-safe metering only; shipped EQ-27 stays done.
+- [ ] **EQ-40 — early Priority 2 preset clean-up:** [group Starting Points by instrument, expose Mid/High Tom, hide Five-zone start and remove duplicate Factory choices](prompts/40-organise-starting-points.md); retain old preset indices and session compatibility.
 - [x] **Piano notes toggle** in the bottom control bar (row 3), so the piano strip from task 16 isn't hidden in a right-click menu.
 - [x] **Edge clicks add cuts.** Double-clicking near the far left of the graph adds a Low Cut, near the far right a High Cut, and a Bell anywhere else.
 - [x] **"Abbey Road reverb" template**, copied from Tony's Pro-Q 4 preset "Abbey Road Reverb Trick" (low cut 377 Hz, 2 kHz dip, high cut 17 kHz).
