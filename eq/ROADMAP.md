@@ -4,6 +4,20 @@ _Forward-looking ideas; no committed delivery dates._
 
 **Principles stay the same:** professional sound, beginner-friendly controls, plain English, consistent interfaces, useful starting points and reliable operation.
 
+## Roadmap at a glance
+
+**Foundation:** Songsmith EQ, Analog Compressor and Maximiser already exist. Keep improving and validating them before widening the collection.
+
+| Direction | What it means | Status |
+|---|---|---|
+| **More plugins** | Aim for **6–12** useful processors. Next candidates: **Optical Leveller (LA-2A-inspired)**, **Clean Compressor**, **Pultec-style EQ**, **SSL-style Bus Compressor**. Further ideas: **Reverb**, **Delay**, **De-Esser**, **Saturator**, **Gate / Expander**, **Transient Shaper**, **Guitar Amp / Cabinet**. This is a candidate pool, not a commitment to build all of them. | Planned classics / later ideas |
+| **Songsmith Channel Strip** | One easy-to-use plugin combining the **existing, validated processing engines** into practical vocal and instrument chains, including a proposed internal parallel Abbey Road-style reverb path. | Future |
+| **Standalone Loudness Analyser** | Drop in a **whole finished song** to check integrated LUFS, true peaks, recording format and streaming guidance; optional mastering/export can follow later. | Future |
+
+**Musician-first improvements:** an optional EQ frequency overlay per instrument (e.g. **Warmth**, **Thump**, **Plastic**, **Crunch**, **Air**) grounded in [Joe Gilder and real recording notes](../eq/docs/starting-points.md); plus optional, contextual guidance in every plugin and the standalone app: **“What matters? Why? Do I need to do anything?”** [Guidance prompts](../shared/prompts/README.md#future-candidate--recording-and-mixing-advisor) are future work, not automatically queued.
+
+**Standing rules:** clear British English and musical preset names; consistent UI; honest, evidence-based audio guidance; backward compatibility and real-time safety; useful screenshots retained in PRs and READMEs; releases at **agreed tested roadmap checkpoints**, not after each prompt. See [development rules](../CLAUDE.md) and the [prioritised backlog](../shared/prompts/README.md).
+
 ## Suite direction (high level)
 
 1. **Standalone classics first.** Develop the **analog emulation** track (1176-inspired FET, optical leveller, Pultec-style EQ and SSL-style compressor) and the **digital** track (EQ, Maximiser and clean compressor). See the [Songsmith Plugins backlog](../shared/prompts/README.md) for the prompts and shared acceptance requirements.
