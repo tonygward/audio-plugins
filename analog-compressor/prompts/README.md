@@ -39,13 +39,12 @@ Show the selected model’s use case beside the selector and make it available a
 
 | Model | Suggested tooltip |
 |---|---|
-| Original Songsmith | “Use this to keep the compressor sound from your earlier Songsmith mixes.” |
 | Rev A · Blue Stripe | “Try this for a gritty, upfront vocal or to make room mics sound more aggressive.” |
-| Rev E · Blackface | “Start here to tame vocal, bass or guitar peaks while keeping the sound fairly clean.” |
+| Rev D · Blackface (Original Songsmith) | “Start here to tame vocal, bass or guitar peaks while keeping the sound fairly clean.” |
 | 1176AE · Anniversary Edition | “Try 2:1 for gentler control, or Slow Attack to let more of the first hit through.” |
-| Lindell-inspired | Confirm the exact reference first. If it is the 7X-500, audition “Try this for punchy drums or bass that needs firmer control” and revise the wording to match the implemented sound. |
+| Lindell-inspired | Confirm the exact reference first. If it is the 7X-500, start by auditioning it on Tony’s acoustic guitar recordings. Suggested tooltip: “Try this on acoustic guitar to even out strong strums while keeping the pick attack.” Check that the finished model supports this use on strummed and picked parts. |
 
-Support the AE’s 2:1 ratio and Slow Attack as explicit model-specific choices. Verify which ratio and attack settings each reference supports and define safe, predictable mapping when the user switches models. Compare the existing model with Rev E before deciding whether both need separate user-facing choices. Preserve the legacy sound in either case.
+Support the AE’s 2:1 ratio and Slow Attack as explicit model-specific choices. Verify which ratio and attack settings each reference supports and define safe, predictable mapping when the user switches models. Keep the existing Rev D-inspired sound as the Blackface choice and preserve it for older sessions. Use Rev E as a comparison reference only.
 
 ### Reference material
 
