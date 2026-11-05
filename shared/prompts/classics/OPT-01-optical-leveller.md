@@ -1,5 +1,9 @@
 # OPT-01 · Analog · Optical Leveller
 
+**Recommended model:** Opus for DSP design/validation; Sonnet for implementation.  
+**Estimated effort / usage:** High (relative, not a token estimate).  
+**Model escalation:** Use Opus only for modelling and recovery design, then Sonnet for implementation. Never switch to Opus silently: record why, scope its use to the difficult design/validation step, then return to Sonnet.  
+
 Follow `CLAUDE.md` and the [suite backlog](../README.md). This is a standalone plugin for Songsmith Plugins.
 
 Build an LA-2A-inspired optical leveller with a simple gain and compression interface. Research the optical element’s programme-dependent recovery and validate it with short and long bursts. Document the reference unit and the behaviours you model. Start preset research with Joe Gilder’s vocal and bass levelling tutorials.
