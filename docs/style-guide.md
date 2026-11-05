@@ -24,6 +24,8 @@ How every Songsmith plugin looks, so they read as one family. The code for all o
 
 **EQ example:** the Piano toggle belongs at the **bottom-right of the interface beside the piano-note strip** it shows/hides, as required by [EQ-35](../eq/prompts/35-piano-footer.md). The Processing Load toggle sits at the **far left of the bottom status strip immediately beside its conditional CPU/latency values**, as required by [SUI-12](../shared/prompts/SUI-12-processing-load-footer.md). Consistent proximity takes precedence over arbitrary alignment or symmetry.
 
+**Consistent global Bypass:** Place the Bypass button at the **top-right** of every editor, matching the established EQ/Maximiser layout. Unlike feature-local controls, this whole-plugin action has a predictable suite-wide position. When engaged, the button uses the same **#C9563C** red (the Analog Compressor's existing bypass colour); when not engaged it uses the normal neutral control style. Use a single shared colour token and keep the position stable through scaling. See [SUI-13](../shared/prompts/SUI-13-consistent-bypass.md).
+
 For each new or moved control, ask: *Can a musician see what it affects without searching elsewhere?* Test across resizing, scaling, keyboard focus and state changes. Include a representative screenshot in UI PRs.
 
 ## Typeface
