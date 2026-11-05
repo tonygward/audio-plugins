@@ -1,7 +1,7 @@
 # EQ-38 — Instrument icons in Frequency Guide
 
 **Priority:** 2 — early EQ UI polish, next suitable UI batch after v1.3.0.
-**Status:** To do. **Model:** Sonnet. **Branch:** `roadmap/38-frequency-guide-instrument-icons`.
+**Status:** To do. **Recommended model:** Sonnet. **Estimated effort / usage:** Low. **Escalation:** Opus not expected; document any unavoidable architecture blocker before switching. **Branch:** `roadmap/38-frequency-guide-instrument-icons`.
 **Depends on:** Shipped [EQ-32](done/32-frequency-guide.md), Instrument Frequency Guide.
 
 ## Goal
