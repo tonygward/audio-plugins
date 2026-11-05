@@ -1,6 +1,6 @@
 # EQ-40 — Organise Starting Points by instrument and remove duplicate Factory menu
 
-**Status:** To do. **Priority:** 2 — early EQ usability, alongside EQ-38 and EQ-39. **Model:** Sonnet. **Branch:** `roadmap/40-organise-starting-points`.
+**Status:** To do. **Priority:** 2 — early EQ usability, alongside EQ-38 and EQ-39. **Recommended model:** Sonnet. **Estimated effort / usage:** Medium. **Escalation:** Opus only for unexpected legacy preset migration architecture, then return to Sonnet. **Branch:** `roadmap/40-organise-starting-points`.
 **Related shipped work:** EQ-20, EQ-26 and [EQ-31 tom presets](done/31-tom-presets.md). **Coordinate with:** shared preset rule SUI-09.
 
 ## Request
