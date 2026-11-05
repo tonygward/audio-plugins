@@ -9,7 +9,7 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 | Scope prefix | Canonical location | Completed location |
 |---|---|---|
 | `EQ-` | `eq/prompts/` | `eq/prompts/done/` |
-| `COMP-` | `analog-compressor/prompts/` | `analog-compressor/prompts/done/` |
+| `ACOMP-` | `analog-compressor/prompts/` | `analog-compressor/prompts/done/` |
 | `MAX-` | `maximiser/prompts/` | `maximiser/prompts/done/` |
 | `SUI-` | `shared/prompts/` | `shared/prompts/done/` |
 | `OPT-` / `PEQ-` / `BUS-` / `CLN-` | `shared/prompts/classics/` | `shared/prompts/classics/done/` when delivered |
