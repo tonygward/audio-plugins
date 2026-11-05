@@ -23,7 +23,7 @@ Still to do by hand before a release: the Studio One and Logic checks in [`analo
 
 ## 09 · Guided compressor calibration
 
-**Model: Sonnet.** Follow `CLAUDE.md`. Build after the detector Low Cut and editor updates.
+**Recommended model:** Sonnet. **Estimated effort / usage:** Medium. **Escalation:** Opus only for an unavoidable calibration-measurement architecture question; document why and return to Sonnet. Follow `CLAUDE.md`. Build after the detector Low Cut and editor updates.
 
 Add an optional **Set Levels** action. Ask the user to play a representative loud section, then estimate an Input setting that gives a few dB of gain reduction on louder peaks (start with 2–4 dB) and an Output setting that approximately matches the dry and compressed loudness. Account for the current ratio, attack, release and Low Cut. Show the proposed settings and measured reduction, let the user apply or cancel, and make the applied settings undoable and manually adjustable. Keep Input and Output fixed during normal playback. Handle silence, short captures, clipping risk, and targets that cannot be reached. Keep measurement real-time safe and avoid writing over active host automation. Test on transients and sustained sources, and verify the output match using a level-matched bypass comparison.
 
@@ -31,7 +31,7 @@ Add explicit tooltips for the Attack and Release knobs. Attack explains how quic
 
 ## 10 · Switchable FET compressor models
 
-**Model: Opus for DSP design and validation planning, Sonnet for implementation.** Build on the 1176 editor and guided calibration prompts.
+**Recommended model:** Opus for DSP design and validation planning; Sonnet for implementation. **Estimated effort / usage:** High. **Escalation:** Use Opus only for model-specific DSP design and measurement plans, document decisions, then Sonnet for implementation and tests. Build on the 1176 editor and guided calibration prompts.
 
 Keep all variants in one **Songsmith Analog Compressor** plugin. Add a clearly labelled **Model** selector that switches both the DSP and a distinct, subtle faceplate texture. Keep the existing model for session compatibility and use the named references below for the new models. Confirm Tony's exact Lindell reference before choosing a circuit or voicing. Use original faceplates and cite the references. Document which differences are supported by measurements or published material and which are Songsmith voicing choices.
 
