@@ -9,8 +9,8 @@ There is one self-contained prompt per build step. They were run in order by the
 | [03 analogue colour](done/03-analogue-colour.md) | Done | #43 |
 | [04 All Buttons and editor](done/04-all-buttons-and-editor.md) | Done | #47 |
 | [05 presets, validation and packaging](done/05-presets-validation-packaging.md) | Done | #50 |
-| [06 oversampling off by default](06-oversampling-off-by-default.md) | To do | |
-| [07 detector Low Cut](07-detector-low-cut.md) | To do | |
-| [08 1176-inspired editor](08-1176-editor.md) | To do | |
+| [06 oversampling off by default](06-oversampling-off-by-default.md) | To do · **Sonnet** | |
+| [07 detector Low Cut](07-detector-low-cut.md) | To do · **Sonnet** | |
+| [08 1176-inspired editor](08-1176-editor.md) | To do · **Sonnet** | |
 
 Still to do by hand before a release: the Studio One and Logic checks in [`analog-compressor/docs/daw-checks.md`](../docs/daw-checks.md), and the listening checklists in `analog-compressor/docs`.
