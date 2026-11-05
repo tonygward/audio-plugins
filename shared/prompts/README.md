@@ -1,5 +1,29 @@
 # Suite prompts
 
+## Backlog at a glance
+
+**Three product goals:** **6–12 standalone plugins**, a **Channel Strip reusing proven processing engines**, and a **separate whole-track Loudness Analyser**. The foundation is Songsmith EQ, Analog Compressor and Maximiser. [Full product direction](../../eq/ROADMAP.md).
+
+| Priority | Area | Next outcome |
+|---|---|---|
+| 1 | **Suite validation** | Verify installation, session recall, reported latency, processing load, Studio One and Cakewalk workflows. |
+| 2 | **EQ** | Filter shape icons, plain-English Linear Phase explanation and **instrument-specific frequency guide** ([EQ 32](../../eq/prompts/32-frequency-guide.md), grounded in Joe Gilder and the recording notes). |
+| 3 | **Analog Compressor** | Oversampling default, detector Low Cut, improved editor and accessible help. |
+| 4 | **Maximiser** | True-peak checks on exports, suitable defaults, LUFS measurement. |
+| 5 | **FET models** | Blue Stripe, Anniversary, Lindell-inspired, with clearly named acoustic-guitar presets. |
+| 6 | **Compressor workflow** | Optional guided **Set Levels** adjustment. |
+| 7 | **Optical Leveller** | LA-2A-inspired standalone plugin. |
+| 8 | **Clean Compressor** | Transparent digital compressor. |
+| 9 | **More analogue classics** | Pultec-style EQ and SSL-style Bus Compressor. |
+| 10 | **Standalone Loudness Analyser** | Whole-file LUFS, true peak, sample rate/bit depth and **streaming guidance**, without false pass/fail claims. |
+| 11 | **Channel Strip** | Combine validated processors in musician-ready chains, including the proposed internal Abbey Road-style reverb path. |
+
+**Additional unscheduled plugin candidates:** Reverb, Delay, De-Esser, Saturator, Gate / Expander, Transient Shaper and Guitar Amp / Cabinet. They are not assigned implementation prompts or release dates yet.
+
+**Future, not queued:** [F1 musician-friendly guidance for each plugin](future/F1-musician-guidance.md) and [F2 whole-file Recording and Streaming Advisor](future/F2-file-recording-advisor.md). The rule for both is **“What matters? Why does it matter? Do I need to do anything?”**
+
+**Release discipline:** shared suite version **1.1.0** is the current documented baseline; future versions are set against agreed, validated roadmap milestones (not individual prompts). Preserve useful screenshots in PRs and READMEs, and distinguish mockups from shipped features. Details and execution order follow below.
+
 Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq/`), Songsmith Analog Compressor (`analog-compressor/`) and Songsmith Maximiser (`maximiser/`), plus any plugin added later. Each file can be handed to an agent as it is. They use the same working rules as the [EQ roadmap prompts](../../eq/prompts/README.md): branch from `main`, keep parameter IDs and plugin codes stable, keep the audio thread real-time safe, build and test every plugin, don't install system-wide, and finish with a **draft PR**. Finished prompts move to `done/` once merged.
 
 | Prompt | What it does |
