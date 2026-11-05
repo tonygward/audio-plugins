@@ -25,6 +25,20 @@ Finish the existing suite work and develop the classic standalone plugins on two
 
 Apply [S8 suite branding](S8-songsmith-plugins-brand.md) **(Sonnet)**, [S9 curated and custom presets](S9-preset-library.md) **(Sonnet)**, and [S10 resizable editors and control help](S10-resize-and-plain-language.md) **(Sonnet)** across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
 
+### Delivery priority
+
+| Priority | Batch | Order and release checks |
+|---|---|---|
+| 1 | Suite release | S6–S8 together: installer choices, versioning and Songsmith Plugins branding. Validate upgrade, scanning and old project recall in Studio One and Cakewalk. EQ 33 filter icons and 34 Linear Phase tooltip can join if ready. |
+| 2 | Blackface workflow | Compressor 06 → 07 → 08: oversampling default, detector Low Cut, then the larger meter and textured editor. Apply S10 resize and tooltip rules and S9 preset rules to the compressor here. |
+| 3 | Digital polish | Verify the Maximiser true-peak ceiling on exported files, then run Maximiser 06 → 07 for the default and LUFS meter. EQ 32 instrument guide can run independently. |
+| 4 | First new classics and FET models | Start A1 Optical Leveller and D1 Clean Compressor on their respective tracks. For the FET compressor, plan model handling in 10 before implementing 09 Set Levels so calibration uses the selected model. Ship calibration on Blackface first if useful. Confirm the Lindell reference before tuning that model and Acoustic Guitar Smoothing. |
+| 5 | Complete the classics | A2 Pultec-style EQ → A3 SSL-style Bus Compressor. Finish S9 and S10 across the suite as each plugin is released. Add S11 latency and processing load after host validation of latency-changing modes. |
+| 6 | Standalone Loudness Analyser | Can start once the Maximiser measurement engine is validated and reusable. |
+| 7 | Channel Strip | Start after the standalone classics are released and validated in both tracks. Include the internal Abbey Road reverb bus. |
+
+The priorities describe release order. Independent work can proceed alongside the current batch. Use the model recommendations on each prompt.
+
 ### S11 · Show latency and processing load in every plugin
 
 **Model: Sonnet.** Use Opus for review if safe timing or publication from the audio thread proves difficult.
