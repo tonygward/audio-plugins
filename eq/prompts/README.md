@@ -10,8 +10,8 @@ There is one self-contained prompt per item in [`eq/ROADMAP.md`](../ROADMAP.md).
 | 05–22 (in [`done/`](done/)) | Done, merged into `main` (21 and 22 shipped in v0.3.0) |
 | 23–26 (in [`done/`](done/)) | Done (#28–#31), merged into `main` in #32 and shipped in v0.4.0 |
 | 27–31 (in [`done/`](done/)) | Done overnight on 3–4 Nov 2026 (#37, #45, #40, #42, #49), merged into `main` in #52 and shipped in v0.5.0: [27 vertical output meter](done/27-vertical-output-meter.md), [28 piano notes toggle](done/28-piano-strip-toggle.md), [29 edge clicks add cuts](done/29-edge-click-cuts.md), [30 Abbey Road reverb template](done/30-abbey-road-reverb-template.md), [31 tom presets](done/31-tom-presets.md) |
-| [32 instrument frequency guide](32-frequency-guide.md) | To do: an optional overlay that names what you hear in each part of the graph (Rumble, Thump, Plastic, Air), starting with acoustic guitar. Concept picture: [32-frequency-guide.png](32-frequency-guide.png) |
-| 34 Linear Phase tooltip | To do: explain when to use Linear Phase and why it adds delay. Use “Try this when blending a filtered track with a copy of the same sound. It avoids shifting the timing of some frequencies more than others, but adds delay. Leave it off for recording and most mixing.” Verify the tooltip fits and is discoverable on the mode control. |
+| [32 instrument frequency guide](32-frequency-guide.md) | **Sonnet** · To do: an optional overlay that names what you hear in each part of the graph (Rumble, Thump, Plastic, Air), starting with acoustic guitar. Concept picture: [32-frequency-guide.png](32-frequency-guide.png) |
+| 34 Linear Phase tooltip | **Sonnet** · To do: explain when to use Linear Phase and why it adds delay. Use “Try this when blending a filtered track with a copy of the same sound. It avoids shifting the timing of some frequencies more than others, but adds delay. Leave it off for recording and most mixing.” Verify the tooltip fits and is discoverable on the mode control. |
 
 ## Overnight runs merge into `main`
 
@@ -34,7 +34,7 @@ Every prompt branches from the latest `main`. Tasks in the same wave are mostly 
 | 9 | 25 higher-resolution, scalable UI | Needs 24's embedded font and final label sizes. |
 | 10 | 27 vertical output meter · 29 edge clicks add cuts · 30 Abbey Road reverb | Independent of each other. |
 | 11 | 28 piano notes toggle · 31 tom presets | 28 relayouts row 3 after 27 changed rows 2 and the graph width; 31 adds presets after 30's, so both avoid conflicts by waiting a wave. |
-| [33 filter shape icons](33-filter-shape-icons.md) | To do: show the response shape next to each filter type name |
+| [33 filter shape icons](33-filter-shape-icons.md) | **Sonnet** · To do: show the response shape next to each filter type name |
 
 ## Conflict hotspots
 
