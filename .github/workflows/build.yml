@@ -17,6 +17,7 @@ on:
       - 'maximiser/**'
       - 'shared/**'
       - 'installer/**'
+      - 'VERSION'
       - '.github/workflows/**'
       - '.gitattributes'
       - '!**.md'
@@ -31,6 +32,7 @@ on:
       - 'maximiser/**'
       - 'shared/**'
       - 'installer/**'
+      - 'VERSION'
       - '.github/workflows/**'
       - '.gitattributes'
       - '!**.md'
@@ -50,6 +52,15 @@ env:
   JUCE_VERSION: "9.0.5"
 
 jobs:
+  version:
+    name: One version number
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No file holds its own version
+        shell: pwsh
+        run: ./installer/check-version.ps1
+
   eq:
     name: EQ - ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
@@ -91,6 +102,11 @@ jobs:
       - name: Build (Release)
         shell: bash
         run: cmake --build eq/build --config Release --parallel 4
+
+      - name: Check the build reports the shared version
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./installer/check-version.ps1 -Built -Plugin eq
 
       - name: Run EQTests
         shell: bash
@@ -156,8 +172,8 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          # Same version as the Windows files: project(... VERSION x.y.z) in eq/CMakeLists.txt.
-          version=$(sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' eq/CMakeLists.txt | head -n 1)
+          # Same version as the Windows files: the one version in VERSION.
+          version=$(tr -d '[:space:]' < VERSION)
           mkdir -p dist/"Songsmith EQ"
           cp -R eq/build/SongsmithEQ_artefacts/Release/VST3/"Songsmith EQ.vst3" dist/"Songsmith EQ"/
           cp -R eq/build/SongsmithEQ_artefacts/Release/AU/"Songsmith EQ.component" dist/"Songsmith EQ"/
@@ -241,6 +257,11 @@ jobs:
         shell: bash
         run: cmake --build analog-compressor/build --config Release --parallel 4
 
+      - name: Check the build reports the shared version
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./installer/check-version.ps1 -Built -Plugin analog-compressor
+
       - name: Run AnalogCompressorTests
         shell: bash
         run: ${{ matrix.tests }}
@@ -301,7 +322,7 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          version=$(sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' analog-compressor/CMakeLists.txt | head -n 1)
+          version=$(tr -d '[:space:]' < VERSION)
           art=analog-compressor/build/SongsmithAnalogCompressor_artefacts/Release
           mkdir -p analog-compressor-dist/"Songsmith Analog Compressor"
           cp -R "$art/VST3/Songsmith Analog Compressor.vst3" "$art/AU/Songsmith Analog Compressor.component" \
@@ -383,6 +404,11 @@ jobs:
         shell: bash
         run: cmake --build maximiser/build --config Release --parallel 4
 
+      - name: Check the build reports the shared version
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./installer/check-version.ps1 -Built -Plugin maximiser
+
       # Unit tests, the randomised limiter stress tests and the auto-release comparison.
       - name: Run MaximiserTests
         shell: bash
@@ -445,7 +471,7 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          version=$(sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' maximiser/CMakeLists.txt | head -n 1)
+          version=$(tr -d '[:space:]' < VERSION)
           mkdir -p dist/"Songsmith Maximiser"
           cp -R maximiser/build/SongsmithMaximiser_artefacts/Release/VST3/"Songsmith Maximiser.vst3" dist/"Songsmith Maximiser"/
           cp -R maximiser/build/SongsmithMaximiser_artefacts/Release/AU/"Songsmith Maximiser.component" dist/"Songsmith Maximiser"/

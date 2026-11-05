@@ -85,3 +85,5 @@ Songsmith EQ was called TW Pro EQ up to v0.2.0. The entries below use today's na
 - macOS builds an AU, validates it with `auval`, and zips the VST3 and AU.
 - Tests that failed on macOS from tiny rounding differences now allow a small tolerance.
 - Each feature has its own tests and, where it matters, a CPU benchmark. README and `ROADMAP.md` are updated to match.
+
+From version 1.1.0 on, every plugin shares one version number. New entries go in the [Songsmith Studio changelog](../CHANGELOG.md).

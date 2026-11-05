@@ -1,7 +1,7 @@
 ; Songsmith Studio - one Windows installer for every plugin (Inno Setup 6).
 ;
-; Build it with build-installer.ps1, which reads every version and passes the build folders:
-;   iscc /DSuiteVersion=1.0.0 /DEqVersion=0.5.0 /DFetVersion=0.1.0 /DMaxVersion=0.1.0
+; Build it with build-installer.ps1, which reads the one version from VERSION and passes the build folders:
+;   iscc /DSuiteVersion=<VERSION> /DEqVersion=<VERSION> /DFetVersion=<VERSION> /DMaxVersion=<VERSION>
 ;        /DEqDir=<...\SongsmithEQ_artefacts\Release> /DFetDir=<...> /DMaxDir=<...> /O<out> SongsmithStudio.iss
 ;
 ; Each plugin is one component, ticked by default, and brings its standalone app with it.

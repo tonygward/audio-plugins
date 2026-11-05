@@ -4,7 +4,7 @@
 #   .\installer\build-installer.ps1 -Zip                 # also build\installer\Songsmith-EQ-<version>-win64.zip
 #   .\installer\build-installer.ps1 -BuildDir other\dir  # a different CMake build folder
 #
-# The version comes from project(... VERSION x.y.z) in eq/CMakeLists.txt. Build the plugin
+# The version comes from VERSION in the repository root. Build the plugin
 # first: cmake --build build --config Release. Writes the path of the installer to the output.
 param(
     [string]$BuildDir = (Join-Path (Split-Path $PSScriptRoot -Parent) "build"),
@@ -15,12 +15,11 @@ param(
 $ErrorActionPreference = "Stop"
 $eqDir = Split-Path $PSScriptRoot -Parent
 
-# Version from CMakeLists.txt, so it's defined in exactly one place.
-$cmake = Get-Content (Join-Path $eqDir "CMakeLists.txt") -Raw
-if ($cmake -notmatch 'project\(\s*\w+\s+VERSION\s+(\d+\.\d+\.\d+)') {
-    throw "Couldn't find 'project(... VERSION x.y.z)' in eq/CMakeLists.txt"
-}
-$version = $Matches[1]
+# The one version number for every plugin is in VERSION at the repository root.
+$versionFile = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) "VERSION"
+if (-not (Test-Path $versionFile)) { throw "Missing $versionFile (the one-line x.y.z version file)" }
+$version = (Get-Content $versionFile -Raw).Trim()
+if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "VERSION must hold one version as x.y.z (found '$version')" }
 
 $artefacts = Join-Path $BuildDir "SongsmithEQ_artefacts\$Config"
 foreach ($required in @("VST3\Songsmith EQ.vst3\Contents\x86_64-win\Songsmith EQ.vst3", "Standalone\Songsmith EQ.exe")) {

@@ -1,7 +1,7 @@
 ; Songsmith Maximiser - Windows installer (Inno Setup 6).
 ;
 ; Build it with build-installer.ps1, which passes the version and the build folder:
-;   iscc /DAppVersion=0.4.0 /DBuildDir=<eq\build\SongsmithMaximiser_artefacts\Release> /O<out> SongsmithMaximiser.iss
+;   iscc /DAppVersion=<VERSION> /DBuildDir=<maximiser\build\SongsmithMaximiser_artefacts\Release> /O<out> SongsmithMaximiser.iss
 ;
 ; Installs the VST3 into the fixed VST3 folder (Common Files\VST3) and the
 ; standalone app into Program Files\Songsmith Studio\Songsmith Maximiser. Not code-signed (see

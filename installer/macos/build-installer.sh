@@ -4,16 +4,15 @@
 #
 #   installer/macos/build-installer.sh       # build each plugin's own .pkg first, then the suite
 #   installer/macos/build-installer.sh --eq-pkg <pkg> --fet-pkg <pkg> --max-pkg <pkg>   # CI
-#   installer/macos/build-installer.sh --suite-version 0.9.0 --out-dir <folder>         # tests
+#   installer/macos/build-installer.sh --suite-version <older version> --out-dir <folder>         # tests
 #
 # The suite is made from the SAME component packages as each plugin's own installer: it expands
 # each plugin's .pkg (made by <plugin>/installer/macos/build-installer.sh) and takes its VST3,
 # Audio Unit and app packages as they are, with their preinstall/postinstall scripts. So the two
 # installers can't drift apart, and installing from either updates the same receipts.
 #
-# The suite version is in installer/version.txt; each plugin's version comes from
-# project(... VERSION x.y.z) in its own CMakeLists.txt. The last line of the output is the path
-# of the .pkg (default: build/suite-installer/Songsmith-Studio-<version>-macOS.pkg).
+# Every plugin and the suite share the one version in VERSION at the repository root. The last
+# line of the output is the path of the .pkg (default: build/suite-installer/Songsmith-Studio-<version>-macOS.pkg).
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -32,19 +31,21 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-project_version() {
-    sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' \
-        "$repo/$1/CMakeLists.txt" | head -n 1
-}
-
-[ -z "$suite_version" ] && suite_version=$(tr -d '[:space:]' < "$repo/installer/version.txt")
-if ! printf '%s' "$suite_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-    echo "Suite version '$suite_version' isn't x.y.z (installer/version.txt)" >&2
+shared_version=$(tr -d '[:space:]' < "$repo/VERSION")
+if ! printf '%s' "$shared_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+    echo "VERSION must hold one version as x.y.z (found '$shared_version')" >&2
     exit 1
 fi
-eq_version=$(project_version eq)
-fet_version=$(project_version analog-compressor)
-max_version=$(project_version maximiser)
+
+# Tests may build an "older" suite with --suite-version; the plugins inside always carry VERSION.
+[ -z "$suite_version" ] && suite_version="$shared_version"
+if ! printf '%s' "$suite_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+    echo "Suite version '$suite_version' isn't x.y.z" >&2
+    exit 1
+fi
+eq_version="$shared_version"
+fet_version="$shared_version"
+max_version="$shared_version"
 
 # Each plugin's own .pkg: given, or built now from that plugin's Release build.
 [ -z "$eq_pkg" ]  && eq_pkg=$("$repo/eq/installer/macos/build-installer.sh" | tail -n 1)

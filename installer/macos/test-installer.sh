@@ -6,7 +6,7 @@
 #
 # --eq-pkg, --fet-pkg and --max-pkg are the plugins' own installers: the EQ's is installed before
 # the suite to check that the suite replaces it, and all three are used to build an "older"
-# suite (version 0.9.0) for the upgrade test. Without --pkg, the suite is built from them first.
+# suite (an older version derived from VERSION) for the upgrade test. Without --pkg, the suite is built from them first.
 #
 # WARNING: this installs for real, system-wide (sudo installer -target /), removes every
 # Songsmith plugin with uninstall.sh, and leaves a dummy preset in each preset folder only while
@@ -46,7 +46,10 @@ if [ -z "$pkg" ]; then
     pkg=$("$here/build-installer.sh" "${build_args[@]}" | tail -n 1) || { echo "build-installer.sh failed" >&2; exit 1; }
 fi
 pkg="$(cd "$(dirname "$pkg")" && pwd)/$(basename "$pkg")"
-older=$("$here/build-installer.sh" "${build_args[@]}" --suite-version 0.9.0 --out-dir "$work/older" | tail -n 1) ||
+# An "older" suite version derived from VERSION: 0.<major>.<minor> is always lower (major is at least 1).
+shared_version=$(tr -d '[:space:]' < "$here/../../VERSION")
+older_version="0.${shared_version%%.*}.$(echo "$shared_version" | cut -d. -f2)"
+older=$("$here/build-installer.sh" "${build_args[@]}" --suite-version "$older_version" --out-dir "$work/older" | tail -n 1) ||
     { echo "building the older suite failed" >&2; exit 1; }
 
 SUDO=""
@@ -58,11 +61,9 @@ keys=(eq fet max)
 name_of()   { case "$1" in eq) echo "Songsmith EQ" ;; fet) echo "Songsmith Analog Compressor" ;; max) echo "Songsmith Maximiser" ;; esac; }
 prefix_of() { case "$1" in eq) echo "com.songsmithstudio.songsmitheq" ;; fet) echo "com.songsmithstudio.songsmithanalogcompressor" ;; max) echo "com.songsmithstudio.songsmithmaximiser" ;; esac; }
 auval_of()  { case "$1" in eq) echo "aufx Eq3b Tnyw" ;; fet) echo "aufx Sfc1 Tnyw" ;; max) echo "aufx Mxlm Tnyw" ;; esac; }
-version_of() {
-    local folder; case "$1" in eq) folder=eq ;; fet) folder=analog-compressor ;; max) folder=maximiser ;; esac
-    sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' \
-        "$here/../../$folder/CMakeLists.txt" | head -n 1
-}
+# Every plugin carries the one version in VERSION at the repository root.
+version_of() { tr -d '[:space:]' < "$here/../../VERSION"; }
+
 bundles_of() {
     local n; n=$(name_of "$1")
     echo "$VST3_DIR/$n.vst3"; echo "$AU_DIR/$n.component"; echo "/Applications/$n.app"
@@ -200,7 +201,7 @@ done
 
 # --- 4. Upgrade from an older suite ------------------------------------------------------------
 echo
-echo "4. Upgrade from suite 0.9.0"
+echo "4. Upgrade from suite $older_version"
 uninstall_all
 install_pkg "$older"; check "older suite installer exits 0" test $? -eq 0
 expect_installed "eq fet max" "older suite"

@@ -27,8 +27,8 @@ For each prompt, follow it exactly, with these overrides:
 - In the same PR, before merging, move the task's prompt into the folder's
   done/ subfolder and update that folder's README status table, if it has one.
 - If the task changes what users install (plugin code, presets, installers),
-  bump the version in the same PR (minor for new features, patch for fixes
-  only) and add a changelog entry. Docs- and prompt-only tasks don't bump it.
+  bump VERSION in the same PR (minor for new features, patch for fixes
+  only) and add an entry to the root CHANGELOG.md. Docs- and prompt-only tasks don't bump it.
 
 Releasing is automatic too. Tony has agreed that every merged PR that bumps
 the version is released straight away, without asking:
@@ -43,10 +43,9 @@ the version is released straight away, without asking:
    plugin, downloads, the unsigned-installer warnings, uninstalling, and
    known limitations ("Not yet verified in a recording application" when
    that's true).
-Follow the Releasing section of TECHNICAL.md if it has one. Until shared task
-S7 has merged (one VERSION file for everything), release the way the most
-recent releases were made: a tag and release per plugin whose version
-changed, and a studio-vX.Y.Z release when installer/version.txt changed.
+Follow the Releasing section of TECHNICAL.md. There is one version for every
+plugin and installer (the VERSION file), so there is one tag, vX.Y.Z, and one
+release per version.
 
 If a task is blocked, or its tests can't be made to pass within reason:
 leave its PR as a draft with a "Blocked" section, don't merge it, check out
