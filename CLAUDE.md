@@ -35,6 +35,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 - **Place each UI widget near the feature, graph, value, meter, or region it controls.** Spatial proximity should make its effect obvious without requiring the user to search the interface. Do not put controls into a generic toolbar simply because it has spare space.
 - Example: Songsmith EQ's **Piano** toggle belongs at the **bottom-right**, beside the piano-note strip along the bottom of the EQ graph, rather than in the top toolbar. The Processing Load toggle belongs on the left of the shared bottom diagnostics strip, directly beside its CPU/latency readout.
 - Group related controls together, preserve this relationship across resize/DPI changes, and prefer a local control or contextual action over a distant global toggle. Document and justify any unavoidable exception in the relevant prompt/PR.
+- **Global Bypass is the suite-wide exception with a fixed, predictable position:** top-right of every editor (as on EQ and Maximiser), using the same pressed/on red **#C9563C** currently used by Analog Compressor. Red means processing is bypassed, not enabled. Use the shared bypass colour token; do not substitute individual plugin accent colours. See SUI-13.
 - Validate location as well as appearance and function in editor UI tests and before/after screenshots. See `docs/style-guide.md#control-proximity`.
 
 ### 5. Plain words, no abbreviations
