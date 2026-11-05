@@ -5,9 +5,14 @@ name: Build
 # built by hand from the Actions tab (workflow_dispatch).
 # Only source changes build: a change has to touch a file in one of the folders
 # below that isn't a doc, prompt or image (the "!" lines). Docs, READMEs,
-# prompts and screenshots alone never start a build. A change that touches any
-# source file still builds everything. Keep both lists the same; add a folder
-# here when you add a plugin.
+# prompts and screenshots alone never start a build. Keep both lists the same;
+# add a folder here when you add a plugin.
+#
+# A pull request then builds only the plugins it changes (the "changes" job
+# below): a change under eq/ builds the EQ only, and so on. A change to anything
+# shared (shared/, installer/, VERSION, the workflow or .gitattributes) builds
+# every plugin and both suite installers. Merges to main and manual runs always
+# build everything, so the release files always come from a full build.
 on:
   push:
     branches: [main]
@@ -52,6 +57,44 @@ env:
   JUCE_VERSION: "9.0.5"
 
 jobs:
+  # Which plugins does this change affect? Decided by the files changed, never by hand.
+  changes:
+    name: Choose what to build
+    runs-on: ubuntu-latest
+    outputs:
+      eq: ${{ steps.pick.outputs.eq }}
+      analog-compressor: ${{ steps.pick.outputs.analog-compressor }}
+      maximiser: ${{ steps.pick.outputs.maximiser }}
+      suite: ${{ steps.pick.outputs.suite }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Work out which plugins changed
+        id: pick
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          eq=false; analog=false; max=false; all=false
+          if [ "$EVENT" != "pull_request" ]; then
+            all=true   # main and manual runs build everything
+          else
+            files=$(git diff --name-only "$BASE...$HEAD" | grep -v -E '\.md$|\.png$|/prompts/|/docs/|\.gitignore$' || true)
+            echo "Changed source files:"; echo "$files"
+            if echo "$files" | grep -q -E '^(shared/|installer/|\.github/|\.gitattributes$|VERSION$)'; then all=true; fi
+            if echo "$files" | grep -q '^eq/'; then eq=true; fi
+            if echo "$files" | grep -q '^analog-compressor/'; then analog=true; fi
+            if echo "$files" | grep -q '^maximiser/'; then max=true; fi
+            # Anything unexpected at the top level: build everything rather than guess.
+            if [ -n "$files" ] && echo "$files" | grep -q -v -E '^(eq/|analog-compressor/|maximiser/|shared/|installer/|\.github/|\.gitattributes$|VERSION$)'; then all=true; fi
+          fi
+          if [ "$all" = true ]; then eq=true; analog=true; max=true; fi
+          { echo "eq=$eq"; echo "analog-compressor=$analog"; echo "maximiser=$max"; echo "suite=$all"; } | tee -a "$GITHUB_OUTPUT"
+
   version:
     name: One version number
     runs-on: ubuntu-latest
@@ -63,6 +106,8 @@ jobs:
 
   eq:
     name: EQ - ${{ matrix.name }}
+    needs: changes
+    if: needs.changes.outputs.eq == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -217,6 +262,8 @@ jobs:
   # Songsmith Analog Compressor (analog-compressor/): its own build and tests, independent of the EQ job.
   analog-compressor:
     name: Analog Compressor - ${{ matrix.name }}
+    needs: changes
+    if: needs.changes.outputs.analog-compressor == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -364,6 +411,8 @@ jobs:
   # Songsmith Maximiser (maximiser/): its own job, so the EQ job above stays as it is.
   maximiser:
     name: Maximiser - ${{ matrix.name }}
+    needs: changes
+    if: needs.changes.outputs.maximiser == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -517,7 +566,8 @@ jobs:
   # macOS leg too; a job's matrix legs can't be waited for separately.)
   suite-windows:
     name: Songsmith Plugins installer - Windows
-    needs: [eq, analog-compressor, maximiser]
+    needs: [changes, eq, analog-compressor, maximiser]
+    if: needs.changes.outputs.suite == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -571,7 +621,8 @@ jobs:
   # (needs: waits for the Windows legs too; a job's matrix legs can't be waited for separately.)
   suite-macos:
     name: Songsmith Plugins installer - macOS
-    needs: [eq, analog-compressor, maximiser]
+    needs: [changes, eq, analog-compressor, maximiser]
+    if: needs.changes.outputs.suite == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
