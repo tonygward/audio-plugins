@@ -11,11 +11,13 @@ Every task has a stable **ACOMP-##** reference (for example ACOMP-05), distinct 
 | [03 analogue colour](done/03-analogue-colour.md) | Done | #43 |
 | [04 All Buttons and editor](done/04-all-buttons-and-editor.md) | Done | #47 |
 | [05 presets, validation and packaging](done/05-presets-validation-packaging.md) | Done | #50 |
-| [06 oversampling off by default](06-oversampling-off-by-default.md) | To do · **Sonnet** | |
-| [07 detector Low Cut](07-detector-low-cut.md) | To do · **Sonnet** | |
-| [08 1176-inspired editor](08-1176-editor.md) | To do · **Sonnet** | |
+| [08 1176-inspired editor](08-1176-editor.md) | **To do · Sonnet · Priority 1 (run first)** | |
+| [06 oversampling off by default](06-oversampling-off-by-default.md) | To do · **Sonnet · Priority 3** | |
+| [07 detector Low Cut](07-detector-low-cut.md) | To do · **Sonnet · Priority 3, after ACOMP-06** | |
 | 09 Guided compressor calibration | To do · **Sonnet** | |
 | 10 Switchable FET compressor models | To do · **Opus for DSP design, Sonnet for implementation** | |
+
+**Execution order update (5 November 2026):** Run **ACOMP-08 → ACOMP-06 → ACOMP-07**, retaining the permanent IDs and original filenames. ACOMP-08 must not depend on Low Cut existing: reserve layout space, then wire the actual Low Cut control when ACOMP-07 is implemented. Coordinate footer changes with SUI-12 and UI scaling with SUI-10. The suite [priority matrix](../../shared/prompts/README.md#delivery-priority) is canonical.
 
 Still to do by hand before a release: the Studio One and Logic checks in [`analog-compressor/docs/daw-checks.md`](../docs/daw-checks.md), and the listening checklists in `analog-compressor/docs`.
 
