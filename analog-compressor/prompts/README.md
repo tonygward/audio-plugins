@@ -13,6 +13,7 @@ There is one self-contained prompt per build step. They were run in order by the
 | [07 detector Low Cut](07-detector-low-cut.md) | To do · **Sonnet** | |
 | [08 1176-inspired editor](08-1176-editor.md) | To do · **Sonnet** | |
 | 09 Guided compressor calibration | To do · **Sonnet** | |
+| 10 Switchable FET compressor models | To do · **Opus for DSP design, Sonnet for implementation** | |
 
 Still to do by hand before a release: the Studio One and Logic checks in [`analog-compressor/docs/daw-checks.md`](../docs/daw-checks.md), and the listening checklists in `analog-compressor/docs`.
 
@@ -23,3 +24,11 @@ Still to do by hand before a release: the Studio One and Logic checks in [`analo
 Add an optional **Set Levels** action. Ask the user to play a representative loud section, then estimate an Input setting that gives a few dB of gain reduction on louder peaks (start with 2–4 dB) and an Output setting that approximately matches the dry and compressed loudness. Account for the current ratio, attack, release and Low Cut. Show the proposed settings and measured reduction, let the user apply or cancel, and make the applied settings undoable and manually adjustable. Keep Input and Output fixed during normal playback. Handle silence, short captures, clipping risk, and targets that cannot be reached. Keep measurement real-time safe and avoid writing over active host automation. Test on transients and sustained sources, and verify the output match using a level-matched bypass comparison.
 
 Add explicit tooltips for the Attack and Release knobs. Attack explains how quickly compression starts, Release explains how quickly it lets go, and both say turning clockwise makes it faster. Verify that the knob direction agrees with the DSP.
+
+## 10 · Switchable FET compressor models
+
+**Model: Opus for DSP design and validation planning, Sonnet for implementation.** Build on the 1176 editor and guided calibration prompts.
+
+Keep all variants in one **Songsmith Analog Compressor** plugin. Add a clearly labelled **Model** selector that switches both the DSP and a distinct, subtle faceplate texture. Start with the existing model and plan several contrasting 1176 variants plus a Lindell-inspired option. Confirm Tony's exact Lindell reference before choosing a circuit or voicing. Use original faceplates and cite the references. Document which differences are supported by measurements or published material and which are Songsmith voicing choices.
+
+Define meaningful differences in gain reduction, timing and harmonic colour. Keep shared controls familiar and give each model a plain-language description. Persist the selection in projects and custom presets. Older sessions must open with the existing model and sound. Retain IDs and verify safe switching during playback, output levels, bypass, latency and calibration for each model. Use repeatable measurements and level-matched listening on real material to verify the variants.
