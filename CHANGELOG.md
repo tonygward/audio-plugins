@@ -4,7 +4,7 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 ## 1.1.0
 
-**Delivery traceability:** Shared-suite prompts [S6 — one installer entry per plugin](shared/prompts/done/S6-one-entry-per-plugin.md), [S7 — one version number](shared/prompts/done/S7-one-version-number.md), [S8 — suite branding](shared/prompts/done/S8-songsmith-plugins-brand.md), and [S11 — latency and processing load](shared/prompts/done/S11-latency-and-processing-load.md). S11 is a retrospectively archived specification; delivery verification belongs to the original implementation PR and CI. The shared UI and installer foundations are documented in [S1–S5](shared/prompts/README.md). No new feature or version bump results from this documentation correction.
+**Delivery traceability:** Shared-suite prompts [SUI-06 — one installer entry per plugin](shared/prompts/done/SUI-06-one-entry-per-plugin.md), [SUI-07 — one version number](shared/prompts/done/SUI-07-one-version-number.md), [SUI-08 — suite branding](shared/prompts/done/SUI-08-songsmith-plugins-brand.md), and [SUI-11 — latency and processing load](shared/prompts/done/SUI-11-latency-and-processing-load.md). SUI-11 is a retrospectively archived specification; delivery verification belongs to the original implementation PR and CI. The shared UI and installer foundations are documented in [SUI-01–SUI-05](shared/prompts/README.md). No new feature or version bump results from this documentation correction.
 
 
 ### Every plugin
