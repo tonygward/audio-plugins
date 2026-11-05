@@ -1,7 +1,7 @@
 ; Songsmith Analog Compressor - Windows installer (Inno Setup 6).
 ;
 ; Built with build-installer.ps1, which passes the version and the build folder:
-;   iscc /DAppVersion=0.1.0 /DBuildDir=<analog-compressor\build\SongsmithAnalogCompressor_artefacts\Release> /O<out> SongsmithAnalogCompressor.iss
+;   iscc /DAppVersion=<VERSION> /DBuildDir=<analog-compressor\build\SongsmithAnalogCompressor_artefacts\Release> /O<out> SongsmithAnalogCompressor.iss
 ;
 ; Same pattern as eq\installer\SongsmithEQ.iss: the VST3 goes into the fixed VST3 folder
 ; (Common Files\VST3) and the standalone app into

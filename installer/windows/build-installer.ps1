@@ -3,10 +3,9 @@
 #
 #   .\installer\windows\build-installer.ps1                  # -> build\suite-installer\Songsmith-Studio-<version>-win64-setup.exe
 #   .\installer\windows\build-installer.ps1 -EqDir <folder>  # a plugin's Release artefacts from somewhere else (CI)
-#   .\installer\windows\build-installer.ps1 -SuiteVersion 0.9.0 -OutDir <folder>   # tests: an "older" suite
+#   .\installer\windows\build-installer.ps1 -SuiteVersion <older version> -OutDir <folder>   # tests: an "older" suite
 #
-# The suite version is in installer/version.txt; each plugin's version comes from
-# project(... VERSION x.y.z) in its own CMakeLists.txt, so every version is defined in one place.
+# Every plugin and the suite share the one version in VERSION at the repository root.
 # Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser).
 # Writes the path of the installer to the output.
 param(
@@ -21,18 +20,14 @@ param(
 $ErrorActionPreference = "Stop"
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
-function Get-ProjectVersion([string]$folder) {
-    $cmake = Get-Content (Join-Path $repo "$folder\CMakeLists.txt") -Raw
-    if ($cmake -notmatch 'project\(\s*\w+\s+VERSION\s+(\d+\.\d+\.\d+)') {
-        throw "Couldn't find 'project(... VERSION x.y.z)' in $folder/CMakeLists.txt"
-    }
-    return $Matches[1]
-}
+$versionFile = Join-Path $repo "VERSION"
+if (-not (Test-Path $versionFile)) { throw "Missing $versionFile (the one-line x.y.z version file)" }
+$sharedVersion = (Get-Content $versionFile -Raw).Trim()
+if ($sharedVersion -notmatch '^\d+\.\d+\.\d+$') { throw "VERSION must hold one version as x.y.z (found '$sharedVersion')" }
 
-if (-not $SuiteVersion) {
-    $SuiteVersion = (Get-Content (Join-Path $repo "installer\version.txt") -Raw).Trim()
-}
-if ($SuiteVersion -notmatch '^\d+\.\d+\.\d+$') { throw "Suite version '$SuiteVersion' isn't x.y.z (installer/version.txt)" }
+# Tests may build an "older" suite with -SuiteVersion; the plugins inside always carry VERSION.
+if (-not $SuiteVersion) { $SuiteVersion = $sharedVersion }
+if ($SuiteVersion -notmatch '^\d+\.\d+\.\d+$') { throw "Suite version '$SuiteVersion' isn't x.y.z" }
 
 $plugins = @(
     @{ Key = "Eq";  Folder = "eq";                Target = "SongsmithEQ";               Name = "Songsmith EQ";                Dir = $EqDir },
@@ -52,7 +47,7 @@ foreach ($p in $plugins) {
         }
     }
     $defines += "/D$($p.Key)Dir=$dir"
-    $defines += "/D$($p.Key)Version=$(Get-ProjectVersion $p.Folder)"
+    $defines += "/D$($p.Key)Version=$sharedVersion"
 }
 
 # Inno Setup's compiler: on PATH (CI), or the machine-wide / per-user (winget --scope user) install.

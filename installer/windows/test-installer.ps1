@@ -5,7 +5,7 @@
 #
 # -EqInstaller is Songsmith EQ's own installer (eq/installer), used to check that the suite
 # replaces a per-plugin install. -OlderInstaller is a suite installer with a lower version, used
-# to check upgrades; if it's missing, it's built from the same plugins with version 0.9.0.
+# to check upgrades; if it's missing, it's built from the same plugins with an older version (see $olderVersion).
 # -EqDir, -FetDir and -MaxDir are the plugins' Release artefacts, as for build-installer.ps1
 # (CI passes the folders it downloaded; locally the plugins' own build folders are used).
 #
@@ -38,8 +38,11 @@ if ($MaxDir) { $builds.MaxDir = $MaxDir }
 if (-not $Installer) {
     $Installer = (& (Join-Path $PSScriptRoot "build-installer.ps1") @builds | Select-Object -Last 1)
 }
+# An "older" suite version derived from VERSION: 0.<major>.<minor> is always lower (major is at least 1).
+$sharedVersion = (Get-Content (Join-Path $repo "VERSION") -Raw).Trim()
+$olderVersion  = "0.$($sharedVersion.Split('.')[0]).$($sharedVersion.Split('.')[1])"
 if (-not $OlderInstaller) {
-    $OlderInstaller = (& (Join-Path $PSScriptRoot "build-installer.ps1") @builds -SuiteVersion "0.9.0" -OutDir (Join-Path $root "older") | Select-Object -Last 1)
+    $OlderInstaller = (& (Join-Path $PSScriptRoot "build-installer.ps1") @builds -SuiteVersion $olderVersion -OutDir (Join-Path $root "older") | Select-Object -Last 1)
 }
 if (-not $EqInstaller) {
     $EqInstaller = (& (Join-Path $repo "eq\installer\build-installer.ps1") | Select-Object -Last 1)
@@ -173,13 +176,13 @@ try {
 
     Write-Host "`n6. Upgrade from an older suite: the ticks are remembered"
     Check ((Run-Suite $OlderInstaller "6-older.log" "fet,max") -eq 0) "older suite installer exits with 0"
-    Check ((Get-ItemProperty $suiteKey).DisplayVersion -eq "0.9.0") "older suite installed (0.9.0)"
+    Check ((Get-ItemProperty $suiteKey).DisplayVersion -eq $olderVersion) "older suite installed ($olderVersion)"
     # Suite 1.x listed each standalone app as its own component, and let a plugin be ticked without
     # its app. Rewrite what Setup remembered to that shape: the compressor ticked without its app,
     # the maximiser with "max\standalone".
     Set-ItemProperty $suiteKey -Name "Inno Setup: Selected Components" -Value "fet,max,max\standalone"
     Check ((Run-Suite $Installer "6-newer.log" "") -eq 0) "newer suite installer exits with 0 (no choices given)"
-    Check ((Get-ItemProperty $suiteKey).DisplayVersion -ne "0.9.0") "upgraded to $((Get-ItemProperty $suiteKey).DisplayVersion)"
+    Check ((Get-ItemProperty $suiteKey).DisplayVersion -eq $sharedVersion) "upgraded to $((Get-ItemProperty $suiteKey).DisplayVersion)"
     Check ((Test-Path (Dll "fet")) -and (Test-Path (Exe "fet"))) "compressor, ticked without its app before, now has its app"
     Check ((Test-Path (Dll "max")) -and (Test-Path (Exe "max"))) "maximiser and its app still there"
     Check (-not (Test-Path (Dll "eq"))) "Songsmith EQ still not installed"

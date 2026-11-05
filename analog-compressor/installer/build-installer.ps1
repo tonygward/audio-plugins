@@ -3,8 +3,8 @@
 #   .\installer\build-installer.ps1          # -> build\installer\Songsmith-Analog-Compressor-<version>-win64-setup.exe
 #   .\installer\build-installer.ps1 -Zip     # also build\installer\Songsmith-Analog-Compressor-<version>-win64.zip
 #
-# Same as eq\installer\build-installer.ps1. The version comes from project(... VERSION x.y.z)
-# in analog-compressor/CMakeLists.txt. Build first: cmake --build build --config Release. Writes the path of
+# Same as eq\installer\build-installer.ps1. The version comes from VERSION in the repository root.
+# Build first: cmake --build build --config Release. Writes the path of
 # the installer to the output.
 param(
     [string]$BuildDir = (Join-Path (Split-Path $PSScriptRoot -Parent) "build"),
@@ -16,11 +16,11 @@ $ErrorActionPreference = "Stop"
 $fetDir = Split-Path $PSScriptRoot -Parent
 $name = "Songsmith Analog Compressor"
 
-$cmake = Get-Content (Join-Path $fetDir "CMakeLists.txt") -Raw
-if ($cmake -notmatch 'project\(\s*\w+\s+VERSION\s+(\d+\.\d+\.\d+)') {
-    throw "Couldn't find 'project(... VERSION x.y.z)' in analog-compressor/CMakeLists.txt"
-}
-$version = $Matches[1]
+# The one version number for every plugin is in VERSION at the repository root.
+$versionFile = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) "VERSION"
+if (-not (Test-Path $versionFile)) { throw "Missing $versionFile (the one-line x.y.z version file)" }
+$version = (Get-Content $versionFile -Raw).Trim()
+if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "VERSION must hold one version as x.y.z (found '$version')" }
 
 $artefacts = Join-Path $BuildDir "SongsmithAnalogCompressor_artefacts\$Config"
 foreach ($required in @("VST3\$name.vst3\Contents\x86_64-win\$name.vst3", "Standalone\$name.exe")) {

@@ -7,7 +7,7 @@
 #   installer/macos/build-installer.sh --config Debug
 #
 # Build the plug-in first (from analog-compressor/): cmake --build build --config Release
-# The version comes from project(... VERSION x.y.z) in analog-compressor/CMakeLists.txt. The last line of the
+# The version comes from VERSION in the repository root. The last line of the
 # output is the path of the .pkg.
 #
 #   VST3  -> /Library/Audio/Plug-Ins/VST3/Songsmith Analog Compressor.vst3
@@ -31,10 +31,10 @@ while [ $# -gt 0 ]; do
 done
 build_dir="$(cd "$build_dir" && pwd)"
 
-version=$(sed -nE 's/^[[:space:]]*project\([[:space:]]*[A-Za-z0-9_]+[[:space:]]+VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' \
-          "$fet_dir/CMakeLists.txt" | head -n 1)
-if [ -z "$version" ]; then
-    echo "Couldn't find 'project(... VERSION x.y.z)' in analog-compressor/CMakeLists.txt" >&2
+# The one version number for every plugin is in VERSION at the repository root.
+version=$(tr -d '[:space:]' < "$here/../../../VERSION")
+if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+    echo "VERSION must hold one version as x.y.z (found '$version')" >&2
     exit 1
 fi
 

@@ -1,6 +1,6 @@
 # Songsmith Analog Compressor
 
-A feedback FET compressor inspired by the Rev D blackface 1176LN, by Songsmith Studio, built with JUCE and CMake. It is an original design, not a clone, and isn't affiliated with or endorsed by Universal Audio. Version 0.1.0, [released 2026-11-04](https://github.com/tonygward/audio-plugins/releases/tag/compressor-v0.1.0).
+A feedback FET compressor inspired by the Rev D blackface 1176LN, by Songsmith Studio, built with JUCE and CMake. It is an original design, not a clone, and isn't affiliated with or endorsed by Universal Audio. First released on 2026-11-04 as [version 0.1.0](https://github.com/tonygward/audio-plugins/releases/tag/compressor-v0.1.0). Every Songsmith plugin now shares one version number: see the [changelog](../CHANGELOG.md).
 
 ## Features
 
@@ -14,7 +14,7 @@ A feedback FET compressor inspired by the Rev D blackface 1176LN, by Songsmith S
 
 ## Install
 
-Download the installers from the [releases page](https://github.com/tonygward/audio-plugins/releases/tag/compressor-v0.1.0). CI builds the same files on every change (the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml)). None of the files are code-signed. See the Songsmith EQ section of the main README for the SmartScreen and Gatekeeper steps, which are the same here.
+Download the installers from the [releases page](https://github.com/tonygward/audio-plugins/releases/latest). CI builds the same files on every change (the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml)). None of the files are code-signed. See the Songsmith EQ section of the main README for the SmartScreen and Gatekeeper steps, which are the same here.
 
 | File (CI artifact) | What it is |
 |---|---|
