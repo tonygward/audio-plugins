@@ -33,15 +33,13 @@ Apply [S8 suite branding](S8-songsmith-plugins-brand.md) **(Sonnet)**, [S9 curat
 | 2 | EQ improvements | EQ 33 filter shape icons, EQ 34 Linear Phase tooltip and EQ 32 instrument frequency guide. The guide can ship independently of the smaller fixes. |
 | 3 | Blackface workflow | Compressor 06 → 07 → 08: oversampling default, detector Low Cut, then the larger meter and textured editor. Apply S10 resize and tooltip rules and S9 preset rules to the compressor here. |
 | 4 | Digital polish | Verify the Maximiser true-peak ceiling on exported files, then run Maximiser 06 → 07 for the default and LUFS meter. |
-| 5 | Optical Leveller | Deliver A1 as the first new analog classic. Validate vocal and bass presets and host recall before release. |
-| 6 | Clean Compressor | Deliver D1 as its own digital release. It can proceed independently of Phase 5. |
-| 7 | FET model foundation and Blue Stripe | Scope compressor 10 to stable model IDs, legacy Blackface recall, selector and texture switching, and one new model. Validate Blue Stripe before adding another. |
-| 8 | Set Levels | Deliver compressor 09 against the selected model. Verify calibration on Blackface and Blue Stripe before expanding. |
-| 9 | Anniversary Edition | Add the AE as a separate increment. Validate its 2:1 ratio and Slow Attack. |
-| 10 | Lindell and acoustic preset | Confirm the Lindell reference, then deliver that model with Acoustic Guitar Smoothing and verify model recall and calibration. This increment can wait independently for the reference. |
-| 11 | Complete the classics | A2 Pultec-style EQ → A3 SSL-style Bus Compressor. Finish S9 and S10 across the suite as each plugin is released. |
-| 12 | Standalone Loudness Analyser | Can start once the Maximiser measurement engine is validated and reusable. |
-| 13 | Channel Strip | Start after the standalone classics are released and validated in both tracks. Include the internal Abbey Road reverb bus. |
+| 5 | FET compressor models | Deliver compressor 10 in checkpoints: model selector and texture switching with Blue Stripe first, then Anniversary Edition (2:1 and Slow Attack), then Lindell and Acoustic Guitar Smoothing once the exact Lindell reference is confirmed. Preserve legacy Blackface recall and validate each model independently. |
+| 6 | Set Levels | Deliver compressor 09 against the selected model. Validate on Blackface and each new model as it becomes available. |
+| 7 | Optical Leveller | Deliver A1 as the first new standalone analog classic. Validate vocal and bass presets and host recall. |
+| 8 | Clean Compressor | Deliver D1 as its own digital release. It can proceed independently of Phase 7. |
+| 9 | Complete the classics | A2 Pultec-style EQ → A3 SSL-style Bus Compressor. Finish S9 and S10 across the suite as each plugin is released. |
+| 10 | Standalone Loudness Analyser | Can start once the Maximiser measurement engine is validated and reusable. |
+| 11 | Channel Strip | Start after the standalone classics are released and validated in both tracks. Include the internal Abbey Road reverb bus. |
 
 The priorities describe release order. Independent work can proceed alongside the current batch. Use the model recommendations on each prompt.
 
