@@ -90,5 +90,8 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
     double lastMeterTime = 0.0;
 
+    // Latency and the optional Processing Load readout, in the strip along the bottom.
+    std::unique_ptr<Songsmith::Diagnostics::Bar> diagnostics;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SongsmithEQAudioProcessorEditor)
 };

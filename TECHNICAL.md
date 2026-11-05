@@ -9,6 +9,15 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 
 Every plugin shares one look: the same typeface, type sizes and title, from the shared UI library in [`shared/`](shared/). See the [style guide](docs/style-guide.md).
 
+### Latency and Processing Load
+
+Every editor has a strip along the bottom with two diagnostics, the same in every plugin (see the [style guide](docs/style-guide.md#latency-and-processing-load-strip)):
+
+- **Latency:** the delay the plugin reports to your recording software, in samples and in milliseconds at the current sample rate, for example "84 samples (1.8 ms)". It updates when you change a mode that adds delay (linear phase, oversampling) or when the sample rate changes.
+- **Processing Load:** off until you switch it on. It shows how much of the time available for each block of audio this plugin uses, for example "3.2 %". It describes this plugin only, and varies with the computer, the settings and the buffer size. It says **Unavailable** while no audio is being processed.
+
+The Processing Load switch is remembered on your computer in a `Diagnostics.xml` file beside each plugin's presets folder. It is not part of your sessions or presets. Timing costs about 70 ns per block when on and next to nothing when off. The checks are in `shared/Tests/SongsmithDiagnosticsTests.h` and each plugin's "Latency and Processing Load" tests.
+
 ### Fonts
 
 Every editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold, v4.1) by The Inter Project Authors, embedded in the plugin so Windows and macOS look the same. One copy of the font files is kept in [`shared/Resources/Fonts`](shared/Resources/Fonts). Inter is licensed under the SIL Open Font License 1.1; the licence is in [`shared/Resources/Fonts/OFL.txt`](shared/Resources/Fonts/OFL.txt).

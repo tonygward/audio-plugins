@@ -67,7 +67,9 @@ namespace FET
     // Interface sizes (editor menu). The editor is drawn in design units and scaled as a whole,
     // so every option is equally sharp.
     inline constexpr float uiScales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f };
-    inline constexpr int designWidth = 900, designHeight = 400;
+    inline constexpr int designWidth = 900, contentHeight = 400;   // the controls sit in the top 400
+    inline constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
+    inline constexpr int designHeight = contentHeight + footerHeight;
 
     inline float snapUiScale (float s)
     {

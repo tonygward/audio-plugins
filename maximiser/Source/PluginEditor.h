@@ -72,6 +72,9 @@ private:
     VerticalMeter inputMeter { VerticalMeter::Kind::level }, reductionMeter { VerticalMeter::Kind::reduction },
                   outputMeter { VerticalMeter::Kind::level };
 
+    // Latency and the optional Processing Load readout, in the strip below the controls.
+    std::unique_ptr<Songsmith::Diagnostics::Bar> diagnostics;
+
     bool updatingFaders = false;
     int gestureDepth = 0;
     double lastTimerTime = 0.0;

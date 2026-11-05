@@ -7,7 +7,7 @@ A feedback FET compressor inspired by the Rev D blackface 1176LN, by Songsmith S
 - **The 1176-style controls:** Input drives the compression into a fixed threshold, Output matches the level, Attack (20-800 µs) and Release (50 ms-1.1 s) get faster clockwise, and there are four ratio buttons (4, 8, 12, 20). How they work: [docs/presets.md](docs/presets.md).
 - **All Buttons:** all four ratios pressed in, with its own curve, attack lag on transients and extra distortion. See [docs/all-buttons.md](docs/all-buttons.md).
 - **Analogue colour:** FET gain-cell distortion while compressing, plus the Class A output amplifier and transformer. **Gain Reduction Off** keeps the colour without compressing. Calibrated to the published specs: [docs/colour.md](docs/colour.md).
-- **Oversampling:** Off / 2x / 4x (default 4x). The latency is reported to the host, and the bypass stays aligned.
+- **Oversampling:** Off / 2x / 4x (default 4x). The latency is reported to the host, and the bypass stays aligned. The strip along the bottom of the editor shows that latency in samples and milliseconds, and, if you switch it on, this instance's Processing Load.
 - **Needle meter:** Gain Reduction, Output +4 and Output +8 modes (0 on the scale at +4 or +8 dBu) with VU ballistics, plus a numeric gain reduction readout.
 - **Scalable vector editor:** 100-200 %, sharp on any display. See [docs/editor.md](docs/editor.md).
 - **Presets:** four conservative, level-matched starting points (lead vocal, acoustic guitar, bass, drum room), each with a listening cue, plus your own presets.

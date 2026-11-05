@@ -6,6 +6,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
+#include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "EngineMeasure.h"
 #include "ColourMeasure.h"
 
@@ -303,7 +304,83 @@ struct EditorTests final : juce::UnitTest
     }
 };
 
+//==============================================================================
+// The latency and Processing Load strip (suite task S11).
+class DiagnosticsTests final : public juce::UnitTest
+{
+public:
+    DiagnosticsTests() : juce::UnitTest ("Latency and Processing Load", "FET") {}
+
+    void runTest() override
+    {
+        using namespace Songsmith::Diagnostics;
+
+        beginTest ("The strip shows the reported latency in every oversampling setting and sample rate");
+        {
+            int distinct = 0, last = -1;
+            for (double fs : { 44100.0, 48000.0, 96000.0 })
+                for (int oversampling : { 0, 1, 2 })
+                {
+                    SongsmithAnalogCompressorProcessor p;
+                    setParam (p, ID::oversampling, (float) oversampling);
+                    p.setRateAndBufferSizeDetails (fs, 512);
+                    p.prepareToPlay (fs, 512);
+                    p.updateLatencyNow();
+
+                    Testing::checkLatencyDisplay (*this, p, "oversampling " + juce::String (oversampling) + ", " + juce::String (fs) + " Hz");
+                    if (p.getLatencySamples() != last) { ++distinct; last = p.getLatencySamples(); }
+                }
+            expectGreaterThan (distinct, 2, "the settings really do report different latencies");
+        }
+
+        beginTest ("The strip follows a setting change while it is open");
+        {
+            Testing::TemporarySettings settings;
+            SongsmithAnalogCompressorProcessor p;
+            setParam (p, ID::oversampling, 0.0f);
+            p.setRateAndBufferSizeDetails (48000.0, 512);
+            p.prepareToPlay (48000.0, 512);
+            p.updateLatencyNow();
+            Bar bar (p, p.loadMeter, JucePlugin_Name);
+            bar.refresh();
+            expectEquals (Testing::parseLatency (bar.getLatencyText()).samples, 0, "no oversampling: no delay");
+
+            setParam (p, ID::oversampling, 2.0f);
+            p.prepareToPlay (48000.0, 512);
+            p.updateLatencyNow();
+            bar.refresh();
+            expectGreaterThan (Testing::parseLatency (bar.getLatencyText()).samples, 0, "4x oversampling adds delay and the strip shows it");
+            expectEquals (Testing::parseLatency (bar.getLatencyText()).samples, p.getLatencySamples());
+        }
+
+        beginTest ("Processing Load is off until switched on, and measures real blocks at every size");
+        {
+            Testing::TemporarySettings settings;
+            SongsmithAnalogCompressorProcessor p;
+            expect (! p.loadMeter.isEnabled(), "off by default");
+            Testing::checkLoadMeasured (*this, p, p.loadMeter, "Analog Compressor");
+
+            Bar bar (p, p.loadMeter, JucePlugin_Name);
+            expectEquals (bar.getLoadText(), juce::String ("Off"));
+            bar.getLoadSwitch().setToggleState (true, juce::sendNotificationSync);   // runs the click handler now
+            expect (p.loadMeter.isEnabled(), "the switch turns timing on");
+            expectEquals (bar.getLoadText(), juce::String ("Unavailable"), "no block yet");
+            expect (Settings::loadEnabled (JucePlugin_Name), "the choice is saved to the machine setting, not the session");
+        }
+
+        beginTest ("The load meter leaves the saved session alone");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            juce::MemoryBlock before, after;
+            p.getStateInformation (before);
+            p.loadMeter.setEnabled (true);
+            p.getStateInformation (after);
+            expect (before == after, "timing on or off changes nothing in the session state");
+        }
+    }
+};
 static IdentityTests identityTests;
+static DiagnosticsTests diagnosticsTests;
 static LayoutTests layoutTests;
 static TransparencyTests transparencyTests;
 static StateTests stateTests;

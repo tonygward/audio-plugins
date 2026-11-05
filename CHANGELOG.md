@@ -9,11 +9,13 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 - **Named Songsmith Plugins:** the family is now called Songsmith Plugins in the installers, the welcome pages, the Settings → Apps entry and the release notes. Each plugin keeps its own name, and Songsmith Studio stays the publisher. Upgrading from Songsmith Studio 1.0.0 replaces the old entry, so you still see one, and your projects and presets are untouched.
 - **One installer entry per plugin:** the installers offer one tick box per plugin. Each plugin comes with its standalone app, and on a Mac with its Audio Unit too.
 
+- **Latency and Processing Load:** every editor has a strip along the bottom. Latency shows the delay the plugin reports to your recording software, in samples and milliseconds. Processing Load is optional and off until you switch it on; it shows how much of the time available for each block of audio this plugin uses. Neither changes the sound, and the switch is not saved in your sessions or presets.
+
 ### Songsmith EQ
-- No changes to the sound or the editor. Your sessions and presets load as before.
+- The strip along the bottom is new, and the window is 28 px taller by default so the graph keeps its size. The sound is unchanged. Your sessions and presets load as before.
 
 ### Songsmith Analog Compressor
-- No changes to the sound or the editor. Your sessions and presets load as before.
+- The strip along the bottom is new. The sound is unchanged. Your sessions and presets load as before.
 
 ### Songsmith Maximiser
-- No changes to the sound or the editor. Your sessions and presets load as before.
+- The strip along the bottom is new. The sound is unchanged. Your sessions and presets load as before.

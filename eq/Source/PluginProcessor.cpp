@@ -381,6 +381,7 @@ void SongsmithEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 
 void SongsmithEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    const auto loadScope = loadMeter.measure (buffer.getNumSamples(), getSampleRate());
     juce::ScopedNoDenormals noDenormals;
 
     // Main bus only: the sidechain (input bus 1) is analysed, never processed or output.

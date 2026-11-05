@@ -2,7 +2,8 @@
 
 namespace
 {
-    constexpr int designW = Max::EditorLayout::designWidth, designH = Max::EditorLayout::designHeight;
+    // The controls are laid out in the top contentHeight; the diagnostics strip sits below them.
+    constexpr int designW = Max::EditorLayout::designWidth, designH = Max::EditorLayout::contentHeight;
 }
 
 SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (SongsmithMaximiserAudioProcessor& p)
@@ -140,6 +141,9 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     for (auto* m : { &inputMeter, &reductionMeter, &outputMeter })
         content.addAndMakeVisible (*m);
 
+    diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (proc, proc.loadMeter, JucePlugin_Name);
+    content.addAndMakeVisible (*diagnostics);
+
     syncFromParameters();
 
     setResizable (true, true);
@@ -158,6 +162,7 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
 SongsmithMaximiserAudioProcessorEditor::~SongsmithMaximiserAudioProcessorEditor()
 {
     stopTimer();
+    diagnostics.reset();   // also stops the audio thread timing the blocks
     content.setLookAndFeel (nullptr);
     setLookAndFeel (nullptr);
 }
@@ -214,11 +219,13 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
     autoReleaseButton.setBounds (530, releaseSlider.getBottom() + 14, 120, 28);
     gainLabel.setBounds (490, autoReleaseButton.getBottom() + 22, 200, 22);
     startingPointBox.setBounds (500, gainLabel.getBottom() + 18, 180, 26);
+
+    diagnostics->setBounds (0, designH, designW, Max::EditorLayout::footerHeight);
 }
 
 void SongsmithMaximiserAudioProcessorEditor::paintContent (juce::Graphics& g)
 {
-    const auto area = juce::Rectangle<float> ((float) designW, (float) designH);
+    const auto area = juce::Rectangle<float> ((float) designW, (float) Max::EditorLayout::designHeight);
     Songsmith::UI::LookAndFeelBase::drawPanel (g, area);
     Songsmith::UI::LookAndFeelBase::drawTitleBar (g, area.withHeight (Songsmith::UI::titleBarHeight));
 

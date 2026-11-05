@@ -210,6 +210,9 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     hintLabel.setColour (juce::Label::textColourId, EQColours::label);   // full colour: 4.5:1 contrast
     content.addAndMakeVisible (hintLabel);
 
+    diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (processor, processor.loadMeter, JucePlugin_Name);
+    content.addAndMakeVisible (*diagnostics);
+
     timerCallback();
 
     // Read the saved size first: setting the limits may call resized(), which overwrites it.
@@ -225,6 +228,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
 SongsmithEQAudioProcessorEditor::~SongsmithEQAudioProcessorEditor()
 {
     processor.soloBand.store (-1);   // solo is an editing aid: never leave it on without a UI
+    diagnostics.reset();             // also stops the audio thread timing the blocks
 
     setLookAndFeel (nullptr);
 }
@@ -450,6 +454,10 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
     // items (band count, hint) are hidden when there's no room for them.
     auto area = content.getLocalBounds();
     constexpr int gap = 8;
+
+    const auto strip = area.removeFromBottom (EQ::EditorSize::diagnosticsHeight);
+    if (diagnostics != nullptr)
+        diagnostics->setBounds (strip);
 
     {
         auto row = area.removeFromTop (row1Height).reduced (margin, 7);

@@ -91,6 +91,15 @@ Each plugin has one accent colour, used for the product name in the title, lit b
 
 The EQ and the maximiser share their accent today; a separate colour for one of them is a decision for a later task.
 
+## Latency and Processing Load strip
+
+Every editor has the same strip along the bottom, from the shared library (`shared/Source/SongsmithDiagnostics.h`, class `Songsmith::Diagnostics::Bar`). It is 28 px tall at 100 %, inside the scaled editor, with a rule above it. Text is `Type::control`: **Latency** (Medium, dimmed) and its value (Regular, tabular figures) on the left, and the **Processing Load** switch (a bevelled toggle button) with its value on the right. New plugins add the strip the same way and put `Songsmith::Diagnostics::LoadMeter loadMeter;` in their processor.
+
+- **Latency** is what the plugin reports to the host, in samples and in milliseconds at the current sample rate ("84 samples (1.8 ms)"). It follows mode and sample-rate changes. Tooltip: "The delay this plugin adds. Your recording software may compensate for it."
+- **Processing Load** is off by default and per instance. It estimates the share of each block's time budget that this instance uses, smoothed over about half a second, with enough digits for light loads ("0.07 %", "3.2 %", "14 %"). It reads **Off** when the switch is off and **Unavailable** when no block has been measured in the last second (for example when the host has stopped). Tooltip: it describes this plugin, and varies with the computer, the settings and the buffer size.
+- The switch is a machine setting in `Diagnostics.xml` next to the plugin's presets folder (never inside it). It is not a parameter and is not saved with sessions or presets. Closing the editor switches timing off.
+- Real-time rules: the audio thread only reads the clock and writes two atomics. With the switch off, a block costs one relaxed atomic read. Measured: about 70 ns a block with it on, under 1 ns with it off.
+
 ## Wording
 
 Someone who has never used a studio compressor or equaliser should be able to read every plugin. Clarity and simple language go a long way.
