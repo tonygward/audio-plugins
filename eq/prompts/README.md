@@ -16,7 +16,7 @@ References use the stable **EQ-##** IDs (for example EQ-27 means prompt 27 in th
 | [37 Draggable band panel and Dynamic visibility](37-draggable-band-panel.md) | **Sonnet · Priority 1 · To do:** drag floating band controls; auto-reposition when Dynamic opens so no controls are clipped |
 | [36 Disabled Dynamic tooltip](done/36-dynamic-disabled-tooltip.md) | **Done** in #78: the greyed-out Dynamic button explains why and lists Bell, Low Shelf and High Shelf, including the Linear phase cases. Release checkpoint pending (UI milestone with EQ-33 to EQ-35, SUI-12 and SUI-13) |
 | [35 Piano footer placement](35-piano-footer.md) | **Sonnet** · To do: pin Piano button to far right of EQ bottom diagnostics strip; coordinate with [SUI-12](../../shared/prompts/SUI-12-processing-load-footer.md) |
-| 34 Linear Phase tooltip | **Sonnet** · To do: explain when to use Linear Phase and why it adds delay. Use “Try this when blending a filtered track with a copy of the same sound. It avoids shifting the timing of some frequencies more than others, but adds delay. Leave it off for recording and most mixing.” Verify the tooltip fits and is discoverable on the mode control. |
+| [34 Linear Phase tooltip](done/34-linear-phase-tooltip.md) | **Done** in the EQ-34 PR: the processing-mode selector explains when to try Linear phase, why it adds delay and why Zero latency suits recording. Release checkpoint pending (UI milestone) |
 
 ## Overnight runs merge into `main`
 

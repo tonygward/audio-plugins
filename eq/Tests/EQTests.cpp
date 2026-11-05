@@ -4634,6 +4634,40 @@ public:
 };
 static DynamicTooltipTests dynamicTooltipTests;
 
+//==============================================================================
+// EQ-34: the processing-mode selector explains Linear phase in plain words.
+class LinearPhaseTooltipTests final : public juce::UnitTest
+{
+public:
+    LinearPhaseTooltipTests() : juce::UnitTest ("Linear phase tooltip", "EQ") {}
+
+    void runTest() override
+    {
+        beginTest ("The tip says what it does, when to try it, why it adds delay and what to use for recording");
+        {
+            const juce::String tip (EQ::linearPhaseTooltip());
+            expect (tip.contains ("blending a filtered track with a copy of the same sound"), "when to try it");
+            expect (tip.contains ("timing of some frequencies"), "what it does");
+            expect (tip.contains ("adds delay"), "why latency");
+            expect (tip.contains ("recording") && tip.contains ("Zero latency"), "what to use instead");
+            expect (tip.length() < 400, "short enough to read at a glance");
+        }
+
+        beginTest ("The editor shows that tip on the mode selector");
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            juce::StringArray texts;
+            Songsmith::UI::Wording::collect (*ed, texts);
+            bool found = false;
+            for (auto& t : texts)
+                found = found || t == juce::String (EQ::linearPhaseTooltip());
+            expect (found, "the selector carries the tooltip");
+        }
+    }
+};
+static LinearPhaseTooltipTests linearPhaseTooltipTests;
+
 static PianoToggleTests pianoToggleTests;
 static EdgeClickTests edgeClickTests;
 static OutputMeterTests outputMeterTests;
