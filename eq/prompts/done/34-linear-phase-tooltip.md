@@ -1,6 +1,6 @@
 # EQ-34 — Plain-English Linear Phase tooltip
 
-**Status:** Done in the EQ-34 PR · **Model:** Sonnet · **Scope:** Songsmith EQ processing-mode selector only.
+**Status:** Done in #79 · **Model:** Sonnet · **Scope:** Songsmith EQ processing-mode selector only.
 
 ## Purpose
 Explain Linear phase to musicians at the point of use: what it does, when it might help, why it adds delay, and why Zero latency is usually the better choice while recording. This prompt was written retrospectively from the requirement in the [EQ prompt status table](../README.md), so the ID EQ-34 has a standalone file.
