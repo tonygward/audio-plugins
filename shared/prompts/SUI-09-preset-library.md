@@ -1,5 +1,9 @@
 # SUI-09 · Curated factory presets and custom preset saving
 
+**Recommended model:** Sonnet.  
+**Estimated effort / usage:** Medium (relative, not a token estimate).  
+**Model escalation:** Opus only if shared preset-state migration requires a new architecture. Never switch to Opus silently: record why, scope its use to the difficult design/validation step, then return to Sonnet.  
+
 Follow `CLAUDE.md`. Audit EQ, Analog Compressor and Maximiser before changing them. Reuse the EQ preset implementation where its format and behaviour fit. Apply this acceptance standard to every future plugin.
 
 - Name every factory preset for its practical use case in clear, concise language, such as **Acoustic Guitar Smoothing** or **Lead Vocal Control**. Keep hardware and model names, tutorial titles, and playful names out of the preset title. Record model selection in preset data and tutorial attribution in the preset notes. Users choose their own custom preset names.
