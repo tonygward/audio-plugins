@@ -29,6 +29,29 @@ Add explicit tooltips for the Attack and Release knobs. Attack explains how quic
 
 **Model: Opus for DSP design and validation planning, Sonnet for implementation.** Build on the 1176 editor and guided calibration prompts.
 
-Keep all variants in one **Songsmith Analog Compressor** plugin. Add a clearly labelled **Model** selector that switches both the DSP and a distinct, subtle faceplate texture. Start with the existing model and plan several contrasting 1176 variants plus a Lindell-inspired option. Confirm Tony's exact Lindell reference before choosing a circuit or voicing. Use original faceplates and cite the references. Document which differences are supported by measurements or published material and which are Songsmith voicing choices.
+Keep all variants in one **Songsmith Analog Compressor** plugin. Add a clearly labelled **Model** selector that switches both the DSP and a distinct, subtle faceplate texture. Keep the existing model for session compatibility and use the named references below for the new models. Confirm Tony's exact Lindell reference before choosing a circuit or voicing. Use original faceplates and cite the references. Document which differences are supported by measurements or published material and which are Songsmith voicing choices.
 
 Define meaningful differences in gain reduction, timing and harmonic colour. Keep shared controls familiar and give each model a plain-language description. Persist the selection in projects and custom presets. Older sessions must open with the existing model and sound. Retain IDs and verify safe switching during playback, output levels, bypass, latency and calibration for each model. Use repeatable measurements and level-matched listening on real material to verify the variants.
+
+### Model choices and tooltip copy
+
+Show the selected model’s use case beside the selector and make it available as a tooltip. Include it in the choice list where the host UI permits. Use these as starting copy and verify each description by level-matched listening.
+
+| Model | Suggested tooltip |
+|---|---|
+| Original Songsmith | “Use this to keep the compressor sound from your earlier Songsmith mixes.” |
+| Rev A · Blue Stripe | “Try this for a gritty, upfront vocal or to make room mics sound more aggressive.” |
+| Rev E · Blackface | “Start here to tame vocal, bass or guitar peaks while keeping the sound fairly clean.” |
+| 1176AE · Anniversary Edition | “Try 2:1 for gentler control, or Slow Attack to let more of the first hit through.” |
+| Lindell-inspired | Confirm the exact reference first. If it is the 7X-500, audition “Try this for punchy drums or bass that needs firmer control” and revise the wording to match the implemented sound. |
+
+Support the AE’s 2:1 ratio and Slow Attack as explicit model-specific choices. Verify which ratio and attack settings each reference supports and define safe, predictable mapping when the user switches models. Compare the existing model with Rev E before deciding whether both need separate user-facing choices. Preserve the legacy sound in either case.
+
+### Reference material
+
+- [Universal Audio 1176 Classic Limiter Collection tips and model notes](https://www.uaudio.com/blogs/ua/1176-collection-tips)
+- [Universal Audio 1176LN hardware manual and specifications](https://media.uaudio.com/assetlibrary/1/1/1176ln_manual.pdf)
+- [Universal Audio 2-1176 hardware manual and revision history](https://media.uaudio.com/assetlibrary/2/-/2-1176_manual.pdf)
+- [Plugin Alliance Lindell 7X-500 product reference](https://www.plugin-alliance.com/products/7x-500)
+
+Use the UA collection notes for model-specific features and the hardware manuals for the specifications of the units they cover. Keep published facts, measured behaviour and Songsmith design choices separate in the implementation notes.
