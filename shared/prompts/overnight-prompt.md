@@ -26,7 +26,7 @@ For each prompt, follow it exactly, with these overrides:
   checked, and merge (gh pr merge --merge --delete-branch).
 - In the same PR, before merging, move the task's prompt into the folder's
   done/ subfolder and update that folder's README status table, if it has one.
-  Keep the original scope-qualified ID (EQ-32, COMP-06, MAX-07, SUI-11, OPT-01, CLN-01, ADV-01),
+  Keep the original scope-qualified ID (EQ-32, ACOMP-06, MAX-07, SUI-11, OPT-01, CLN-01, ADV-01),
   record its PR number and canonical relative link, and update any related roadmap
   references. If a release checkpoint is delivered, also cross-link the prompt IDs
   in CHANGELOG.md. Check that all new Markdown links resolve; never infer completion
