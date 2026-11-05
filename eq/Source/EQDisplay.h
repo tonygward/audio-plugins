@@ -5,6 +5,7 @@
 #include <vector>
 #include "PluginProcessor.h"
 #include "BandPanel.h"
+#include "FrequencyGuide.h"
 
 // Interactive frequency-response display for the 24-band EQ.
 //
@@ -19,7 +20,7 @@
 //  Ctrl (Cmd) while dragging ... snap the frequency to the nearest semitone
 //  Right-click empty space ..... display menu (piano strip)
 //  Delete / Backspace .......... remove selected band
-class EQDisplay : public juce::Component, private juce::Timer
+class EQDisplay : public juce::Component, public juce::TooltipClient, private juce::Timer
 {
 public:
     explicit EQDisplay (SongsmithEQAudioProcessor&);
@@ -39,6 +40,14 @@ public:
 
     void setSelectedBand (int band);
     int getSelectedBand() const;
+
+    // The Instrument Frequency Guide (EQ-32): see-through listening regions behind the curve and the
+    // analyser, with a plain word on each. Drawing only. Hovering one (away from a band) explains it.
+    juce::String getTooltip() override;
+    juce::String getGuideTooltipAtX (float x) const;                    // "" when the guide is off or nothing is there
+    struct GuideLabel { int region; juce::Rectangle<float> bounds; };   // where each word is drawn
+    std::vector<GuideLabel> getGuideLabels (juce::Rectangle<float> area) const;
+    juce::Rectangle<float> getPlotAreaForGuide() const { return getPlotArea(); }
 
 private:
     void timerCallback() override;
@@ -66,6 +75,7 @@ private:
     void drawTooltip (juce::Graphics&, juce::Rectangle<float> area, int band);
     void drawEmptyHint (juce::Graphics&, juce::Rectangle<float> area);
     void drawPianoStrip (juce::Graphics&, juce::Rectangle<float> area);
+    void drawGuide (juce::Graphics&, juce::Rectangle<float> area);
     void showDisplayMenu();
     void drawSoloRegion (juce::Graphics&, juce::Rectangle<float> area, int band);
     int getSoloBand() const;
@@ -98,6 +108,7 @@ private:
     int analyserTick = 0;
 
     int hoveredBand  = -1;
+    float lastMouseX = -1.0f;       // for the guide's tooltip
     int draggingBand = -1;
     bool dragFine = false, gainTouched = false;
     bool momentarySolo = false;     // Alt-drag audition in progress

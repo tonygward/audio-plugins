@@ -121,6 +121,8 @@ public:
     std::atomic<float> displayRangeDb { 24.0f };
     std::atomic<int>   curveView { 0 };   // 0 all bands, 1 L, 2 R, 3 M, 4 S (see EQDisplay::isInCurveView)
     std::atomic<bool>  showPianoStrip { false };
+    std::atomic<bool>  showFrequencyGuide { false };   // EQ-32: the Instrument Frequency Guide (drawing only)
+    std::atomic<int>   guideInstrument { 0 };          // index into EQ::Guide::instruments()
     std::atomic<int>   editorWidth { EQ::EditorSize::defaultWidth }, editorHeight { EQ::EditorSize::defaultHeight };
 
     // Optional timing of processBlock for the editor's Processing Load readout (off unless the editor switches it on).

@@ -3876,7 +3876,7 @@ public:
             expectGreaterThan (texts.size(), 4, "found the factory presets");
             Songsmith::UI::Wording::expectPlainWords (*this, texts, "EQ factory presets");
 
-            for (auto size : { std::pair<int, int> { 1280, 760 }, std::pair<int, int> { 760, 440 } })
+            for (auto size : { std::pair<int, int> { 1280, 760 }, std::pair<int, int> { EQ::EditorSize::minWidth, 440 } })
             {
                 SongsmithEQAudioProcessor p;
                 std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
@@ -3900,7 +3900,7 @@ public:
         beginTest ("Editor text uses the shared typeface and type scale");
         {
             // The typeface itself is checked by the shared SongsmithUITests.
-            for (auto size : { std::pair<int, int> { 1280, 760 }, std::pair<int, int> { 760, 440 } })
+            for (auto size : { std::pair<int, int> { 1280, 760 }, std::pair<int, int> { EQ::EditorSize::minWidth, 440 } })
             {
                 SongsmithEQAudioProcessor p;
                 std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
@@ -3916,9 +3916,9 @@ public:
             SongsmithEQAudioProcessor p;
             setParam (p, "auto_gain", 1.0f);
             std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
-            editor->setSize (760, 440);
+            editor->setSize (EQ::EditorSize::minWidth, 440);
             if (auto* ed = dynamic_cast<SongsmithEQAudioProcessorEditor*> (editor.get()))
-                checkLayout (*this, *ed, "760 x 440");
+                checkLayout (*this, *ed, juce::String (EQ::EditorSize::minWidth) + " x 440");
         }
     }
 
@@ -4790,6 +4790,345 @@ public:
     }
 };
 static LinearPhaseTooltipTests linearPhaseTooltipTests;
+
+//==============================================================================
+// EQ-32: the Instrument Frequency Guide. Visual only.
+class FrequencyGuideTests final : public juce::UnitTest
+{
+public:
+    FrequencyGuideTests() : juce::UnitTest ("Instrument Frequency Guide", "EQ") {}
+
+    static juce::StringArray labelsOf (const EQ::Guide::Instrument& instrument)
+    {
+        juce::StringArray labels;
+        for (const auto& r : instrument.regions)
+            labels.add (r.label);
+        return labels;
+    }
+
+    static const EQ::Guide::Instrument& named (const juce::String& name)
+    {
+        for (const auto& i : EQ::Guide::instruments())
+            if (name == i.name)
+                return i;
+        jassertfalse;
+        return EQ::Guide::instrument (0);
+    }
+
+    static std::vector<float> render (SongsmithEQAudioProcessor& p, int blocks = 6)
+    {
+        std::vector<float> out;
+        juce::AudioBuffer<float> buffer (2, 256);
+        juce::MidiBuffer midi;
+        for (int b = 0; b < blocks; ++b)
+        {
+            for (int i = 0; i < 256; ++i)
+            {
+                const float v = 0.3f * std::sin (juce::MathConstants<float>::twoPi * 330.0f * (float) (b * 256 + i) / 48000.0f)
+                                + 0.1f * std::sin (juce::MathConstants<float>::twoPi * 3100.0f * (float) (b * 256 + i) / 48000.0f);
+                buffer.setSample (0, i, v);
+                buffer.setSample (1, i, 0.5f * v);
+            }
+            p.processBlock (buffer, midi);
+            for (int c = 0; c < 2; ++c)
+                for (int i = 0; i < 256; ++i)
+                    out.push_back (buffer.getSample (c, i));
+        }
+        return out;
+    }
+
+    void runTest() override
+    {
+        using namespace EQ;
+        const auto& all = Guide::instruments();
+
+        beginTest ("The ten instruments are in the agreed order, each with regions running from low to high");
+        {
+            const juce::StringArray expected { "Acoustic Guitar", "Nylon Guitar", "Electric Guitar", "Bass Guitar", "Vocal",
+                                               "Kick Drum", "Snare Drum", "Toms", "Drum Bus", "Any Instrument" };
+            expectEquals (Guide::numInstruments(), expected.size());
+            for (int i = 0; i < Guide::numInstruments(); ++i)
+            {
+                const auto& inst = Guide::instrument (i);
+                expectEquals (juce::String (inst.name), expected[i]);
+                expectGreaterThan ((int) inst.regions.size(), 2, expected[i] + " has regions");
+                float previousLow = 0.0f;
+                for (const auto& r : inst.regions)
+                {
+                    expect (r.lowHz >= minFreq && r.highHz <= maxFreq && r.lowHz < r.highHz, expected[i] + "/" + r.label + ": a sensible range");
+                    expect (r.lowHz >= previousLow, expected[i] + "/" + r.label + ": runs from low to high");
+                    previousLow = r.lowHz;
+                }
+            }
+        }
+
+        beginTest ("Acoustic Guitar shows Rumble, Thump, Plastic, Cheap and Air; Electric Guitar has Warmth and Crunch");
+        {
+            expectEquals (labelsOf (named ("Acoustic Guitar")).joinIntoString (","), juce::String ("Rumble,Thump,Plastic,Cheap,Air"));
+            expect (labelsOf (named ("Electric Guitar")).contains ("Warmth") && labelsOf (named ("Electric Guitar")).contains ("Crunch"));
+            expect (labelsOf (named ("Any Instrument")).joinIntoString (",") == "Lows,Low Mids,Mids,High Mids,Highs");
+        }
+
+        beginTest ("Nylon Guitar's 1 to 3 kHz is Melody, and it never suggests cutting it; Melody and String Noise overlap on purpose");
+        {
+            const auto& nylon = named ("Nylon Guitar");
+            const Guide::Region* melody = nullptr;
+            const Guide::Region* noise = nullptr;
+            for (const auto& r : nylon.regions)
+            {
+                if (juce::String (r.label) == "Melody") melody = &r;
+                if (juce::String (r.label) == "String Noise") noise = &r;
+            }
+            expect (melody != nullptr && noise != nullptr);
+            if (melody == nullptr || noise == nullptr) return;
+            expect (melody->lowHz == 1000.0f && melody->highHz == 3000.0f);
+            expect (! juce::String (melody->tip).containsIgnoreCase ("cut"), "no advice to cut the melody: " + juce::String (melody->tip));
+            expect (noise->lowHz < melody->highHz && noise->highHz > melody->lowHz, "the two share a range");
+            expect (Guide::regionsAt (nylon, 2500.0f).size() == 2, "at 2.5 kHz both are under the pointer");
+        }
+
+        beginTest ("Every region has a tooltip, a source, and a range that says around, under or above");
+        for (const auto& inst : all)
+        {
+            expect (juce::String (inst.note).isNotEmpty(), juce::String (inst.name) + ": a note");
+            for (const auto& r : inst.regions)
+            {
+                const auto where = juce::String (inst.name) + "/" + r.label;
+                const juce::String tip (r.tip), source (r.source);
+                expect (tip.length() > 20 && tip.length() < 340, where + ": a short explanation");
+                expect (source.contains ("Joe Gilder") || source.contains ("Tony"), where + ": a source");
+                if (source.contains ("Joe Gilder"))
+                    expect (source.containsAnyOf ("0123456789") && (source.contains ("-0") || source.contains ("-1") || source.contains ("-2")), where + ": Joe's video is named with its date");
+                const auto text = Guide::tooltipFor (inst, r);
+                expect (text.contains (juce::String (r.label)) && text.contains (inst.name), where + ": names the word and the instrument");
+                expect (text.contains ("around") || text.contains ("under") || text.contains ("above"), where + ": the range is only approximate");
+                expect (text.contains ("Hz"), where + ": says where it is");
+            }
+        }
+
+        beginTest ("Sources that are Tony's notes exist in his music-recording folder (when it is on this machine)");
+        {
+            const juce::File notes ("C:/dev/music-recording");
+            if (! notes.isDirectory())
+                logMessage ("music-recording is not on this machine: skipped");
+            else
+                for (const auto& inst : all)
+                    for (const auto& r : inst.regions)
+                    {
+                        const juce::String source (r.source);
+                        if (! source.contains ("Tony:"))
+                            continue;
+                        juce::StringArray tokens;
+                        tokens.addTokens (source.fromFirstOccurrenceOf ("Tony:", false, false), " ,;", "");
+                        for (auto token : tokens)
+                            if (token.endsWith (".md") && token.contains ("/"))
+                            {
+                                token = token.trimCharactersAtEnd (".");
+                                const bool inNotes = notes.getChildFile (token).existsAsFile();
+                                const bool inRepo = juce::File ("C:/dev/audio-plugins").getChildFile (token).existsAsFile();
+                                expect (inNotes || inRepo, juce::String (inst.name) + "/" + r.label + " cites " + token);
+                            }
+                    }
+        }
+
+        beginTest ("All the guide's words are plain: no abbreviations, and the unit words are spelled as the suite does");
+        for (const auto& inst : all)
+        {
+            juce::StringArray texts { inst.name, inst.note };
+            for (const auto& r : inst.regions)
+            {
+                texts.add (r.label);
+                texts.add (r.tip);
+                texts.add (Guide::tooltipFor (inst, r));
+            }
+            for (const auto& t : texts)
+                expect (Songsmith::UI::Wording::findBanned (t).isEmpty(), "\"" + t.substring (0, 40) + "\" has \"" + Songsmith::UI::Wording::findBanned (t) + "\"");
+        }
+
+        beginTest ("The range text uses units and the word around");
+        {
+            expectEquals (Guide::rangeText ({ "x", 100.0f, 200.0f, "", "" }), juce::String ("around 100 to 200 Hz"));
+            expectEquals (Guide::rangeText ({ "x", 1000.0f, 3000.0f, "", "" }), juce::String ("around 1 to 3 kHz"));
+            expectEquals (Guide::rangeText ({ "x", 20.0f, 50.0f, "", "" }), juce::String ("under 50 Hz"));
+            expectEquals (Guide::rangeText ({ "x", 8000.0f, 20000.0f, "", "" }), juce::String ("above 8 kHz"));
+            expectEquals (Guide::rangeText ({ "x", 800.0f, 1200.0f, "", "" }), juce::String ("around 800 Hz to 1.2 kHz"));
+        }
+
+        beginTest ("Switching the guide on, off or to another instrument leaves the sound and the bands exactly as they were");
+        {
+            SongsmithEQAudioProcessor reference;
+            reference.edits.addBand (250.0f, -4.0f, FilterType::Bell);
+            reference.edits.addBand (3000.0f, 3.0f, FilterType::HighShelf);
+            reference.prepareToPlay (48000.0, 256);
+            const auto expected = render (reference);
+            const auto expectedState = reference.createPresetState().toXmlString();
+
+            for (int on = 0; on < 2; ++on)
+                for (int i = 0; i < Guide::numInstruments(); ++i)
+                {
+                    SongsmithEQAudioProcessor p;
+                    p.edits.addBand (250.0f, -4.0f, FilterType::Bell);
+                    p.edits.addBand (3000.0f, 3.0f, FilterType::HighShelf);
+                    p.showFrequencyGuide.store (on == 1);
+                    p.guideInstrument.store (i);
+                    p.prepareToPlay (48000.0, 256);
+                    const auto out = render (p);
+                    expect (out == expected, "identical audio with the guide " + juce::String (on ? "on" : "off") + " for " + juce::String (Guide::instrument (i).name));
+                    expect (p.createPresetState().toXmlString() == expectedState, "no band or parameter changed");
+                }
+        }
+
+        beginTest ("The guide is saved with the session; an older session loads with it off");
+        {
+            SongsmithEQAudioProcessor p;
+            p.showFrequencyGuide.store (true);
+            p.guideInstrument.store (6);
+            juce::MemoryBlock saved;
+            p.getStateInformation (saved);
+
+            SongsmithEQAudioProcessor q;
+            q.setStateInformation (saved.getData(), (int) saved.getSize());
+            expect (q.showFrequencyGuide.load(), "restored on");
+            expectEquals (q.guideInstrument.load(), 6);
+
+            // The same session as an older version wrote it: no guide properties at all.
+            if (auto xml = juce::AudioProcessor::getXmlFromBinary (saved.getData(), (int) saved.getSize()))
+            {
+                auto tree = juce::ValueTree::fromXml (*xml);
+                auto ui = tree.getChildWithName ("UI");
+                if (! ui.isValid())
+                    for (auto child : tree)
+                        if (child.hasProperty ("frequencyGuide")) ui = child;
+                expect (ui.isValid() && ui.hasProperty ("frequencyGuide"), "found the saved editor state");
+                ui.removeProperty ("frequencyGuide", nullptr);
+                ui.removeProperty ("guideInstrument", nullptr);
+                juce::MemoryBlock older;
+                juce::AudioProcessor::copyXmlToBinary (*tree.createXml(), older);
+
+                SongsmithEQAudioProcessor r;
+                r.showFrequencyGuide.store (true);
+                r.guideInstrument.store (4);
+                r.setStateInformation (older.getData(), (int) older.getSize());
+                expect (! r.showFrequencyGuide.load(), "an older session loads with the guide off");
+                expectEquals (r.guideInstrument.load(), 0);
+            }
+
+            const auto fixture = juce::File (EQ_TEST_FIXTURES).getChildFile ("tw-pro-eq-0.2.0-session.b64");
+            if (fixture.existsAsFile())
+            {
+                juce::MemoryBlock legacy;
+                legacy.fromBase64Encoding (fixture.loadFileAsString().trim());
+                SongsmithEQAudioProcessor s;
+                s.showFrequencyGuide.store (true);
+                s.setStateInformation (legacy.getData(), (int) legacy.getSize());
+                expect (! s.showFrequencyGuide.load(), "the 0.2.0 session loads with the guide off");
+            }
+        }
+
+        beginTest ("Loading a starting point does not turn the guide on or change its instrument");
+        {
+            SongsmithEQAudioProcessor p;
+            p.showFrequencyGuide.store (true);
+            p.guideInstrument.store (3);
+            juce::String error;
+            expect (p.presets.load ({ PresetManager::getFactoryName (0), 0, {} }, error), error);
+            expect (p.showFrequencyGuide.load());
+            expectEquals (p.guideInstrument.load(), 3);
+
+            SongsmithEQAudioProcessor off;
+            expect (off.presets.load ({ PresetManager::getFactoryName (0), 0, {} }, error), error);
+            expect (! off.showFrequencyGuide.load(), "and it does not switch it on either");
+        }
+
+        beginTest ("The controls: Frequency Guide toggle and an instrument box in the agreed order, off by default");
+        {
+            SongsmithEQAudioProcessor p;
+            expect (! p.showFrequencyGuide.load(), "off by default");
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 788);
+            auto* toggle = PianoToggleTests::findButton (ed->getContent(), "Frequency Guide");
+            auto* instrumentBox = PianoToggleTests::findCombo (ed->getContent(), "Acoustic Guitar");
+            expect (toggle != nullptr && instrumentBox != nullptr);
+            if (toggle == nullptr || instrumentBox == nullptr) return;
+            expectEquals (instrumentBox->getNumItems(), Guide::numInstruments());
+            for (int i = 0; i < Guide::numInstruments(); ++i)
+                expectEquals (instrumentBox->getItemText (i), juce::String (Guide::instrument (i).name));
+            expect (! toggle->getToggleState());
+            expect (toggle->getTooltip().contains ("never changes the sound"), "says it only draws");
+            expect (instrumentBox->getTooltip().contains (Guide::instrument (0).note), "the box describes the instrument");
+
+            const auto children = ed->getDisplay().getNumChildComponents();
+            toggle->setToggleState (true, juce::dontSendNotification);
+            toggle->onClick();
+            expect (p.showFrequencyGuide.load(), "the toggle turns the guide on");
+            instrumentBox->setSelectedItemIndex (5, juce::sendNotificationSync);
+            expectEquals (p.guideInstrument.load(), 5);
+            expectEquals (ed->getDisplay().getNumChildComponents(), children, "drawing only: no component is added over the graph");
+
+            // The guide is found without knowing any technical word.
+            for (auto* c : { (juce::Component*) toggle, (juce::Component*) instrumentBox })
+                expect (c->isVisible() && ed->getContent().getLocalBounds().contains (c->getBounds()));
+        }
+
+        beginTest ("The words never overlap or leave the graph, at every interface size, the minimum and 4K");
+        {
+            struct Case { float scale; int w, h; };
+            using namespace EQ::EditorSize;
+            for (auto c : { Case { 1.0f, minWidth, minHeight }, Case { 1.0f, defaultWidth, defaultHeight }, Case { 1.0f, maxWidth, 2160 },
+                            Case { 0.75f, juce::roundToInt (minWidth * 0.75f), juce::roundToInt (minHeight * 0.75f) },
+                            Case { 2.0f, minWidth * 2, minHeight * 2 } })
+                for (int i = 0; i < Guide::numInstruments(); ++i)
+                {
+                    SongsmithEQAudioProcessor p;
+                    p.showFrequencyGuide.store (true);
+                    p.guideInstrument.store (i);
+                    p.edits.addBand (1000.0f, 3.0f, FilterType::Bell);
+                    auto ed = UiSizeTests::makeEditor (p, c.scale, c.w, c.h);
+                    auto& display = ed->getDisplay();
+                    const auto area = display.getPlotAreaForGuide();
+                    const auto labels = display.getGuideLabels (area);
+                    const auto where = juce::String (Guide::instrument (i).name) + " at " + juce::String (c.w) + " x " + juce::String (c.h);
+                    expectEquals ((int) labels.size(), (int) Guide::instrument (i).regions.size(), where + ": every word is shown");
+                    for (size_t a = 0; a < labels.size(); ++a)
+                    {
+                        expect (area.expanded (0.5f).contains (labels[a].bounds), where + ": inside the graph");
+                        expect (labels[a].bounds.getBottom() < area.getBottom() - 24.0f, where + ": leaves room above the axis");
+                        const auto font = juce::Font (EQColours::font (EQColours::Type::hint, EQColours::Weight::Medium));
+                        expect (labels[a].bounds.getWidth() >= juce::GlyphArrangement::getStringWidth (font, Guide::instrument (i).regions[(size_t) labels[a].region].label),
+                                where + ": the word is shown whole");
+                        for (size_t b = a + 1; b < labels.size(); ++b)
+                            expect (! labels[a].bounds.intersects (labels[b].bounds), where + ": two words overlap");
+                    }
+                }
+        }
+
+        beginTest ("Hovering the graph explains the region, and every region under the pointer when they overlap");
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 788);
+            auto& display = ed->getDisplay();
+            const auto area = display.getPlotAreaForGuide();
+            const auto xAt = [&] (float hz)
+            {
+                const float t = std::log (hz / minFreq) / std::log (maxFreq / minFreq);
+                return area.getX() + t * area.getWidth();
+            };
+
+            expect (display.getGuideTooltipAtX (xAt (150.0f)).isEmpty(), "guide off: no tooltip");
+            p.showFrequencyGuide.store (true);
+            p.guideInstrument.store (0);
+            const auto thump = display.getGuideTooltipAtX (xAt (150.0f));
+            expect (thump.startsWith ("Thump (around 100 to 200 Hz, Acoustic Guitar)"), thump);
+            expect (thump.contains ("Turn it down, never out"), "says what to do");
+            expect (display.getGuideTooltipAtX (xAt (300.0f)).isEmpty(), "between regions: nothing");
+
+            p.guideInstrument.store (1);
+            const auto both = display.getGuideTooltipAtX (xAt (2500.0f));
+            expect (both.contains ("Melody") && both.contains ("String Noise"), "overlapping regions explain themselves together");
+            expect (both.indexOf ("Melody") < both.indexOf ("String Noise"), "low to high");
+        }
+    }
+};
+static FrequencyGuideTests frequencyGuideTests;
 
 static PianoToggleTests pianoToggleTests;
 static EdgeClickTests edgeClickTests;

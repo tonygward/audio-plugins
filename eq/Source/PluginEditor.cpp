@@ -195,6 +195,37 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     };
     // The button lives at the right end of the footer strip, beside the piano-note strip it shows (EQ-35).
 
+    // Instrument Frequency Guide (EQ-32): coloured listening regions behind the graph. Editor state saved
+    // with the session, never a parameter, and it changes nothing about the sound. It sits in row 3,
+    // directly above the graph it draws on.
+    guideButton.setClickingTogglesState (true);
+    guideButton.setToggleState (processor.showFrequencyGuide.load(), juce::dontSendNotification);
+    guideButton.setTooltip ("Frequency Guide: shows coloured regions behind the graph, each with a plain word for what you hear there, "
+                            "for the instrument you choose. Hover a region to read about it. It only draws; it never changes the sound or your bands.");
+    guideButton.setColour (juce::TextButton::buttonOnColourId, EQColours::totalCurve.withAlpha (0.85f));
+    guideButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
+    guideButton.onClick = [this]
+    {
+        processor.showFrequencyGuide.store (guideButton.getToggleState());
+        processor.notifyNonParameterStateChanged();
+        display.repaint();
+    };
+    content.addAndMakeVisible (guideButton);
+
+    for (int i = 0; i < EQ::Guide::numInstruments(); ++i)
+        guideBox.addItem (EQ::Guide::instrument (i).name, i + 1);
+    guideBox.setSelectedItemIndex (processor.guideInstrument.load(), juce::dontSendNotification);
+    guideBox.onChange = [this]
+    {
+        const int i = juce::jmax (0, guideBox.getSelectedItemIndex());
+        processor.guideInstrument.store (i);
+        guideBox.setTooltip (juce::String ("Instrument for the Frequency Guide. ") + EQ::Guide::instrument (i).note);
+        processor.notifyNonParameterStateChanged();
+        display.repaint();
+    };
+    guideBox.setTooltip (juce::String ("Instrument for the Frequency Guide. ") + EQ::Guide::instrument (processor.guideInstrument.load()).note);
+    content.addAndMakeVisible (guideBox);
+
     bandCountLabel.setFont (EQColours::numbers (EQColours::Type::control));
     bandCountLabel.setJustificationType (juce::Justification::centredLeft);
     content.addAndMakeVisible (bandCountLabel);
@@ -291,6 +322,14 @@ void SongsmithEQAudioProcessorEditor::timerCallback()
 
     if (pianoButton.getToggleState() != processor.showPianoStrip.load())   // changed from the graph's menu or a session
         pianoButton.setToggleState (processor.showPianoStrip.load(), juce::dontSendNotification);
+
+    if (guideButton.getToggleState() != processor.showFrequencyGuide.load())   // a session was loaded
+        guideButton.setToggleState (processor.showFrequencyGuide.load(), juce::dontSendNotification);
+    if (guideBox.getSelectedItemIndex() != processor.guideInstrument.load())
+    {
+        guideBox.setSelectedItemIndex (processor.guideInstrument.load(), juce::dontSendNotification);
+        guideBox.setTooltip (juce::String ("Instrument for the Frequency Guide. ") + EQ::Guide::instrument (processor.guideInstrument.load()).note);
+    }
 }
 
 juce::PopupMenu SongsmithEQAudioProcessorEditor::createAnalyserMenu()
@@ -443,11 +482,11 @@ namespace
 void SongsmithEQAudioProcessorEditor::layoutContent()
 {
 
-    // Three rows, so every label fits spelled out at the minimum width (760 px):
+    // Three rows, so every label fits spelled out at the minimum width (980 px):
     //   1: title | presets | undo | redo | scale ............ band count | bypass
     //   2: phase mode | oversampling ............... auto gain | output gain
     //   graph ..................................................... | output meter
-    //   3: display range | analyser | settings | curve view | side chain ...... hint
+    //   3: display range | analyser | settings | curve view | side chain | frequency guide + instrument ...... hint
     //   footer: Processing Load | CPU and latency (when on) ...... piano
     // Widths come from the text in the embedded font, so nothing is cut short. Optional
     // items (band count, hint) are hidden when there's no room for them.
@@ -503,6 +542,10 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         curveViewBox.setBounds (row.removeFromLeft (comboWidth (curveViewBox)));
         row.removeFromLeft (gap);
         sidechainBox.setBounds (row.removeFromLeft (comboWidth (sidechainBox)));
+        row.removeFromLeft (gap);
+        guideButton.setBounds (row.removeFromLeft (buttonWidth ({ guideButton.getButtonText() })));
+        row.removeFromLeft (4);
+        guideBox.setBounds (row.removeFromLeft (comboWidth (guideBox)));
         row.removeFromLeft (gap);
         row.removeFromLeft (gap);
 
