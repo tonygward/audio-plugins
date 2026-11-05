@@ -948,7 +948,9 @@ void EQDisplay::showContextMenu (int band)
 
     menu.addSectionHeader ("Band " + juce::String (band + 1));
     for (int t = 0; t < EQ::numFilterTypes; ++t)
-        menu.addItem (100 + t, EQ::getTypeNames()[t], true, (int) current == t);
+        menu.addItem (100 + t, EQ::getTypeNames()[t], true, (int) current == t,
+                      EQ::FilterShapes::makeDrawable (EQ::typeFromIndex (t), EQColours::text,
+                                                      (float) EQ::FilterShapes::iconWidth, (float) EQ::FilterShapes::iconHeight));
 
     {
         juce::PopupMenu slopes;

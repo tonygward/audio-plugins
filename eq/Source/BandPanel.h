@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <functional>
 #include "PluginProcessor.h"
+#include "FilterShapeIcons.h"
 
 // Compact floating editor for the selected band. Lives inside EQDisplay and
 // follows the selected node. All edits go through EQ::EditController so they
@@ -48,6 +49,7 @@ private:
     juce::Label title;
     juce::TextButton powerButton { "On" };
     juce::ComboBox typeBox, slopeBox, stereoBox;
+    FilterShapeIcon typeIcon;   // decorative picture of the selected type, drawn over the type box
     Knob freqKnob, gainKnob, qKnob;
     Knob thresholdKnob, rangeKnob, attackKnob, releaseKnob;   // dynamics row (shown while dynamics are on)
     juce::TextButton dynButton { "Dynamic" }, dynExternalButton { "Side Chain" };
