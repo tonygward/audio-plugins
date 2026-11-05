@@ -13,12 +13,16 @@ _Forward-looking ideas; no committed delivery dates._
 
 Keep validating and improving what already exists before fixing the order of new work.
 
+**Future cross-product feature — Recording and Mixing Advisor:** optional, context-sensitive, plain-English explanations in each plugin, with whole-file recording-format advice in the separate standalone Loudness Analyser. Each message answers *what matters, why it matters, and whether any action is needed*. See [future feature prompts](../shared/prompts/future/).
+
 ## Songsmith EQ — proposed instrument guide
 
 - **Optional instrument-specific frequency overlay:** show friendly tonal labels on the EQ graph for acoustic guitar, electric guitar, vocals, bass and drums. Draw on Joe Gilder's notes and the existing EQ starting-point research: **Rumble**, **Thump**, **Plastic**, **Warmth**, **Crunch** and **Air**. Keep this a subtle, optional, educational overlay, off by default and without changing audio. Frequency regions are listening suggestions rather than universal rules. Sources: `tonygward/music-recording/techniques/joe-gilder.md` and `eq/docs/starting-points.md`. Prompt: [`prompts/32-frequency-guide.md`](prompts/32-frequency-guide.md).
 
 
 ---
+
+**Versioning note:** the EQ version numbers on the historical phases below are not current suite release numbers. New releases use the shared root `VERSION`, aligned to the delivery milestones in [the suite backlog](../shared/prompts/README.md).
 
 ## Songsmith EQ — existing development roadmap
 

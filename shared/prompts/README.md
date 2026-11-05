@@ -12,6 +12,12 @@ Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq
 | ✅ [S6 one installer entry per plugin](done/S6-one-entry-per-plugin.md) | One tick box per plugin in the Windows installers and the macOS suite installer: no separate standalone app or format choices |
 | ✅ [S7 one version number](done/S7-one-version-number.md) | One version for every plugin, installer and release, from a root `VERSION` file, starting at 1.1.0 |
 
+## Future candidate — Recording and Mixing Advisor
+
+- **Not queued for unattended execution:** [F1 musician-friendly advice across plugins](future/F1-musician-guidance.md) — clear, optional recommendations grounded in actual measurements and listening guidance (**Sonnet; Opus only if architecture requires it**).
+- **Not queued for unattended execution:** [F2 whole-file recording and streaming advisor](future/F2-file-recording-advisor.md) — standalone file metadata, LUFS and true-peak advice without false pass/fail claims (**Sonnet; Opus for measurement validation if needed**).
+- Both follow the standing rule in `CLAUDE.md`; promote to active prompts only after existing work is prioritised.
+
 ## Songsmith Plugins backlog
 
 **Model guide:** Start with Sonnet for routine implementation. Where a task says **Opus for design**, use Opus for the design and validation plan, then switch to Sonnet for implementation once those decisions are written down.
@@ -24,6 +30,18 @@ Finish the existing suite work and develop the classic standalone plugins on two
 | Digital | Existing EQ: [filter icons](../../eq/prompts/33-filter-shape-icons.md) **(Sonnet)**. Existing Maximiser: [defaults and loudness meter](../../maximiser/prompts/README.md). Next [D1 Clean Compressor](classics/D1-clean-compressor.md) **(Opus for design, Sonnet for implementation)**. |
 
 The [S8 suite branding](done/S8-songsmith-plugins-brand.md) is done. Apply [S9 curated and custom presets](S9-preset-library.md) **(Sonnet)** and [S10 resizable editors and control help](S10-resize-and-plain-language.md) **(Sonnet)** across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
+
+### Version alignment with delivery milestones
+
+**Current suite baseline: 1.1.0.** The EQ roadmap's earlier v0.3–v1.0 labels describe historical EQ work, not the shared suite version.
+
+Agree and record a **release checkpoint with a named, testable feature scope** before choosing the next semantic version. Intermediate prompt PRs need not bump `VERSION`; increment it once the whole checkpoint passes validation, and update `CHANGELOG.md`. Future research and proposed ideas have no target version until they are scheduled.
+
+| Release checkpoint | Version | Scope / decision |
+|---|---|---|
+| Current shared suite baseline | 1.1.0 | Existing shipped suite work (see changelog) |
+| Next release milestone | To agree | Choose and validate a coherent subset of priorities below |
+| Later milestones | Unscheduled | Further classic plugins, Channel Strip, Loudness Analyser and musical guidance |
 
 ### Delivery priority
 

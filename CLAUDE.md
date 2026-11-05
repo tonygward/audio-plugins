@@ -42,6 +42,20 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 - Plugins inspired by hardware (1176, L1) cite their sources. Say which behaviour is published and which is a Songsmith design choice, and which test checks each.
 - The editors are original designs informed by the hardware's control layout, not copies of a faceplate.
 
+### 6. Tell musicians what matters
+
+- **Every guidance message answers three questions:** what matters, why it matters, and **whether the musician needs to do anything**. Prefer reassuring, actionable, one- or two-sentence advice over engineering jargon, alarms or unnecessary changes.
+- Separate **measured facts** (actual levels, gain reduction, file sample rate and bit depth) from **listening suggestions**, estimates and uncertain inferences. Do not claim that a plugin knows the source WAV bit depth merely from host audio buffers, that it can hear 'mud', or that streaming platforms have a universal LUFS pass/fail requirement.
+- Offer help **at the point of use**: concise, optional, dismissible and non-disruptive; avoid constant notifications, over-automation and advice on silence or insufficient evidence. Give the next useful action only when warranted, and explain that doing nothing is often fine.
+- **Recording guidance:** 44.1 kHz/16-bit is legitimate CD quality, not ruined or unsuitable for streaming. 24-bit capture offers more recording headroom and flexibility, not retroactive recovery of detail. 48 kHz is a useful optional workflow choice, not an automatic audible upgrade. Don't recommend converting 16-bit to 24-bit to improve the original recording.
+- Make advice accurate, testable, accessible and consistent throughout every current and future Songsmith plugin and the separate Loudness Analyser. Use British English and the existing plain-language terminology.
+
+### 7. Align releases with roadmap milestones
+- The root `VERSION` is the single version for every plugin and installer. Roadmap phases are milestones, **not** software versions; the historical EQ v0.3–v1.0 headings must not be treated as the current suite version.
+- Before implementing a planned release, document its agreed feature scope and intended version in `shared/prompts/README.md`. Do not assign versions to exploratory features. Keep existing published versions and tags unchanged, and only increase versions.
+- Intermediate feature PRs can merge without changing `VERSION`. Increment `VERSION` **once at a validated release checkpoint**, not automatically per prompt. Update `CHANGELOG.md` and the roadmap together.
+- Follow semantic versioning: patch for backwards-compatible corrections, minor for backwards-compatible feature releases, major only after review for meaningful compatibility or major product changes. A bumped version explicitly signals a suite release and triggers the existing release automation.
+
 ## Working rules
 
 - Branch from an up-to-date `main`; never push commits straight to `main`, never force-push. Every change goes through a PR.
@@ -55,7 +69,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
   ```
   The same goes for `analog-compressor` (`AnalogCompressorTests`) and `maximiser` (`MaximiserTests`). Test executables can render editor screenshots (`--screenshots <folder>` or `--screenshot <file>`, `--scale 2`).
 - Never run `install.ps1`, installers or system-wide installs on the dev machines. Installer tests run in temp folders on Windows, and on CI only for macOS.
-- PRs cover what changed, choices made differently from the prompt (and why), test results, known limitations, and "Not yet verified in a DAW" when that's true. UI changes include before and after screenshots: commit them on the PR branch, link them in the PR by commit SHA (`.../blob/<sha>/...png?raw=true`), and delete them again before merging, so `main` doesn't collect old screenshots.
+- PRs cover what changed, choices made differently from the prompt (and why), test results, known limitations, and "Not yet verified in a DAW" when that's true. **Keep useful screenshots**: UI changes include before-and-after screenshots committed to the PR, embedded or linked in the PR description. Retain representative, current screenshots in the appropriate plugin README or user guide, with relative Markdown image links to version-controlled assets. Do **not** delete useful screenshots before merging. Distinguish clearly between concept mockups and real screenshots; refresh screenshots when the interface changes, and avoid redundant or obsolete images.
 - Keep README files up to date with user-facing changes, in the same plain language.
 
 ## Out of scope

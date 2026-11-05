@@ -47,7 +47,7 @@ Every plugin, installer and release shares one version number, kept in the `VERS
 
 To release (the overnight runner in `shared/prompts/overnight-prompt.md` does the same):
 
-1. Change `VERSION`: the minor number for new features, the patch number for fixes only. Versions only ever go up, which matters for Logic's Audio Unit cache and for the installers' upgrade checks.
+1. Confirm the agreed release milestone and delivered scope in `shared/prompts/README.md`. Update the shared `VERSION` once per validated release checkpoint rather than once per feature PR. Use a patch increment for compatible fixes, minor for compatible features and a reviewed major increment for significant compatibility/product changes. Do not renumber older tags. EQ roadmap phase headings are historical and not suite release numbers.
 2. Add the entry to the root `CHANGELOG.md` (a section per version, a heading per plugin) and merge the pull request.
 3. Wait for the **Build** run of the merge commit on `main` to finish and pass.
 4. Download its installer and zip files: `gh run download <run id>`. Check every file name carries the new version.

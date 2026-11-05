@@ -26,9 +26,7 @@ For each prompt, follow it exactly, with these overrides:
   checked, and merge (gh pr merge --merge --delete-branch).
 - In the same PR, before merging, move the task's prompt into the folder's
   done/ subfolder and update that folder's README status table, if it has one.
-- If the task changes what users install (plugin code, presets, installers),
-  bump VERSION in the same PR (minor for new features, patch for fixes
-  only) and add an entry to the root CHANGELOG.md. Docs- and prompt-only tasks don't bump it.
+- Align versions to the agreed delivery checkpoints in `shared/prompts/README.md`, following `CLAUDE.md`. Do not automatically bump VERSION for every completed implementation prompt. Intermediate PRs can merge without a version change. At a planned release checkpoint, after its agreed scope passes validation, bump the shared VERSION once and update CHANGELOG.md. If no release checkpoint is agreed, leave VERSION unchanged and record that a release decision is pending. Docs-only changes never bump VERSION.
 
 Releasing is automatic too. Tony has agreed that every merged PR that bumps
 the version is released straight away, without asking:
