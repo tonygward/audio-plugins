@@ -264,6 +264,9 @@ void EQDisplay::paint (juce::Graphics& g)
     if (processor.showPianoStrip.load())
         drawPianoStrip (g, area);
 
+    if (processor.showFrequencyGuide.load())
+        drawGuide (g, area);   // behind the analyser, the curve and the nodes
+
     {
         juce::Graphics::ScopedSaveState state (g);
         g.reduceClipRegion (area.toNearestInt());
@@ -296,6 +299,106 @@ void EQDisplay::paint (juce::Graphics& g)
 
     g.setColour (EQColours::panelEdge);
     g.drawRect (getLocalBounds().toFloat(), 1.0f);
+}
+
+//==============================================================================
+// The Instrument Frequency Guide (EQ-32). Regions follow the logarithmic frequency axis and fade
+// into each other rather than looking like hard boxes. The word on each is drawn in a small pill so
+// it stays readable over the analyser and the grid, and so colour is never the only cue. When two
+// words would overlap, the later one moves down a row; a word is never shortened.
+std::vector<EQDisplay::GuideLabel> EQDisplay::getGuideLabels (juce::Rectangle<float> area) const
+{
+    std::vector<GuideLabel> labels;
+    const auto& instrument = EQ::Guide::instrument (processor.guideInstrument.load());
+    const auto labelFont = juce::Font (EQColours::font (EQColours::Type::hint, EQColours::Weight::Medium));
+    constexpr float height = 18.0f, rowGap = 3.0f, padding = 6.0f, edge = 3.0f;
+
+    std::vector<std::vector<juce::Rectangle<float>>> rows;
+    int index = 0;
+    for (const auto& r : instrument.regions)
+    {
+        const float x0 = freqToX (juce::jmax (EQ::minFreq, r.lowHz)), x1 = freqToX (juce::jmin (EQ::maxFreq, r.highHz));
+        const float width = juce::GlyphArrangement::getStringWidth (labelFont, r.label) + 2.0f * padding;
+        const float x = juce::jlimit (area.getX() + edge, juce::jmax (area.getX() + edge, area.getRight() - width - edge),
+                                      0.5f * (x0 + x1) - 0.5f * width);
+
+        size_t row = 0;
+        for (;; ++row)
+        {
+            if (row == rows.size())
+                rows.emplace_back();
+            bool free = true;
+            for (const auto& other : rows[row])
+                free = free && (x + width + edge <= other.getX() || x >= other.getRight() + edge);
+            if (free)
+                break;
+        }
+        const juce::Rectangle<float> bounds (x, area.getY() + 4.0f + (float) row * (height + rowGap), width, height);
+        rows[row].push_back (bounds);
+        labels.push_back ({ index++, bounds });
+    }
+    return labels;
+}
+
+void EQDisplay::drawGuide (juce::Graphics& g, juce::Rectangle<float> area)
+{
+    const auto& instrument = EQ::Guide::instrument (processor.guideInstrument.load());
+    juce::Graphics::ScopedSaveState state (g);
+    g.reduceClipRegion (area.toNearestInt());
+
+    int index = 0;
+    for (const auto& r : instrument.regions)
+    {
+        const auto colour = juce::Colour (EQ::Guide::regionColourArgb (index++));
+        const float x0 = freqToX (juce::jmax (EQ::minFreq, r.lowHz)), x1 = freqToX (juce::jmin (EQ::maxFreq, r.highHz));
+        const float fade = juce::jmin (16.0f, (x1 - x0) * 0.3f);
+        const float span = juce::jmax (1.0f, x1 - x0);
+        juce::ColourGradient gradient (colour.withAlpha (0.0f), x0, 0.0f, colour.withAlpha (0.0f), x1, 0.0f, false);
+        gradient.addColour ((double) (fade / span), colour.withAlpha (0.20f));
+        gradient.addColour ((double) (1.0f - fade / span), colour.withAlpha (0.20f));
+        g.setGradientFill (gradient);
+        g.fillRect (juce::Rectangle<float> (x0, area.getY(), x1 - x0, area.getHeight()));
+    }
+
+    const auto labelFont = juce::Font (EQColours::font (EQColours::Type::hint, EQColours::Weight::Medium));
+    g.setFont (labelFont);
+    for (const auto& label : getGuideLabels (area))
+    {
+        const auto colour = juce::Colour (EQ::Guide::regionColourArgb (label.region));
+        g.setColour (Songsmith::UI::Colours::recess.withAlpha (0.82f));
+        g.fillRoundedRectangle (label.bounds, 4.0f);
+        g.setColour (colour.withAlpha (0.9f));
+        g.drawRoundedRectangle (label.bounds.reduced (0.5f), 4.0f, 1.0f);
+        g.setColour (EQColours::text);
+        g.drawText (instrument.regions[(size_t) label.region].label, label.bounds, juce::Justification::centred, false);
+    }
+}
+
+// What to show when the pointer rests on empty graph (not a band) at x: every region under it, so
+// overlapping regions explain themselves together.
+juce::String EQDisplay::getGuideTooltipAtX (float x) const
+{
+    if (! processor.showFrequencyGuide.load())
+        return {};
+
+    const auto area = getPlotArea();
+    if (x < area.getX() || x > area.getRight())
+        return {};
+
+    const auto& instrument = EQ::Guide::instrument (processor.guideInstrument.load());
+    juce::StringArray parts;
+
+    // Hovering a word is the same as hovering its region.
+    for (const auto& r : EQ::Guide::regionsAt (instrument, xToFreq (x)))
+        parts.add (EQ::Guide::tooltipFor (instrument, *r));
+    return parts.joinIntoString ("\n\n");
+}
+
+juce::String EQDisplay::getTooltip()
+{
+    if (hoveredBand >= 0 || draggingBand >= 0 || lastMouseX < 0.0f)
+        return {};   // a band under the pointer has its own readout
+    return getGuideTooltipAtX (lastMouseX);
 }
 
 void EQDisplay::drawGrid (juce::Graphics& g, juce::Rectangle<float> area)
@@ -1054,6 +1157,7 @@ void EQDisplay::showContextMenu (int band)
 //==============================================================================
 void EQDisplay::mouseMove (const juce::MouseEvent& e)
 {
+    lastMouseX = e.position.x;
     const int hit = hitTestNode (e.position);
     if (hit != hoveredBand)
     {
@@ -1065,6 +1169,7 @@ void EQDisplay::mouseMove (const juce::MouseEvent& e)
 
 void EQDisplay::mouseExit (const juce::MouseEvent&)
 {
+    lastMouseX = -1.0f;
     if (hoveredBand >= 0)
     {
         hoveredBand = -1;

@@ -31,7 +31,7 @@ Keep validating and improving what already exists before fixing the order of new
 
 ## Songsmith EQ — proposed instrument guide
 
-- **Optional instrument-specific frequency overlay:** show friendly tonal labels on the EQ graph for acoustic guitar, electric guitar, vocals, bass and drums. Draw on Joe Gilder's notes and the existing EQ starting-point research: **Rumble**, **Thump**, **Plastic**, **Warmth**, **Crunch** and **Air**. Keep this a subtle, optional, educational overlay, off by default and without changing audio. Frequency regions are listening suggestions rather than universal rules. Sources: `tonygward/music-recording/techniques/joe-gilder.md` and `eq/docs/starting-points.md`. Prompt: [`prompts/32-frequency-guide.md`](prompts/32-frequency-guide.md).
+- [x] **Optional instrument-specific frequency overlay** (delivered as EQ-32 in 1.3.0; see [docs/frequency-guide.md](docs/frequency-guide.md)): show friendly tonal labels on the EQ graph for acoustic guitar, electric guitar, vocals, bass and drums. Draw on Joe Gilder's notes and the existing EQ starting-point research: **Rumble**, **Thump**, **Plastic**, **Warmth**, **Crunch** and **Air**. Keep this a subtle, optional, educational overlay, off by default and without changing audio. Frequency regions are listening suggestions rather than universal rules. Sources: `tonygward/music-recording/techniques/joe-gilder.md` and `eq/docs/starting-points.md`. Prompt: [`prompts/done/32-frequency-guide.md`](prompts/done/32-frequency-guide.md).
 
 
 ---

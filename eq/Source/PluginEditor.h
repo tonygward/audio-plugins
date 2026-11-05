@@ -80,6 +80,8 @@ private:
     juce::Slider scaleSlider { juce::Slider::LinearBar, juce::Slider::TextBoxLeft };
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> scaleAttachment;
     juce::TextButton bypassButton { "Bypass" }, autoGainButton { "Auto Gain" };
+    juce::TextButton guideButton { "Frequency Guide" };   // EQ-32: the listening regions behind the graph
+    juce::ComboBox guideBox;                              // which instrument the guide is for
     juce::TextButton pianoButton { "Piano" };   // piano strip on/off (task 28)
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoGainAttachment;
     juce::TextButton analyserSettingsButton { "..." };   // analyser settings popup

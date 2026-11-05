@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "FrequencyGuide.h"
 #include "PluginEditor.h"
 
 // Hosts identify the plugin by these codes (VST3 class ID, AU aufx Eq3b Tnyw). They must
@@ -687,6 +688,8 @@ void SongsmithEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     ui.setProperty ("displayRange", displayRangeDb.load(), nullptr);
     ui.setProperty ("curveView", curveView.load(), nullptr);
     ui.setProperty ("pianoStrip", showPianoStrip.load(), nullptr);
+    ui.setProperty ("frequencyGuide", showFrequencyGuide.load(), nullptr);
+    ui.setProperty ("guideInstrument", guideInstrument.load(), nullptr);
     ui.setProperty ("sidechainView", sidechainView.load(), nullptr);
     ui.setProperty ("analyserTilt", analyserTilt.load(), nullptr);
     ui.setProperty ("analyserTop", analyserTopDb.load(), nullptr);
@@ -752,6 +755,8 @@ void SongsmithEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& sav
         displayRangeDb.store (juce::jlimit (6.0f, 30.0f, (float) ui.getProperty ("displayRange", 24.0f)));
         curveView.store (juce::jlimit (0, EQ::numStereoModes - 1, (int) ui.getProperty ("curveView", 0)));
         showPianoStrip.store ((bool) ui.getProperty ("pianoStrip", false));
+        showFrequencyGuide.store ((bool) ui.getProperty ("frequencyGuide", false));   // older sessions: off
+        guideInstrument.store (juce::jlimit (0, EQ::Guide::numInstruments() - 1, (int) ui.getProperty ("guideInstrument", 0)));
         sidechainView.store (juce::jlimit (0, 2, (int) ui.getProperty ("sidechainView", 0)));
         analyserTilt.store (juce::jlimit (0.0f, 6.0f, (float) ui.getProperty ("analyserTilt", 4.5f)));
         analyserTopDb.store (juce::jlimit (-30.0f, 12.0f, (float) ui.getProperty ("analyserTop", 0.0f)));

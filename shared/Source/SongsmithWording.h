@@ -77,7 +77,7 @@ namespace Songsmith::UI::Wording
                 if (auto bad = check(); bad.isNotEmpty())
                     return bad;
                 word.clear();
-                if (c == '.' || c == ':' || c == '!' || c == '?' || c == '(')
+                if (c == '.' || c == ':' || c == '!' || c == '?' || c == '(' || c == '\n')
                     sentenceStart = true;
                 else if (! juce::CharacterFunctions::isWhitespace (c) && c != '"')
                     sentenceStart = false;
