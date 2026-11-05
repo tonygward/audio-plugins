@@ -37,8 +37,50 @@ namespace
     const juce::Rectangle<int> attackArea  { 382, 56, 112, 138 };
     const juce::Rectangle<int> releaseArea { 382, 200, 112, 138 };
     const juce::Rectangle<int> ratioArea   { 510, 72, 66, 236 };
-    const juce::Rectangle<int> meterArea   { 584, 72, 296, 132 };
-    const juce::Rectangle<int> meterModes  { 584, 212, 296, 28 };   // a row under the meter
+    const juce::Rectangle<int> meterArea   { 592, 64, 344, 170 };   // ACOMP-08: about 45 % more face than the original 296 x 132
+    const juce::Rectangle<int> meterModes  { 592, 242, 344, 28 };   // a row under the meter
+    const juce::Rectangle<int> grOffArea   { 592, 314, 150, 32 };
+
+    // One line each: what the ratio does to the level (above the point where compression starts),
+    // and what it is good for. Listening suggestions, not measurements.
+    juce::String ratioTip (int index)
+    {
+        static const char* const what[] = {
+            "the gentlest. For every 4 dB the sound rises above the point where compression starts, it comes out 1 dB louder. A good starting point for steady control of vocals and bass.",
+            "firmer. 8 dB in, 1 dB out above that point. Often used to keep drums and lively vocals punchy.",
+            "strong. 12 dB in, 1 dB out above that point. For heavier control of drums and vocals.",
+            "the strongest, close to a limiter. 20 dB in, 1 dB out above that point. For hard peak control or a deliberately squashed sound." };
+        return "Ratio " + ratioNames()[index] + ": " + what[index];
+    }
+
+    // A fine brushed-metal grain for the faceplate, drawn as vectors so it scales with the editor and
+    // stays sharp at every interface size. Built once; the same grain every time.
+    struct Grain
+    {
+        juce::Path light, dark;
+        Grain()
+        {
+            juce::Random random (1176);
+            for (float y = (float) Songsmith::UI::titleBarHeight + 2.0f; y < (float) contentHeight - 6.0f; y += 2.0f)
+                for (float x = 10.0f; x < (float) designWidth - 10.0f;)
+                {
+                    const float length = 24.0f + random.nextFloat() * 120.0f;
+                    (random.nextBool() ? light : dark).addRectangle (x, y, juce::jmin (length, (float) designWidth - 10.0f - x), 0.8f);
+                    x += length + random.nextFloat() * 70.0f;
+                }
+        }
+    };
+
+    void drawScrew (juce::Graphics& g, juce::Point<float> c, float slotAngle)
+    {
+        const float r = 4.6f;
+        g.setGradientFill (juce::ColourGradient (Colours::panelLight.brighter (0.35f), c.x - r, c.y - r,
+                                                 Colours::recess, c.x + r, c.y + r, false));
+        g.fillEllipse (c.x - r, c.y - r, 2.0f * r, 2.0f * r);
+        g.setColour (Colours::recess.withAlpha (0.9f));
+        g.drawEllipse (c.x - r, c.y - r, 2.0f * r, 2.0f * r, 0.8f);
+        g.drawLine ({ c.getPointOnCircumference (r - 1.2f, slotAngle), c.getPointOnCircumference (r - 1.2f, slotAngle + juce::MathConstants<float>::pi) }, 1.3f);
+    }
 }
 
 //==============================================================================
@@ -119,11 +161,11 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
 
     // Ratio buttons: one press selects that ratio (and leaves All Buttons); "All Buttons" presses all
     // four at once (UM p. 9). Each press is one automation gesture.
-    const juce::StringArray ratioText { "4", "8", "12", "20" };
+    const juce::StringArray ratioText { "4:1", "8:1", "12:1", "20:1" };
     for (int i = 0; i < 4; ++i)
     {
         auto b = std::make_unique<juce::TextButton> (ratioText[i]);
-        b->setTooltip ("Ratio " + ratioNames()[i] + ": how strongly loud sounds are turned down. Higher ratios squash more.");
+        b->setTooltip (ratioTip (i));
         b->onClick = [this, i]
         {
             if (allButtonsOn)
@@ -133,7 +175,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
         content.addAndMakeVisible (*b);
         ratioButtons[(size_t) i] = std::move (b);
     }
-    allButton.setTooltip ("All Buttons: all four ratio buttons pressed in at once, for a harder, more distorted sound");
+    allButton.setTooltip ("All: presses every ratio button at once, for a more aggressive, harder and more distorted sound. Press a single ratio to go back.");
     allButton.onClick = [this] { allButtonsAttachment.setValueAsCompleteGesture (allButtonsOn ? 0.0f : 1.0f); };
     content.addAndMakeVisible (allButton);
 
@@ -244,7 +286,7 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     modes.removeFromLeft (modeGap);
     meterButtons[2].setBounds (modes);
 
-    grOffButton.setBounds (584, 300, 144, 36);
+    grOffButton.setBounds (grOffArea);   // the Low Cut control will sit to its right (FET::lowCutX), when ACOMP-07 adds it
 
     // Top bar: global Bypass at the top-right, in the same place and size as in the other plugins (SUI-13).
     bypassButton.setBounds (designWidth - 16 - 84, 14, 84, 26);
@@ -264,6 +306,27 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
 {
     const auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) designWidth, (float) designHeight);
     Songsmith::UI::LookAndFeelBase::drawPanel (g, r);
+
+    // Faceplate: a fine brushed grain, a lit inner edge and four screws. All vector, so it scales.
+    {
+        static const Grain grain;
+        g.setColour (juce::Colours::white.withAlpha (0.035f));
+        g.fillPath (grain.light);
+        g.setColour (juce::Colours::black.withAlpha (0.07f));
+        g.fillPath (grain.dark);
+
+        const auto plate = juce::Rectangle<float> (6.0f, (float) Songsmith::UI::titleBarHeight + 4.0f, (float) designWidth - 12.0f,
+                                                   (float) contentHeight - (float) Songsmith::UI::titleBarHeight - 10.0f);
+        g.setColour (juce::Colours::white.withAlpha (0.06f));
+        g.drawRoundedRectangle (plate, 8.0f, 1.0f);
+        g.setColour (juce::Colours::black.withAlpha (0.25f));
+        g.drawRoundedRectangle (plate.translated (1.0f, 1.0f), 8.0f, 1.0f);
+        const float inset = 10.0f;
+        drawScrew (g, { plate.getX() + inset, plate.getY() + inset }, 0.4f);
+        drawScrew (g, { plate.getRight() - inset, plate.getY() + inset }, 1.9f);
+        drawScrew (g, { plate.getX() + inset, plate.getBottom() - inset }, 2.6f);
+        drawScrew (g, { plate.getRight() - inset, plate.getBottom() - inset }, 0.9f);
+    }
     Songsmith::UI::LookAndFeelBase::drawTitleBar (g, r.withHeight (Songsmith::UI::titleBarHeight));
     Songsmith::UI::drawTitle (g, { Songsmith::UI::titleInset, 0.0f, 360.0f, Songsmith::UI::titleBarHeight },
                               JucePlugin_Name, Colours::text, Colours::accent);
@@ -272,6 +335,7 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
     g.setColour (Colours::panelLight.brighter (0.1f));
     for (float x : { 376.0f, 502.0f })
         g.drawLine (x, 70.0f, x, 340.0f, 1.0f);
+    g.drawLine ((float) meterArea.getX() - 8.0f, 70.0f, (float) meterArea.getX() - 8.0f, 340.0f, 1.0f);
 
     g.setColour (Colours::textDim);
     g.setFont (font (Type::heading, Weight::Medium));
@@ -288,7 +352,7 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
     {
         g.setColour (Colours::accent);
         g.setFont (font (Type::hint, Weight::SemiBold));
-        g.drawText ("All Buttons", juce::Rectangle<float> ((float) meterArea.getX(), (float) meterModes.getBottom() + 26.0f, (float) meterArea.getWidth(), 16.0f),
+        g.drawText ("All ratio buttons on", juce::Rectangle<float> ((float) meterArea.getX(), (float) meterModes.getBottom() + 26.0f, (float) meterArea.getWidth(), 16.0f),
                     juce::Justification::centred);
     }
 
@@ -297,7 +361,7 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
     g.setFont (font (Type::hint));
     const auto hint = proc.presets.currentHint.isNotEmpty() ? proc.presets.currentHint
                                                              : juce::String ("Double-click a knob for its default.");
-    g.drawFittedText (hint, juce::Rectangle<int> (24, 356, 852, 36), juce::Justification::centredLeft, 2);
+    g.drawFittedText (hint, juce::Rectangle<int> (24, 356, designWidth - 48, 36), juce::Justification::centredLeft, 2);
 }
 
 juce::String SongsmithAnalogCompressorEditor::gainReductionText (float db)

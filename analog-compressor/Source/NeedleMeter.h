@@ -103,7 +103,7 @@ namespace FET::UI
             g.setColour (Colours::meterRed);
             g.strokePath (red, juce::PathStrokeType (3.0f));
 
-            g.setFont (numbers (Type::caption, Weight::Medium));
+            g.setFont (numbers (Type::control, Weight::Medium));   // the scale numbers are easy to read at the default size
             for (float vu : { -20.0f, -10.0f, -7.0f, -5.0f, -3.0f, -2.0f, -1.0f, 0.0f, 1.0f, 2.0f, 3.0f })
             {
                 const float a = angleFor (vu);
@@ -115,13 +115,13 @@ namespace FET::UI
                 {
                     const auto t = pivot.getPointOnCircumference (radius * 0.96f, a);
                     const auto txt = vu > 0.0f ? "+" + juce::String ((int) vu) : juce::String ((int) vu);
-                    g.drawText (txt, juce::Rectangle<float> (30.0f, 14.0f).withCentre (t), juce::Justification::centred);
+                    g.drawText (txt, juce::Rectangle<float> (34.0f, 16.0f).withCentre (t), juce::Justification::centred);
                 }
             }
 
             g.setColour (Colours::meterInk.withAlpha (0.8f));
             g.setFont (font (Type::hint, Weight::SemiBold));
-            g.drawText (modeLabel, face.withTrimmedTop (face.getHeight() * 0.64f).withHeight (16.0f), juce::Justification::centred);
+            g.drawText (modeLabel, face.withTrimmedTop (face.getHeight() * 0.66f).withHeight (18.0f), juce::Justification::centred);
 
             // Needle, clipped to the face.
             g.saveState();

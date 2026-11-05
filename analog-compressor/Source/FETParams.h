@@ -67,7 +67,11 @@ namespace FET
     // Interface sizes (editor menu). The editor is drawn in design units and scaled as a whole,
     // so every option is equally sharp.
     inline constexpr float uiScales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f };
-    inline constexpr int designWidth = 900, contentHeight = 400;   // the controls sit in the top 400
+    inline constexpr int designWidth = 960, contentHeight = 400;   // the controls sit in the top 400
+
+    // ACOMP-08: the place kept free for the detector Low Cut control that ACOMP-07 will add, at the
+    // right of "Gain Reduction Off". Nothing is drawn or placed here yet: no dummy control, no parameter.
+    inline constexpr int lowCutX = 786, lowCutY = 314, lowCutWidth = 150, lowCutHeight = 32;
     inline constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
     inline constexpr int designHeight = contentHeight + footerHeight;
 
