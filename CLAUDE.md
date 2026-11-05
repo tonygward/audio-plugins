@@ -36,6 +36,8 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 - One word for one thing across all plugins. Title case for control names, sentence case for tooltips. British spelling.
 - If a word doesn't fit, change the layout, never shorten the word. Tests enforce this; keep them passing.
 
+- Name every factory preset for its practical use case in clear, concise language, such as **Acoustic Guitar Smoothing** or **Lead Vocal Control**. Keep hardware and model names, tutorial titles, and playful names out of the preset title. Record model selection in preset data and tutorial attribution in the preset notes. Users choose their own custom preset names.
+
 ### 5. Honest modelling
 - Plugins inspired by hardware (1176, L1) cite their sources. Say which behaviour is published and which is a Songsmith design choice, and which test checks each.
 - The editors are original designs informed by the hardware's control layout, not copies of a faceplate.
