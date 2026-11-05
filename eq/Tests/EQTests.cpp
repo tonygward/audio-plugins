@@ -4654,6 +4654,134 @@ public:
 };
 static GlobalBypassTests globalBypassTests;
 
+// EQ-33: each filter type shows a small picture of its response.
+class FilterShapeIconTests final : public juce::UnitTest
+{
+public:
+    FilterShapeIconTests() : juce::UnitTest ("Filter shape icons", "EQ") {}
+
+    void runTest() override
+    {
+        using namespace EQ;
+        using namespace EQ::FilterShapes;
+
+        beginTest ("Each curve has the right shape from low to high frequency");
+        {
+            const auto lo = [] (FilterType t) { return shape (t, 0.0f); };
+            const auto mid = [] (FilterType t) { return shape (t, 0.5f); };
+            const auto hi = [] (FilterType t) { return shape (t, 1.0f); };
+            expect (mid (FilterType::Bell) > lo (FilterType::Bell) + 0.3f && mid (FilterType::Bell) > hi (FilterType::Bell) + 0.3f, "Bell peaks in the middle");
+            expect (lo (FilterType::LowShelf) > hi (FilterType::LowShelf) + 0.3f, "Low Shelf is raised on the left");
+            expect (hi (FilterType::HighShelf) > lo (FilterType::HighShelf) + 0.3f, "High Shelf is raised on the right");
+            expect (hi (FilterType::LowCut) > lo (FilterType::LowCut) + 0.5f, "Low Cut rises from the left");
+            expect (lo (FilterType::HighCut) > hi (FilterType::HighCut) + 0.5f, "High Cut falls to the right");
+            expect (mid (FilterType::Notch) < lo (FilterType::Notch) - 0.5f && mid (FilterType::Notch) < hi (FilterType::Notch) - 0.5f, "Notch dips in the middle");
+        }
+
+        beginTest ("The six pictures are all different and stay inside their box");
+        for (int a = 0; a < numFilterTypes; ++a)
+        {
+            const auto box = juce::Rectangle<float> (0.0f, 0.0f, (float) iconWidth, (float) iconHeight);
+            expect (box.expanded (0.01f).contains (curve (typeFromIndex (a), box.reduced (strokeWidth)).getBounds()), "inside the box");
+            for (int b = a + 1; b < numFilterTypes; ++b)
+            {
+                float difference = 0.0f;
+                for (int i = 0; i <= 20; ++i)
+                    difference += std::abs (shape (typeFromIndex (a), i / 20.0f) - shape (typeFromIndex (b), i / 20.0f));
+                expect (difference > 1.0f, getTypeNames()[a] + " and " + getTypeNames()[b] + " must look different");
+            }
+        }
+
+        beginTest ("Icons actually draw, at normal and double size");
+        for (float scale : { 1.0f, 2.0f })
+            for (int t = 0; t < numFilterTypes; ++t)
+            {
+                juce::Image img (juce::Image::ARGB, (int) (iconWidth * scale), (int) (iconHeight * scale), true);
+                {
+                    juce::Graphics g (img);
+                    g.addTransform (juce::AffineTransform::scale (scale));
+                    makeDrawable (typeFromIndex (t), juce::Colours::white, (float) iconWidth, (float) iconHeight)->draw (g, 1.0f);
+                }
+                int lit = 0;
+                for (int y = 0; y < img.getHeight(); ++y)
+                    for (int x = 0; x < img.getWidth(); ++x)
+                        lit += img.getPixelAt (x, y).getAlpha() > 128 ? 1 : 0;
+                expect (lit > 15 * scale, getTypeNames()[t] + " draws something visible, lit=" + juce::String (lit));
+            }
+
+        beginTest ("The band panel shows the picture beside the selected name, keeping selection behaviour");
+        for (int t = 0; t < numFilterTypes; ++t)
+        {
+            SongsmithEQAudioProcessor p;
+            const int band = p.edits.addBand (1000.0f, 0.0f, typeFromIndex (t));
+            BandPanel panel (p);
+            panel.setBand (band);
+            panel.setSize (BandPanel::panelWidth, panel.getPreferredHeight());
+            panel.setVisible (true);
+
+            FilterShapeIcon* icon = nullptr;
+            juce::ComboBox* box = nullptr;
+            for (auto* c : panel.getChildren())
+            {
+                if (auto* i = dynamic_cast<FilterShapeIcon*> (c)) icon = i;
+                if (auto* b = dynamic_cast<juce::ComboBox*> (c); b != nullptr && b->getNumItems() == numFilterTypes
+                                                                  && b->getItemText (0) == getTypeNames()[0]) box = b;
+            }
+            expect (icon != nullptr && box != nullptr);
+            if (icon == nullptr || box == nullptr) continue;
+
+            expect (icon->getType() == typeFromIndex (t), "the icon follows the band's type");
+            expect (box->getBounds().contains (icon->getBounds()), "the icon sits inside the type box");
+            expect (icon->getRight() < box->getX() + (int) box->getProperties()["textIndent"], "the name starts after the icon");
+            { bool onSelf = true, onChildren = true; icon->getInterceptsMouseClicks (onSelf, onChildren); expect (! onSelf, "the icon never steals clicks"); }
+            expectEquals (box->getSelectedItemIndex(), t, "selection unchanged");
+            expectEquals (box->getText(), getTypeNames()[t], "the name stays visible");
+
+            int count = 0;
+            for (juce::PopupMenu::MenuItemIterator it (*box->getRootMenu()); it.next(); ++count)
+            {
+                expect (it.getItem().image != nullptr, "every list entry has a picture");
+                expectEquals (it.getItem().text, getTypeNames()[count], "list order unchanged");
+            }
+            expectEquals (count, numFilterTypes);
+        }
+    }
+};
+static FilterShapeIconTests filterShapeIconTests;
+
+// EQ-34: the processing-mode selector explains Linear phase in plain words.
+class LinearPhaseTooltipTests final : public juce::UnitTest
+{
+public:
+    LinearPhaseTooltipTests() : juce::UnitTest ("Linear phase tooltip", "EQ") {}
+
+    void runTest() override
+    {
+        beginTest ("The tip says what it does, when to try it, why it adds delay and what to use for recording");
+        {
+            const juce::String tip (EQ::linearPhaseTooltip());
+            expect (tip.contains ("blending a filtered track with a copy of the same sound"), "when to try it");
+            expect (tip.contains ("timing of some frequencies"), "what it does");
+            expect (tip.contains ("adds delay"), "why latency");
+            expect (tip.contains ("recording") && tip.contains ("Zero latency"), "what to use instead");
+            expect (tip.length() < 400, "short enough to read at a glance");
+        }
+
+        beginTest ("The editor shows that tip on the mode selector");
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = UiSizeTests::makeEditor (p, 1.0f, 1280, 760);
+            juce::StringArray texts;
+            Songsmith::UI::Wording::collect (*ed, texts);
+            bool found = false;
+            for (auto& t : texts)
+                found = found || t == juce::String (EQ::linearPhaseTooltip());
+            expect (found, "the selector carries the tooltip");
+        }
+    }
+};
+static LinearPhaseTooltipTests linearPhaseTooltipTests;
+
 static PianoToggleTests pianoToggleTests;
 static EdgeClickTests edgeClickTests;
 static OutputMeterTests outputMeterTests;
