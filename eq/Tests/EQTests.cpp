@@ -10,6 +10,7 @@
 #include "SvfFilter.h"
 #include "NoteNames.h"
 #include "EQDisplay.h"
+#include "BandPanel.h"
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
 #include "../../shared/Tests/SongsmithUITests.h"
@@ -4552,6 +4553,87 @@ public:
         }
     }
 };
+//==============================================================================
+// EQ-36: the Dynamic button explains why it is greyed out, and the explanation can be hovered.
+class DynamicTooltipTests final : public juce::UnitTest
+{
+public:
+    DynamicTooltipTests() : juce::UnitTest ("Dynamic button tooltip", "EQ") {}
+
+    static juce::TextButton* findDynamic (juce::Component& c)
+    {
+        if (auto* b = dynamic_cast<juce::TextButton*> (&c))
+            if (b->getButtonText() == "Dynamic")
+                return b;
+        for (auto* child : c.getChildren())
+            if (auto* b = findDynamic (*child))
+                return b;
+        return nullptr;
+    }
+
+    void runTest() override
+    {
+        using namespace EQ;
+
+        beginTest ("Each unsupported filter type is named, and Bell, Low Shelf and High Shelf are offered");
+        for (auto t : { FilterType::LowCut, FilterType::HighCut, FilterType::Notch })
+        {
+            const auto tip = dynamicTooltip (t, false);
+            expect (tip.contains (getTypeNames()[(int) t] + " filters"), tip);
+            expect (tip.contains ("Bell, Low Shelf or High Shelf"), tip);
+            expect (! tip.contains ("Linear phase"), "no false mention of the mode: " + tip);
+        }
+        expectEquals (dynamicTooltip (FilterType::LowCut, false),
+                      juce::String ("Dynamic EQ isn't available on Low Cut filters. Use Bell, Low Shelf or High Shelf to enable dynamic processing."));
+
+        beginTest ("Linear phase gives the mode explanation, and both when the filter is also unsupported");
+        for (auto t : { FilterType::Bell, FilterType::LowShelf, FilterType::HighShelf })
+        {
+            const auto tip = dynamicTooltip (t, true);
+            expect (tip.contains ("Linear phase mode") && tip.contains ("Zero latency"), tip);
+            expect (! tip.contains ("filters or"), tip);
+        }
+        const auto both = dynamicTooltip (FilterType::Notch, true);
+        expect (both.contains ("Notch filters or in Linear phase mode") && both.contains ("Zero latency"), both);
+
+        beginTest ("Supported filters in the normal mode keep the ordinary description");
+        for (auto t : { FilterType::Bell, FilterType::LowShelf, FilterType::HighShelf })
+            expect (dynamicTooltip (t, false).startsWith ("Dynamic EQ changes this band's gain"));
+
+        beginTest ("The greyed-out button is hoverable and shows the right tip");
+        for (int ti = 0; ti < numFilterTypes; ++ti)
+            for (int lp = 0; lp < 2; ++lp)
+            {
+                SongsmithEQAudioProcessor p;
+                const auto type = typeFromIndex (ti);
+                const int band = p.edits.addBand (1000.0f, 0.0f, type);
+                auto* rp = p.apvts.getParameter (phaseModeId);
+                rp->setValueNotifyingHost (rp->convertTo0to1 ((float) lp));
+
+                BandPanel panel (p);
+                panel.setBand (band);
+                panel.setSize (BandPanel::panelWidth, panel.getPreferredHeight());
+                panel.setVisible (true);   // hit-testing ignores components that are not visible
+                auto* dyn = findDynamic (panel);
+                expect (dyn != nullptr);
+                if (dyn == nullptr) continue;
+
+                const bool shouldBeEnabled = typeHasGain (type) && lp == 0;
+                const auto context = getTypeNames()[ti] + (lp ? ", linear phase" : ", zero latency");
+                expect (dyn->isEnabled() == shouldBeEnabled, context);
+                expectEquals (dyn->getTooltip(), dynamicTooltip (type, lp == 1), context);
+
+                // What JUCE's TooltipWindow asks for: the component under the mouse.
+                auto* hit = panel.getComponentAt (dyn->getBounds().getCentre());
+                expect (hit == dyn, context + ": the button is under the pointer even when disabled");
+                if (auto* ttc = dynamic_cast<juce::TooltipClient*> (hit))
+                    expectEquals (ttc->getTooltip(), dynamicTooltip (type, lp == 1), context);
+
+            }
+    }
+};
+static DynamicTooltipTests dynamicTooltipTests;
+
 static PianoToggleTests pianoToggleTests;
 static EdgeClickTests edgeClickTests;
 static OutputMeterTests outputMeterTests;
