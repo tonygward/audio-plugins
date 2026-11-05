@@ -7,9 +7,9 @@ _Forward-looking ideas; no committed delivery dates._
 ## Suite direction (high level)
 
 1. **Standalone classics first.** Develop the **analog emulation** track (1176-inspired FET, optical leveller, Pultec-style EQ and SSL-style compressor) and the **digital** track (EQ, Maximiser and clean compressor). See the [Songsmith Plugins backlog](../shared/prompts/README.md) for the prompts and shared acceptance requirements.
-2. **Songsmith Channel Strip.** Start after releasing and validating the standalone classics in both tracks. Combine the proven processing engines into practical vocal, guitar and other mixing chains.
-   - **Internal Abbey Road reverb bus.** Send an adjustable amount of signal to a built-in reverb on a parallel path and blend its return with the dry channel. Start with the existing Abbey Road Reverb Trick EQ preset before the reverb (377 Hz low cut, 2 kHz dip and 17 kHz high cut). Include a send level and a bus bypass so the effect can be used without setting up a separate DAW aux.
-3. **Songsmith Loudness Analyser** — a **separate standalone app** for dropping in an entire finished track and checking integrated LUFS, true peaks and straightforward streaming guidance. Optional mastering/export can be considered later.
+2. **Songsmith Channel Strip.** **Model: Opus for architecture and routing, Sonnet for implementation.** Start after releasing and validating the standalone classics in both tracks. Combine the proven processing engines into practical vocal, guitar and other mixing chains.
+   - **Internal Abbey Road reverb bus.** **Model: Opus for routing design, Sonnet for implementation.** Send an adjustable amount of signal to a built-in reverb on a parallel path and blend its return with the dry channel. Start with the existing Abbey Road Reverb Trick EQ preset before the reverb (377 Hz low cut, 2 kHz dip and 17 kHz high cut). Include a send level and a bus bypass so the effect can be used without setting up a separate DAW aux.
+3. **Songsmith Loudness Analyser.** **Model: Sonnet with the validated Maximiser measurement engine.** A **separate standalone app** for dropping in an entire finished track and checking integrated LUFS, true peaks and straightforward streaming guidance. Optional mastering/export can be considered later.
 
 Keep validating and improving what already exists before fixing the order of new work.
 
