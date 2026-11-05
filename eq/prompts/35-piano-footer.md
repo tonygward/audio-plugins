@@ -5,6 +5,9 @@
 **Scope:** Songsmith EQ only.  
 **Dependency:** Coordinate with [SUI-12](../../shared/prompts/SUI-12-processing-load-footer.md).
 
+## Rationale — standing Songsmith UI rule
+**Controls must be near the thing they affect.** The Piano toggle controls the piano-note strip drawn along the bottom of the EQ graph, so its natural home is at the **bottom-right next to that strip**, not in a distant top toolbar or unrelated control group. This placement is intentional functional proximity, not merely footer symmetry. See the [shared style guide](../../docs/style-guide.md#control-proximity) and `CLAUDE.md`.
+
 ## Goal
 Place the existing **Piano** toggle at the **far right of the bottom status strip** in Songsmith EQ. Processing Load occupies the far left under SUI-12; the diagnostics text appears directly beside it only when toggled on.
 
@@ -17,7 +20,7 @@ Place the existing **Piano** toggle at the **far right of the bottom status stri
 6. Keep style consistent with the shared bevelled controls and Inter typography.
 
 ## Acceptance tests
-- Button stays at the far right across resizes, whether Processing Load is on or off.
+- Button stays at the far right, visually adjacent to the bottom piano-note strip it controls, across resizes, whether Processing Load is on or off.
 - Clicking Piano toggles the existing note overlay; reopen/session recall remains unchanged.
 - Screenshot of the footer in both Processing Load states, and before/after screenshots in the PR.
 - EQ build and UI tests green; Studio One/Cakewalk verification described accurately.
