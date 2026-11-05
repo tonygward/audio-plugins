@@ -2,7 +2,7 @@
 
 ## Prompt identity and traceability
 
-Every task has a **stable, unique, scope-qualified ID**: `EQ-32` (file `eq/prompts/32-...`), `COMP-06` (`analog-compressor/prompts/06-...`), `MAX-07` (`maximiser/prompts/07-...`), `S11` (shared suite), `A1`/`D1` (classic analogue/digital) or `F1` (future candidate). The ID **never changes** when a prompt moves to `done/`; historical numbers, names and GitHub PR numbers are not task IDs.
+Every task has a **stable, unique, scope-qualified ID**: `EQ-32` (file `eq/prompts/32-...`), `COMP-06` (`analog-compressor/prompts/06-...`), `MAX-07` (`maximiser/prompts/07-...`), `SUI-11` (shared suite), `OPT-01`/`CLN-01` (specific classic plugins) or `ADV-01` (future candidate). The ID **never changes** when a prompt moves to `done/`; historical numbers, names and GitHub PR numbers are not task IDs.
 
 For each completed prompt, keep a single canonical Markdown file in its own folder's `done/`, link it from the local prompt README (or this shared README), and record the delivery PR and release checkpoint when verified. **Done means merged**, not merely code written or a plan approved. If a prompt is archived retrospectively, label it as such and do not invent PR or test evidence. Update the release changelog with references to the IDs delivered at each checkpoint. Links must be relative to their source Markdown file. Do not mark an unmerged task done.
 
@@ -11,9 +11,9 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 | `EQ-` | `eq/prompts/` | `eq/prompts/done/` |
 | `COMP-` | `analog-compressor/prompts/` | `analog-compressor/prompts/done/` |
 | `MAX-` | `maximiser/prompts/` | `maximiser/prompts/done/` |
-| `S` | `shared/prompts/` | `shared/prompts/done/` |
-| `A` / `D` | `shared/prompts/classics/` | `shared/prompts/classics/done/` when delivered |
-| `F` | `shared/prompts/future/` | `shared/prompts/future/done/` only after implemented |
+| `SUI-` | `shared/prompts/` | `shared/prompts/done/` |
+| `OPT-` / `PEQ-` / `BUS-` / `CLN-` | `shared/prompts/classics/` | `shared/prompts/classics/done/` when delivered |
+| `ADV-` / `REC-` | `shared/prompts/future/` | `shared/prompts/future/done/` only after implemented |
 
 ## Backlog at a glance
 
@@ -35,7 +35,7 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 
 **Additional unscheduled plugin candidates:** Reverb, Delay, De-Esser, Saturator, Gate / Expander, Transient Shaper and Guitar Amp / Cabinet. They are not assigned implementation prompts or release dates yet.
 
-**Future, not queued:** [F1 musician-friendly guidance for each plugin](future/F1-musician-guidance.md) and [F2 whole-file Recording and Streaming Advisor](future/F2-file-recording-advisor.md). The rule for both is **“What matters? Why does it matter? Do I need to do anything?”**
+**Future, not queued:** [ADV-01 musician-friendly guidance for each plugin](future/ADV-01-musician-guidance.md) and [REC-01 whole-file Recording and Streaming Advisor](future/REC-01-file-recording-advisor.md). The rule for both is **“What matters? Why does it matter? Do I need to do anything?”**
 
 **Release discipline:** shared suite version **1.1.0** is the current documented baseline; future versions are set against agreed, validated roadmap milestones (not individual prompts). Preserve useful screenshots in PRs and READMEs, and distinguish mockups from shipped features. Details and execution order follow below.
 
@@ -43,20 +43,20 @@ Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq
 
 | Prompt | What it does |
 |---|---|
-| ✅ [S1 shared look: fonts and type](done/S1-shared-fonts-and-type.md) | One shared UI library and one copy of the Inter font for all plugins, one type scale, and a written style guide |
-| ✅ [S2 bevelled controls everywhere](done/S2-bevelled-controls.md) | The slightly bevelled, raised look from the compressor, applied to buttons, knobs, menus and toggles in every plugin |
-| ✅ [S3 plain words everywhere](done/S3-plain-words-everywhere.md) | No abbreviations and plain language in every plugin, enforced by one shared test |
-| ✅ [S4 Windows suite installer](done/S4-windows-suite-installer.md) | One Windows installer for all plugins, with a tick box per plugin |
-| ✅ [S5 macOS suite installer](done/S5-macos-suite-installer.md) | One macOS `.pkg` for all plugins, with a choice per plugin and format |
-| ✅ [S6 one installer entry per plugin](done/S6-one-entry-per-plugin.md) | One tick box per plugin in the Windows installers and the macOS suite installer: no separate standalone app or format choices |
-| ✅ [S7 one version number](done/S7-one-version-number.md) | One version for every plugin, installer and release, from a root `VERSION` file, starting at 1.1.0 |
-| ✅ [S8 Songsmith Plugins branding](done/S8-songsmith-plugins-brand.md) | Consistent suite naming without changing plugin identities |
-| ✅ [S11 latency and processing load](done/S11-latency-and-processing-load.md) | Diagnostics strip in each editor; shipped in 1.1.0 |
+| ✅ [SUI-01 shared look: fonts and type](done/SUI-01-shared-fonts-and-type.md) | One shared UI library and one copy of the Inter font for all plugins, one type scale, and a written style guide |
+| ✅ [SUI-02 bevelled controls everywhere](done/SUI-02-bevelled-controls.md) | The slightly bevelled, raised look from the compressor, applied to buttons, knobs, menus and toggles in every plugin |
+| ✅ [SUI-03 plain words everywhere](done/SUI-03-plain-words-everywhere.md) | No abbreviations and plain language in every plugin, enforced by one shared test |
+| ✅ [SUI-04 Windows suite installer](done/SUI-04-windows-suite-installer.md) | One Windows installer for all plugins, with a tick box per plugin |
+| ✅ [SUI-05 macOS suite installer](done/SUI-05-macos-suite-installer.md) | One macOS `.pkg` for all plugins, with a choice per plugin and format |
+| ✅ [SUI-06 one installer entry per plugin](done/SUI-06-one-entry-per-plugin.md) | One tick box per plugin in the Windows installers and the macOS suite installer: no separate standalone app or format choices |
+| ✅ [SUI-07 one version number](done/SUI-07-one-version-number.md) | One version for every plugin, installer and release, from a root `VERSION` file, starting at 1.1.0 |
+| ✅ [SUI-08 Songsmith Plugins branding](done/SUI-08-songsmith-plugins-brand.md) | Consistent suite naming without changing plugin identities |
+| ✅ [SUI-11 latency and processing load](done/SUI-11-latency-and-processing-load.md) | Diagnostics strip in each editor; shipped in 1.1.0 |
 
 ## Future candidate — Recording and Mixing Advisor
 
-- **Not queued for unattended execution:** [F1 musician-friendly advice across plugins](future/F1-musician-guidance.md) — clear, optional recommendations grounded in actual measurements and listening guidance (**Sonnet; Opus only if architecture requires it**).
-- **Not queued for unattended execution:** [F2 whole-file recording and streaming advisor](future/F2-file-recording-advisor.md) — standalone file metadata, LUFS and true-peak advice without false pass/fail claims (**Sonnet; Opus for measurement validation if needed**).
+- **Not queued for unattended execution:** [ADV-01 musician-friendly advice across plugins](future/ADV-01-musician-guidance.md) — clear, optional recommendations grounded in actual measurements and listening guidance (**Sonnet; Opus only if architecture requires it**).
+- **Not queued for unattended execution:** [REC-01 whole-file recording and streaming advisor](future/REC-01-file-recording-advisor.md) — standalone file metadata, LUFS and true-peak advice without false pass/fail claims (**Sonnet; Opus for measurement validation if needed**).
 - Both follow the standing rule in `CLAUDE.md`; promote to active prompts only after existing work is prioritised.
 
 ## Songsmith Plugins backlog
@@ -67,10 +67,10 @@ Finish the existing suite work and develop the classic standalone plugins on two
 
 | Track | Sequence |
 |---|---|
-| Analog emulation | Existing 1176-inspired FET compressor: [Low Cut](../../analog-compressor/prompts/07-detector-low-cut.md) **(Sonnet)** then [editor polish](../../analog-compressor/prompts/08-1176-editor.md) **(Sonnet)**. Next [A1 Optical Leveller](classics/A1-optical-leveller.md) **(Opus for design, Sonnet for implementation)**, [A2 Pultec-style EQ](classics/A2-pultec-eq.md) **(Opus for design, Sonnet for implementation)**, then [A3 SSL-style compressor](classics/A3-ssl.md) **(Opus for design, Sonnet for implementation)**. |
-| Digital | Existing EQ: [filter icons](../../eq/prompts/33-filter-shape-icons.md) **(Sonnet)**. Existing Maximiser: [defaults and loudness meter](../../maximiser/prompts/README.md). Next [D1 Clean Compressor](classics/D1-clean-compressor.md) **(Opus for design, Sonnet for implementation)**. |
+| Analog emulation | Existing 1176-inspired FET compressor: [Low Cut](../../analog-compressor/prompts/07-detector-low-cut.md) **(Sonnet)** then [editor polish](../../analog-compressor/prompts/08-1176-editor.md) **(Sonnet)**. Next [OPT-01 Optical Leveller](classics/OPT-01-optical-leveller.md) **(Opus for design, Sonnet for implementation)**, [PEQ-01 Pultec-style EQ](classics/PEQ-01-pultec-eq.md) **(Opus for design, Sonnet for implementation)**, then [BUS-01 SSL-style compressor](classics/BUS-01-ssl.md) **(Opus for design, Sonnet for implementation)**. |
+| Digital | Existing EQ: [filter icons](../../eq/prompts/33-filter-shape-icons.md) **(Sonnet)**. Existing Maximiser: [defaults and loudness meter](../../maximiser/prompts/README.md). Next [CLN-01 Clean Compressor](classics/CLN-01-clean-compressor.md) **(Opus for design, Sonnet for implementation)**. |
 
-The [S8 suite branding](done/S8-songsmith-plugins-brand.md) is done. Apply [S9 curated and custom presets](S9-preset-library.md) **(Sonnet)** and [S10 resizable editors and control help](S10-resize-and-plain-language.md) **(Sonnet)** across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
+The [SUI-08 suite branding](done/SUI-08-songsmith-plugins-brand.md) is done. Apply [SUI-09 curated and custom presets](SUI-09-preset-library.md) **(Sonnet)** and [SUI-10 resizable editors and control help](SUI-10-resize-and-plain-language.md) **(Sonnet)** across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
 
 ### Version alignment with delivery milestones
 
@@ -88,23 +88,23 @@ Agree and record a **release checkpoint with a named, testable feature scope** b
 
 | Priority | Batch | Order and release checks |
 |---|---|---|
-| 1 | Suite release | S6–S8 and S11: installer choices, versioning, Songsmith Plugins branding, and per-plugin latency and optional Processing Load readouts. Verify reported latency in each latency-changing mode in a host and benchmark the timing overhead. Validate upgrade, scanning and old project recall in Studio One and Cakewalk. |
+| 1 | Suite release | SUI-06–SUI-08 and SUI-11: installer choices, versioning, Songsmith Plugins branding, and per-plugin latency and optional Processing Load readouts. Verify reported latency in each latency-changing mode in a host and benchmark the timing overhead. Validate upgrade, scanning and old project recall in Studio One and Cakewalk. |
 | 2 | EQ improvements | EQ 33 filter shape icons, EQ 34 Linear Phase tooltip and EQ 32 instrument frequency guide. The guide can ship independently of the smaller fixes. |
-| 3 | Blackface workflow | Compressor 06 → 07 → 08: oversampling default, detector Low Cut, then the larger meter and textured editor. Apply S10 resize and tooltip rules and S9 preset rules to the compressor here. |
+| 3 | Blackface workflow | Compressor 06 → 07 → 08: oversampling default, detector Low Cut, then the larger meter and textured editor. Apply SUI-10 resize and tooltip rules and SUI-09 preset rules to the compressor here. |
 | 4 | Digital polish | Verify the Maximiser true-peak ceiling on exported files, then run Maximiser 06 → 07 for the default and LUFS meter. |
 | 5 | FET compressor models | Deliver compressor 10 in checkpoints: model selector and texture switching with Blue Stripe first, then Anniversary Edition (2:1 and Slow Attack), then Lindell and Acoustic Guitar Smoothing once the exact Lindell reference is confirmed. Preserve legacy Blackface recall and validate each model independently. |
 | 6 | Set Levels | Deliver compressor 09 against the selected model. Validate on Blackface and each new model as it becomes available. |
-| 7 | Optical Leveller | Deliver A1 as the first new standalone analog classic. Validate vocal and bass presets and host recall. |
-| 8 | Clean Compressor | Deliver D1 as its own digital release. It can proceed independently of Phase 7. |
-| 9 | Complete the classics | A2 Pultec-style EQ → A3 SSL-style Bus Compressor. Finish S9 and S10 across the suite as each plugin is released. |
+| 7 | Optical Leveller | Deliver OPT-01 as the first new standalone analog classic. Validate vocal and bass presets and host recall. |
+| 8 | Clean Compressor | Deliver CLN-01 as its own digital release. It can proceed independently of Phase 7. |
+| 9 | Complete the classics | PEQ-01 Pultec-style EQ → BUS-01 SSL-style Bus Compressor. Finish SUI-09 and SUI-10 across the suite as each plugin is released. |
 | 10 | Standalone Loudness Analyser | Can start once the Maximiser measurement engine is validated and reusable. |
 | 11 | Channel Strip | Start after the standalone classics are released and validated in both tracks. Include the internal Abbey Road reverb bus. |
 
 The priorities describe release order. Independent work can proceed alongside the current batch. Use the model recommendations on each prompt.
 
-### ✅ S11 · Latency and Processing Load
+### ✅ SUI-11 · Latency and Processing Load
 
-**Done — [archived prompt S11](done/S11-latency-and-processing-load.md)**. Implemented behaviour is described in the [style guide](../../docs/style-guide.md#latency-and-processing-load-strip) and included in the [1.1.0 changelog](../../CHANGELOG.md#110). The original requirements have been preserved in the archive, rather than embedded here as an active instruction.
+**Done — [archived prompt SUI-11](done/SUI-11-latency-and-processing-load.md)**. Implemented behaviour is described in the [style guide](../../docs/style-guide.md#latency-and-processing-load-strip) and included in the [1.1.0 changelog](../../CHANGELOG.md#110). The original requirements have been preserved in the archive, rather than embedded here as an active instruction.
 
 ## Overnight runs merge into `main`
 
@@ -114,12 +114,12 @@ When these prompts are run unattended (for example overnight with [`overnight-pr
 
 | Wave | Prompts | Notes |
 |---|---|---|
-| 1 | S1 shared look · S4 Windows suite installer | Independent: S1 is editor code and CMake, S4 is installer and CI. |
-| 2 | S2 bevelled controls · S3 plain words · S5 macOS suite installer | S2 and S3 both build on S1's shared library and both touch every editor; expect small conflicts in the editors and the style guide. S5 reuses S4's CI job and naming. |
+| 1 | SUI-01 shared look · SUI-04 Windows suite installer | Independent: SUI-01 is editor code and CMake, SUI-04 is installer and CI. |
+| 2 | SUI-02 bevelled controls · SUI-03 plain words · SUI-05 macOS suite installer | SUI-02 and SUI-03 both build on SUI-01's shared library and both touch every editor; expect small conflicts in the editors and the style guide. SUI-05 reuses SUI-04's CI job and naming. |
 
 ## Conflict hotspots
 
-- Each plugin's `CMakeLists.txt` (S1 links the shared library; S4/S5 only read versions from it).
-- `.github/workflows/build.yml`: S4 and S5 both add the suite installer job.
-- `docs/style-guide.md`: S1 creates it, S2 and S3 add sections.
+- Each plugin's `CMakeLists.txt` (SUI-01 links the shared library; SUI-04/SUI-05 only read versions from it).
+- `.github/workflows/build.yml`: SUI-04 and SUI-05 both add the suite installer job.
+- `docs/style-guide.md`: SUI-01 creates it, SUI-02 and SUI-03 add sections.
 - The three look-and-feel files (`eq/Source/EQLookAndFeel.h`, `analog-compressor/Source/FETLookAndFeel.h`, `maximiser/Source/MaxLookAndFeel.h`).

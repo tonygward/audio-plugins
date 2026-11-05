@@ -11,7 +11,7 @@ You may be running **unattended**. Nobody will answer questions. When something 
 
 **Read first**
 - `README.md`, `prompts/suite/README.md`, `eq/ROADMAP.md` ("Out of scope": no signing or notarisation).
-- Task S4's Windows suite installer in `installer/windows/` and its CI job, so both platforms use the same name, version file and behaviour.
+- Task SUI-04's Windows suite installer in `installer/windows/` and its CI job, so both platforms use the same name, version file and behaviour.
 - The three macOS installers: `eq/installer/macos/`, `fet/installer/macos/`, `maximizer/installer/macos/` (`build-installer.sh`, `distribution.xml`, `resources/`, `scripts/`, `test-installer.sh`, `uninstall.sh`).
 - `.github/workflows/build.yml`: the three macOS build jobs and their artifacts.
 - Work with the existing installers. Don't rewrite them.
@@ -33,18 +33,18 @@ You may be running **unattended**. Nobody will answer questions. When something 
 
 ---
 
-# Task S5: One macOS installer for every plugin
+# Task SUI-05: One macOS installer for every plugin
 
-**Branch:** `suite/S5-macos-suite-installer`
+**Branch:** `suite/SUI-05-macos-suite-installer`
 
 ## Why
 
-Same as task S4, on the Mac: one download, one Gatekeeper warning, and a choice of which plugins to install.
+Same as task SUI-04, on the Mac: one download, one Gatekeeper warning, and a choice of which plugins to install.
 
 ## Requirements
 
 - New folder `installer/macos/` at the repo root: `build-installer.sh`, `distribution.xml`, `resources/` (welcome, readme and licence pages in plain words), `test-installer.sh` and `uninstall.sh`.
-- Output: `Songsmith-Studio-<version>-macOS.pkg`, universal (Apple Silicon and Intel), using the suite version file from task S4.
+- Output: `Songsmith-Studio-<version>-macOS.pkg`, universal (Apple Silicon and Intel), using the suite version file from task SUI-04.
 - **Choosing plugins:** the Customize page shows one group per plugin, all selected by default, each with a one-line plain description. Inside each group: VST3 plug-in, Audio Unit (for Logic Pro and GarageBand) and standalone app, all selected. Deselecting a group deselects its children. Use the same wording as the Windows installer, with no abbreviations except the format names VST3 and AU.
 - Build the suite from the **same component packages** the per-plugin `build-installer.sh` scripts make (reuse those scripts or factor out the `pkgbuild` step), not copies, so they can't drift apart.
 - Each plugin's existing `preinstall`/`postinstall` behaviour carries over (legacy `TW Pro EQ` removal, cleaning user-folder copies, refreshing the AU cache).

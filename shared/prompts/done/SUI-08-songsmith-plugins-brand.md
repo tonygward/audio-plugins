@@ -1,6 +1,6 @@
-# S8 · Name the suite Songsmith Plugins
+# SUI-08 · Name the suite Songsmith Plugins
 
-Follow `CLAUDE.md`. Coordinate with S6 and S7 to avoid conflicting installer changes.
+Follow `CLAUDE.md`. Coordinate with SUI-06 and SUI-07 to avoid conflicting installer changes.
 
 Use **Songsmith Plugins** for the suite in the welcome page, technical guide, editor suite branding, installers, release copy and screenshots generated for the release. Keep the individual product names and identifiers stable. Separate the display name from installer AppIds, package IDs, plugin IDs, binary and bundle names, and preset paths. Preserve recognition of older releases and installers during upgrades. Keep old tags usable.
 

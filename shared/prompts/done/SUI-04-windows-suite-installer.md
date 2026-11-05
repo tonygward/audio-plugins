@@ -33,9 +33,9 @@ You may be running **unattended**. Nobody will answer questions. When something 
 
 ---
 
-# Task S4: One Windows installer for every plugin
+# Task SUI-04: One Windows installer for every plugin
 
-**Branch:** `suite/S4-windows-suite-installer`
+**Branch:** `suite/SUI-04-windows-suite-installer`
 
 ## Why
 
@@ -74,6 +74,6 @@ Each plugin has its own installer, so someone who wants all three downloads and 
 
 ## Out of scope
 
-- macOS (task S5).
+- macOS (task SUI-05).
 - Code signing, auto-update, downloading plugins from the internet.
 - Publishing a release.

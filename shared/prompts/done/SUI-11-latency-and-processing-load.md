@@ -1,13 +1,13 @@
-# S11 · Latency and Processing Load in every plugin
+# SUI-11 · Latency and Processing Load in every plugin
 
-**Prompt ID:** S11  
+**Prompt ID:** SUI-11  
 **Scope:** Shared suite  
 **Status:** Done — shipped in suite version 1.1.0  
-**Canonical archive:** `shared/prompts/done/S11-latency-and-processing-load.md`  
+**Canonical archive:** `shared/prompts/done/SUI-11-latency-and-processing-load.md`  
 **Implementation reference:** [Style guide — Latency and Processing Load strip](../../../docs/style-guide.md#latency-and-processing-load-strip)  
 **Release reference:** [Changelog — 1.1.0](../../../CHANGELOG.md#110)
 
-> Retrospective archival of the S11 acceptance requirements previously embedded in `shared/prompts/README.md`. This file is a record of completed work, **not** a new implementation instruction. Do not claim that its creation constitutes fresh testing.
+> Retrospective archival of the SUI-11 acceptance requirements previously embedded in `shared/prompts/README.md`. This file is a record of completed work, **not** a new implementation instruction. Do not claim that its creation constitutes fresh testing.
 
 **Model:** Sonnet; Opus review only if safe timing or publication from the audio thread proves difficult.
 

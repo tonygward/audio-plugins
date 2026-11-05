@@ -10,7 +10,7 @@ You may be running **unattended**. Nobody will answer questions. When something 
 - Commit in logical steps with clear messages.
 
 **Read first**
-- `README.md`, `prompts/suite/README.md`, `docs/style-guide.md` and the `shared/` library added by task S1.
+- `README.md`, `prompts/suite/README.md`, `docs/style-guide.md` and the `shared/` library added by task SUI-01.
 - Each plugin's look-and-feel: `eq/Source/EQLookAndFeel.h`, `fet/Source/FETLookAndFeel.h`, `maximizer/Source/MaxLookAndFeel.h`, plus any control that paints itself (for example `FETKnob::paint` in `fet/Source/PluginEditor.cpp`, the EQ's `BandPanel`, `PresetBar` and `OutputMeter`, the maximiser's `Meters.h`).
 - Work with the existing architecture. Don't rewrite it.
 
@@ -27,7 +27,7 @@ You may be running **unattended**. Nobody will answer questions. When something 
 - For each of `eq`, `fet` and `maximizer`: `cmake --build <plugin>/build --config Release`. If a `build/` folder is missing, first run `cmake -S <plugin> -B <plugin>/build -G "Visual Studio 18 2026" -A x64 -DJUCE_DIR=C:/dev/JUCE`.
 - Every build must succeed with no new warnings, here and on the macOS CI job.
 - Run every test executable (`EQTests`, `FETTests`, `MaximizerTests`) and make sure all tests pass. Add tests in the existing `juce::UnitTest` style.
-- Render before and after screenshots of every editor with each test executable's screenshot option, at `--scale 1` and `--scale 2`, including buttons in their off, on, hover (if the renderer can show it) and disabled states. Commit them under `docs/screenshots/S2/` and show them side by side in the PR.
+- Render before and after screenshots of every editor with each test executable's screenshot option, at `--scale 1` and `--scale 2`, including buttons in their off, on, hover (if the renderer can show it) and disabled states. Commit them under `docs/screenshots/SUI-02/` and show them side by side in the PR.
 - **Do not run any `install.ps1`, installer or system-wide install.**
 
 **Finish**
@@ -37,9 +37,9 @@ You may be running **unattended**. Nobody will answer questions. When something 
 
 ---
 
-# Task S2: The compressor's bevelled look on every control, in every plugin
+# Task SUI-02: The compressor's bevelled look on every control, in every plugin
 
-**Branch:** `suite/S2-bevelled-controls`
+**Branch:** `suite/SUI-02-bevelled-controls`
 
 ## Why
 
@@ -58,7 +58,7 @@ Write down the recipe in `docs/style-guide.md` under a "Controls" heading (light
 
 ### 1. Shared control drawing
 
-Add the drawing to the shared look-and-feel base from task S1 (`shared/`), so every plugin inherits it:
+Add the drawing to the shared look-and-feel base from task SUI-01 (`shared/`), so every plugin inherits it:
 
 - **Buttons and toggle buttons** (`drawButtonBackground`, `drawButtonText`, `drawToggleButton` where used): slightly raised when off: a vertical gradient a little lighter at the top, a 1 px highlight on the top inner edge, a 1 px darker edge at the bottom, rounded corners (about 4 px at 100 %). When **on** or **pressed**, it looks pushed in: the gradient reversed or darkened, the highlight moves to the bottom edge, and it fills with the plugin's accent colour (the bypass colour for Bypass, as the compressor does now). Hover brightens slightly. Disabled is dimmed and flat. Keep it subtle: "slightly bevelled", not skeuomorphic chrome.
 - **Rotary knobs:** the compressor's knob recipe, with the pointer and any value arc in the plugin's accent colour. The EQ's band panel knobs and the maximiser's Release knob move to it.
@@ -81,6 +81,6 @@ Add the drawing to the shared look-and-feel base from task S1 (`shared/`), so ev
 
 ## Out of scope
 
-- Changing wording (task S3) or type sizes (task S1).
+- Changing wording (task SUI-03) or type sizes (task SUI-01).
 - Moving or adding controls.
 - Changing how meters or the EQ graph are drawn, beyond the panel background around them.

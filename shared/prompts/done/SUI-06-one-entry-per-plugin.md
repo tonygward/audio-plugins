@@ -2,9 +2,9 @@ You are an experienced build engineer working on the **Songsmith Studio** plugin
 
 You may be running **unattended**. Nobody will answer questions. When something is unclear, choose the most sensible option, keep going, and record the decision in the PR description.
 
-# Task S6: One installer entry per plugin
+# Task SUI-06: One installer entry per plugin
 
-**Branch:** `suite/S6-one-entry-per-plugin`
+**Branch:** `suite/SUI-06-one-entry-per-plugin`
 
 ## Why
 
@@ -15,7 +15,7 @@ The suite installer's Components page lists each plugin twice: "Songsmith EQ", t
 - `installer/windows/SongsmithStudio.iss` (`[Components]`, `[InstallDelete]`, `[Icons]`, the `SuiteHad` code and the remembered selection), `build-installer.ps1`, `test-installer.ps1`.
 - `installer/macos/distribution.xml`, `build-installer.sh`, `test-installer.sh`.
 - The per-plugin installers: `eq/installer/SongsmithEQ.iss`, `analog-compressor/installer/SongsmithAnalogCompressor.iss`, `maximiser/installer/SongsmithMaximiser.iss`.
-- `prompts/done/S4-windows-suite-installer.md` and `S5-macos-suite-installer.md`, to see why things are the way they are.
+- `prompts/done/SUI-04-windows-suite-installer.md` and `SUI-05-macos-suite-installer.md`, to see why things are the way they are.
 
 ## Requirements
 

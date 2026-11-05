@@ -1,4 +1,4 @@
-# S9 · Curated factory presets and custom preset saving
+# SUI-09 · Curated factory presets and custom preset saving
 
 Follow `CLAUDE.md`. Audit EQ, Analog Compressor and Maximiser before changing them. Reuse the EQ preset implementation where its format and behaviour fit. Apply this acceptance standard to every future plugin.
 

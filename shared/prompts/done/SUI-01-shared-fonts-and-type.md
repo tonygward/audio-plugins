@@ -26,7 +26,7 @@ You may be running **unattended**. Nobody will answer questions. When something 
 - For each of `eq`, `fet` and `maximizer`: `cmake --build <plugin>/build --config Release`. If a `build/` folder is missing, first run `cmake -S <plugin> -B <plugin>/build -G "Visual Studio 18 2026" -A x64 -DJUCE_DIR=C:/dev/JUCE`.
 - Every build must succeed with no new warnings, here and on the macOS CI job.
 - Run every test executable and make sure all tests pass: `eq/build/EQTests_artefacts/Release/EQTests.exe`, `fet/build/FETTests_artefacts/Release/FETTests.exe`, `maximizer/build/MaximizerTests_artefacts/Release/MaximizerTests.exe`. Add tests in the existing `juce::UnitTest` style.
-- Render before and after screenshots of every editor with each test executable's screenshot option (`--screenshots <folder>` / `--screenshot <file>`, at `--scale 1` and `--scale 2`). Commit them under `docs/screenshots/S1/` and show them side by side in the PR.
+- Render before and after screenshots of every editor with each test executable's screenshot option (`--screenshots <folder>` / `--screenshot <file>`, at `--scale 1` and `--scale 2`). Commit them under `docs/screenshots/SUI-01/` and show them side by side in the PR.
 - **Do not run any `install.ps1`, installer or system-wide install.**
 
 **Finish**
@@ -36,9 +36,9 @@ You may be running **unattended**. Nobody will answer questions. When something 
 
 ---
 
-# Task S1: One shared look: fonts, type sizes and a style guide
+# Task SUI-01: One shared look: fonts, type sizes and a style guide
 
-**Branch:** `suite/S1-shared-fonts-and-type`
+**Branch:** `suite/SUI-01-shared-fonts-and-type`
 
 ## Why
 
@@ -55,7 +55,7 @@ The three plugins were built one after another and each copied what it needed fr
   - the `Weight` enum (Regular, Medium, SemiBold), the cached `typeface (Weight)`, `font (height, weight)` and `numbers (height, weight)` (tabular figures);
   - one **type scale** with named roles, not numbers sprinkled through editors. Start from task 24's rules and the maximiser's `TextSize`, for example: `caption` (grid and scale labels, 11 px, lighter colour only), `hint` (12 px), `control` (13 px labels and values), `heading` (14–15 px band titles, section captions, top-bar controls), `title` (18 px plugin name). Pick the final numbers by comparing the three editors and say why in the PR.
   - a `drawTitle()` helper (or similar) so every plugin draws "Songsmith" + product name the same way, in the same place, at the same size. The compressor's title bar is the model; the per-plugin accent colour may differ.
-- A shared base look-and-feel, for example `Songsmith::UI::LookAndFeelBase : juce::LookAndFeel_V4`, that serves the typeface (`getTypefaceForFont`, `setDefaultSansSerifTypeface`) and the fonts for labels, buttons, combo boxes, popup menus, tooltips and slider pop-ups from the type scale. Each plugin's own look-and-feel derives from it and keeps its colours and special drawing (meters, faders, the EQ graph). Task S2 will add the shared control drawing on top of this, so leave room for it.
+- A shared base look-and-feel, for example `Songsmith::UI::LookAndFeelBase : juce::LookAndFeel_V4`, that serves the typeface (`getTypefaceForFont`, `setDefaultSansSerifTypeface`) and the fonts for labels, buttons, combo boxes, popup menus, tooltips and slider pop-ups from the type scale. Each plugin's own look-and-feel derives from it and keeps its colours and special drawing (meters, faders, the EQ graph). Task SUI-02 will add the shared control drawing on top of this, so leave room for it.
 
 ### 2. Move every plugin onto it
 
@@ -65,7 +65,7 @@ The three plugins were built one after another and each copied what it needed fr
 
 ### 3. Style guide
 
-- Write `docs/style-guide.md`: the typeface and why, the type scale table (role, size, weight, where it's used), the title treatment, the per-plugin accent colours, and the rule that new plugins link `shared/` instead of copying. Keep it short and plain. Tasks S2 (controls) and S3 (wording) will add sections, so give each topic its own heading.
+- Write `docs/style-guide.md`: the typeface and why, the type scale table (role, size, weight, where it's used), the title treatment, the per-plugin accent colours, and the rule that new plugins link `shared/` instead of copying. Keep it short and plain. Tasks SUI-02 (controls) and SUI-03 (wording) will add sections, so give each topic its own heading.
 - Link it from the root `README.md`, and move the "Fonts" credit there so it names the shared folder.
 
 ## Tests
@@ -76,6 +76,6 @@ The three plugins were built one after another and each copied what it needed fr
 
 ## Out of scope
 
-- Changing colours, control shapes or button drawing (task S2).
-- Changing any wording (task S3).
+- Changing colours, control shapes or button drawing (task SUI-02).
+- Changing any wording (task SUI-03).
 - Layout changes beyond what is needed to keep text from clipping.

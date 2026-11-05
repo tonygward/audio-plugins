@@ -1,4 +1,4 @@
-# F1 — Musician-friendly guidance across Songsmith plugins
+# ADV-01 — Musician-friendly guidance across Songsmith plugins
 
 **Status:** Future candidate, not queued for automatic execution. **Model:** Sonnet for implementation; Opus only if a cross-plugin architecture decision requires it.
 
@@ -27,6 +27,6 @@ Follow the standing design rule in `CLAUDE.md`, existing UI style guide, and sou
 4. Add automated tests for trigger conditions, silence, insufficient playback, text clarity, saved preferences, parameter recall and non-interference with audio/automation. Validate visually in Studio One/Cakewalk and on Mac.
 5. Supply before/after screenshots in the PR **and retain useful current screenshots in product READMEs**.
 
-**Boundary:** Live plugins generally cannot know the original WAV file's sample depth from a DAW float buffer. Recording-format explanations belong in the standalone whole-file adviser (F2).
+**Boundary:** Live plugins generally cannot know the original WAV file's sample depth from a DAW float buffer. Recording-format explanations belong in the standalone whole-file adviser (REC-01).
 
 Open a draft PR once implemented; do not release merely because this prompt was written.

@@ -10,7 +10,7 @@ You may be running **unattended**. Nobody will answer questions. When something 
 - Commit in logical steps with clear messages.
 
 **Read first**
-- `README.md`, `prompts/suite/README.md`, `docs/style-guide.md` and the `shared/` library added by task S1.
+- `README.md`, `prompts/suite/README.md`, `docs/style-guide.md` and the `shared/` library added by task SUI-01.
 - `eq/prompts/roadmap/done/24-*.md`: the EQ task that set the "no abbreviations" rule, and the banned-token test it added in `eq/Tests/EQTests.cpp`.
 - Every editor source file in `eq/Source`, `fet/Source` and `maximizer/Source`, every `createParameterLayout()`, the preset and starting-point lists (`eq/Source/PresetManager.cpp`, `fet/Source/FETPresets.cpp`, `maximizer/Source/StartingPoints.h`), and each plugin's `README.md`.
 - Work with the existing architecture. Don't rewrite it.
@@ -28,7 +28,7 @@ You may be running **unattended**. Nobody will answer questions. When something 
 - For each of `eq`, `fet` and `maximizer`: `cmake --build <plugin>/build --config Release`. If a `build/` folder is missing, first run `cmake -S <plugin> -B <plugin>/build -G "Visual Studio 18 2026" -A x64 -DJUCE_DIR=C:/dev/JUCE`.
 - Every build must succeed with no new warnings, here and on the macOS CI job.
 - Run every test executable (`EQTests`, `FETTests`, `MaximizerTests`) and make sure all tests pass. Add tests in the existing `juce::UnitTest` style.
-- Render before and after screenshots of every editor with each test executable's screenshot option, at the default and minimum sizes. Commit them under `docs/screenshots/S3/` and show them in the PR.
+- Render before and after screenshots of every editor with each test executable's screenshot option, at the default and minimum sizes. Commit them under `docs/screenshots/SUI-03/` and show them in the PR.
 - **Do not run any `install.ps1`, installer or system-wide install.**
 
 **Finish**
@@ -38,9 +38,9 @@ You may be running **unattended**. Nobody will answer questions. When something 
 
 ---
 
-# Task S3: Plain words in every plugin
+# Task SUI-03: Plain words in every plugin
 
-**Branch:** `suite/S3-plain-words`
+**Branch:** `suite/SUI-03-plain-words`
 
 ## Why
 
@@ -80,7 +80,7 @@ Don't rename products. "Songsmith Analog Compressor" vs British "analogue" and "
 
 ## 3. One test for every plugin
 
-- Move the EQ's banned-token check into the shared library from task S1 (for example `shared/Source/WordingCheck.h`), so every plugin's tests use the same walker and the same rules.
+- Move the EQ's banned-token check into the shared library from task SUI-01 (for example `shared/Source/WordingCheck.h`), so every plugin's tests use the same walker and the same rules.
 - It walks an editor's component tree (buttons, labels, combo-box items, slider text, tooltips, popup-menu items where they can be built without showing them) and also checks every parameter's display name. It fails on any banned token and on any standalone capital letter other than `Q`.
 - The banned list is shared and covers at least: `SC`, `AG`, `OS`, `GR`, `Dyn`, `FREQ`, `THRESH`, `Atten`, `Sidechain`, `In`, `Out` (as whole words), `TPDF`, plus every abbreviation you replaced in this task.
 - Each plugin's test executable runs it against its own editor at the default and minimum sizes.
@@ -93,5 +93,5 @@ Don't rename products. "Songsmith Analog Compressor" vs British "analogue" and "
 
 ## Out of scope
 
-- Changing fonts or sizes (task S1) or how controls are drawn (task S2).
+- Changing fonts or sizes (task SUI-01) or how controls are drawn (task SUI-02).
 - Renaming products, bundles, folders or parameter IDs.

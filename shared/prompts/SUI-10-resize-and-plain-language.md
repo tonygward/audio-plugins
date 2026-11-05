@@ -1,4 +1,4 @@
-# S10 · Resizable editors and clear control help
+# SUI-10 · Resizable editors and clear control help
 
 Follow `CLAUDE.md` and `docs/style-guide.md`. Use the EQ as the resizing reference. Audit the three current plugins, with the Analog Compressor as the priority, and use the same acceptance standard for new plugins.
 
