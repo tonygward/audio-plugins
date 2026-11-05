@@ -10,7 +10,9 @@ namespace Max
     // so every size looks the same. The window keeps the design aspect ratio.
     namespace EditorLayout
     {
-        constexpr int designWidth = 720, designHeight = 420;
+        constexpr int designWidth = 720, contentHeight = 420;   // the controls sit in the top 420
+        constexpr int footerHeight = 28;                      // the latency and Processing Load strip below them
+        constexpr int designHeight = contentHeight + footerHeight;
         constexpr int defaultWidth = designWidth;
         constexpr int minWidth = 540, maxWidth = 2160;   // 75 % to 300 %
 

@@ -13,6 +13,7 @@
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
 #include "../../shared/Tests/SongsmithUITests.h"
+#include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "SongsmithWording.h"
 
 using namespace EQ;
@@ -3988,10 +3989,11 @@ public:
     {
         using namespace EQ::EditorSize;
 
-        beginTest ("Limits: default about 1280 x 760, up to 4K, aspect range");
+        beginTest ("Limits: default about 1280 x 788 (760 plus the diagnostics strip), up to 4K, aspect range");
         {
             expectEquals (defaultWidth, 1280);
-            expectEquals (defaultHeight, 760);
+            expectEquals (defaultHeight, 760 + diagnosticsHeight);
+            expectEquals (diagnosticsHeight, Songsmith::Diagnostics::Bar::designHeight, "the editor strip is as tall as the shared bar");
             expect (maxWidth >= 3840 && maxHeight >= 2160, "fills a 4K screen");
             expectEquals (constrain (99999, 99999, 1.0f).x, maxWidth);
             expectEquals (constrain (10, 10, 1.0f).x, minWidth);
@@ -4008,7 +4010,7 @@ public:
             SongsmithEQAudioProcessor p;
             auto ed = makeEditor (p, 1.0f, defaultWidth, defaultHeight);
             expectEquals (ed->getWidth(), 1280);
-            expectEquals (ed->getHeight(), 760);
+            expectEquals (ed->getHeight(), 760 + diagnosticsHeight);
             expectEquals (ed->getContentScale(), 1.0f, "no extra scaling at the default size");
         }
 
@@ -4459,12 +4461,105 @@ public:
     }
 };
 
+//==============================================================================
+// The latency and Processing Load strip (suite task S11).
+class DiagnosticsTests final : public juce::UnitTest
+{
+public:
+    DiagnosticsTests() : juce::UnitTest ("Latency and Processing Load", "EQ") {}
+
+    void runTest() override
+    {
+        using namespace Songsmith::Diagnostics;
+
+        beginTest ("The strip shows the reported latency in every latency-changing mode and sample rate");
+        {
+            int distinct = 0, last = -1;
+            for (double fs : { 44100.0, 48000.0, 96000.0 })
+                for (int phase : { 0, 1 })
+                    for (int oversampling : { 0, 1, 2 })
+                    {
+                        SongsmithEQAudioProcessor p;
+                        setParam (p, "phase_mode", (float) phase);
+                        setParam (p, "oversampling", (float) oversampling);
+                        p.setRateAndBufferSizeDetails (fs, 512);
+                        p.prepareToPlay (fs, 512);
+                        p.updateLatencyNow();
+
+                        const juce::String context = juce::String (phase ? "linear phase" : "zero latency") + ", oversampling "
+                                                     + juce::String (oversampling) + ", " + juce::String (fs) + " Hz";
+                        Testing::checkLatencyDisplay (*this, p, context);
+                        if (p.getLatencySamples() != last) { ++distinct; last = p.getLatencySamples(); }
+                    }
+            expectGreaterThan (distinct, 3, "the modes really do report different latencies");
+
+            SongsmithEQAudioProcessor zero;
+            zero.setRateAndBufferSizeDetails (48000.0, 512);
+            zero.prepareToPlay (48000.0, 512);
+            expectEquals (zero.getLatencySamples(), 0, "the default mode adds no delay");
+        }
+
+        beginTest ("The strip follows a mode change while it is open");
+        {
+            Testing::TemporarySettings settings;
+            SongsmithEQAudioProcessor p;
+            p.setRateAndBufferSizeDetails (48000.0, 512);
+            p.prepareToPlay (48000.0, 512);
+            LoadMeter meter;
+            Bar bar (p, meter, JucePlugin_Name);
+
+            bar.refresh();
+            expectEquals (Testing::parseLatency (bar.getLatencyText()).samples, 0, "zero latency to begin with");
+
+            setParam (p, "oversampling", 2.0f);
+            p.prepareToPlay (48000.0, 512);
+            p.updateLatencyNow();
+            bar.refresh();
+            expectGreaterThan (Testing::parseLatency (bar.getLatencyText()).samples, 0, "oversampling adds delay and the strip shows it");
+            expectEquals (Testing::parseLatency (bar.getLatencyText()).samples, p.getLatencySamples());
+
+            p.setRateAndBufferSizeDetails (96000.0, 512);
+            p.prepareToPlay (96000.0, 512);
+            p.updateLatencyNow();
+            bar.refresh();
+            const auto shown = Testing::parseLatency (bar.getLatencyText());
+            expectWithinAbsoluteError (shown.milliseconds, 1000.0 * p.getLatencySamples() / 96000.0, 0.051, "the milliseconds follow the new sample rate");
+        }
+
+        beginTest ("Processing Load is off until switched on, and measures real blocks at every size");
+        {
+            Testing::TemporarySettings settings;
+            SongsmithEQAudioProcessor p;
+            expect (! p.loadMeter.isEnabled(), "off by default");
+            Testing::checkLoadMeasured (*this, p, p.loadMeter, "EQ");
+
+            Bar bar (p, p.loadMeter, JucePlugin_Name);
+            expectEquals (bar.getLoadText(), juce::String ("Off"));
+            bar.getLoadSwitch().setToggleState (true, juce::sendNotificationSync);   // runs the click handler now
+            expect (p.loadMeter.isEnabled(), "the switch turns timing on");
+            expectEquals (bar.getLoadText(), juce::String ("Unavailable"), "no block yet");
+            expect (Settings::loadEnabled (JucePlugin_Name), "the choice is saved to the machine setting, not the session");
+        }
+
+        beginTest ("The load meter leaves the saved session alone");
+        {
+            SongsmithEQAudioProcessor p;
+            juce::MemoryBlock before, after;
+            p.getStateInformation (before);
+            p.loadMeter.setEnabled (true);
+            p.getStateInformation (after);
+            expect (before == after, "timing on or off changes nothing in the session state");
+        }
+    }
+};
 static PianoToggleTests pianoToggleTests;
 static EdgeClickTests edgeClickTests;
 static OutputMeterTests outputMeterTests;
 static UiSizeTests uiSizeTests;
 static WordingAndFontTests wordingAndFontTests;
 static SongsmithUITests sharedUITests { "EQ" };
+static SongsmithDiagnosticsTests sharedDiagnosticsTests { "EQ" };
+static DiagnosticsTests diagnosticsTests;
 static RenameTests renameTests;
 static StartingPointTests startingPointTests;
 static OversamplingTests oversamplingTests;

@@ -9,6 +9,7 @@
 #include "EngineMeasure.h"
 #include "ColourMeasure.h"
 #include "../../shared/Tests/SongsmithUITests.h"
+#include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "SongsmithWording.h"
 #include "FETPresets.h"
 
@@ -447,3 +448,4 @@ static AllButtonsTests allButtonsTests;
 static MeterTests meterTests;
 static EditorTests4 editorTests4;
 static SongsmithUITests sharedUITests { "FET" };
+static SongsmithDiagnosticsTests sharedDiagnosticsTests { "FET" };

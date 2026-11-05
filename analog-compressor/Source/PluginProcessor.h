@@ -7,6 +7,7 @@
 #include "FETEngine.h"
 #include "FETColour.h"
 #include "FETPresets.h"
+#include "../../shared/Source/SongsmithDiagnostics.h"
 
 class SongsmithAnalogCompressorProcessor : public juce::AudioProcessor, private juce::Timer
 {
@@ -68,6 +69,9 @@ public:
 
     // Editor state saved with the session (not automatable): interface size and meter mode.
     std::atomic<float> uiScale { 1.0f };
+
+    // Optional timing of processBlock for the editor's Processing Load readout (off unless the editor switches it on).
+    Songsmith::Diagnostics::LoadMeter loadMeter;
     std::atomic<int> meterMode { 0 };   // 0 = GR, 1 = +4, 2 = +8 (UG p. 3)
     static inline const juce::Identifier uiId { "UI" };
 

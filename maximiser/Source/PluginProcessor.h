@@ -6,6 +6,7 @@
 #include "Dither.h"
 #include "EditorLogic.h"
 #include "StartingPoints.h"
+#include "../../shared/Source/SongsmithDiagnostics.h"
 
 class SongsmithMaximiserAudioProcessor : public juce::AudioProcessor
 {
@@ -83,6 +84,9 @@ public:
     static float readAndReset (std::atomic<float>& meter, float resetTo = 0.0f) noexcept { return meter.exchange (resetTo, std::memory_order_relaxed); }
 
     const Max::BrickwallLimiter& getLimiter() const noexcept { return limiter; }
+
+    // Optional timing of processBlock for the editor's Processing Load readout (off unless the editor switches it on).
+    Songsmith::Diagnostics::LoadMeter loadMeter;
 
 private:
     std::atomic<float>* thresholdRaw = nullptr;

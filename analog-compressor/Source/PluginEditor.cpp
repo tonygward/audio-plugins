@@ -185,6 +185,9 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     setMeterMode (proc.meterMode.load());
     meter.ballistics.reset (needleFraction (0.0f));
 
+    diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (proc, proc.loadMeter, JucePlugin_Name);
+    content.addAndMakeVisible (*diagnostics);
+
     layoutContent();
     setUiScale (proc.uiScale.load());
     startTimerHz (30);
@@ -193,6 +196,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
 SongsmithAnalogCompressorEditor::~SongsmithAnalogCompressorEditor()
 {
     stopTimer();
+    diagnostics.reset();   // also stops the audio thread timing the blocks
     setLookAndFeel (nullptr);
 }
 
@@ -246,6 +250,8 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     presetBox.setBounds (300, 14, 186, 26);
     oversampling.setBounds (498, 14, 170, 26);
     sizeBox.setBounds (680, 14, 200, 26);
+
+    diagnostics->setBounds (0, FET::contentHeight, FET::designWidth, FET::footerHeight);
 }
 
 void SongsmithAnalogCompressorEditor::paint (juce::Graphics& g)

@@ -10,11 +10,14 @@ namespace EQ::EditorSize
 {
     // Layout at UI size 100 %: the top bar, band panel and graph get comfortable room with the
     // fonts from task 24. Window = design size x UI size.
-    constexpr int defaultWidth = 1280, defaultHeight = 760;
+    // The strip along the bottom (latency and Processing Load) takes diagnosticsHeight of it, so the
+    // graph keeps the room it had.
+    constexpr int diagnosticsHeight = 28;
+    constexpr int defaultWidth = 1280, defaultHeight = 760 + diagnosticsHeight;
 
     // Design-unit minimum: the three-row top bar fits spelled out at 760 (task 24). At UI size
     // s the minimum window is this times s.
-    constexpr int minWidth = 760, minHeight = 440;
+    constexpr int minWidth = 760, minHeight = 440 + diagnosticsHeight;
 
     // Large enough to fill a 4K screen (3840 x 2160 at 100 % display scaling), or a 16:10 one.
     constexpr int maxWidth = 3840, maxHeight = 2400;

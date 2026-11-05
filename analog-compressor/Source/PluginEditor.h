@@ -90,6 +90,9 @@ private:
     juce::ComboBox oversampling, sizeBox;
     juce::ComboBox presetBox;
     juce::TooltipWindow tooltips { this, 600 };
+
+    // Latency and the optional Processing Load readout, in the strip below the controls.
+    std::unique_ptr<Songsmith::Diagnostics::Bar> diagnostics;
     std::unique_ptr<juce::AlertWindow> saveDialog;
     static constexpr int savePresetId = 1000, openFolderId = 1001, firstUserId = 100;
     juce::Array<juce::File> userPresetFiles;

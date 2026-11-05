@@ -12,6 +12,7 @@
 #include "AutoGain.h"
 #include "EditorSize.h"
 #include "LinearPhase.h"
+#include "../../shared/Source/SongsmithDiagnostics.h"
 
 class SongsmithEQAudioProcessor : public juce::AudioProcessor, private juce::Timer
 {
@@ -121,6 +122,9 @@ public:
     std::atomic<int>   curveView { 0 };   // 0 all bands, 1 L, 2 R, 3 M, 4 S (see EQDisplay::isInCurveView)
     std::atomic<bool>  showPianoStrip { false };
     std::atomic<int>   editorWidth { EQ::EditorSize::defaultWidth }, editorHeight { EQ::EditorSize::defaultHeight };
+
+    // Optional timing of processBlock for the editor's Processing Load readout (off unless the editor switches it on).
+    Songsmith::Diagnostics::LoadMeter loadMeter;
 
     // UI size (75 % to 200 %, see EditorSize.h). Saved with the session; a new instance starts
     // at the per-machine default, which is the size last chosen on this computer.

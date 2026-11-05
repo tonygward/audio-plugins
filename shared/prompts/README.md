@@ -43,7 +43,9 @@ The [S8 suite branding](done/S8-songsmith-plugins-brand.md) is done. Apply [S9 c
 
 The priorities describe release order. Independent work can proceed alongside the current batch. Use the model recommendations on each prompt.
 
-### S11 · Show latency and processing load in every plugin
+### ✅ S11 · Show latency and processing load in every plugin
+
+**Done** (see the Latency and Processing Load strip in the [style guide](../../docs/style-guide.md#latency-and-processing-load-strip)). Kept here as the written requirements for future plugins.
 
 **Model: Sonnet.** Use Opus for review if safe timing or publication from the audio thread proves difficult.
 

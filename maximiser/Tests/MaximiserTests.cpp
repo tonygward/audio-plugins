@@ -8,6 +8,7 @@
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
 #include "../../shared/Tests/SongsmithUITests.h"
+#include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "SongsmithWording.h"
 #include "MaxParams.h"
 
@@ -1512,11 +1513,89 @@ public:
     }
 };
 
+//==============================================================================
+// The latency and Processing Load strip (suite task S11).
+class DiagnosticsTests final : public juce::UnitTest
+{
+public:
+    DiagnosticsTests() : juce::UnitTest ("Latency and Processing Load", "Maximiser") {}
+
+    void runTest() override
+    {
+        using namespace Songsmith::Diagnostics;
+
+        beginTest ("The strip shows the reported latency at every sample rate and peak mode");
+        {
+            int distinct = 0;
+            int last = -1;
+            for (double fs : { 44100.0, 48000.0, 96000.0, 192000.0 })
+                for (float truePeak : { 0.0f, 1.0f })
+                {
+                    SongsmithMaximiserAudioProcessor p;
+                    setParam (p, Max::peakModeId, truePeak);
+                    p.setRateAndBufferSizeDetails (fs, 512);
+                    p.prepareToPlay (fs, 512);
+
+                    Testing::checkLatencyDisplay (*this, p, juce::String (truePeak > 0.5f ? "true peak, " : "sample peak, ") + juce::String (fs) + " Hz");
+                    expectGreaterThan (p.getLatencySamples(), 0, "the look-ahead always adds a delay");
+                    if (p.getLatencySamples() != last) { ++distinct; last = p.getLatencySamples(); }
+                }
+            expectGreaterThan (distinct, 2, "the delay in samples really does change with the sample rate");
+        }
+
+        beginTest ("The strip follows a sample rate change while it is open");
+        {
+            Testing::TemporarySettings settings;
+            SongsmithMaximiserAudioProcessor p;
+            p.setRateAndBufferSizeDetails (44100.0, 512);
+            p.prepareToPlay (44100.0, 512);
+            Bar bar (p, p.loadMeter, JucePlugin_Name);
+            bar.refresh();
+            const auto before = Testing::parseLatency (bar.getLatencyText());
+            expectEquals (before.samples, p.getLatencySamples());
+
+            p.setRateAndBufferSizeDetails (96000.0, 512);
+            p.prepareToPlay (96000.0, 512);
+            bar.refresh();
+            const auto after = Testing::parseLatency (bar.getLatencyText());
+            expectEquals (after.samples, p.getLatencySamples());
+            expectGreaterThan (after.samples, before.samples, "more samples at the higher rate");
+            expectWithinAbsoluteError (after.milliseconds, 1000.0 * p.getLatencySamples() / 96000.0, 0.051);
+        }
+
+        beginTest ("Processing Load is off until switched on, and measures real blocks at every size");
+        {
+            Testing::TemporarySettings settings;
+            SongsmithMaximiserAudioProcessor p;
+            expect (! p.loadMeter.isEnabled(), "off by default");
+            Testing::checkLoadMeasured (*this, p, p.loadMeter, "Maximiser");
+
+            Bar bar (p, p.loadMeter, JucePlugin_Name);
+            expectEquals (bar.getLoadText(), juce::String ("Off"));
+            bar.getLoadSwitch().setToggleState (true, juce::sendNotificationSync);   // runs the click handler now
+            expect (p.loadMeter.isEnabled(), "the switch turns timing on");
+            expectEquals (bar.getLoadText(), juce::String ("Unavailable"), "no block yet");
+            expect (Settings::loadEnabled (JucePlugin_Name), "the choice is saved to the machine setting, not the session");
+        }
+
+        beginTest ("The load meter leaves the saved session alone");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            juce::MemoryBlock before, after;
+            p.getStateInformation (before);
+            p.loadMeter.setEnabled (true);
+            p.getStateInformation (after);
+            expect (before == after, "timing on or off changes nothing in the session state");
+        }
+    }
+};
 static StartingPointTests startingPointTests;
+static DiagnosticsTests diagnosticsTests;
 static StressTests stressTests;
 
 //==============================================================================
 static SongsmithUITests sharedUITests { "Maximiser" };
+static SongsmithDiagnosticsTests sharedDiagnosticsTests { "Maximiser" };
 
 struct ConsoleRunner final : juce::UnitTestRunner
 {

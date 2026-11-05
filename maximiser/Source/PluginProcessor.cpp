@@ -116,6 +116,7 @@ void SongsmithMaximiserAudioProcessor::reset()
 
 void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    const auto loadScope = loadMeter.measure (buffer.getNumSamples(), getSampleRate());
     juce::ScopedNoDenormals noDenormals;
 
     const int numIn  = getTotalNumInputChannels();
