@@ -23,7 +23,7 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 
 | Priority | Area | Next outcome |
 |---|---|---|
-| 1 | **Suite UI and validation** | Implement [SUI-12 shared footer](SUI-12-processing-load-footer.md) and **[ACOMP-08 Analog Compressor editor refinements](../../analog-compressor/prompts/08-1176-editor.md) early**, then verify installation, session recall, reported latency, processing load, Studio One and Cakewalk workflows. |
+| 1 | **Suite UI and validation** | Implement [SUI-12 shared footer](SUI-12-processing-load-footer.md) **[EQ-36 Dynamic disabled tooltip](../../eq/prompts/36-dynamic-disabled-tooltip.md)** and **[ACOMP-08 Analog Compressor editor refinements](../../analog-compressor/prompts/08-1176-editor.md) early**, then verify installation, session recall, reported latency, processing load, Studio One and Cakewalk workflows. |
 | 2 | **EQ** | Piano button moved to bottom-right ([EQ-35](../../eq/prompts/35-piano-footer.md)), filter shape icons, plain-English Linear Phase explanation and **instrument-specific frequency guide** ([EQ 32](../../eq/prompts/32-frequency-guide.md), grounded in Joe Gilder and the recording notes). |
 | 3 | **Analog Compressor DSP** | Oversampling default ([ACOMP-06](../../analog-compressor/prompts/06-oversampling-off-by-default.md)) and detector Low Cut ([ACOMP-07](../../analog-compressor/prompts/07-detector-low-cut.md)); editor polish is already in Priority 1. |
 | 4 | **Maximiser** | True-peak checks on exports, suitable defaults, LUFS measurement. |
@@ -91,7 +91,7 @@ Agree and record a **release checkpoint with a named, testable feature scope** b
 
 | Priority | Batch | Order and release checks |
 |---|---|---|
-| 1 | Suite release and **early compressor UI** | Run SUI-12 and **ACOMP-08 editor polish now**, ahead of ACOMP-06/07: enlarge the analogue meter, refine the scalable textured faceplate, improve layout/ratio wording and prepare the future Low Cut position without adding its DSP control yet. Coordinate with SUI-10; preserve screenshots and verify responsiveness, meter behaviour and old session recall. Also validate existing SUI-06–SUI-08/SUI-11 packaging, versioning, reported latency and load, upgrade/scanning and Studio One/Cakewalk recall. |
+| 1 | Suite release and **early EQ/compressor UI** | Run SUI-12, **EQ-36 disabled Dynamic tooltip**, and **ACOMP-08 editor polish now**, ahead of ACOMP-06/07: enlarge the analogue meter, refine the scalable textured faceplate, improve layout/ratio wording and prepare the future Low Cut position without adding its DSP control yet. Coordinate with SUI-10; preserve screenshots and verify responsiveness, meter behaviour and old session recall. Also validate existing SUI-06–SUI-08/SUI-11 packaging, versioning, reported latency and load, upgrade/scanning and Studio One/Cakewalk recall. |
 | 2 | EQ improvements | EQ 33 filter shape icons, EQ 34 Linear Phase tooltip and EQ 32 instrument frequency guide. The guide can ship independently of the smaller fixes. |
 | 3 | Blackface DSP and workflow | **ACOMP-06 → ACOMP-07**: oversampling default followed by detector Low Cut. Integrate Low Cut into the space reserved by already-prioritised **ACOMP-08**; do not redo editor polish. Apply SUI-09 preset rules and ensure SUI-10 wording/resize consistency. |
 | 4 | Digital polish | Verify the Maximiser true-peak ceiling on exported files, then run Maximiser 06 → 07 for the default and LUFS meter. |
