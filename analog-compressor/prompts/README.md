@@ -11,7 +11,7 @@ Every task has a stable **ACOMP-##** reference (for example ACOMP-05), distinct 
 | [03 analogue colour](done/03-analogue-colour.md) | Done | #43 |
 | [04 All Buttons and editor](done/04-all-buttons-and-editor.md) | Done | #47 |
 | [05 presets, validation and packaging](done/05-presets-validation-packaging.md) | Done | #50 |
-| [08 1176-inspired editor](08-1176-editor.md) | **To do · Sonnet · Priority 1 (run first)** | |
+| [08 1176-inspired editor](done/08-1176-editor.md) | Done · Sonnet | #88 (release checkpoint pending: v1.3.0) |
 | [06 oversampling off by default](06-oversampling-off-by-default.md) | To do · **Sonnet · Priority 3** | |
 | [07 detector Low Cut](07-detector-low-cut.md) | To do · **Sonnet · Priority 3, after ACOMP-06** | |
 | 09 Guided compressor calibration | To do · **Sonnet** | |

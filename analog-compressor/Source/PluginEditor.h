@@ -44,6 +44,8 @@ public:
     FETKnob& getKnob (const juce::String& id);
     juce::Button& getRatioButton (int index) { return *ratioButtons[(size_t) index]; }   // 0..3 = 4, 8, 12, 20
     juce::Button& getAllButton() { return allButton; }
+    juce::Rectangle<int> getGrOffBounds() const { return grOffButton.getBounds(); }
+    juce::Rectangle<int> getDiagnosticsBounds() const { return diagnostics->getBounds(); }
     juce::ComboBox& getPresetBox() { return presetBox; }
     void advanceMeter (float seconds);
 
@@ -77,7 +79,7 @@ private:
 
     FETKnob input, output, attack, release;
     std::array<std::unique_ptr<juce::TextButton>, 4> ratioButtons;
-    juce::TextButton allButton { "All Buttons" };
+    juce::TextButton allButton { "All" };
     juce::ParameterAttachment ratioAttachment, allButtonsAttachment;
 
     juce::TextButton grOffButton { "Gain Reduction Off" }, bypassButton { "Bypass" };

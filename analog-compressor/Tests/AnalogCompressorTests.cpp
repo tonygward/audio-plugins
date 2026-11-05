@@ -1,5 +1,6 @@
 // Songsmith Analog Compressor test runner.
 //   AnalogCompressorTests.exe          -> run all unit tests (exit code 1 on failure)
+#include <set>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <cmath>
@@ -385,12 +386,132 @@ public:
         }
     }
 };
+//==============================================================================
+// ACOMP-08: the 1176-inspired editor refinements (UI only).
+struct EditorRefinementTests final : juce::UnitTest
+{
+    EditorRefinementTests() : juce::UnitTest ("Editor refinements", "FET") {}
+
+    // The editor's content (laid out at the design size) and the controls placed directly in it.
+    static juce::Component* findContent (juce::Component& editor)
+    {
+        for (auto* c : editor.getChildren())
+            if (c->getWidth() == FET::designWidth && c->getHeight() == FET::designHeight)
+                return c;
+        return nullptr;
+    }
+
+    void runTest() override
+    {
+        using namespace FET;
+
+        SongsmithAnalogCompressorProcessor p;
+        std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+        auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (editor.get());
+        expect (ed != nullptr);
+        if (ed == nullptr) return;
+        auto* content = findContent (*ed);
+        expect (content != nullptr, "found the editor's content");
+        if (content == nullptr) return;
+
+        const juce::Rectangle<int> design (0, 0, designWidth, designHeight);
+
+        beginTest ("The analogue meter is clearly larger than before, and keeps a comfortable shape");
+        {
+            const auto meter = ed->getMeter().getBounds();
+            expectGreaterThan (meter.getWidth() * meter.getHeight(), (int) (296 * 132 * 1.4), "at least 40 % more face than the original 296 x 132");
+            expectGreaterThan (meter.getWidth(), 296);
+            expectGreaterThan (meter.getHeight(), 132);
+            expect (design.contains (meter), "inside the editor");
+        }
+
+        beginTest ("No two controls overlap and all are inside the editor, with a click target of at least 26 px");
+        {
+            juce::Array<juce::Component*> controls;
+            for (auto* c : content->getChildren())
+                if (c->isVisible() && (dynamic_cast<juce::Button*> (c) != nullptr || dynamic_cast<juce::ComboBox*> (c) != nullptr
+                                       || dynamic_cast<FET::UI::NeedleMeter*> (c) != nullptr || dynamic_cast<FETKnob*> (c) != nullptr))
+                    controls.add (c);
+            expectGreaterThan (controls.size(), 14, "found the controls");
+            for (int i = 0; i < controls.size(); ++i)
+            {
+                expect (design.contains (controls[i]->getBounds()), "a control is inside the editor");
+                if (dynamic_cast<juce::Button*> (controls[i]) != nullptr || dynamic_cast<juce::ComboBox*> (controls[i]) != nullptr)
+                    expectGreaterOrEqual (controls[i]->getHeight(), 26, "click target height");
+                for (int j = i + 1; j < controls.size(); ++j)
+                    expect (! controls[i]->getBounds().intersects (controls[j]->getBounds()),
+                            "two controls overlap: " + controls[i]->getBounds().toString() + " and " + controls[j]->getBounds().toString());
+            }
+        }
+
+        beginTest ("A place is kept free for the future Low Cut control, with no dummy control and no new parameter");
+        {
+            const juce::Rectangle<int> reserved (lowCutX, lowCutY, lowCutWidth, lowCutHeight);
+            expect (juce::Rectangle<int> (0, 0, designWidth, contentHeight).contains (reserved), "inside the controls area");
+            expectGreaterOrEqual (reserved.getWidth(), 130);
+            expectGreaterOrEqual (reserved.getHeight(), 28);
+            for (auto* c : content->getChildren())
+                if (c->isVisible())
+                    expect (! c->getBounds().intersects (reserved), "a component sits in the reserved Low Cut place: " + c->getBounds().toString());
+            expect (ed->getGrOffBounds().getRight() < reserved.getX(), "Gain Reduction Off ends before the reserved place");
+            for (auto* prm : p.getParameters())
+                if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*> (prm))
+                    expect (! withId->paramID.containsIgnoreCase ("low") && ! withId->paramID.containsIgnoreCase ("cut"), "no Low Cut parameter yet: " + withId->paramID);
+        }
+
+        beginTest ("The ratio buttons say what they are, and All is called All");
+        {
+            const char* const expected[] = { "4:1", "8:1", "12:1", "20:1" };
+            for (int i = 0; i < 4; ++i)
+            {
+                auto& b = dynamic_cast<juce::TextButton&> (ed->getRatioButton (i));
+                expectEquals (b.getButtonText(), juce::String (expected[i]));
+                expect (b.getTooltip().startsWith ("Ratio " + juce::String (expected[i]) + ": "), "tooltip names the ratio");
+                expect (b.getTooltip().contains ("1 dB"), "and says what it does to the level");
+                expect (b.getTooltip().length() < 260, "short enough to read");
+            }
+            auto& all = dynamic_cast<juce::TextButton&> (ed->getAllButton());
+            expectEquals (all.getButtonText(), juce::String ("All"));
+            expect (all.getTooltip().contains ("every ratio button") && all.getTooltip().contains ("aggressive"), "the tooltip explains what All does");
+            for (const auto& text : { all.getTooltip(), dynamic_cast<juce::TextButton&> (ed->getRatioButton (3)).getTooltip() })
+                expect (Songsmith::UI::Wording::findBanned (text).isEmpty(), "plain words: " + Songsmith::UI::Wording::findBanned (text));
+        }
+
+        beginTest ("All still presses every ratio button and a single ratio still leaves All");
+        {
+            ed->getAllButton().onClick();
+            expect (p.isAllButtonsOn(), "All turns all four on");
+            for (int i = 0; i < 4; ++i)
+                expect (ed->getRatioButton (i).getToggleState());
+            ed->getRatioButton (1).onClick();
+            expect (! p.isAllButtonsOn(), "a single ratio leaves All");
+        }
+
+        beginTest ("The faceplate is textured, crisp at 1x and 2x, and the footer and Bypass are where the suite puts them");
+        for (float scale : { 1.0f, 2.0f })
+        {
+            const auto image = ed->createComponentSnapshot (ed->getLocalBounds(), true, scale);
+            expectEquals (image.getWidth(), juce::roundToInt ((float) ed->getWidth() * scale));
+            // An empty strip of the faceplate (between the knobs and the hint line) is not one flat colour.
+            std::set<juce::uint32> colours;
+            const int y = juce::roundToInt (340.0f * ed->getHeight() / (float) designHeight * scale);
+            for (int x = juce::roundToInt (60.0f * scale); x < juce::roundToInt (360.0f * scale); ++x)
+                for (int dy = 0; dy < juce::roundToInt (8.0f * scale); ++dy)
+                    colours.insert (image.getPixelAt (x, y + dy).getARGB());
+            expectGreaterThan ((int) colours.size(), 3, "the grain gives the plate texture at " + juce::String (scale) + "x");
+            expect (ed->getDiagnosticsBounds().getY() >= contentHeight, "the Processing Load strip is below the controls");
+            expect (ed->getDiagnosticsBounds().getX() == 0 && ed->getDiagnosticsBounds().getWidth() == designWidth, "and spans the whole editor");
+        }
+    }
+};
+
 static IdentityTests identityTests;
 static DiagnosticsTests diagnosticsTests;
 static LayoutTests layoutTests;
 static TransparencyTests transparencyTests;
 static StateTests stateTests;
 static EditorTests editorTests;
+static EditorRefinementTests editorRefinementTests;
 
 // AnalogCompressorTests --timing: measured attack and release (definitions in docs/engine.md).
 static int runTimingReport()
