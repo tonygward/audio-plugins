@@ -1,5 +1,9 @@
 # CLN-01 · Digital · Clean Compressor
 
+**Recommended model:** Opus for DSP design/validation; Sonnet for implementation.  
+**Estimated effort / usage:** High (relative, not a token estimate).  
+**Model escalation:** Use Sonnet for implementation, UI and test work. Never switch to Opus silently: record why, scope its use to the difficult design/validation step, then return to Sonnet.  
+
 Follow `CLAUDE.md` and the [suite backlog](../README.md). This is a standalone plugin for Songsmith Plugins.
 
 Build a clean digital compressor with threshold, ratio, attack, release and output gain. Define the knee and detector behaviour, verify static curves and timing, and test bypass, latency and automation. Start preset research with Joe Gilder’s compression tutorials and audition on vocals, bass and drums.
