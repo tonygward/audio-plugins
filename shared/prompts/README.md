@@ -9,21 +9,25 @@ Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq
 | ✅ [S3 plain words everywhere](done/S3-plain-words-everywhere.md) | No abbreviations and plain language in every plugin, enforced by one shared test |
 | ✅ [S4 Windows suite installer](done/S4-windows-suite-installer.md) | One Windows installer for all plugins, with a tick box per plugin |
 | ✅ [S5 macOS suite installer](done/S5-macos-suite-installer.md) | One macOS `.pkg` for all plugins, with a choice per plugin and format |
-| [S6 one installer entry per plugin](S6-one-entry-per-plugin.md) | One tick box per plugin in every installer: no separate standalone app or format choices |
-| [S7 one version number](S7-one-version-number.md) | One version for every plugin, installer and release, from a root `VERSION` file, starting at 1.1.0 |
+| [S6 one installer entry per plugin](S6-one-entry-per-plugin.md) **(Sonnet)** | One tick box per plugin in every installer: no separate standalone app or format choices |
+| [S7 one version number](S7-one-version-number.md) **(Sonnet)** | One version for every plugin, installer and release, from a root `VERSION` file, starting at 1.1.0 |
 
 ## Songsmith Plugins backlog
+
+**Model guide:** Start with Sonnet for routine implementation. Where a task says **Opus for design**, use Opus for the design and validation plan, then switch to Sonnet for implementation once those decisions are written down.
 
 Finish the existing suite work and develop the classic standalone plugins on two tracks. **The Channel Strip follows the standalone classics.**
 
 | Track | Sequence |
 |---|---|
-| Analog emulation | Existing 1176-inspired FET compressor: [Low Cut](../../analog-compressor/prompts/07-detector-low-cut.md) then [editor polish](../../analog-compressor/prompts/08-1176-editor.md). Next [A1 Optical Leveller](classics/A1-optical-leveller.md), [A2 Pultec-style EQ](classics/A2-pultec-eq.md), then [A3 SSL-style compressor](classics/A3-ssl.md). |
-| Digital | Existing EQ: [filter icons](../../eq/prompts/33-filter-shape-icons.md). Existing Maximiser: [defaults and loudness meter](../../maximiser/prompts/README.md). Next [D1 Clean Compressor](classics/D1-clean-compressor.md). |
+| Analog emulation | Existing 1176-inspired FET compressor: [Low Cut](../../analog-compressor/prompts/07-detector-low-cut.md) **(Sonnet)** then [editor polish](../../analog-compressor/prompts/08-1176-editor.md) **(Sonnet)**. Next [A1 Optical Leveller](classics/A1-optical-leveller.md) **(Opus for design, Sonnet for implementation)**, [A2 Pultec-style EQ](classics/A2-pultec-eq.md) **(Opus for design, Sonnet for implementation)**, then [A3 SSL-style compressor](classics/A3-ssl.md) **(Opus for design, Sonnet for implementation)**. |
+| Digital | Existing EQ: [filter icons](../../eq/prompts/33-filter-shape-icons.md) **(Sonnet)**. Existing Maximiser: [defaults and loudness meter](../../maximiser/prompts/README.md). Next [D1 Clean Compressor](classics/D1-clean-compressor.md) **(Opus for design, Sonnet for implementation)**. |
 
-Apply [S8 suite branding](S8-songsmith-plugins-brand.md), [S9 curated and custom presets](S9-preset-library.md), and [S10 resizable editors and control help](S10-resize-and-plain-language.md) across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
+Apply [S8 suite branding](S8-songsmith-plugins-brand.md) **(Sonnet)**, [S9 curated and custom presets](S9-preset-library.md) **(Sonnet)**, and [S10 resizable editors and control help](S10-resize-and-plain-language.md) **(Sonnet)** across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
 
 ### S11 · Show latency and processing load in every plugin
+
+**Model: Sonnet.** Use Opus for review if safe timing or publication from the audio thread proves difficult.
 
 Follow `CLAUDE.md` and the suite editor requirements. Add a consistent diagnostics view to every current and future Songsmith plugin.
 
