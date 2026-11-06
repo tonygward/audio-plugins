@@ -27,7 +27,7 @@ _Forward-looking ideas; no committed delivery dates._
 
 Keep validating and improving what already exists before fixing the order of new work.
 
-**Future cross-product feature — Recording and Mixing Advisor:** optional, context-sensitive, plain-English explanations in each plugin, with whole-file recording-format advice in the separate standalone Loudness Analyser. Each message answers *what matters, why it matters, and whether any action is needed*. See [future feature prompts](../shared/prompts/future/).
+**Language/content follow-up:** [SUI-14](../shared/prompts/SUI-14-neutral-tooltips-and-tonal-language.md) audits operational tooltips, keeps Joe Gilder credits in research/provenance rather than user-facing help, and clarifies subjective guitar terms such as Plastic and Cheap without automatically renaming them.\n\n**Future reference review:** [ADV-02](../shared/prompts/future/ADV-02-reference-mix-guided-review.md) proposes comparing a musician's own mix with a reference, first by measurable stereo-mix properties and later by instrument/group when stems or track routing are supplied. High-effort research, not scheduled.\n\n**Future cross-product feature — Recording and Mixing Advisor:** optional, context-sensitive, plain-English explanations in each plugin, with whole-file recording-format advice in the separate standalone Loudness Analyser. Each message answers *what matters, why it matters, and whether any action is needed*. See [future feature prompts](../shared/prompts/future/).
 
 ## Songsmith EQ — proposed instrument guide
 
