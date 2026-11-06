@@ -1,5 +1,29 @@
 # AUTO-01 validation evidence
 
+## Usage adapter follow-up
+
+Local tests: 73 passed, 0 failed. New cases cover structured weekly boundaries,
+extra usage, cached fallback notices, unknown/duplicate meters, resets, zero-turn
+requirements, subscription auth, version checks, provider overrides, redacted errors,
+timeouts, fixed commands/temporary-directory cleanup, report integration and pause.
+Existing 49 foundation tests remain passing. No account access is used by tests.
+
+The actual adapter (`node tools/matrix/matrix.mjs usage` with an ignored test config)
+was checked against installed Claude Code 2.1.319: 96% weekly usage, future weekly
+reset, extra usage enabled; eligibility correctly false for both reasons. The
+preceding direct CLI verification confirmed zero model turns, zero API duration and
+zero reported cost. Sandbox network denial produced missing limits and was rejected;
+outside-sandbox read-only verification retrieved the report. Account settings were
+not changed and no development task ran. Raw private CLI output is not retained.
+
+Real provider-side cached fallback and Matrix's dedicated account are not verified;
+cache/error behaviour is simulated in tests. The structured report is experimental
+and does not expose a server fetch timestamp; see runbook freshness limitations.
+No live execution, task/runner activation, merge or publication is enabled by this
+adapter. Suite VERSION is unchanged. Not yet verified in a DAW.
+
+## Original foundation checkpoint
+
 Local validation on the Windows development host, 6 November 2026:
 
 | Check | Result |

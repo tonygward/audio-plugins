@@ -1,6 +1,6 @@
 # AUTO-01 — Matrix autonomous Songsmith development orchestrator
 
-**Status:** In progress, unmerged dry-run foundation; live execution blocked. **Priority:** Early infrastructure, independent of DSP/UI backlog and WEB-01.
+**Status:** In progress; dry-run foundation merged in #101; usage adapter follow-up; live execution blocked. **Priority:** Early infrastructure, independent of DSP/UI backlog and WEB-01.
 **Recommended model:** Opus for the initial security/orchestration design only; Sonnet for implementation, tests, and documentation. **Relative effort/usage:** High (implement in phases). **Escalate to Opus:** Only for architecture, trust boundaries, and unresolved release/usage-policy decisions. Document decisions and return to Sonnet.
 
 ## Goal
@@ -8,7 +8,8 @@
 Implementation checkpoint: [runbook](../../tools/matrix/README.md),
 [architecture decision](../../docs/adr/AUTO-01-matrix-orchestration.md) and
 [local validation evidence](../../tools/matrix/VALIDATION.md). Sprint 0/Phase B are
-implemented in the feature branch; Phase C/D contain tested plans/contracts only.
+merged in #101; Phase C/D contain tested plans/contracts only. The usage follow-up
+adds a documented structured `/usage` check; its PR is pending creation.
 No live runner, AI, merge or release activation. Implementation PR [#101](https://github.com/tonygward/audio-plugins/pull/101);
 release checkpoint unassigned. Keep this prompt active until implementation is merged.
 

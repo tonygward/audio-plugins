@@ -6,5 +6,9 @@
   "batchLimit": 6,
   "liveExecution": false,
   "autoMerge": false,
-  "releasePublication": false
+  "releasePublication": false,
+  "claudeUsage": {
+    "enabled": false,
+    "executable": "C:/Matrix/bin/claude.exe"
+  }
 }

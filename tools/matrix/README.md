@@ -2,7 +2,8 @@
 
 Implementation for [AUTO-01](../../shared/prompts/AUTO-01-matrix-autonomous-development.md).
 **Sprint 0 and Phase B are implemented as a dry-run queue and report generator.**
-No AI agent, build, PR merge, release or website update runs from this deployment.
+No development agent, build, PR merge, release or website update runs from this deployment.
+An optional read-only Claude `/usage` command can populate the allowance report.
 Phase C/D command plans and validation contracts are tested helpers, not operational
 integrations. AUTO-02 is excluded by its deferred policy. No suite release/version is assigned.
 
@@ -20,6 +21,7 @@ immutable Git objects; local edits are never included. `daily` fetches main;
 node tools/matrix/matrix.mjs local C:/Matrix/config.json
 node tools/matrix/matrix.mjs daily C:/Matrix/config.json
 node tools/matrix/matrix.mjs status C:/Matrix/config.json
+node tools/matrix/matrix.mjs usage C:/Matrix/config.json
 node tools/matrix/matrix.mjs pause C:/Matrix/config.json
 node tools/matrix/matrix.mjs resume C:/Matrix/config.json
 node --test tools/matrix/tests/*.test.mjs
@@ -160,29 +162,67 @@ Rotate daily logs and acknowledged inbox files under owner-controlled retention
 deployment does not silently delete logs. Monitor growing disk usage. A failed
 fetch leaves signals and the daily date untouched for the next bounded tick.
 
-## Usage feasibility and activation blockers
+## Usage check and remaining activation blockers
 
-Checked 6 November 2026 against official documentation:
+The usage adapter uses the documented structured
+[`SDKUsageReport`](https://code.claude.com/docs/en/agent-sdk/typescript#sdkusagereport)
+returned by Claude Code's built-in `/usage` command. It requires no model inference
+and does not scrape credentials, undocumented APIs or session files. The status-line
+limitation recorded in the original foundation is superseded by this interface.
 
-- [Status line data](https://code.claude.com/docs/en/statusline) documents
-  `rate_limits.seven_day.used_percentage` and `resets_at`, but says windows may be
-  absent and appear only **after the first API response**. That does not establish
-  a supported fresh pre-start query. No production telemetry adapter is installed.
-- [Usage/cost documentation](https://code.claude.com/docs/en/costs) distinguishes
-  subscription limits from locally estimated API costs and describes cached usage
-  after request failure. Estimated dollars are not a weekly percentage.
-- [CLI reference](https://code.claude.com/docs/en/cli-reference) documents print mode,
-  model/turn controls and authentication status. Their presence does not verify
-  Matrix's account, subscription-only billing, security isolation or automation terms.
+Enable **only the read-only check** in your owner-controlled configuration:
 
-The tested gate rejects unknown/source mismatch, malformed/future/stale (>60 seconds)
-observations, expired/contradictory reset times and usage **>=85%**. The actual worker
-always supplies unknown and fails closed; a JSON file claiming an authoritative
-source cannot activate it. No private endpoints, session scraping, paid API fallback,
-manual allowance override or Codex fallback is implemented. Before Phase C, verify
-a supported fresh **pre-start and between-prompt** usage retrieval method, permission
-to automate this account, and disabled extra-credit/API billing with Anthropic.
-An independently approved fixed API budget would be a different policy/change.
+```json
+"claudeUsage": {
+  "enabled": true,
+  "executable": "C:/Users/Matrix/.local/bin/claude.exe"
+}
+```
+
+Use the actual absolute native executable path under Matrix's dedicated account;
+PATH lookup and `.cmd`/`.bat`/PowerShell wrappers are rejected. The example config
+keeps the check disabled until configured. Old configs without `claudeUsage` still
+work and report unknown usage without invoking Claude. Daily, notification and
+local dry-run reports call the adapter when enabled. `usage` queries just allowance
+without fetching the backlog. Paused, disabled and idle timer workers do not query.
+
+The adapter verifies Claude version and first-party subscription authentication,
+then invokes a fixed `/usage` command with safe mode, no tools, no custom settings,
+no MCP servers, no session persistence and a one-turn limit. It runs in a newly
+created empty temporary directory, with no repository context. Safe mode disables
+customisations but does not override administrator-managed policy. Each invocation
+is bounded: version 5 seconds, authentication 15 seconds, usage 30 seconds, and
+output 1 MiB. The temporary directory is removed afterwards. No raw event stream,
+stderr, identity, payment details or credentials are written to Matrix logs.
+
+Only a successful zero-turn/zero-cost response with one structured report is accepted.
+The adapter reads the server's `weekly_all` meter, not session-dollar estimates or
+local activity percentages. It requires valid percentage/reset data, checks all
+reported scoped weekly meters conservatively, and blocks at **>=85%**. An exhausted
+session also blocks. Paid extra usage must explicitly report `is_enabled: false`;
+enabled or unknown status blocks eligibility. This checker never changes account
+settings. Disable extra usage yourself before any future unattended development.
+Alternate API/auth/provider environment overrides are rejected, never silently used.
+
+[Claude documents cached fallback after usage retrieval failure](https://code.claude.com/docs/en/costs#when-the-usage-request-fails).
+The parser rejects last-known/cached/stale/rate-limit/retry notices, cache flags,
+missing/contradictory data, unsupported meters, errors, diagnostics and timeouts.
+It makes a new command request each time and never reuses stored reports for
+eligibility. The request start timestamp bounds the observation to 60 seconds;
+it is **not a server-provided fetch timestamp**. The experimental structured schema
+does not currently provide an independent cache-age field, so freshness detection
+also depends on the CLI's documented fallback notices. Revalidate those notices
+and the schema when upgrading. Supported CLI versions are verified 2.1.319 and later
+2.1.x patches; other version families fail closed until reviewed. Real testing on
+2.1.319 returned weekly usage with zero turns/cost; sandbox-denied network access
+returned null limits and was correctly rejected. Simulated cache/failure paths are
+unit-tested; a real provider-side cached fallback has not been induced/verified.
+
+The dry-run may now show a real percentage. This does **not** enable development:
+`liveExecution`, `autoMerge` and `releasePublication` remain false. A future live
+worker must call this same fresh check before every prompt; the standalone result
+and `latest-report.json` are diagnostics, not reusable execution authorisations.
+No paid API fallback, manual allowance override or AUTO-02 implementation is added.
 
 Also outstanding: verify Matrix hardware/resources, VM/network isolation, Claude
 CLI version/authentication, sandbox enforcement, JUCE/compiler toolchain, GitHub App
@@ -190,7 +230,8 @@ least-privilege development permissions, required checks/branch protections and
 owner authorisation. The current dev host has Node 26.13.0, PowerShell 7, Git, CMake,
 GitHub CLI and a Claude executable; Python is absent. Sandbox denied hardware CIM
 inspection, so OS/CPU/RAM and Matrix provisioning are **not verified**. Claude was
-not invoked. Tests do not consume subscription usage.
+invoked only for version/authentication and `/usage` verification; these returned
+zero model turns and reported cost. Automated tests mock the CLI and need no login.
 
 ## Remaining phases and release boundary
 

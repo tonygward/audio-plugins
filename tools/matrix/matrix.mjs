@@ -4,7 +4,8 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { scan, select } from './backlog.mjs';
 import { atomic, locked, readState, reconcile, record } from './state.mjs';
-import { usageGate, dailyDue, londonDay, claudePlan } from './policy.mjs';
+import { dailyDue, londonDay, claudePlan } from './policy.mjs';
+import { checkClaudeUsage, validateUsageConfig } from './usage.mjs';
 
 export function command(executable, args, cwd) {
   return execFileSync(executable, args, { cwd, encoding: 'utf8', timeout: 60000, maxBuffer: 16 * 1024 * 1024, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }).trimEnd();
@@ -30,10 +31,11 @@ export function readConfig(file) {
   if (!Number.isInteger(config.batchLimit) || config.batchLimit < 1 || config.batchLimit > 6) throw new Error('batchLimit must be 1–6');
   if (typeof config.enabled !== 'boolean') throw new Error('enabled must be a boolean');
   dailyDue(null, config.dailyTime);
+  validateUsageConfig(config.claudeUsage);
   return config;
 }
 
-export function tick(config, { trigger = 'daily', local = false, loadSnapshot = snapshot, now = new Date() } = {}) {
+export function tick(config, { trigger = 'daily', local = false, loadSnapshot = snapshot, loadUsage = checkClaudeUsage, now = new Date() } = {}) {
   const dir = config.stateDirectory;
   return locked(dir, () => {
     if (!config.enabled || fs.existsSync(path.join(dir, 'PAUSED'))) return { paused: true, reason: 'Global disable control', liveExecution: false };
@@ -51,10 +53,10 @@ export function tick(config, { trigger = 'daily', local = false, loadSnapshot = 
     reconcile(state, prompts, revision, now.toISOString());
     // Any ambiguous ID or malformed metadata blocks the whole batch; partial scans are unsafe.
     const plan = select(prompts, state.tasks, trigger, config.batchLimit);
-    const usage = usageGate(null, now.getTime());
+    const usage = loadUsage(config.claudeUsage);
     const report = { time: now.toISOString(), revision, canonical: !local, trigger, dryRun: true, liveExecution: false,
       usage, errors, warnings, candidates: errors.length ? [] : plan.selected.map(p => ({ id: p.id, file: p.file, hash: p.hash, agent: claudePlan(p) })),
-      decisions: plan.decisions, blockers: ['Live execution is not implemented in this deployment', usage.reason],
+      decisions: plan.decisions, blockers: ['Live execution is not implemented in this deployment', ...(!usage.allowed ? [usage.reason] : [])],
       taskStates: Object.values(state.tasks).map(t => ({ id: t.id, state: t.state, attempts: t.attempts })) };
     record(state, { revision, trigger, candidates: report.candidates.map(p => p.id), errors: errors.length });
     if (trigger === 'daily' && !local) state.lastDaily = londonDay(now);
@@ -81,13 +83,14 @@ export function notify(directory, revision) {
 
 function main(args) {
   const [action, configFile, value] = args;
-  if (!['daily', 'notify', 'timer', 'local', 'status', 'pause', 'resume'].includes(action) || !configFile) throw new Error('Usage: node matrix.mjs daily|notify|timer|local|status|pause|resume <config.json> [revision]');
+  if (!['daily', 'notify', 'timer', 'local', 'status', 'pause', 'resume', 'usage'].includes(action) || !configFile) throw new Error('Usage: node matrix.mjs daily|notify|timer|local|status|pause|resume|usage <config.json> [revision]');
   const config = readConfig(configFile), dir = config.stateDirectory;
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   if (action === 'notify') { notify(dir, value); return tick(config, { trigger: 'notify' }); }
   if (action === 'pause') { fs.writeFileSync(path.join(dir, 'PAUSED'), 'Owner paused\n'); return { paused: true }; }
   if (action === 'resume') { fs.rmSync(path.join(dir, 'PAUSED'), { force: true }); return { paused: false, liveExecution: false }; }
   if (action === 'status') return fs.existsSync(path.join(dir, 'latest-report.json')) ? JSON.parse(fs.readFileSync(path.join(dir, 'latest-report.json'), 'utf8')) : { reason: 'No successful reconciliation yet' };
+  if (action === 'usage') return locked(dir, () => !config.enabled || fs.existsSync(path.join(dir, 'PAUSED')) ? { paused: true, liveExecution: false } : { ...checkClaudeUsage(config.claudeUsage), liveExecution: false });
   return tick(config, { trigger: action === 'local' ? 'daily' : action, local: action === 'local' });
 }
 
