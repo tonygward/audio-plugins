@@ -1,7 +1,7 @@
-name: Distribute approved Songsmith beta release to R2
+name: Distribute published Songsmith beta release to R2
 
-# Release publication is not sufficient to enable distribution. An explicit
-# repository variable plus a protected GitHub environment are required.
+# Distribution is explicitly opt-in at repository level. Publishing a GitHub
+# release starts the gated workflow; no environment approval is required.
 on:
   release:
     types: [published]
@@ -19,7 +19,6 @@ jobs:
     name: Verify, transfer, verify again and notify website
     if: ${{ vars.BETA_DISTRIBUTION_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    environment: beta-distribution
     timeout-minutes: 40
     steps:
       - name: Validate configuration before touching release assets
@@ -52,7 +51,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: tonygward/songsmith-website
-          ref: dffc2e5417e6eab498b4a390e5bcb92eb7b359fc
+          ref: dc9feadc10f69cfbd41f47b84b39addf00b2ea88
           token: ${{ secrets.WEBSITE_READ_TOKEN }}
           persist-credentials: false
 
