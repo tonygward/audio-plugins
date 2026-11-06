@@ -12,10 +12,14 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 | `ACOMP-` | `analog-compressor/prompts/` | `analog-compressor/prompts/done/` |
 | `MAX-` | `maximiser/prompts/` | `maximiser/prompts/done/` |
 | `SUI-` | `shared/prompts/` | `shared/prompts/done/` |
+| `WEB-` | `shared/prompts/` (portal roadmap; implementation in separate private repo) | `shared/prompts/done/` |
 | `OPT-` / `PEQ-` / `BUS-` / `CLN-` | `shared/prompts/classics/` | `shared/prompts/classics/done/` when delivered |
 | `ADV-` / `REC-` | `shared/prompts/future/` | `shared/prompts/future/done/` only after implemented |
 
 ## Backlog at a glance
+
+**Private beta portal — planned:** [WEB-01 functional developer portal](WEB-01-private-beta-portal.md) (**Sonnet; Medium; early beta/commercial readiness, independent of audio DSP backlog**). Cloudflare Pages + Access, exact-email one-time PIN allowlist, protected private release downloads, guides, release notes and tester feedback. Start with an architecture/security check; do not turn the audio-plugins repository private until a verified private download route is ready. This is not an implemented website or an approved release checkpoint.
+
 
 **Release packaging rule:** publish **one Songsmith Plugins installer for Windows** and **one for macOS**, each with one tick box per plugin. The public release must have **exactly two assets**; individual plugin installer/ZIP artifacts stay internal to CI. See [release instructions](../../TECHNICAL.md#releasing).
 
