@@ -1,0 +1,99 @@
+name: Publish validated Songsmith suite release
+
+# VERSION is the release checkpoint; ordinary code merges do not republish.
+# A scoped PAT must create the release to trigger the downstream R2 workflow.
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: songsmith-auto-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish new version only after verified full main build
+    if: >-
+      vars.AUTO_RELEASE_ENABLED == 'true' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.run_attempt == 1 &&
+      github.event.workflow_run.head_repository.full_name == 'tonygward/audio-plugins'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact successfully built commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify publishing policy tests
+        run: node --test test/release-prepare.test.mjs
+
+      - name: Verify Build provenance, all plugin jobs, version and changelog
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+          BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: node scripts/release/prepare.mjs
+
+      - name: Download tested Windows suite installer
+        if: steps.check.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: gh run download "$BUILD_RUN_ID" --repo tonygward/audio-plugins --name Songsmith-Plugins-Windows-setup --dir release-files/windows
+
+      - name: Download tested macOS suite installer
+        if: steps.check.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: gh run download "$BUILD_RUN_ID" --repo tonygward/audio-plugins --name Songsmith-Plugins-macOS-pkg --dir release-files/macos
+
+      - name: Require exactly two nonempty versioned installers and report hashes
+        if: steps.check.outputs.publish == 'true'
+        shell: bash
+        env:
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          set -euo pipefail
+          mapfile -d '' files < <(find release-files -type f -print0)
+          [[ "${#files[@]}" -eq 2 ]] || { echo '::error::Expected exactly two installers'; exit 1; }
+          windows="release-files/windows/Songsmith-Plugins-${VERSION}-win64-setup.exe"
+          macos="release-files/macos/Songsmith-Plugins-${VERSION}-macOS.pkg"
+          [[ -s "$windows" && -s "$macos" ]] || { echo '::error::Missing or empty suite installer'; exit 1; }
+          node --input-type=module -e 'import {validateInstallerFiles} from "./scripts/release/prepare.mjs"; validateInstallerFiles(process.argv.slice(1),process.env.VERSION)' "${files[@]}"
+          sha256sum "$windows" "$macos"
+
+      - name: Publish complete GitHub Release (triggers R2 workflow)
+        if: steps.check.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+          VERSION: ${{ steps.check.outputs.version }}
+          BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          [[ -n "$GH_TOKEN" ]] || { echo '::error::Configure RELEASE_PUBLISH_TOKEN; default GITHUB_TOKEN cannot trigger downstream release workflow'; exit 1; }
+          tag="v${VERSION}"
+          if gh api "repos/tonygward/audio-plugins/git/ref/tags/${tag}" >/dev/null 2>&1; then
+            echo "::error::${tag} created after preflight. Refusing overwrite."; exit 1
+          fi
+          gh release create "$tag"             "release-files/windows/Songsmith-Plugins-${VERSION}-win64-setup.exe"             "release-files/macos/Songsmith-Plugins-${VERSION}-macOS.pkg"             --repo tonygward/audio-plugins --target "$BUILD_SHA"             --title "Songsmith Plugins ${VERSION}" --notes-file release-notes.md --draft
+          # Assets uploaded while draft; only completed publication fires
+          # release:published. The scoped PAT allows subsequent Actions.
+          gh release edit "$tag" --repo tonygward/audio-plugins --draft=false
+          echo "Published verified Songsmith suite ${tag}"
