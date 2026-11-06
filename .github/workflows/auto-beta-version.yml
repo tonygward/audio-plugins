@@ -1,0 +1,39 @@
+name: Increment private beta version after successful development build
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: songsmith-auto-beta-version
+  cancel-in-progress: false
+jobs:
+  bump:
+    if: >-
+      vars.AUTO_BETA_VERSION_ENABLED == 'true' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.run_attempt == 1 &&
+      github.event.workflow_run.head_repository.full_name == 'tonygward/audio-plugins'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate beta version bump policy
+        run: node --test test/bump-beta.test.mjs
+      - name: Bump patch for a new source update only when prior version is already tagged
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+          BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: node scripts/release/bump-beta.mjs

@@ -3,9 +3,11 @@ on:
   pull_request:
     paths:
       - '.github/workflows/auto-publish-release.yml'
+      - '.github/workflows/auto-beta-version.yml'
       - '.github/workflows/auto-release-policy-checks.yml'
       - 'scripts/release/**'
       - 'test/release-prepare.test.mjs'
+      - 'test/bump-beta.test.mjs'
   push:
     branches: [main]
     paths:
@@ -24,4 +26,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test test/release-prepare.test.mjs
+      - run: node --test test/release-prepare.test.mjs test/bump-beta.test.mjs
