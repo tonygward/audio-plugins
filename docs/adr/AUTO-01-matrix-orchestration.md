@@ -3,6 +3,16 @@
 Status: implemented foundation; live development/release activation blocked.
 Canonical prompt: [AUTO-01](../../shared/prompts/AUTO-01-matrix-autonomous-development.md).
 
+Phase C follow-up: the [controlled worker](../../tools/matrix/WORKER.md) now executes
+real worktree, restricted-file-tool Claude, build, Git and draft-PR operations.
+Claude cannot run commands; trusted orchestration owns Git and invokes builds under
+a distinct Windows identity using a protected DPAPI credential. An expiring external
+owner approval binds config/account/host/build-launcher hash and attests verified
+ACL/network isolation. It is rechecked during execution; pause, approval loss and
+timeouts terminate the process tree. Interrupted tasks retain all work and require
+review before retry; no uncertainty automatically repeats PR creation. Default live
+execution remains off. Phase D and protected automatic merging are still separate.
+
 Use dependency-free Node modules and Windows Task Scheduler. Node is already on the
 dev host; Python is not. A five-minute limited-account task handles notification
 polling and a London-calendar daily reconciliation. No continuously resident agent

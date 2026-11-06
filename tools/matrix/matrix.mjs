@@ -6,6 +6,7 @@ import { scan, select } from './backlog.mjs';
 import { atomic, locked, readState, reconcile, record } from './state.mjs';
 import { dailyDue, londonDay, claudePlan } from './policy.mjs';
 import { checkClaudeUsage, validateUsageConfig } from './usage.mjs';
+import { validateWorker } from './worker.mjs';
 
 export function command(executable, args, cwd) {
   return execFileSync(executable, args, { cwd, encoding: 'utf8', timeout: 60000, maxBuffer: 16 * 1024 * 1024, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }).trimEnd();
@@ -24,14 +25,15 @@ export function snapshot(repo, { local = false, run = command } = {}) {
   return { revision, files };
 }
 
-export function readConfig(file) {
+export function readConfig(file, { allowLive = false } = {}) {
   const config = JSON.parse(fs.readFileSync(file, 'utf8'));
   if (!path.isAbsolute(config.repository ?? '') || !path.isAbsolute(config.stateDirectory ?? '')) throw new Error('Absolute repository and stateDirectory required');
-  if (config.liveExecution !== false || config.autoMerge !== false || config.releasePublication !== false) throw new Error('This deployment supports dry-run only; live/merge/release must be false');
+  if ((!allowLive && config.liveExecution !== false) || typeof config.liveExecution !== 'boolean' || config.autoMerge !== false || config.releasePublication !== false) throw new Error('Live execution requires the explicit work command; merge/release must be false');
   if (!Number.isInteger(config.batchLimit) || config.batchLimit < 1 || config.batchLimit > 6) throw new Error('batchLimit must be 1–6');
   if (typeof config.enabled !== 'boolean') throw new Error('enabled must be a boolean');
   dailyDue(null, config.dailyTime);
   validateUsageConfig(config.claudeUsage);
+  validateWorker(config);
   return config;
 }
 
@@ -81,20 +83,21 @@ export function notify(directory, revision) {
   catch (error) { if (error.code !== 'EEXIST') throw error; }
 }
 
-function main(args) {
+async function main(args) {
   const [action, configFile, value] = args;
-  if (!['daily', 'notify', 'timer', 'local', 'status', 'pause', 'resume', 'usage'].includes(action) || !configFile) throw new Error('Usage: node matrix.mjs daily|notify|timer|local|status|pause|resume|usage <config.json> [revision]');
-  const config = readConfig(configFile), dir = config.stateDirectory;
+  if (!['daily', 'notify', 'timer', 'local', 'status', 'pause', 'resume', 'usage', 'work'].includes(action) || !configFile) throw new Error('Usage: node matrix.mjs daily|notify|timer|local|status|pause|resume|usage|work <config.json> [revision or worker trigger]');
+  const config = readConfig(configFile, { allowLive: ['work', 'pause', 'resume', 'status'].includes(action) }), dir = config.stateDirectory;
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   if (action === 'notify') { notify(dir, value); return tick(config, { trigger: 'notify' }); }
   if (action === 'pause') { fs.writeFileSync(path.join(dir, 'PAUSED'), 'Owner paused\n'); return { paused: true }; }
   if (action === 'resume') { fs.rmSync(path.join(dir, 'PAUSED'), { force: true }); return { paused: false, liveExecution: false }; }
   if (action === 'status') return fs.existsSync(path.join(dir, 'latest-report.json')) ? JSON.parse(fs.readFileSync(path.join(dir, 'latest-report.json'), 'utf8')) : { reason: 'No successful reconciliation yet' };
+  if (action === 'work') return (await import('./worker.mjs')).work(config, { trigger: value ?? 'daily' });
   if (action === 'usage') return locked(dir, () => !config.enabled || fs.existsSync(path.join(dir, 'PAUSED')) ? { paused: true, liveExecution: false } : { ...checkClaudeUsage(config.claudeUsage), liveExecution: false });
   return tick(config, { trigger: action === 'local' ? 'daily' : action, local: action === 'local' });
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { console.log(JSON.stringify(main(process.argv.slice(2)), null, 2)); }
+  try { console.log(JSON.stringify(await main(process.argv.slice(2)), null, 2)); }
   catch (error) { console.error(JSON.stringify({ error: error.message, liveExecution: false })); process.exitCode = 1; }
 }

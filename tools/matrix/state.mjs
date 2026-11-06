@@ -25,6 +25,14 @@ export function readState(directory) {
   return state;
 }
 
+export async function lockedAsync(directory, fn) {
+  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const file = path.join(directory, 'worker.lock');
+  const fd = fs.openSync(file, 'wx', 0o600);
+  try { fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, started: new Date().toISOString() })); return await fn(); }
+  finally { fs.closeSync(fd); fs.unlinkSync(file); }
+}
+
 export function reconcile(state, prompts, revision, now = new Date().toISOString()) {
   const ids = new Set(prompts.map(p => p.id));
   for (const task of Object.values(state.tasks)) {
