@@ -2,14 +2,15 @@
 
 ## AUTO-01 implementation checkpoint
 
-[AUTO-01](AUTO-01-matrix-autonomous-development.md) has an **unmerged dry-run implementation**
-on `auto-01-matrix-orchestrator`; see the [Matrix runbook](../../tools/matrix/README.md)
+[AUTO-01](AUTO-01-matrix-autonomous-development.md) has a **merged dry-run foundation**
+in [#101](https://github.com/tonygward/audio-plugins/pull/101); see the [Matrix runbook](../../tools/matrix/README.md)
 and [architecture decision](../../docs/adr/AUTO-01-matrix-orchestration.md). Sprint 0
 and Phase B implement/test execution modes, canonical Git reconciliation, durable
 state, notification signalling and Windows scheduling setup. Phase C/D have tested
 command plans/validation contracts only. Live Claude, merges, releases and runner/task
-activation remain blocked pending verified telemetry, isolation, permissions and
-owner authorisation. AUTO-02 remains deferred. No release checkpoint/version is
+activation remain blocked pending Matrix account validation, isolation, permissions and
+owner authorisation. A follow-up on `auto-01-claude-usage-check` adds an optional
+read-only `/usage` adapter in [#102](https://github.com/tonygward/audio-plugins/pull/102). AUTO-02 remains deferred. No release checkpoint/version is
 assigned; no prompt is marked done before merge. Implementation PR: [#101](https://github.com/tonygward/audio-plugins/pull/101).
 
 ## Prompt identity and traceability

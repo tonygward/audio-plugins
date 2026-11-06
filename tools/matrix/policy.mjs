@@ -1,4 +1,4 @@
-export const TELEMETRY_SOURCE = 'claude-code-statusline-seven-day';
+export const TELEMETRY_SOURCE = 'claude-code-usage-report-weekly-all';
 
 export function usageGate(snapshot, now = Date.now()) {
   if (!snapshot || snapshot.source !== TELEMETRY_SOURCE) return { allowed: false, reason: 'No verified weekly subscription telemetry', snapshot: null };

@@ -30,11 +30,15 @@ archives. Free-form requirements cannot be completely interpreted by regex and n
 owner review/explicit metadata before live development. This implementation selects
 Sonnet only; Opus recommendations are visible review blockers, never silently changed.
 
-Official status-line weekly data becomes available after an API response and does
-not yet establish an independently fresh pre-start subscription check. Therefore
-production always reports unknown usage and no AI process runs. Tested boundary
-logic is not represented as a working telemetry integration. No manual or API billing
-override is provided. See the [runbook and official sources](../../tools/matrix/README.md#usage-feasibility-and-activation-blockers).
+Follow-up decision: use the documented `/usage` structured report in a separate,
+empty-directory CLI invocation to obtain weekly limits before model work. This
+supersedes the original status-line-only feasibility blocker. Verify subscription
+authentication and the tested CLI version family, reject cached/failure notices,
+unknown limits and paid extra usage, and retain the 85% threshold. Cache detection
+depends on the CLI's notices because the experimental schema lacks a server fetch
+timestamp; version changes and real provider failure behaviour need revalidation.
+The check is optional and read-only; live execution stays disabled. No manual or API
+billing override is provided. See the [runbook and official sources](../../tools/matrix/README.md#usage-check-and-remaining-activation-blockers).
 
 Future agent execution belongs in an isolated VM/account without personal secrets,
 LAN or release credentials. Only trusted orchestration may run allowlisted commands
