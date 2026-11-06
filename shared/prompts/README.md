@@ -6,8 +6,10 @@
 in [#101](https://github.com/tonygward/audio-plugins/pull/101); see the [Matrix runbook](../../tools/matrix/README.md)
 and [architecture decision](../../docs/adr/AUTO-01-matrix-orchestration.md). Sprint 0
 and Phase B implement/test execution modes, canonical Git reconciliation, durable
-state, notification signalling and Windows scheduling setup. Phase C/D have tested
-command plans/validation contracts only. Live Claude, merges, releases and runner/task
+state, notification signalling and Windows scheduling setup. The usage check merged
+in #102. A new [controlled worker](../../tools/matrix/WORKER.md) implements Phase C
+through draft PRs in [#104](https://github.com/tonygward/audio-plugins/pull/104). Phase D still has
+validation contracts only. Live Claude, merges, releases and runner/task
 activation remain blocked pending Matrix account validation, isolation, permissions and
 owner authorisation. A follow-up on `auto-01-claude-usage-check` adds an optional
 read-only `/usage` adapter in [#102](https://github.com/tonygward/audio-plugins/pull/102). AUTO-02 remains deferred. No release checkpoint/version is

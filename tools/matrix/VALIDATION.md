@@ -1,5 +1,30 @@
 # AUTO-01 validation evidence
 
+## Controlled worker follow-up
+
+Local `node --test tools/matrix/tests/*.test.mjs`: **91 passed, 0 failed**.
+All Matrix PowerShell scripts parsed without syntax errors. The actual disabled
+`work` CLI returned `liveExecution: false` without an agent or network operation.
+`git diff --check` passed. Windows denied the integration fixture's attempted Git
+pointer write; that case verified a blocked draft instead, while a separate
+file/hash unit test verified metadata-change detection directly. Cross-platform CI
+will exercise the same integration case where fixture metadata can be changed.
+
+The worker integration suite uses real temporary Git repositories, branch/worktree
+creation, commits and pushes into local bare remotes. A real simulated-agent child
+process edits fixture source; build and GitHub responses are simulated. Cases cover
+draft-PR success, duplicate prevention, high/unknown usage, per-repair usage rechecks,
+bounded repairs, failed builds, protected edits, source/Git-pointer tampering, pause,
+stale main, uncertain PR creation, approval/paths and real child timeout/cancellation/
+output limits. No subscription development turn, public remote or real installer is
+used in tests. PowerShell launcher/task scripts are syntax-checked only.
+
+Actual worker live execution remains unverified/unactivated. Separate-account Windows
+credential/ACL/network behaviour, restricted Claude file edits, JUCE builds, actual
+GitHub draft creation, reboot scheduling and screenshot capture need the documented
+supervised pilot. See [worker guide](WORKER.md). No automatic merge or release is
+implemented, and VERSION is unchanged. Not yet verified in a DAW.
+
 ## Usage adapter follow-up
 
 Local tests: 73 passed, 0 failed. New cases cover structured weekly boundaries,

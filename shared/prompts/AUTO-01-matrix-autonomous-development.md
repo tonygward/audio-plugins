@@ -8,7 +8,10 @@
 Implementation checkpoint: [runbook](../../tools/matrix/README.md),
 [architecture decision](../../docs/adr/AUTO-01-matrix-orchestration.md) and
 [local validation evidence](../../tools/matrix/VALIDATION.md). Sprint 0/Phase B are
-merged in #101; Phase C/D contain tested plans/contracts only. The usage follow-up
+merged in #101. The [Phase C controlled worker](../../tools/matrix/WORKER.md) now
+implements worktree, restricted Claude, separate-account builds and draft PR creation
+in [#104](https://github.com/tonygward/audio-plugins/pull/104); it remains disabled.
+Phase D still contains tested plans/contracts only. The usage follow-up
 adds a documented structured `/usage` check in [#102](https://github.com/tonygward/audio-plugins/pull/102).
 No live runner, AI, merge or release activation. Implementation PR [#101](https://github.com/tonygward/audio-plugins/pull/101);
 release checkpoint unassigned. Keep this prompt active until implementation is merged.

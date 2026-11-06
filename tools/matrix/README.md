@@ -1,11 +1,13 @@
 # Matrix development orchestrator
 
 Implementation for [AUTO-01](../../shared/prompts/AUTO-01-matrix-autonomous-development.md).
-**Sprint 0 and Phase B are implemented as a dry-run queue and report generator.**
-No development agent, build, PR merge, release or website update runs from this deployment.
+**Sprint 0/Phase B and a disabled controlled development worker are implemented.**
+See the [worker deployment guide](WORKER.md) for actual worktree → Claude → build →
+draft-PR execution and its independent activation gates. No worker is activated by
+this repository's example configuration. No PR merge, release or website update runs.
 An optional read-only Claude `/usage` command can populate the allowance report.
-Phase C/D command plans and validation contracts are tested helpers, not operational
-integrations. AUTO-02 is excluded by its deferred policy. No suite release/version is assigned.
+Phase C includes the controlled worker; Phase D remains validation helpers only.
+AUTO-02 is excluded by its deferred policy. No suite release/version is assigned.
 
 ## Run without installing anything
 
@@ -32,8 +34,9 @@ notifications. `daily` persists availability and history but never claims develo
 work. A candidate is eligible for planning; it is **not permission to execute**.
 Every report includes authoritative revision, execution mode/default, dependencies,
 priority, effort, model, skip reasons, validation errors and usage blocker.
-All three live/merge/publication flags must be explicitly false; true or missing
-values are rejected. `enabled: false` or a state-directory `PAUSED` file prevents
+Dry-run entry points require all live/merge/publication flags false. Only the explicit
+`work` entry point permits live execution with separate deployment approval; merge
+and publication remain false. `enabled: false` or a state-directory `PAUSED` file prevents
 even fetching. Pause remains effective after reboot. Resume only restores dry runs.
 
 ## Metadata and normalisation
@@ -219,8 +222,8 @@ returned null limits and was correctly rejected. Simulated cache/failure paths a
 unit-tested; a real provider-side cached fallback has not been induced/verified.
 
 The dry-run may now show a real percentage. This does **not** enable development:
-`liveExecution`, `autoMerge` and `releasePublication` remain false. A future live
-worker must call this same fresh check before every prompt; the standalone result
+the example configurations keep live execution disabled. The controlled worker
+calls this same fresh check before every prompt and repair; the standalone result
 and `latest-report.json` are diagnostics, not reusable execution authorisations.
 No paid API fallback, manual allowance override or AUTO-02 implementation is added.
 
@@ -235,13 +238,12 @@ zero model turns and reported cost. Automated tests mock the CLI and need no log
 
 ## Remaining phases and release boundary
 
-`claudePlan`, `worktreePlan` and `buildPlan` provide fixed, validated command plans;
-they do not launch processes. `mergeGate` checks exact head, approval, protections,
+The [controlled worker](WORKER.md) now executes the worktree/build plans through
+bounded processes and creates draft PRs. `mergeGate` checks exact head, approval, protections,
 warnings/tests and independently green Windows/macOS required checks. It does not
-query GitHub or merge. Implement authenticated evidence retrieval, isolated Claude
-execution with environment/network restrictions, process-tree cancellation, finite
-turn/time/token limits, per-prompt usage rechecks, local builds, draft PR creation,
-bounded repair and protected merges only after the above prerequisites are verified.
+query GitHub or merge. Protected automatic merges and authenticated CI evidence
+retrieval remain separate work. Actual Claude/Windows-account/build/PR integration
+must pass a supervised pilot under the deployment prerequisites before activation.
 No dangerous permission-bypass flag is generated. Update prompt traceability after
 verified merge, never on an agent's self-reported success.
 
