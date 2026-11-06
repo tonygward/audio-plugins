@@ -47,7 +47,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 
 - Name every factory preset for its practical use case in clear, concise language, such as **Acoustic Guitar Smoothing** or **Lead Vocal Control**. Keep hardware and model names, tutorial titles, and playful names out of the preset title. Record model selection in preset data and tutorial attribution in the preset notes. Users choose their own custom preset names.
 
-### 6. Honest modelling
+- Keep instructional research sources and named educators in research documentation, provenance fields and optional credits, not ordinary tooltips, Frequency Guide explanations or other operational help. Songsmith's on-screen guidance must stand on its own in plain language. Do not imply an educator endorses the product. Keep musically useful labels when grounded, while explaining subjective adjectives such as Plastic and Cheap in source-specific, optional listening terms. See SUI-14.\n\n### 6. Honest modelling
 - Plugins inspired by hardware (1176, L1) cite their sources. Say which behaviour is published and which is a Songsmith design choice, and which test checks each.
 - The editors are original designs informed by the hardware's control layout, not copies of a faceplate.
 

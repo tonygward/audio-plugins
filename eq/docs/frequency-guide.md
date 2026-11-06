@@ -25,7 +25,7 @@ The choice is saved with the session like the piano strip (it is editor state, n
 | Drum Bus | Weight, Boom, Boxy, Snap |
 | Any Instrument | Lows, Low Mids, Mids, High Mids, Highs |
 
-Every region has a `source` in [`eq/Source/FrequencyGuide.h`](../Source/FrequencyGuide.h) (not shown on screen): the video and time of Joe Gilder's advice, or the note file of Tony's. A test checks that each region has one, and that every file Tony's notes name exists.
+User-facing explanations should describe what the musician might hear and whether action is optional, without naming the tutorial author. Research attribution stays here and in source metadata; this distinction is tracked in [SUI-14](../../shared/prompts/SUI-14-neutral-tooltips-and-tonal-language.md).\n\nEvery region has a `source` in [`eq/Source/FrequencyGuide.h`](../Source/FrequencyGuide.h) (not shown on screen): the video and time of Joe Gilder's advice, or the note file of Tony's. A test checks that each region has one, and that every file Tony's notes name exists.
 
 ## Where the words come from
 
