@@ -1,0 +1,87 @@
+name: Distribute approved Songsmith beta release to R2
+
+# Release publication is not sufficient to enable distribution. An explicit
+# repository variable plus a protected GitHub environment are required.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: songsmith-beta-distribution
+  cancel-in-progress: false
+
+jobs:
+  distribute:
+    name: Verify, transfer, verify again and notify website
+    if: ${{ vars.BETA_DISTRIBUTION_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    environment: beta-distribution
+    timeout-minutes: 40
+    steps:
+      - name: Validate configuration before touching release assets
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          SOURCE_REPO: ${{ github.repository }}
+          R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          R2_UPLOAD_KEY_ID: ${{ secrets.R2_UPLOAD_KEY_ID }}
+          R2_UPLOAD_SECRET: ${{ secrets.R2_UPLOAD_SECRET }}
+          WEBSITE_READ_TOKEN: ${{ secrets.WEBSITE_READ_TOKEN }}
+          WEBSITE_DISPATCH_TOKEN: ${{ secrets.WEBSITE_DISPATCH_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_REPO" == "tonygward/audio-plugins" ]] || { echo "::error::Wrong source repository"; exit 1; }
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Tag must be vX.Y.Z"; exit 1; }
+          [[ "$R2_ENDPOINT" =~ ^https://[a-f0-9]+\.r2\.cloudflarestorage\.com$ ]] || { echo "::error::R2_ENDPOINT must be the account S3 API endpoint"; exit 1; }
+          [[ "$R2_BUCKET" == "songsmith-beta-releases" ]] || { echo "::error::Unexpected R2 bucket"; exit 1; }
+          for value in "$R2_UPLOAD_KEY_ID" "$R2_UPLOAD_SECRET" "$WEBSITE_READ_TOKEN" "$WEBSITE_DISPATCH_TOKEN"; do
+            [[ -n "$value" ]] || { echo "::error::Required release credential missing"; exit 1; }
+          done
+          command -v aws >/dev/null || { echo "::error::AWS CLI v2 is required"; exit 1; }
+          aws --version
+          [[ "$(aws --version 2>&1)" == aws-cli/2* ]] || { echo "::error::Requires AWS CLI v2"; exit 1; }
+
+      # This exact reviewed website commit owns the cross-repository release
+      # verifier. Do not run untrusted code from a mutable website branch.
+      - name: Check out pinned Songsmith website release verifier
+        uses: actions/checkout@v4
+        with:
+          repository: tonygward/songsmith-website
+          ref: 63ab0244a4ce3050bdc1563febef1c1898ac5791
+          token: ${{ secrets.WEBSITE_READ_TOKEN }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify published release, successful main CI and both installers; upload immutable R2 objects
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          SOURCE_TOKEN: ${{ github.token }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_UPLOAD_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_UPLOAD_SECRET }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          node scripts/sync-release.mjs --upload
+
+      - name: Notify website only after both objects pass verification
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.WEBSITE_DISPATCH_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          jq -n --arg version "$version" \
+            '{event_type:"songsmith-approved-release",client_payload:{repository:"tonygward/audio-plugins",version:$version}}' \
+            | gh api --method POST repos/tonygward/songsmith-website/dispatches --input -
