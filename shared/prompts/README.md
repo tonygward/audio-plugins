@@ -37,7 +37,7 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 
 **Additional unscheduled plugin candidates:** Reverb, Delay, De-Esser, Saturator, Gate / Expander, Transient Shaper and Guitar Amp / Cabinet. They are not assigned implementation prompts or release dates yet.
 
-**Future, not queued:** [ADV-01 musician-friendly guidance for each plugin](future/ADV-01-musician-guidance.md) and [REC-01 whole-file Recording and Streaming Advisor](future/REC-01-file-recording-advisor.md). The rule for both is **“What matters? Why does it matter? Do I need to do anything?”**
+**Early UI/content improvement:** [SUI-14 neutral tooltips and clearer tonal language](SUI-14-neutral-tooltips-and-tonal-language.md) (Sonnet; Low–Medium). Keep Joe Gilder's researched terms for now, but remove named-educator citations from operational UI and make the descriptions understandable to guitarists.\n\n**Future, not queued:** [ADV-01 musician-friendly guidance for each plugin](future/ADV-01-musician-guidance.md), [ADV-02 reference-mix guided review](future/ADV-02-reference-mix-guided-review.md), and [REC-01 whole-file Recording and Streaming Advisor](future/REC-01-file-recording-advisor.md). The rule for both is **“What matters? Why does it matter? Do I need to do anything?”**
 
 **Release discipline:** shared suite version **1.3.0** is the current documented baseline; future versions are set against agreed, validated roadmap milestones (not individual prompts). Preserve useful screenshots in PRs and READMEs, and distinguish mockups from shipped features. Details and execution order follow below.
 
@@ -61,7 +61,7 @@ Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq
 
 - **Not queued for unattended execution:** [ADV-01 musician-friendly advice across plugins](future/ADV-01-musician-guidance.md) — clear, optional recommendations grounded in actual measurements and listening guidance (**Sonnet; Opus only if architecture requires it**).
 - **Not queued for unattended execution:** [REC-01 whole-file recording and streaming advisor](future/REC-01-file-recording-advisor.md) — standalone file metadata, LUFS and true-peak advice without false pass/fail claims (**Sonnet; Opus for measurement validation if needed**).
-- Both follow the standing rule in `CLAUDE.md`; promote to active prompts only after existing work is prioritised.
+- **Not queued:** [ADV-02 reference-mix guided review](future/ADV-02-reference-mix-guided-review.md) — side-by-side reference and user mix, measured comparisons, and instrument/group advice only with stems or valid track routing (**Opus design spike; Sonnet implementation after approval; High effort**).\n- Both existing advisors and ADV-02 follow the standing rule in `CLAUDE.md`; promote to active prompts only after existing work is prioritised.
 
 ## Songsmith Plugins backlog
 
