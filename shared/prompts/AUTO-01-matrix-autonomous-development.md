@@ -36,7 +36,7 @@ Make Matrix an always-on, low-privilege Windows development agent which checks t
 ### Phase D — release automation
 - Use separate GitHub CI release workflow with explicit milestone marker/approved release scope, macOS hosted CI, Windows CI (self-hosted Matrix only if safe/isolated) and version validation.
 - Verify test suite, installer smoke tests, artifact names/count, SHA-256 checksums (in manifest/notes rather than extra release assets), signed/notarised status where applicable, and expected release tag. Ensure exactly one `Songsmith-Plugins-<version>-win64-setup.exe` and one `Songsmith-Plugins-<version>-macOS.pkg`.
-- On pass publish GitHub Release and report link; on failure leave draft/blocked status with diagnostics, never publish broken assets. Integrate future WEB-01 protected portal without publicising private repository download URLs.
+- On pass publish GitHub Release and report link; on failure leave draft/blocked status with diagnostics, never publish broken assets. **After successful publication only**, initiate the [WEB-01](WEB-01-private-beta-portal.md) cross-repository `repository_dispatch` event to the separate static Cloudflare Pages website repository. That website repo verifies the release, regenerates `release.json`, commits it and triggers Pages deployment; Matrix does not rebuild or publish the website daily. Use least-privilege dispatch credentials from the trusted CI workflow, never the Claude development agent. Private repository asset URLs/tokens must not be exposed.
 - Do not allow a PR/prompt to modify and immediately bypass its own release workflow or security policy. Sensitive workflow changes require manual owner approval.
 
 ## Acceptance tests
@@ -46,6 +46,7 @@ Make Matrix an always-on, low-privilege Windows development agent which checks t
 - Three to six compatible prompts can progress to separate traceable PRs if budget permits; fewer are acceptable and logged.
 - Power loss/reboot, double scheduled trigger and re-run do not duplicate work, merge, increment versions or publish releases.
 - Each release is a validated checkpoint with exactly two installers; no automatic publication merely because a batch finished.
+- Successful publication triggers exactly one idempotent cross-repository update in the website repo and Cloudflare Pages redeployment; merging a PR or publishing incomplete assets never updates the website.
 - Runbook covers installation, credentials, logs, failures, pause/resume, usage-source verification, security hardening and rollback.
 - Phase B is deployable and useful even if Claude usage telemetry blocks activation of Phases C–D.
 
