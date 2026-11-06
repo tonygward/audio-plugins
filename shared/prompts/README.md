@@ -10,7 +10,7 @@ state, notification signalling and Windows scheduling setup. Phase C/D have test
 command plans/validation contracts only. Live Claude, merges, releases and runner/task
 activation remain blocked pending verified telemetry, isolation, permissions and
 owner authorisation. AUTO-02 remains deferred. No release checkpoint/version is
-assigned; no prompt is marked done before merge. Implementation PR: pending creation.
+assigned; no prompt is marked done before merge. Implementation PR: [#101](https://github.com/tonygward/audio-plugins/pull/101).
 
 ## Prompt identity and traceability
 

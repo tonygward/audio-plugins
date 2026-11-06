@@ -9,7 +9,7 @@ Implementation checkpoint: [runbook](../../tools/matrix/README.md),
 [architecture decision](../../docs/adr/AUTO-01-matrix-orchestration.md) and
 [local validation evidence](../../tools/matrix/VALIDATION.md). Sprint 0/Phase B are
 implemented in the feature branch; Phase C/D contain tested plans/contracts only.
-No live runner, AI, merge or release activation. Implementation PR pending creation;
+No live runner, AI, merge or release activation. Implementation PR [#101](https://github.com/tonygward/audio-plugins/pull/101);
 release checkpoint unassigned. Keep this prompt active until implementation is merged.
 
 Make Matrix an always-on, low-privilege Windows development agent which checks the canonical GitHub Songsmith backlog at least once every 24 hours, selects a coherent batch of **3–6 eligible prompts** when Claude subscription usage is **strictly below 85%**, implements them using Claude Code, tests them, merges safe PRs and automatically publishes an **agreed release checkpoint** only after independent Windows/macOS CI validation. ChatGPT continues to create new tracked backlog prompts in GitHub; Matrix consumes canonical prompt files, not chat history.
