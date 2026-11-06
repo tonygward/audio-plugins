@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: tonygward/songsmith-website
-          ref: 4a7e29c811737dd24527562047921ea5ee5e7940
+          ref: dffc2e5417e6eab498b4a390e5bcb92eb7b359fc
           token: ${{ secrets.WEBSITE_READ_TOKEN }}
           persist-credentials: false
 
