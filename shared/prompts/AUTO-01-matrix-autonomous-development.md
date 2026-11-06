@@ -1,9 +1,17 @@
 # AUTO-01 — Matrix autonomous Songsmith development orchestrator
 
-**Status:** Planned, not implemented. **Priority:** Early infrastructure, independent of DSP/UI backlog and WEB-01.  
+**Status:** In progress, unmerged dry-run foundation; live execution blocked. **Priority:** Early infrastructure, independent of DSP/UI backlog and WEB-01.
 **Recommended model:** Opus for the initial security/orchestration design only; Sonnet for implementation, tests, and documentation. **Relative effort/usage:** High (implement in phases). **Escalate to Opus:** Only for architecture, trust boundaries, and unresolved release/usage-policy decisions. Document decisions and return to Sonnet.
 
 ## Goal
+
+Implementation checkpoint: [runbook](../../tools/matrix/README.md),
+[architecture decision](../../docs/adr/AUTO-01-matrix-orchestration.md) and
+[local validation evidence](../../tools/matrix/VALIDATION.md). Sprint 0/Phase B are
+implemented in the feature branch; Phase C/D contain tested plans/contracts only.
+No live runner, AI, merge or release activation. Implementation PR pending creation;
+release checkpoint unassigned. Keep this prompt active until implementation is merged.
+
 Make Matrix an always-on, low-privilege Windows development agent which checks the canonical GitHub Songsmith backlog at least once every 24 hours, selects a coherent batch of **3–6 eligible prompts** when Claude subscription usage is **strictly below 85%**, implements them using Claude Code, tests them, merges safe PRs and automatically publishes an **agreed release checkpoint** only after independent Windows/macOS CI validation. ChatGPT continues to create new tracked backlog prompts in GitHub; Matrix consumes canonical prompt files, not chat history.
 
 ## Non-negotiable gates

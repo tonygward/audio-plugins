@@ -1,0 +1,21 @@
+name: Matrix orchestration tests
+on:
+  pull_request:
+    paths: ['tools/matrix/**', '.github/workflows/matrix-*.yml']
+  push:
+    branches: [main]
+    paths: ['tools/matrix/**', '.github/workflows/matrix-*.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test tools/matrix/tests/*.test.mjs

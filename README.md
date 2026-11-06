@@ -31,5 +31,6 @@ The plugins work in compatible recording software through VST3 (and Audio Units 
 - [Songsmith EQ details](TECHNICAL.md#songsmith-eq)
 - [Analog Compressor details](analog-compressor/README.md)
 - [Maximiser details](maximiser/README.md)
+- [Matrix development automation setup and current limitations](tools/matrix/README.md)
 
 *Made for musicians. Built with care.*
