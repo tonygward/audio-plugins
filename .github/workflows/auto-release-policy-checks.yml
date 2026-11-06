@@ -1,0 +1,27 @@
+name: Auto-release policy tests
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/auto-publish-release.yml'
+      - '.github/workflows/auto-release-policy-checks.yml'
+      - 'scripts/release/**'
+      - 'test/release-prepare.test.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/auto-publish-release.yml'
+      - '.github/workflows/auto-release-policy-checks.yml'
+      - 'scripts/release/**'
+      - 'test/release-prepare.test.mjs'
+permissions:
+  contents: read
+jobs:
+  policy:
+    name: Verify auto-release publishing policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test test/release-prepare.test.mjs
