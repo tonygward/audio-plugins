@@ -13,16 +13,49 @@ Make Matrix an always-on, low-privilege Windows development agent which checks t
 4. **Safety:** Treat GitHub prompt files/PR content as untrusted input even within a private repository. Enforce a fixed set of permitted operations, timeout, network/secret isolation, no destructive or system-wide installs, branch protection, least-privilege GitHub App/PAT, human-controlled kill switch, bounded retries and spending caps. Do not give Claude unrestricted administrator rights or access to Matrix's personal files, credentials, or LAN. A separate isolated VM/agent account is preferred.
 5. **Repository policies:** Follow `AGENTS.md`, `CLAUDE.md`, `shared/prompts/overnight-prompt.md`, relevant READMEs, PR/CI conventions, and never force-push or commit directly to main. Preserve plugin identities, saved sessions, real-time audio safety and documentation traceability.
 
+## Sprint 0 — prompt execution policy and event-driven queue (mandatory foundation)
+This must be designed and tested **before** implementing the periodic scheduler or live agent execution. Do not defer it to a later refactor.
+
+Every prompt may declare a machine-readable `execution` field with exactly three allowed values:
+
+| Value | Meaning |
+|---|---|
+| `scheduled` | **DEFAULT**: eligible for the next scheduled development batch. **If a prompt has no `execution` field, treat it as `scheduled`.** Existing legacy Markdown prompts without machine-readable metadata must work unchanged and default to scheduled. |
+| `build-now` | Notify Matrix on a merged GitHub backlog change and queue for immediate execution when Matrix is online and idle, subject to all safety/usage/dependency rules. |
+| `deferred` | Not eligible for unattended development until explicitly reclassified; preserve AUTO-02's deferred restriction. |
+
+A machine-readable YAML front matter header is suggested for *new* prompts (without requiring a mass edit of historical prompts):
+
+```yaml
+---
+id: EQ-41
+status: ready
+execution: build-now
+priority: high
+model: sonnet
+---
+```
+
+Implement a strict parser with a backward-compatible default of `scheduled` **only for omitted values**; malformed or unrecognised explicit values fail closed with a visible validation error rather than silently becoming scheduled. Human-readable prose remains the work specification.
+
+- **GitHub is the durable source of truth/queue.** A trusted GitHub push to `main` touching prompt metadata notifies Matrix via a restricted GitHub Actions self-hosted runner job (or comparably secure outbound signalling). Do not expose a public inbound webhook on the home network. Signal only the orchestrator; never run arbitrary changed prompt content as shell commands from the notification job.
+- For `scheduled`, record availability but do not execute from the push notification. The daily run selects from the eligible backlog.
+- For `build-now`, enqueue and attempt promptly when idle, with no interruption of existing work. If Matrix was offline, a webhook/job was missed or an immediate item could not run, the **next scheduled reconciliation must discover and pick up the pending `build-now` prompt** (give it precedence over ordinary scheduled work, subject to priority/dependency policy). No lost jobs.
+- For `deferred`, do not execute on push or schedule; only an intentional authorised metadata/status change makes it eligible. Never mistake a deferred prompt for a normal scheduled prompt merely because its execution field is absent: existing explicit deferred status/policy is authoritative.
+- Enforce one active worker, durable prompt ID/state, idempotent claim/complete behaviour, deduplication of push and schedule events, bounded retry states, clear reasons for skips, and recovery across reboot/offline periods.
+- **Execution speed is not permission:** `build-now` bypasses only the *time delay*, never the 85% Claude allowance rule, explicit enablement, security checks, dependencies, PR protections, tests, release milestones or approval.
+- During Sprint 0 implement and test this behaviour **in dry-run mode with no Claude/Codex invocation**, including existing no-front-matter prompt, explicit `scheduled`, `build-now` while Matrix online/offline/busy, `deferred`, malformed field, duplicate event, missed event, and pending immediate work recovered by daily scan. Document normalisation/priority rules.
+
 ## Architecture to implement in stages
 ### Phase A — feasibility and design (mandatory first)
 - Inspect Matrix's actual OS, CPU/RAM, existing toolchain, current Actions workflows, current release process and account permissions; don't assume they are provisioned.
 - Validate **supported weekly usage telemetry** and terms; document if auto-run must remain disabled because it cannot be measured. Define a documented manual override with short expiration only if explicitly approved by Tony, and no bypass of paid usage protections.
-- Write an ADR describing scheduler, agent/service lifecycle, environment isolation, runner security, state persistence, work claims, dead-letter queue, CI/release trust boundaries, backup/recovery, monitoring, and Windows vs macOS responsibilities.
+- **Sprint 0 is mandatory:** define and test prompt execution metadata, omitted-field default (`scheduled`), notification ingestion, durable queue, missed-event reconciliation and de-duplication before live development. Write an ADR describing scheduler, agent/service lifecycle, environment isolation, runner security, state persistence, work claims, dead-letter queue, CI/release trust boundaries, backup/recovery, monitoring, and Windows vs macOS responsibilities.
 - Define release checkpoints and approval contract separately from prompt completion.
 
 ### Phase B — daily dry run
 - Run as an OS scheduled task/service at a configurable daily time (Europe/London), with restart-on-reboot, single-instance lock, missed-run catch-up and readable logs.
-- Sync/pull the **main** branch and fetch latest prompt status within 24 hours; produce a no-write report showing usage source/value/timestamp, selection candidates, dependencies, rough effort and reasons for skipping.
+- Sync/pull the **main** branch and fetch latest prompt status within 24 hours; produce a no-write report showing usage source/value/timestamp, execution mode (including defaults), selection candidates, dependencies, rough effort and reasons for skipping. Recover pending `build-now` prompts missed during offline periods or failed notifications.
 - Stable task IDs, idempotence, claimed/in-progress records and durable checkpoint state; avoid rerunning prompts after reboot and concurrent agents.
 - Include a disable switch, dry-run default, dashboard/log summary and tests for failures/threshold boundary (84.9%, 85%, 85.1%, unknown) and DST.
 
@@ -40,6 +73,9 @@ Make Matrix an always-on, low-privilege Windows development agent which checks t
 - Do not allow a PR/prompt to modify and immediately bypass its own release workflow or security policy. Sensitive workflow changes require manual owner approval.
 
 ## Acceptance tests
+- **Omitted execution field defaults to `scheduled`, including all existing legacy prompts; it does not trigger immediate development.** Explicit `scheduled` waits for the daily batch, `build-now` attempts immediately when eligible, and `deferred` is never run unattended.
+- GitHub push notification speeds up `build-now` but is not necessary for correctness: daily reconciliation picks up any pending `build-now` item missed while Matrix is offline/busy. Duplicate events never duplicate work.
+- Invalid explicit execution values are reported and skipped rather than silently accepted; `build-now` never bypasses usage, safety, tests, release or permission gates.
 - New ChatGPT-created prompt in GitHub is eligible at next daily sync without duplicate runs.
 - Unverified usage, usage >=85%, API failure, no approved usage source and a newly crossed 85% threshold all prevent new Claude work.
 - Conflicting dependencies, large task, failed tests, failed macOS CI, stale code, missing release approval or changed PR head prevent merging/releasing as appropriate.
