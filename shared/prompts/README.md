@@ -1,5 +1,17 @@
 # Suite prompts
 
+## AUTO-01 implementation checkpoint
+
+[AUTO-01](AUTO-01-matrix-autonomous-development.md) has an **unmerged dry-run implementation**
+on `auto-01-matrix-orchestrator`; see the [Matrix runbook](../../tools/matrix/README.md)
+and [architecture decision](../../docs/adr/AUTO-01-matrix-orchestration.md). Sprint 0
+and Phase B implement/test execution modes, canonical Git reconciliation, durable
+state, notification signalling and Windows scheduling setup. Phase C/D have tested
+command plans/validation contracts only. Live Claude, merges, releases and runner/task
+activation remain blocked pending verified telemetry, isolation, permissions and
+owner authorisation. AUTO-02 remains deferred. No release checkpoint/version is
+assigned; no prompt is marked done before merge. Implementation PR: [#101](https://github.com/tonygward/audio-plugins/pull/101).
+
 ## Prompt identity and traceability
 
 Every task has a **stable, unique, scope-qualified ID**: `EQ-32` (file `eq/prompts/32-...`), `ACOMP-06` (`analog-compressor/prompts/06-...`), `MAX-07` (`maximiser/prompts/07-...`), `SUI-11` (shared suite), `OPT-01`/`CLN-01` (specific classic plugins) or `ADV-01` (future candidate). The ID **never changes** when a prompt moves to `done/`; historical numbers, names and GitHub PR numbers are not task IDs.
