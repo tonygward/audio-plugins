@@ -10,7 +10,7 @@ state, notification signalling and Windows scheduling setup. Phase C/D have test
 command plans/validation contracts only. Live Claude, merges, releases and runner/task
 activation remain blocked pending Matrix account validation, isolation, permissions and
 owner authorisation. A follow-up on `auto-01-claude-usage-check` adds an optional
-read-only `/usage` adapter; implementation PR pending. AUTO-02 remains deferred. No release checkpoint/version is
+read-only `/usage` adapter in [#102](https://github.com/tonygward/audio-plugins/pull/102). AUTO-02 remains deferred. No release checkpoint/version is
 assigned; no prompt is marked done before merge. Implementation PR: [#101](https://github.com/tonygward/audio-plugins/pull/101).
 
 ## Prompt identity and traceability

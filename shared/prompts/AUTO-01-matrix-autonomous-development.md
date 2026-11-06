@@ -9,7 +9,7 @@ Implementation checkpoint: [runbook](../../tools/matrix/README.md),
 [architecture decision](../../docs/adr/AUTO-01-matrix-orchestration.md) and
 [local validation evidence](../../tools/matrix/VALIDATION.md). Sprint 0/Phase B are
 merged in #101; Phase C/D contain tested plans/contracts only. The usage follow-up
-adds a documented structured `/usage` check; its PR is pending creation.
+adds a documented structured `/usage` check in [#102](https://github.com/tonygward/audio-plugins/pull/102).
 No live runner, AI, merge or release activation. Implementation PR [#101](https://github.com/tonygward/audio-plugins/pull/101);
 release checkpoint unassigned. Keep this prompt active until implementation is merged.
 
