@@ -13,10 +13,14 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 | `MAX-` | `maximiser/prompts/` | `maximiser/prompts/done/` |
 | `SUI-` | `shared/prompts/` | `shared/prompts/done/` |
 | `WEB-` | `shared/prompts/` (portal roadmap; implementation in separate private repo) | `shared/prompts/done/` |
+| `AUTO-` | `shared/prompts/` (automation/infrastructure) | `shared/prompts/done/` |
 | `OPT-` / `PEQ-` / `BUS-` / `CLN-` | `shared/prompts/classics/` | `shared/prompts/classics/done/` when delivered |
 | `ADV-` / `REC-` | `shared/prompts/future/` | `shared/prompts/future/done/` only after implemented |
 
 ## Backlog at a glance
+
+**Matrix automation — planned:** [AUTO-01 autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) (**Opus architecture, Sonnet implementation; High effort; early infrastructure**). A daily GitHub backlog sync, conservative 85% weekly Claude usage gate (**fail closed when usage cannot be authoritatively checked**), compatible batches of up to 3–6 prompts, bounded Claude Code execution, traceable PRs, and releases *only* at validated approved checkpoints with exactly two installer assets. Implement dry-run and security design first; no unattended automation is enabled by this backlog entry.
+
 
 **Private beta portal — planned:** [WEB-01 functional developer portal](WEB-01-private-beta-portal.md) (**Sonnet; Medium; early beta/commercial readiness, independent of audio DSP backlog**). Cloudflare Pages + Access, exact-email one-time PIN allowlist, protected private release downloads, guides, release notes and tester feedback. Start with an architecture/security check; do not turn the audio-plugins repository private until a verified private download route is ready. This is not an implemented website or an approved release checkpoint.
 
