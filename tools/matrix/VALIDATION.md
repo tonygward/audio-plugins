@@ -12,6 +12,7 @@ Local validation on the Windows development host, 6 November 2026:
 | Weekly usage | Unknown; fail closed; no Claude invocation |
 | Historical archive warning | `shared/prompts/done/S7-one-version-number.md` lacks a stable canonical ID; SUI-07 remains canonical |
 | `git diff --check` | Passed |
+| [Orchestration CI run 42285585425](https://github.com/tonygward/audio-plugins/actions/runs/42285585425) | All 49 tests passed on Windows, Ubuntu and macOS, Node 24, implementation commit `662f829` |
 
 Tests include legacy/default and all explicit execution modes, malformed metadata,
 deferred AUTO-02, dependency/claim/conflict gates, duplicate/offline/busy signals,
@@ -24,7 +25,7 @@ R2/publication requirements before producing a website-event plan.
 The real report/state/log files are in ignored `build/matrix-validation/`; they
 contain no credentials and are not installed operational configuration.
 
-Not verified: Linux/macOS CI (new workflow will run on the PR), actual Windows task
+Not verified: broader plugin Build CI (queued when checked), actual Windows task
 registration/reboot, restricted notification runner/ACLs, Matrix hardware, subscription
 authentication/fresh pre-start telemetry, isolated Claude execution, builds/DAW checks,
 authenticated PR/merge adapters, live release/R2 upload or website receiver. The tests
