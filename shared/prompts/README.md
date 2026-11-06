@@ -19,6 +19,8 @@ For each completed prompt, keep a single canonical Markdown file in its own fold
 
 ## Backlog at a glance
 
+**Codex fallback — deferred, not authorised to run:** [AUTO-02 Codex fallback when Claude credits are low](AUTO-02-codex-fallback.md) (**Sonnet; Medium; dependent on AUTO-01**). Future multi-agent provider selection when Claude reaches its 85% threshold or is exhausted; use shared `AGENTS.md` standards, independent Codex allowance checks and identical CI/release gates. **Explicitly exclude from automated prompt selection until manually activated.** No implementation or configuration changes now.
+
 **Matrix automation — planned:** [AUTO-01 autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) (**Opus architecture, Sonnet implementation; High effort; early infrastructure**). A daily GitHub backlog sync, conservative 85% weekly Claude usage gate (**fail closed when usage cannot be authoritatively checked**), compatible batches of up to 3–6 prompts, bounded Claude Code execution, traceable PRs, and releases *only* at validated approved checkpoints with exactly two installer assets. Implement dry-run and security design first; no unattended automation is enabled by this backlog entry.
 
 
