@@ -7,16 +7,16 @@ const expectedJobs=['One version number','Songsmith Plugins installer - Windows'
 
 export function releaseVersion(contents) {
   const v=contents.trim();
-  if(!/^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$/.test(v)||!v.split('.').every(n=>Number.isSafeInteger(Number(n))))throw Error('VERSION must be canonical X.Y.Z');
+  if(!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(v)||!v.split('.').every(n=>Number.isSafeInteger(Number(n))))throw Error('VERSION must be canonical X.Y.Z');
   return v;
 }
 export function releaseNotes(changelog,version) {
-  const headings=[...changelog.matchAll(/^## (\\d+\\.\\d+\\.\\d+)\\s*$/gm)];
+  const headings=[...changelog.matchAll(/^## (\d+\.\d+\.\d+)\s*$/gm)];
   const matches=headings.filter(m=>m[1]===version);
   if(matches.length!==1)throw Error(`CHANGELOG must have exactly one ## ${version} section`);
   const m=matches[0],next=headings.find(h=>h.index>m.index);
   const notes=changelog.slice(m.index+m[0].length,next?.index??changelog.length).trim();
-  if(!/[\\p{L}\\p{N}]/u.test(notes.replace(/^#+.*$/gm,'')))throw Error('Release notes are empty');
+  if(!/[\p{L}\p{N}]/u.test(notes.replace(/^#+.*$/gm,'')))throw Error('Release notes are empty');
   return notes;
 }
 export function validateRun(run,jobs,sha) {
@@ -40,7 +40,7 @@ export function validateInstallerFiles(files,version) {
 }
 async function main() {
   const env=process.env,token=env.GITHUB_TOKEN,runId=env.BUILD_RUN_ID;
-  if(!token||!/^\\d+$/.test(runId||''))throw Error('Authenticated Build workflow run ID required');
+  if(!token||!/^\d+$/.test(runId||''))throw Error('Authenticated Build workflow run ID required');
   const api=async path=>{
     const response=await fetch(`https://api.github.com/repos/${repo}${path}`,{headers:{
       Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'
@@ -66,12 +66,12 @@ async function main() {
   }});
   if(lookup.status===200){
     console.log(`v${version} already tagged; no new release`);
-    await writeFile(env.GITHUB_OUTPUT,'publish=false\\n',{flag:'a'});
+    await writeFile(env.GITHUB_OUTPUT,'publish=false\n',{flag:'a'});
     return;
   }
   if(lookup.status!==404)throw Error(`GitHub tag lookup returned ${lookup.status}`);
-  await writeFile('release-notes.md',notes+'\\n');
-  await writeFile(env.GITHUB_OUTPUT,`publish=true\\nversion=${version}\\n`,{flag:'a'});
+  await writeFile('release-notes.md',notes+'\n');
+  await writeFile(env.GITHUB_OUTPUT,`publish=true\nversion=${version}\n`,{flag:'a'});
   console.log(`Ready for release v${version} from verified main Build run ${runId}`);
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)
