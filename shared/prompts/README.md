@@ -2,6 +2,20 @@
 
 ## AUTO-01 implementation checkpoint
 
+## Beta maintenance release checkpoint — 1.3.1
+
+Authorised on 7 November 2026: PR #113 delivers the EQ/Maximiser obsolete JUCE
+splash-definition correction and restricted manual build infrastructure. Release
+only after green PR checks and the exact main commit's full Windows/universal
+macOS plugin and suite-installer build. Publish through the existing Actions
+pipeline with exactly two installers, then verify R2 and website distribution.
+The supervised Agent fixture registration needs the existing Windows credential
+and remains a documented follow-up, not a beta blocker. Interruption recovery is
+not certified; autonomous execution remains disabled. AUTO-01 as a whole and
+EQ-38 remain unfinished. No new audio/UI feature is claimed in this patch.
+
+### Earlier implementation checkpoints
+
 [AUTO-01](AUTO-01-matrix-autonomous-development.md) has a **merged dry-run foundation**
 in [#101](https://github.com/tonygward/audio-plugins/pull/101); see the [Matrix runbook](../../tools/matrix/README.md)
 and [architecture decision](../../docs/adr/AUTO-01-matrix-orchestration.md). Sprint 0
