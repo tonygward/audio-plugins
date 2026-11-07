@@ -4303,32 +4303,57 @@ public:
             expectEquals ((int) std::size (OutputMeterDisplay::scaleMarks), 6);
         }
 
-        beginTest ("Clip indicator latches and a click resets it");
+        beginTest ("The display shows the audio thread's latched CLIP warning and a click does not clear it");
         {
             OutputMeterDisplay m;
             m.setSize (OutputMeterDisplay::preferredWidth, 300);
-            m.update (0.1f, false, 0.0, 0.0);
+            m.update (0.1f, 0.1f, 2, false, 0.0, 0.0);
             expect (! m.isClipped());
-            m.update (1.2f, true, 0.1, 0.1);
+            m.update (1.2f, 0.1f, 2, true, 0.1, 0.1);
             expect (m.isClipped());
             expectGreaterThan (m.getHoldDb(), 1.0f);
-            m.update (0.01f, false, 0.2, 0.1);
+            m.update (0.01f, 0.01f, 2, true, 0.2, 0.1);
             expect (m.isClipped(), "stays lit after the signal drops");
             expectGreaterThan (m.getHoldDb(), 1.0f, "peak held");
-            m.update (0.01f, false, 5.0, 1.0);
+            m.update (0.01f, 0.01f, 2, true, 5.0, 1.0);
             expect (m.isClipped(), "still lit seconds later");
             expectLessThan (m.getHoldDb(), 1.0f, "hold falls after 1.5 s");
 
             m.mouseDown (UiSizeTests::mouseAt (m, m.getClipBox().getCentre()));
-            expect (! m.isClipped(), "click resets");
+            expect (m.isClipped(), "a click doesn't clear the warning");
+            m.update (0.0f, 0.0f, 2, false, 6.0, 1.0);
+            expect (! m.isClipped(), "it clears when the audio thread says the sound has stopped");
+        }
+
+        beginTest ("One bar for mono, two side-by-side bars for stereo, each with its own level");
+        {
+            OutputMeterDisplay m;
+            m.setSize (OutputMeterDisplay::preferredWidth, 400);
+            m.update (0.5f, 0.0f, 1, false, 0.0, 0.0);
+            expectEquals (m.getNumChannels(), 1);
+            expect (m.getChannelBar (0) == m.getBarArea(), "mono uses the whole bar area");
+
+            m.update (0.5f, 0.05f, 2, false, 0.1, 0.1);
+            expectEquals (m.getNumChannels(), 2);
+            const auto left = m.getChannelBar (0), right = m.getChannelBar (1);
+            expect (left.getRight() < right.getX(), "left bar beside right bar");
+            expectWithinAbsoluteError (left.getWidth(), right.getWidth(), 1.0e-4f);
+            expect (m.getBarArea().contains (left) && m.getBarArea().contains (right), "both inside the bar area");
+            expectWithinAbsoluteError (m.getLevelDb (0), juce::Decibels::gainToDecibels (0.5f), 0.01f, "left level");
+            expectWithinAbsoluteError (m.getLevelDb (1), juce::Decibels::gainToDecibels (0.05f), 0.01f, "right level");
+
+            m.update (0.0f, 0.9f, 2, false, 0.2, 0.0);   // right only
+            expectWithinAbsoluteError (m.getChannelHoldDb (1), juce::Decibels::gainToDecibels (0.9f), 0.01f);
+            expect (m.getChannelHoldDb (0) < juce::Decibels::gainToDecibels (0.5f) + 0.01f, "left unaffected by right");
+            expect (m.getClipBox().getBottom() < m.getBarArea().getY(), "CLIP sits above the bars");
         }
 
         beginTest ("Ballistics: fast attack, about 24 dB/s fall-off");
         {
             OutputMeterDisplay m;
-            m.update (0.5f, false, 0.0, 0.0);
+            m.update (0.5f, 0.5f, 2, false, 0.0, 0.0);
             expectWithinAbsoluteError (m.getLevelDb(), juce::Decibels::gainToDecibels (0.5f), 0.01f);
-            m.update (0.0f, false, 0.5, 0.5);
+            m.update (0.0f, 0.0f, 2, false, 0.5, 0.5);
             expectWithinAbsoluteError (m.getLevelDb(), juce::Decibels::gainToDecibels (0.5f) - 12.0f, 0.01f);
         }
 
@@ -4353,6 +4378,176 @@ public:
                 expect (ed->getContent().getLocalBounds().contains (meter), context + ": inside the editor");
                 WordingAndFontTests::checkLayout (*this, *ed, context);
             }
+        }
+    }
+};
+
+//==============================================================================
+// EQ-39: per-channel output peaks, the channel count, and the latched CLIP warning.
+class OutputMeterClipTests final : public juce::UnitTest
+{
+public:
+    OutputMeterClipTests() : juce::UnitTest ("Output meter channels and latched clip warning", "EQ") {}
+
+    using Set = juce::AudioChannelSet;
+
+    static juce::AudioProcessor::BusesLayout layout (Set in, Set out)
+    {
+        juce::AudioProcessor::BusesLayout l;
+        l.inputBuses.add (in);
+        l.inputBuses.add (Set::disabled());   // the sidechain, off
+        l.outputBuses.add (out);
+        return l;
+    }
+
+    // Feeds 'blocks' blocks of constant-amplitude (alternating-sign) samples per channel.
+    static void feed (SongsmithEQAudioProcessor& p, int numCh, float left, float right, int blocks, int block = 512)
+    {
+        juce::AudioBuffer<float> buffer (numCh, block);
+        juce::MidiBuffer midi;
+        for (int b = 0; b < blocks; ++b)
+        {
+            for (int i = 0; i < block; ++i)
+            {
+                const float sign = (i & 1) ? -1.0f : 1.0f;
+                buffer.setSample (0, i, left * sign);
+                if (numCh > 1)
+                    buffer.setSample (1, i, right * sign);
+            }
+            p.processBlock (buffer, midi);
+        }
+    }
+
+    static SongsmithEQAudioProcessor& flat (SongsmithEQAudioProcessor& p)
+    {
+        for (int b = 0; b < numBands; ++b)
+            p.setBandUsed (b, false);
+        return p;
+    }
+
+    void runTest() override
+    {
+        constexpr double fs = 48000.0;
+        const int secondsOfBlocks = (int) (fs / 512.0) + 2;   // a little over a second
+
+        beginTest ("Stereo reports two channels and each channel's own peak; mono reports one");
+        {
+            SongsmithEQAudioProcessor p;
+            flat (p).prepareToPlay (fs, 512);
+            expectEquals (p.outputMeter.channels.load(), 2);
+            feed (p, 2, 0.5f, 0.0f, 4);
+            expectWithinAbsoluteError (p.outputMeter.readAndResetChannel (0), 0.5f, 0.01f, "left only");
+            expectLessThan (p.outputMeter.readAndResetChannel (1), 1.0e-4f, "right silent");
+            feed (p, 2, 0.0f, 0.25f, 4);
+            expectLessThan (p.outputMeter.readAndResetChannel (0), 1.0e-4f, "left silent");
+            expectWithinAbsoluteError (p.outputMeter.readAndResetChannel (1), 0.25f, 0.01f, "right only");
+
+            SongsmithEQAudioProcessor m;
+            expect (m.setBusesLayout (layout (Set::mono(), Set::mono())), "mono layout accepted");
+            flat (m).prepareToPlay (fs, 512);
+            expectEquals (m.outputMeter.channels.load(), 1);
+            feed (m, 1, 0.5f, 0.0f, 4);
+            expectWithinAbsoluteError (m.outputMeter.readAndResetChannel (0), 0.5f, 0.01f);
+            expectEquals (m.outputMeter.channels.load(), 1);
+
+            m.releaseResources();
+            expect (m.setBusesLayout (layout (Set::stereo(), Set::stereo())), "back to stereo");
+            m.prepareToPlay (fs, 512);
+            expectEquals (m.outputMeter.channels.load(), 2, "layout change is noticed");
+        }
+
+        beginTest ("A level below 0 dBFS does not show CLIP; a full-scale sample on either channel does");
+        {
+            SongsmithEQAudioProcessor p;
+            flat (p).prepareToPlay (fs, 512);
+            feed (p, 2, 0.9f, 0.9f, 8);
+            expect (! p.outputMeter.clipLatched.load(), "no CLIP at -0.9 dBFS");
+
+            SongsmithEQAudioProcessor l;
+            flat (l).prepareToPlay (fs, 512);
+            feed (l, 2, 1.0f, 0.1f, 1);
+            expect (l.outputMeter.clipLatched.load(), "left channel clip");
+
+            SongsmithEQAudioProcessor r;
+            flat (r).prepareToPlay (fs, 512);
+            feed (r, 2, 0.1f, 1.0f, 1);
+            expect (r.outputMeter.clipLatched.load(), "right channel clip");
+
+            SongsmithEQAudioProcessor t;   // a single-sample transient
+            flat (t).prepareToPlay (fs, 512);
+            juce::AudioBuffer<float> buffer (2, 512);
+            juce::MidiBuffer midi;
+            buffer.clear();
+            buffer.setSample (1, 200, -1.0f);
+            t.processBlock (buffer, midi);
+            expect (t.outputMeter.clipLatched.load(), "one clipped sample is enough");
+        }
+
+        beginTest ("CLIP stays on through quiet-but-audible sound and short pauses, and clears after sustained silence");
+        {
+            SongsmithEQAudioProcessor p;
+            flat (p).prepareToPlay (fs, 512);
+            feed (p, 2, 1.0f, 1.0f, 2);
+            expect (p.outputMeter.clipLatched.load(), "latched");
+
+            feed (p, 2, 0.01f, 0.01f, secondsOfBlocks * 3);   // -40 dBFS for three seconds
+            expect (p.outputMeter.clipLatched.load(), "quiet but audible keeps it lit");
+
+            feed (p, 2, 0.0f, 0.0f, 40);   // about 0.43 s of silence
+            expect (p.outputMeter.clipLatched.load(), "a short pause doesn't clear it");
+            feed (p, 2, 0.01f, 0.01f, 2);
+            feed (p, 2, 0.0f, 0.0f, 40);
+            expect (p.outputMeter.clipLatched.load(), "the pause timer restarts when sound returns");
+
+            feed (p, 2, 0.0f, 0.0f, secondsOfBlocks);   // more than 0.75 s of silence
+            expect (! p.outputMeter.clipLatched.load(), "sustained silence clears it");
+
+            feed (p, 2, 0.5f, 0.5f, 4);
+            expect (! p.outputMeter.clipLatched.load(), "new playback starts clean");
+            feed (p, 2, 1.0f, 1.0f, 1);
+            expect (p.outputMeter.clipLatched.load(), "and a new clip latches again");
+        }
+
+        beginTest ("One active stereo channel stops the warning clearing");
+        {
+            SongsmithEQAudioProcessor p;
+            flat (p).prepareToPlay (fs, 512);
+            feed (p, 2, 1.0f, 1.0f, 1);
+            feed (p, 2, 0.0f, 0.05f, secondsOfBlocks * 2);   // left silent, right audible
+            expect (p.outputMeter.clipLatched.load(), "right is still sounding");
+            feed (p, 2, 0.0f, 0.0f, secondsOfBlocks);
+            expect (! p.outputMeter.clipLatched.load(), "both silent: cleared");
+        }
+
+        beginTest ("Preparing again, as after reopening a session or changing layout, clears a stale warning");
+        {
+            SongsmithEQAudioProcessor p;
+            flat (p).prepareToPlay (fs, 512);
+            feed (p, 2, 1.0f, 1.0f, 1);
+            expect (p.outputMeter.clipLatched.load());
+            p.prepareToPlay (fs, 512);
+            expect (! p.outputMeter.clipLatched.load(), "no stale warning");
+        }
+
+        beginTest ("The meter doesn't change the sound");
+        {
+            SongsmithEQAudioProcessor p;
+            p.prepareToPlay (fs, 512);
+            juce::AudioBuffer<float> buffer (2, 512);
+            juce::MidiBuffer midi;
+            for (int i = 0; i < 512; ++i)
+            {
+                buffer.setSample (0, i, 0.3f * std::sin (0.05f * (float) i));
+                buffer.setSample (1, i, 0.2f * std::sin (0.07f * (float) i));
+            }
+            auto copy = buffer;
+            p.processBlock (buffer, midi);
+            SongsmithEQAudioProcessor q;
+            q.prepareToPlay (fs, 512);
+            q.processBlock (copy, midi);
+            for (int c = 0; c < 2; ++c)
+                for (int i = 0; i < 512; ++i)
+                    expectEquals (buffer.getSample (c, i), copy.getSample (c, i));
         }
     }
 };
@@ -5359,6 +5554,7 @@ static FrequencyGuideTests frequencyGuideTests;
 static PianoToggleTests pianoToggleTests;
 static EdgeClickTests edgeClickTests;
 static OutputMeterTests outputMeterTests;
+static OutputMeterClipTests outputMeterClipTests;
 static UiSizeTests uiSizeTests;
 static WordingAndFontTests wordingAndFontTests;
 static SongsmithUITests sharedUITests { "EQ" };
@@ -5626,9 +5822,17 @@ static int renderScreenshots (const juce::File& folder, float scale)
 {
     folder.createDirectory();
 
-    auto shoot = [&] (int width, int height, const juce::String& name, float uiScale = 1.0f, bool piano = false, bool panelAtBottom = false, int guide = -1)
+    auto shoot = [&] (int width, int height, const juce::String& name, float uiScale = 1.0f, bool piano = false, bool panelAtBottom = false, int guide = -1, bool mono = false, bool clip = false)
     {
         SongsmithEQAudioProcessor p;
+        if (mono)   // EQ-39: a mono track shows one meter bar
+        {
+            juce::AudioProcessor::BusesLayout l;
+            l.inputBuses.add (juce::AudioChannelSet::mono());
+            l.inputBuses.add (juce::AudioChannelSet::disabled());
+            l.outputBuses.add (juce::AudioChannelSet::mono());
+            p.setBusesLayout (l);
+        }
         p.prepareToPlay (48000.0, 512);
         for (int b = 0; b < numBands; ++b)   // a fresh instance starts with three bands
             if (p.isBandUsed (b))
@@ -5658,6 +5862,19 @@ static int renderScreenshots (const juce::File& folder, float scale)
                 for (int i = 0; i < 512; ++i)
                 {
                     const float v = 0.4f * std::sin (juce::MathConstants<float>::twoPi * 1000.0f * (float) (block * 512 + i) / 48000.0f);
+                    buffer.setSample (0, i, v);
+                    buffer.setSample (1, i, v);
+                }
+                p.processBlock (buffer, midi);
+            }
+
+            if (clip)   // EQ-39: one full-scale block on the left channel, then back to the tone
+            {
+                buffer.setSample (0, 0, 3.0f);
+                p.processBlock (buffer, midi);
+                for (int i = 0; i < 512; ++i)
+                {
+                    const float v = 0.4f * std::sin (juce::MathConstants<float>::twoPi * 1000.0f * (float) i / 48000.0f);
                     buffer.setSample (0, i, v);
                     buffer.setSample (1, i, v);
                 }
@@ -5697,6 +5914,9 @@ static int renderScreenshots (const juce::File& folder, float scale)
     SongsmithEQAudioProcessor defaults;
     shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "default-size");
     shoot (EQ::EditorSize::minWidth, EQ::EditorSize::minHeight, "minimum-size");
+    shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "meter-mono", 1.0f, false, false, -1, true, false);   // EQ-39
+    shoot (defaults.editorWidth.load(), defaults.editorHeight.load(), "meter-stereo-clip", 1.0f, false, false, -1, false, true);
+    shoot (EQ::EditorSize::minWidth, EQ::EditorSize::minHeight, "meter-stereo-clip-minimum-size", 1.0f, false, false, -1, false, true);
     for (int i = 0; i < EQ::Guide::numInstruments(); ++i)   // the Frequency Guide, one picture per instrument
     {
         const auto slug = juce::String (EQ::Guide::instrument (i).name).toLowerCase().replaceCharacter (' ', '-');

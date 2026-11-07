@@ -269,9 +269,14 @@ void SongsmithEQAudioProcessorEditor::timerCallback()
     const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
     const double elapsed = lastMeterTime > 0.0 ? juce::jlimit (0.0, 0.5, now - lastMeterTime) : 0.0;
     lastMeterTime = now;
-    outputMeter.update (processor.outputMeter.readAndReset(),
-                        processor.outputMeter.clipped.exchange (false, std::memory_order_relaxed),
-                        now, elapsed);
+    {
+        auto& m = processor.outputMeter;
+        m.readAndReset();   // the all-channel peak isn't shown; the per-channel ones are
+        m.clipped.store (false, std::memory_order_relaxed);
+        outputMeter.update (m.readAndResetChannel (0), m.readAndResetChannel (1),
+                            m.channels.load (std::memory_order_relaxed),
+                            m.clipLatched.load (std::memory_order_relaxed), now, elapsed);
+    }
 
     auto& um = processor.edits.getUndoManager();
     undoButton.setEnabled (um.canUndo());
