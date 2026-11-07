@@ -35,6 +35,7 @@ try{
  $definition | Export-Clixml -LiteralPath (Join-Path $destination 'definition.clixml')
  $sddl="O:$($owner.User.Value)D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;FA;;;$($owner.User.Value))(A;;FR;;;$agent)"
  @{task=$taskName;entry=$entry;sha256=(Get-FileHash $entry).Hash;sddl=$sddl;agentSid=$agent;disabled=$true;triggers=0} | ConvertTo-Json | Set-Content (Join-Path $destination 'staging.json')
+ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Register-SupervisedFixture.ps1') -Destination $destination
  if($Credential){
   $null=Register-ScheduledTask -TaskName $taskName -InputObject $definition -User $Credential.UserName -Password $Credential.GetNetworkCredential().Password
   $service=New-Object -ComObject Schedule.Service;$service.Connect();$task=$service.GetFolder('\').GetTask($taskName);$task.SetSecurityDescriptor($sddl,16)
