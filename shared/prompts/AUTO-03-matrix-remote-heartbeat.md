@@ -32,5 +32,19 @@ Matrix is running a Windows Task Scheduler job roughly every five minutes, but s
 - Document how Tony and ChatGPT can check it remotely, secure key rotation/revocation, and how to disable heartbeat without impacting local Matrix scanning.
 - PR includes test evidence and a sample **synthetic** sanitised status record, no real identifying machine details.
 
+## Grounding in Claude Code dynamic workflows (reviewed 7 November 2026)
+
+**Primary reference:** [Anthropic — Orchestrate subagents at scale with dynamic workflows](https://code.claude.com/docs/en/workflows), especially "When to use a workflow", "Where the keyword works", "Manage runs", "When a run hits your usage limit", and "Behavior and limits".
+
+The documented Claude workflow is a **JavaScript orchestration script for agents**, not a persistent Windows service, scheduler, durable inter-session task queue, or remote machine heartbeat. Its `/workflows` view shows progress **inside a Claude session**; a saved `.claude/workflows/` script and the session's workflow artifacts do **not** provide a GitHub-readable remote status endpoint. Do not implement AUTO-03 by launching Claude to report its own status.
+
+- Heartbeat must be emitted by **trusted Matrix Node.js/Task Scheduler code** even if no Claude session exists, Claude is signed out, the 85% usage gate blocks new work, or live execution is disabled. Use no agent tokens to publish liveness.
+- When AUTO-04 or another explicit Claude workflow is eventually enabled, add a **sanitised optional workflow lifecycle** field (`not-started/running/paused/failed/completed/unknown`, task ID, count, last observation) derived from the trusted controller's observations; distinguish it from the actual scheduler/fetch heartbeat. Do not copy workflow transcripts, agent prompts, session-local paths, token/account details, or raw `/workflows` output to GitHub.
+- Anthropic documents that workflows can be resumed within a session, that results live in session directories, and that paused/restarted agents can rerun. Therefore remote status must be **observation-based and stale-aware**, never infer completion from a previously published `running` record.
+- Anthropic's usage-limit auto-resume is only for qualifying **interactive subscription** workflows and explicitly excludes non-interactive `claude -p` / Agent SDK and background sessions. Never advertise automatic resumption after a quota reset for Matrix's scheduled worker.
+- Keep the destination/privacy/credential requirements above. This reference informs observability semantics; it does **not** remove AUTO-01's deployment prerequisites or give permission to run Claude autonomously.
+
+**Source validation at implementation:** Check the deployed Claude CLI version against the current documentation; test status publication on Matrix's actual Windows task, not a demo interactive workflow. The page describes workflow support in non-interactive mode but does not document a built-in remote heartbeat service.
+
 ## Delivery
 Implement as an independent small infrastructure PR. Keep backlog prompt pending until merged, tested, and documented. No VERSION bump or release pipeline modification for this task.
