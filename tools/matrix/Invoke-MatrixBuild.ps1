@@ -28,6 +28,36 @@ function Get-MatrixLeaseItems([string]$Root) {
     }
 }
 
+function Set-MatrixDacl([string]$Path, $Acl) {
+    if (-not ('MatrixDacl' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+public static class MatrixDacl {
+    [DllImport("advapi32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern bool ConvertStringSecurityDescriptorToSecurityDescriptorW(string text,uint revision,out IntPtr descriptor,out uint size);
+    [DllImport("advapi32.dll", SetLastError=true)] static extern bool GetSecurityDescriptorDacl(IntPtr descriptor,out bool present,out IntPtr dacl,out bool defaulted);
+    [DllImport("advapi32.dll", CharSet=CharSet.Unicode)] static extern uint SetNamedSecurityInfoW(string name,int type,uint flags,IntPtr owner,IntPtr group,IntPtr dacl,IntPtr sacl);
+    [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr memory);
+    public static void Set(string path,string sddl,bool protect) {
+        IntPtr descriptor; uint size;
+        if(!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl,1,out descriptor,out size)) throw new Win32Exception(Marshal.GetLastWin32Error());
+        try {
+            bool present,defaulted; IntPtr dacl;
+            if(!GetSecurityDescriptorDacl(descriptor,out present,out dacl,out defaulted)) throw new Win32Exception(Marshal.GetLastWin32Error());
+            if(!present || dacl==IntPtr.Zero) throw new InvalidOperationException("A non-null DACL is required");
+            // DACL plus its inheritance flag only: never request SACL, owner or
+            // group writes, which require privileges the controller must not have.
+            uint error=SetNamedSecurityInfoW(path,1,4u | (protect ? 0x80000000u : 0x20000000u),IntPtr.Zero,IntPtr.Zero,dacl,IntPtr.Zero);
+            if(error!=0) throw new Win32Exception((int)error);
+        } finally { LocalFree(descriptor); }
+    }
+}
+'@
+    }
+    [MatrixDacl]::Set($Path,$Acl.GetSecurityDescriptorSddlForm('Access'),$Acl.AreAccessRulesProtected)
+}
+
 function Set-MatrixLeaseAcl($Item, [string]$ControllerSid, [string]$BuildSid, [string]$Rights) {
     $acl = if ($Item.PSIsContainer) { [Security.AccessControl.DirectorySecurity]::new() } else { [Security.AccessControl.FileSecurity]::new() }
     $acl.SetAccessRuleProtection($true, $false)
@@ -41,7 +71,7 @@ function Set-MatrixLeaseAcl($Item, [string]$ControllerSid, [string]$BuildSid, [s
     if ($Rights) {
         $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new($BuildSid), $Rights, $inheritance, 'None', 'Allow'))
     }
-    Set-Acl -LiteralPath $Item.FullName -AclObject $acl
+    Set-MatrixDacl $Item.FullName $acl
 }
 
 function Restore-MatrixBuildLease([string]$Journal) {
@@ -65,7 +95,7 @@ function Restore-MatrixBuildLease([string]$Journal) {
         if ($original.ContainsKey($item.FullName)) {
             $acl = Get-Acl -LiteralPath $item.FullName
             $acl.SetSecurityDescriptorSddlForm($original[$item.FullName], 'Access')
-            Set-Acl -LiteralPath $item.FullName -AclObject $acl
+            Set-MatrixDacl $item.FullName $acl
         }
     }
     Remove-Item -LiteralPath $Journal

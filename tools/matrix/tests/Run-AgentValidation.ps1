@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$Config, [Parameter(Mandatory)][string]$Revision)
+param([Parameter(Mandatory)][string]$Config, [Parameter(Mandatory)][string]$Revision, [switch]$RecoverLease)
 $ErrorActionPreference = 'Stop'
 $c = Get-Content -LiteralPath $Config -Raw | ConvertFrom-Json
 if ($c.liveExecution -ne $false -or $c.worker.enabled -ne $false -or $c.autoMerge -ne $false -or $c.releasePublication -ne $false) { throw 'All live/merge/publication switches must be false' }
@@ -9,6 +9,12 @@ $report = [ordered]@{started=[DateTime]::UtcNow.ToString('o'); identity=[Securit
 Start-Transcript -LiteralPath (Join-Path $private 'agent-validation.log') -Force | Out-Null
 try {
     if ($report.identity -ne 'MATRIX\SongsmithAgent') { throw 'Unexpected controller identity' }
+    if ($RecoverLease) {
+        # Operator-only recovery after explicit confirmation all build processes
+        # have stopped. Ordinary worker startup never clears a retained journal.
+        $journal = Join-Path $private 'active-build-lease.json'
+        if (Test-Path -LiteralPath $journal) { & $c.worker.buildScript -RecoverLease $journal }
+    }
     & (Join-Path $PSScriptRoot 'Test-ControllerContext.ps1') -Config $Config -Output (Join-Path $private 'agent-context.json')
     if ($LASTEXITCODE) { throw 'Scheduled identity or DPAPI check failed' }
     $report.checks += 'non-admin scheduled identity and build-credential decryption'

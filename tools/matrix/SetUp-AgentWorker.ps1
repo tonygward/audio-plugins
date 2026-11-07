@@ -4,12 +4,15 @@ param(
     [string]$WorkerConfig = 'C:\Scheduled\Songsmith-Matrix.worker.config.json',
     [string]$Root = 'C:\Scheduled\Songsmith-Matrix',
     [string]$TaskName = 'Songsmith Matrix Worker',
+    [switch]$Resume,
     [switch]$RunDiagnostics
 )
 $ErrorActionPreference = 'Stop'
 $account = 'MATRIX\SongsmithAgent'
 $scannerBefore = Export-ScheduledTask -TaskName 'Songsmith Matrix'
-if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) { throw 'Worker task already exists; never replace it implicitly' }
+$registered = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+if ($registered -and -not $Resume) { throw 'Worker task already exists; never replace it implicitly' }
+if ($Resume -and -not $registered) { throw 'No disabled worker to resume' }
 $baseline = Get-Content -LiteralPath $ScannerConfig -Raw | ConvertFrom-Json
 if ($baseline.liveExecution -ne $false -or $baseline.autoMerge -ne $false -or $baseline.releasePublication -ne $false) { throw 'Scanner must remain in dry-run mode' }
 $existingWorker = Get-Content -LiteralPath $WorkerConfig -Raw | ConvertFrom-Json
@@ -21,12 +24,19 @@ if ($agentSid -in $adminMembers -or $buildSid -in $adminMembers) { throw 'Agent/
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $revision = (& $baseline.worker.gitExecutable -C $repo rev-parse HEAD).Trim()
 if ($LASTEXITCODE -or $revision -notmatch '^[a-f0-9]{40}$') { throw 'Cannot pin trusted source revision' }
+if ($Resume) {
+    $revision = Split-Path -Leaf $registered.Actions[0].WorkingDirectory
+    $registeredSid = ([Security.Principal.NTAccount]::new($registered.Principal.UserId)).Translate([Security.Principal.SecurityIdentifier]).Value
+    if ($registered.Settings.Enabled -or $registeredSid -ne $agentSid -or [int]$registered.Principal.LogonType -ne 1 -or [int]$registered.Principal.RunLevel -ne 0 -or $revision -notmatch '^[a-f0-9]{40}$') { throw 'Existing worker does not match the disabled restricted deployment' }
+}
 $trusted = Join-Path $Root ('agent-trusted/' + $revision)
 $private = Join-Path $Root 'agent-private'
 $state = Join-Path $Root 'agent-state'
 $worktrees = Join-Path $Root 'agent-worktrees'
-if ((Test-Path -LiteralPath $trusted) -or (Test-Path -LiteralPath $private)) { throw 'Agent deployment already exists; inspect before retry' }
-if (-not $PSCmdlet.ShouldProcess($account, 'Prompt for existing password, install isolated worker bundle/config/ACLs, export per-user DPAPI credential and register a DISABLED password-logon task; optionally run a fixed diagnostic task')) { return }
+if (-not $Resume -and ((Test-Path -LiteralPath $trusted) -or (Test-Path -LiteralPath $private))) { throw 'Agent deployment already exists; inspect before retry' }
+if ($Resume -and ($existingWorker.worker.buildScript -ne (Join-Path $trusted 'Invoke-MatrixBuild.ps1') -or $existingWorker.worker.buildCredentialFile -ne (Join-Path $private 'build-account.xml'))) { throw 'Resume configuration paths do not match' }
+$operation = if ($Resume) { 'Prompt for existing password and finish per-user DPAPI export; keep the existing worker disabled/unchanged; optionally start a separate fixed diagnostic task' } else { 'Prompt for existing password, install isolated worker bundle/config/ACLs, export per-user DPAPI credential and register a DISABLED password-logon task; optionally run a fixed diagnostic task' }
+if (-not $PSCmdlet.ShouldProcess($account, $operation)) { return }
 
 Add-Type -TypeDefinition @'
 using System;
@@ -78,6 +88,7 @@ function Set-PrivateDirectory([string]$Path, [string]$AgentRights) {
 }
 $diagnosticTask = $null
 try {
+    if (-not $Resume) {
     Set-PrivateDirectory $private 'Modify'
     Set-PrivateDirectory $state 'Modify'
     Set-PrivateDirectory $worktrees 'Modify'
@@ -106,6 +117,10 @@ try {
     $triggers = @((New-ScheduledTaskTrigger -AtStartup),(New-ScheduledTaskTrigger -Once -At (Get-Date).AddDays(1) -RepetitionInterval (New-TimeSpan -Minutes 5)))
     $task = New-ScheduledTask -Action $action -Principal $principal -Settings $settings -Trigger $triggers
     $null = Register-ScheduledTask -TaskName $TaskName -InputObject $task -User $account -Password $password
+    } else {
+        $c = $existingWorker
+        $tests = Join-Path $trusted 'tests'
+    }
     # Registering Password logon establishes batch-logon rights. Re-encrypt in the
     # verified batch identity, with no plaintext credential file or password argument.
     $buildCredential = Import-Clixml -LiteralPath $baseline.worker.buildCredentialFile
@@ -117,6 +132,7 @@ try {
         })
     } finally { $token.Dispose() }
     if ($RunDiagnostics) {
+        $principal = New-ScheduledTaskPrincipal -UserId $account -LogonType Password -RunLevel Limited
         $diagnosticTask = 'Songsmith Matrix Agent Validation ' + [Guid]::NewGuid().ToString('N')
         $a = New-ScheduledTaskAction -Execute (Join-Path $PSHOME 'pwsh.exe') -Argument ('-NoProfile -NonInteractive -File "{0}" -Config "{1}" -Revision {2}' -f (Join-Path $tests 'Run-AgentValidation.ps1'),$WorkerConfig,$revision) -WorkingDirectory $trusted
         $s = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
