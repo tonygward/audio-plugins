@@ -72,28 +72,38 @@ void PresetBar::showMenu()
         return pm.hasCurrent() && e.factoryIndex == c.factoryIndex && (e.isFactory() || e.file == c.file);
     };
 
-    menu.addSectionHeader ("Factory");
-    bool anyUser = false, startingPoints = false;
-    for (size_t i = 0; i < all.size(); ++i)
+    // Starting Points: one submenu per instrument group (the menu is a view; see PresetManager).
+    menu.addSectionHeader ("Starting Points");
+    for (const auto& group : EQ::PresetManager::getMenuGroups())
     {
-        if (all[i].isFactory() && ! startingPoints && EQ::PresetManager::isStartingPoint (all[i].factoryIndex))
-        {
-            menu.addSectionHeader ("Starting points");
-            startingPoints = true;
-        }
+        juce::PopupMenu sub;
+        bool hasCurrent = false;
+        for (size_t i = 0; i < all.size(); ++i)
+            if (all[i].isFactory() && all[i].group == group)
+            {
+                const bool ticked = isCurrent (all[i]);
+                hasCurrent = hasCurrent || ticked;
+                const auto prefix = group + " - ";
+                const auto text = all[i].name.startsWith (prefix) ? all[i].name.substring (prefix.length()) : all[i].name;
+                sub.addItem (100 + (int) i, text, true, ticked);
+            }
+        menu.addSubMenu (group, sub, true, nullptr, hasCurrent);
+    }
 
-        if (! all[i].isFactory() && ! anyUser)
+    // A session saved with a preset that is no longer listed (such as Flat) still shows it as current.
+    if (pm.hasCurrent() && pm.getCurrent().isFactory() && ! EQ::PresetManager::isListed (pm.getCurrent().factoryIndex))
+        menu.addItem (98, pm.getCurrent().name + " (not in the menu)", false, true);
+
+    menu.addSectionHeader ("User Presets");
+    bool anyUser = false;
+    for (size_t i = 0; i < all.size(); ++i)
+        if (! all[i].isFactory())
         {
-            menu.addSectionHeader ("User");
             anyUser = true;
+            menu.addItem (100 + (int) i, all[i].name, true, isCurrent (all[i]));
         }
-        menu.addItem (100 + (int) i, all[i].name, true, isCurrent (all[i]));
-    }
     if (! anyUser)
-    {
-        menu.addSectionHeader ("User");
         menu.addItem (99, "(none yet: use Save As)", false);
-    }
 
     juce::Component::SafePointer<PresetBar> safe (this);
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&nameButton),

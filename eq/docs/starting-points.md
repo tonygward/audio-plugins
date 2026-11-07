@@ -207,3 +207,44 @@ The Neutron 3 Equalizer on the Toms bus has the same shape in four songs. Each v
 - **The saved chains:** the saved "Toms" chain in `fx-chains/saved-chains.md` (line 303) has no EQ (EKramer DR → L1+). The per-song chains carry the EQ.
 
 **Compared with Tony's later Pro-Q 4 tom presets** (*Drums - Floor Tom*, *Drums - Mid Tom*, Jan 2025): not done. The `.ffp` files are OneDrive cloud-only placeholders that couldn't be opened here, and they aren't decoded in the catalogue.
+
+## The Starting Points menu (EQ-40)
+
+The preset menu has one **Starting Points** section, with a submenu for each instrument group, then **User Presets**. There is no separate Factory section. The preset bar shows the full label, such as **Drums - Kick**.
+
+| Group | Starting Points |
+|---|---|
+| Drums | Kick, Snare, Mid Tom, High Tom, Floor Tom, Toms Bus, Drum Bus |
+| Guitars | Acoustic Guitar, Acoustic Guitar (Full Mix), Acoustic Guitar (Pickup), Acoustic Guitar (Bright), Electric Guitar, Electric Guitar Bus, Bass Guitar |
+| Vocals | Lead Vocal, Backing Vocals, Spoken Word, Quick Clean-up |
+| Effects | Reverb Return, Abbey Road Reverb, Telephone |
+| General | Low-End Tidy, Reduce Mud, Add Air |
+
+### What happened to each older preset
+
+The menu is only a view. Every preset keeps its index, name and settings, so older sessions and host program numbers recall exactly the same sound.
+
+| Index | Stored name | Now | Reason |
+|---|---|---|---|
+| 0 | Flat | Hidden | A new EQ is already flat. |
+| 1 | Vocal clean-up | Vocals - Quick Clean-up | Different from Lead Vocal: a simple three-move tidy. Kept. |
+| 2 | Low-end tidy | General - Low-End Tidy | General purpose; not tied to one instrument. |
+| 3 | Air | General - Add Air | General purpose. |
+| 4 | Telephone | Effects - Telephone | A creative effect, not a mixing move. |
+| 5 | Kick punch | Drums - Kick | The only kick preset, so it takes the plain name. |
+| 6 | Bright acoustic | Guitars - Acoustic Guitar (Bright) | Genuinely different from Acoustic Guitar: no dynamic band, a 9 kHz shelf. Kept as a variation. |
+| 7 | De-mud | General - Reduce Mud | General purpose. |
+| 18 | Five-zone start | Hidden | The Frequency Guide teaches the same zones. Old sessions still load it. |
+| 22 | Rack tom | Hidden, replaced by Mid Tom and High Tom | Same curve; see below. |
+| 25 | Mid tom | Drums - Mid Tom | New entry. |
+| 26 | High tom | Drums - High Tom | New entry. |
+
+All other presets keep their name and gain the group prefix.
+
+### Mid Tom and High Tom
+
+Mid Tom and High Tom have the **same curve**, on purpose. The source tracks (*Gone from Here* High Tom, and *You Want More* Mid Tom and High Tom) use one saved EQ setting for both, so inventing different numbers would be fiction. They are two labels, so each tom is easy to find. If listening shows that the two toms need different curves, they can diverge later without affecting sessions.
+
+### Older sessions
+
+When a session is opened, the preset is found by its **index**, then shown under its current label. A session saved as "Kick punch" now shows "Drums - Kick". A session saved as "Five-zone start" or "Rack tom" shows that name and recalls the same bands, with "(not in the menu)" beside it in the menu.

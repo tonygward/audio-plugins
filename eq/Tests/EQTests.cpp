@@ -2,6 +2,7 @@
 //   EQTests.exe           -> run all unit tests (exit code 1 on failure)
 //   EQTests.exe --bench   -> CPU benchmark for 3 / 12 / 24 active bands
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <set>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <cmath>
 #include <random>
@@ -1480,7 +1481,7 @@ public:
             SongsmithEQAudioProcessor q;
             q.setStateInformation (mb.getData(), (int) mb.getSize());
             expect (q.presets.hasCurrent(), "preset name restored");
-            expectEquals (q.presets.getCurrent().name, PresetManager::getFactoryName (3));
+            expectEquals (q.presets.getCurrent().name, PresetManager::getMenuLabel (3));
             expect (! q.presets.isModified(), "and not marked modified");
         }
     }
@@ -3174,7 +3175,7 @@ public:
 
         beginTest ("The starting points are listed after the original factory presets");
         {
-            expectEquals ((int) list.size(), 17);
+            expectEquals ((int) list.size(), 19);
             const int firstTemplate = list.empty() ? 0 : list.front();
             expectEquals (firstTemplate, 8, "the 8 original presets keep their indices");
             for (size_t k = 0; k < list.size(); ++k)
@@ -3279,7 +3280,7 @@ public:
                 // Task 31 exceptions: Tony's own album tom EQ, copied as is rather than changed to fit the rule.
                 // Rack tom: +4.6/+5.9/+3.3 against -11.9 (SSL E-Channel, tony-ward.md lines 1114, 2295, 2315).
                 // Floor tom: +7.8/+5.9/+6.8 against -6.6 (Yesterday's Toy, tony-ward.md line 2147).
-                if (presetName == "Rack tom" || presetName == "Floor tom")
+                if (presetName == "Rack tom" || presetName == "Mid tom" || presetName == "High tom" || presetName == "Floor tom")
                     continue;
 
                 const auto d = PresetManager::getFactoryPreset (i);
@@ -3376,14 +3377,14 @@ public:
 
             const auto body = restore ("Acoustic guitar body", 11);
             expectEquals (body.factoryIndex, 11);
-            expectEquals (body.name, juce::String ("Acoustic guitar"), "old template name at its old index");
+            expectEquals (body.name, juce::String ("Guitars - Acoustic Guitar"), "old template name at its old index");
 
             const auto classic = restore ("Acoustic guitar", 6);
             expectEquals (classic.factoryIndex, 6);
-            expectEquals (classic.name, juce::String ("Bright acoustic"), "the classic preset at index 6");
+            expectEquals (classic.name, juce::String ("Guitars - Acoustic Guitar (Bright)"), "the classic preset at index 6");
 
             const auto current = restore ("Acoustic guitar", 11);
-            expectEquals (current.name, juce::String ("Acoustic guitar"));
+            expectEquals (current.name, juce::String ("Guitars - Acoustic Guitar"));
 
             // The renamed classic preset loads at index 6, with a cut (not a boost) at 2.5 kHz.
             expectEquals (PresetManager::getFactoryName (6), juce::String ("Bright acoustic"));
@@ -3410,11 +3411,179 @@ public:
             const char* names[] = { "Flat", nullptr, nullptr, nullptr, nullptr, nullptr, "Bright acoustic", nullptr,
                                     nullptr, nullptr, nullptr, "Acoustic guitar", nullptr, nullptr, nullptr, nullptr,
                                     nullptr, nullptr, nullptr, "Acoustic guitar in a full mix", "Acoustic guitar pickup",
-                                    "Abbey Road reverb", "Rack tom", "Floor tom", "Toms bus" };
-            expectGreaterOrEqual (PresetManager::getNumFactoryPresets(), 25);
+                                    "Abbey Road reverb", "Rack tom", "Floor tom", "Toms bus", "Mid tom", "High tom" };
+            expectGreaterOrEqual (PresetManager::getNumFactoryPresets(), 27);
             for (int i = 0; i < (int) std::size (names); ++i)
                 if (names[i] != nullptr)
                     expectEquals (PresetManager::getFactoryName (i), juce::String (names[i]), "index " + juce::String (i));
+        }
+
+        beginTest ("EQ-40: the Starting Points menu is grouped by instrument and has no Factory section");
+        {
+            const auto groups = PresetManager::getMenuGroups();
+            expectEquals ((int) groups.size(), 5);
+            expect (groups[0] == "Drums" && groups[1] == "Guitars" && groups[2] == "Vocals"
+                    && groups[3] == "Effects" && groups[4] == "General", "group order");
+
+            // Every requested label is there, loads, and sits in its group.
+            const struct { const char* label; const char* group; } wanted[] = {
+                { "Drums - Kick", "Drums" }, { "Drums - Snare", "Drums" }, { "Drums - Mid Tom", "Drums" },
+                { "Drums - High Tom", "Drums" }, { "Drums - Floor Tom", "Drums" }, { "Drums - Toms Bus", "Drums" },
+                { "Drums - Drum Bus", "Drums" }, { "Guitars - Acoustic Guitar", "Guitars" },
+                { "Guitars - Acoustic Guitar (Full Mix)", "Guitars" }, { "Guitars - Acoustic Guitar (Pickup)", "Guitars" },
+                { "Guitars - Electric Guitar", "Guitars" }, { "Guitars - Electric Guitar Bus", "Guitars" },
+                { "Guitars - Bass Guitar", "Guitars" }, { "Vocals - Lead Vocal", "Vocals" },
+                { "Vocals - Backing Vocals", "Vocals" }, { "Vocals - Spoken Word", "Vocals" },
+                { "Effects - Reverb Return", "Effects" }, { "Effects - Abbey Road Reverb", "Effects" } };
+
+            SongsmithEQAudioProcessor p;
+            const auto all = p.presets.getAllPresets();
+            for (const auto& w : wanted)
+            {
+                int found = -1;
+                for (const auto& e : all)
+                    if (e.name == w.label)
+                        found = e.factoryIndex;
+                expect (found >= 0, juce::String (w.label) + " is in the menu");
+                if (found >= 0)
+                {
+                    expect (PresetManager::getMenuGroup (found) == w.group, juce::String (w.label) + " group");
+                    juce::String error;
+                    SongsmithEQAudioProcessor q;
+                    expect (q.presets.load ({ w.label, found, {} }, error), error);
+                    expectEquals (q.presets.getCurrent().name, juce::String (w.label));
+                }
+            }
+
+            // Order: grouped, labels start with their group, and every listed name is unique.
+            juce::StringArray seen;
+            juce::String lastGroup;
+            int groupChanges = 0;
+            for (const auto& e : all)
+            {
+                if (! e.isFactory())
+                    continue;
+                expect (e.name.startsWith (e.group + " - "), e.name + " starts with its group");
+                expect (! seen.contains (e.name), e.name + " is listed once");
+                seen.add (e.name);
+                if (e.group != lastGroup)
+                {
+                    ++groupChanges;
+                    lastGroup = e.group;
+                }
+            }
+            expectEquals (groupChanges, (int) groups.size(), "each group is one block");
+
+            for (const auto& e : all)
+                expect (! e.name.containsIgnoreCase ("factory") && ! e.name.containsIgnoreCase ("five-zone"), e.name);
+        }
+
+        beginTest ("EQ-40: hidden presets are not in the menu but still load at their old index");
+        {
+            const int hidden[] = { 0, 18, 22 };   // Flat, Five-zone start, Rack tom
+            SongsmithEQAudioProcessor p;
+            const auto all = p.presets.getAllPresets();
+            for (int index : hidden)
+            {
+                expect (! PresetManager::isListed (index), PresetManager::getFactoryName (index) + " is hidden");
+                for (const auto& e : all)
+                    expect (e.factoryIndex != index, PresetManager::getFactoryName (index) + " is not offered");
+
+                // A session saved with it loads the same bands as the factory preset at that index.
+                juce::ValueTree ui ("UI");
+                ui.setProperty ("presetName", PresetManager::getFactoryName (index), nullptr);
+                ui.setProperty ("presetFactory", index, nullptr);
+                SongsmithEQAudioProcessor q;
+                q.presets.restoreFromUiState (ui);
+                expectEquals (q.presets.getCurrent().factoryIndex, index);
+                expectEquals (q.presets.getCurrent().name, PresetManager::getFactoryName (index), "shown under its stored name");
+                juce::String error;
+                expect (q.presets.load (q.presets.getCurrent(), error), error);
+                expectEquals (q.getNumUsedBands(), PresetManager::getFactoryUsedBands (index));
+                expect (! q.presets.isModified(), "it recalls exactly");
+            }
+            expect (PresetManager::getFactoryName (18) == "Five-zone start", "its stored name is unchanged");
+        }
+
+        beginTest ("EQ-40: every factory preset keeps its index, bands and name, and every one is listed or deliberately hidden");
+        {
+            const auto listed = PresetManager::getListedIndices();
+            for (int i = 0; i < PresetManager::getNumFactoryPresets(); ++i)
+            {
+                const bool isListed = std::find (listed.begin(), listed.end(), i) != listed.end();
+                const bool deliberatelyHidden = i == 0 || i == 18 || i == 22;
+                expect (isListed != deliberatelyHidden, PresetManager::getFactoryName (i) + (isListed ? " listed" : " hidden"));
+            }
+            expectEquals ((int) std::set<int> (listed.begin(), listed.end()).size(), (int) listed.size(), "no preset listed twice");
+            expectEquals ((int) listed.size(), PresetManager::getNumFactoryPresets() - 3);
+
+            // Legacy names recall under the new labels by index (the old indices of the renamed classics).
+            const struct { int index; const char* oldName; const char* label; } renamed[] = {
+                { 5, "Kick punch", "Drums - Kick" }, { 6, "Bright acoustic", "Guitars - Acoustic Guitar (Bright)" },
+                { 1, "Vocal clean-up", "Vocals - Quick Clean-up" }, { 2, "Low-end tidy", "General - Low-End Tidy" },
+                { 7, "De-mud", "General - Reduce Mud" }, { 3, "Air", "General - Add Air" }, { 4, "Telephone", "Effects - Telephone" } };
+            for (const auto& r : renamed)
+            {
+                expectEquals (PresetManager::getFactoryName (r.index), juce::String (r.oldName));
+                expectEquals (PresetManager::getMenuLabel (r.index), juce::String (r.label));
+                juce::ValueTree ui ("UI");
+                ui.setProperty ("presetName", r.oldName, nullptr);
+                ui.setProperty ("presetFactory", r.index, nullptr);
+                SongsmithEQAudioProcessor q;
+                q.presets.restoreFromUiState (ui);
+                expectEquals (q.presets.getCurrent().name, juce::String (r.label), r.oldName);
+            }
+        }
+
+        beginTest ("EQ-40: Mid Tom and High Tom are the Rack Tom curve under their own labels");
+        {
+            const auto rack = PresetManager::getFactoryPreset (22);
+            for (int index : { 25, 26 })
+            {
+                const auto d = PresetManager::getFactoryPreset (index);
+                expectEquals (PresetManager::getFactoryUsedBands (index), PresetManager::getFactoryUsedBands (22));
+                expect (PresetManager::isStartingPoint (index) && PresetManager::getFactoryHint (index).isNotEmpty());
+                for (int b = 0; b < 5; ++b)
+                {
+                    expect (d.bands[(size_t) b].type == rack.bands[(size_t) b].type);
+                    expectEquals (d.bands[(size_t) b].freq, rack.bands[(size_t) b].freq);
+                    expectEquals (d.bands[(size_t) b].gain, rack.bands[(size_t) b].gain);
+                    expectEquals (d.bands[(size_t) b].q, rack.bands[(size_t) b].q);
+                }
+                expectEquals (d.outputGain, rack.outputGain);
+            }
+        }
+
+        beginTest ("EQ-40: moving between presets visits only what the menu offers, and user presets stay separate");
+        {
+            SongsmithEQAudioProcessor p;
+            PresetTests::TempFolder folder;
+            p.presets.setUserFolder (folder.dir);
+            juce::String error;
+            expect (p.presets.saveAs ("Drums - Kick", error), error);   // a user preset may share a label
+
+            const auto all = p.presets.getAllPresets();
+            int user = 0, factory = 0;
+            for (const auto& e : all)
+                (e.isFactory() ? factory : user)++;
+            expectEquals (factory, (int) PresetManager::getListedIndices().size());
+            expectEquals (user, 1);
+
+            // Next from the last Starting Point is the first user preset, and the one after wraps round.
+            expect (p.presets.load (all[(size_t) factory - 1], error), error);
+            expect (p.presets.loadNext (+1, error), error);
+            expect (! p.presets.getCurrent().isFactory(), "then the user preset");
+            expect (p.presets.loadNext (+1, error), error);
+            expect (p.presets.getCurrent().isFactory(), "then the first Starting Point");
+            expectEquals (p.presets.getCurrent().name, all[0].name);
+
+            // Starting Points can't be deleted or overwritten; user presets still can.
+            expect (p.presets.load (all[0], error), error);
+            expect (! p.presets.canSaveInPlace(), "a Starting Point isn't saved in place");
+            expect (p.presets.load (all[(size_t) factory], error), error);
+            expect (p.presets.canSaveInPlace(), "a user preset is");
+            expect (p.presets.deleteCurrent (error), error);
+            expectEquals ((int) p.presets.getUserPresets().size(), 0);
         }
 
         beginTest ("Abbey Road reverb: Tony's Pro-Q 4 preset, band for band");

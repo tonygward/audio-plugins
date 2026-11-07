@@ -27,9 +27,10 @@ namespace EQ
 
         struct Entry
         {
-            juce::String name;
-            int factoryIndex = -1;   // >= 0: factory preset
+            juce::String name;       // what the preset bar shows; for a Starting Point, its full label
+            int factoryIndex = -1;   // >= 0: factory preset (the stable identity, never reordered)
             juce::File file;         // user preset
+            juce::String group;      // Starting Points: the menu group ("Drums"); empty for a user preset
 
             bool isFactory() const noexcept { return factoryIndex >= 0; }
         };
@@ -66,11 +67,19 @@ namespace EQ
         static juce::String getFactoryName (int index);
         static PresetData getFactoryPreset (int index);
         static int getFactoryUsedBands (int index);
-        static bool isStartingPoint (int index);          // listed under "Starting points"
+        static bool isStartingPoint (int index);          // a template: has a usage hint and a Starting Points label
+        // EQ-40: the menu is a view over the indexed list. Indices, names and bands never change:
+        // old sessions and host programs find a preset by its index. A hidden preset (Flat, Five-zone
+        // start, Rack tom) still loads from an old session; it is just not offered in the menu.
+        static bool isListed (int index);                 // shown in the Starting Points menu
+        static juce::String getMenuGroup (int index);     // "Drums", "Guitars", ... (empty when not listed)
+        static juce::String getMenuLabel (int index);     // "Drums - Kick"; the stored name when not listed
+        static std::vector<int> getListedIndices();       // in menu order: by group, then by instrument
+        static std::vector<juce::String> getMenuGroups(); // in menu order
         static juce::String getFactoryHint (int index);   // empty when the preset has none
 
         std::vector<Entry> getUserPresets() const;
-        std::vector<Entry> getAllPresets() const;   // factory first, then user (sorted)
+        std::vector<Entry> getAllPresets() const;   // listed Starting Points (menu order) first, then user (sorted)
 
         // Loading is one undo transaction. Returns false (state unchanged) with a message on error.
         bool load (const Entry&, juce::String& error);
