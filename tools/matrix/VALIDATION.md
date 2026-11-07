@@ -1,5 +1,43 @@
 # AUTO-01 validation evidence
 
+## PR #113 follow-up — real EQ and controller validation
+
+Real Songsmith EQ/JUCE Release configure/build passed under SongsmithBuild at
+`617609b4478fe4022ab711428630f20941c75488`; **12,034 EQ checks passed, 0 failed**.
+Source unchanged, lease cleared. Two ignored-splash-screen JUCE warnings remain
+blocking under the current worker warning policy.
+
+Effective credential/config/Git denial and post-revocation access checks passed.
+Real build-child/controller-tree termination, descendant cleanup, stale-journal
+rejection and operator recovery passed. Hard-linked source was rejected; a hostile
+output junction was not followed and required deliberate operator recovery.
+
+A separate temporary diagnostic task used the existing Tony/S4U/Limited principal.
+The session-0 token has enabled administrator membership and cannot decrypt the
+saved build credential. SongsmithBuild also cannot read the installed launcher.
+These are deployment blockers; existing task XML is unchanged, temporary tasks
+removed and live execution remains disabled. See [full results and evidence](VALIDATION-113.md).
+
+## Temporary worktree build access — 7 November 2026
+
+Local Matrix Node tests: **95 passed, 0 failed**. All three new/changed PowerShell
+scripts parse; `git diff --check` passes. The real Windows integration probe ran
+as `MATRIX\SongsmithBuild`, configured/compiled/ran a tiny MSVC fixture through the
+launcher, verified protected-path denials and exact DACL restoration, and confirmed
+that source and build-owned output were inaccessible after lease revocation.
+Parent and unrelated-worktree DACLs remained unchanged.
+
+The probe uncovered readable common Git metadata. After explicit approval, its
+DACLs were backed up and access denied to SongsmithBuild only. Direct HEAD/config
+reads are now denied. Before repair, the final launcher correctly refused the
+exposure with exit 74 and revoked its lease. See [full evidence, deployment blockers
+and rollback commands](BUILD-ACCESS.md).
+
+Final read-only deployment check: liveExecution false, worker.enabled false,
+autoMerge false, no active lease journal, existing Songsmith Matrix task Ready,
+controller Git metadata readable. No trusted deployment replacement, live agent,
+EQ-38 run, real plugin suite build or DAW verification was performed.
+
 ## Controlled worker follow-up
 
 Local `node --test tools/matrix/tests/*.test.mjs`: **91 passed, 0 failed**.

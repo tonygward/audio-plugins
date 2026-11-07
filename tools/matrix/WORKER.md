@@ -115,6 +115,28 @@ cross-platform CI tests its orchestration with simulated external commands.
 
 ## Limits, logs and recovery
 
+### Temporary build access
+
+The approval-hashed build launcher grants one direct child of the configured
+worktree root a temporary ACL lease. Source is read/execute only; only affected
+plugin `build` directories are writable. Hidden paths, including the worktree
+Git pointer, remain controller-only. The parent directory is never opened up.
+The controller writes isolation targets into the build request before the lease;
+the build child must actually be denied access to these paths before running CMake.
+An isolation failure exits with code 74 and stops without an agent repair.
+
+The launcher durably records original DACLs in `active-build-lease.json` beside
+the protected build credential, then restores them in `finally`. Newly created
+outputs are sealed to the controller rather than left readable by their creator.
+OWNER RIGHTS rules prevent output ownership from implicitly granting WRITE_DAC.
+The build child joins a kill-on-close Windows job before invoking CMake/tests.
+An outstanding journal blocks all future worker invocations; recovery failure
+also prevents repair, push and PR creation. Forced termination/power loss requires
+operator recovery after confirming that all build processes have stopped.
+
+See [build-access deployment evidence and rollback](BUILD-ACCESS.md). This change
+does not install trusted code, renew approval, alter the scanner, or enable work.
+
 Agent process timeout is 1–30 minutes; maximum turns 1–30 per prompt, shared across
 at most two invocations; estimated-dollar cap is at most $20, also shared. Output is
 bounded to 4 MiB. Output tokens are bounded by the configured CLI environment plus

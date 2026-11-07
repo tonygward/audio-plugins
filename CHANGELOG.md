@@ -2,6 +2,16 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
 
+## 1.3.1
+
+Beta maintenance checkpoint, authorised on 7 November 2026 in PR #113.
+
+- Songsmith EQ and Maximiser no longer set the obsolete JUCE splash-screen option. This removes build warnings without suppressing other compiler warnings or changing audio processing, parameters or saved sessions.
+- Development infrastructure: [AUTO-01](shared/prompts/AUTO-01-matrix-autonomous-development.md) adds restricted manual build-task staging and validation. The supervised fixture still requires the existing Windows account credential; its registration and runtime validation are follow-ups, not beta release gates. Autonomous development remains disabled.
+- Includes the existing 1.3.0 Interface and Frequency Guide features; EQ-38 instrument icons are not included. Not yet verified in a DAW.
+
+Install the suite using the single installer for your platform, with one selectable tick box per plugin. The Windows installer is unsigned and may show SmartScreen; the unsigned macOS package may require Open Anyway in Privacy & Security. Uninstalling keeps presets and user data. Manual Windows automation setup is not required to use the plugins.
+
 ## 1.3.0
 
 **Delivery traceability:** this release is the agreed **Interface and Frequency Guide** milestone. Prompts: [EQ-37 movable band panel](eq/prompts/done/37-draggable-band-panel.md) (#87), [ACOMP-08 Analog Compressor editor refinements](analog-compressor/prompts/done/08-1176-editor.md) (#88) and [EQ-32 Instrument Frequency Guide](eq/prompts/done/32-frequency-guide.md) (#89). Nothing outside this scope is in the release.
