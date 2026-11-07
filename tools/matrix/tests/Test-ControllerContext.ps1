@@ -26,6 +26,16 @@ try {
     $result.repositoryReadable = $true
     $null = Get-ChildItem -LiteralPath $c.stateDirectory -ErrorAction Stop
     $result.stateReadable = $true
+    if ($identity.Name -eq 'MATRIX\SongsmithAgent') {
+        $result.ownerCredentialReadsDenied = $true
+        foreach ($path in @('C:\Users\Tony\.claude\.credentials.json','C:\Users\Tony\AppData\Roaming\GitHub CLI\hosts.yml','C:\Scheduled\Songsmith-Matrix\private\build-account.xml')) {
+            $denied = $false
+            try { $s = [IO.File]::OpenRead($path); $s.Dispose() }
+            catch [UnauthorizedAccessException] { $denied = $true }
+            if (-not $denied) { $result.ownerCredentialReadsDenied = $false }
+        }
+        if (-not $result.ownerCredentialReadsDenied) { throw 'Controller can read owner credentials' }
+    }
     try {
         $credential = Import-Clixml -LiteralPath $c.worker.buildCredentialFile
         if ($credential -isnot [PSCredential]) { throw 'Wrong credential type' }

@@ -1,10 +1,10 @@
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$Config)
+param([Parameter(Mandatory)][string]$Config, [string]$Revision = 'HEAD')
 $ErrorActionPreference = 'Stop'
 $c = Get-Content -LiteralPath $Config -Raw | ConvertFrom-Json
 if ($c.liveExecution -ne $false -or $c.worker.enabled -ne $false) { throw 'Live settings must remain disabled' }
 $root = Join-Path $c.worker.worktreeRoot ('EQ-VALIDATION-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
-$revision = (& $c.worker.gitExecutable -C $c.repository rev-parse HEAD).Trim()
+$revision = (& $c.worker.gitExecutable -C $c.repository rev-parse --verify $Revision).Trim()
 if ($LASTEXITCODE) { throw 'Cannot pin revision' }
 & $c.worker.gitExecutable -C $c.repository worktree add --detach $root $revision
 if ($LASTEXITCODE) { throw 'Cannot create validation worktree' }
@@ -29,6 +29,7 @@ try {
 } catch { $report.error = $_.Exception.Message; $report.exitCode = 1 }
 $report.finish = [DateTime]::UtcNow.ToString('o')
 $report.activeLease = Test-Path -LiteralPath (Join-Path (Split-Path -Parent $c.worker.buildCredentialFile) 'active-build-lease.json')
+$report.warningLines = @(Select-String -LiteralPath (Join-Path $exchange 'build.stdout.log'),(Join-Path $exchange 'build.stderr.log') -Pattern '\bwarning\s*(?:[A-Z]+\d+|:)' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Line)
 $report | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $exchange 'validation-report.json')
 $report | ConvertTo-Json
 exit $report.exitCode
