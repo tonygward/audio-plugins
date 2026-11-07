@@ -132,3 +132,53 @@ Unregister-ScheduledTask -TaskName 'Songsmith Matrix Build' -Confirm:$false
 
 Retain the package/exchange and evidence for inspection; deleting them is optional
 and requires checking their exact resolved paths and absence of active leases.
+
+## Dedicated supervised fixture launch path
+
+`Stage-SupervisedFixture.ps1` stages a separate owner-protected entry for
+`Songsmith Matrix Supervised Fixture`. It preserves the scanner, worker, diagnostic
+and production Build task definitions. The new task uses the existing non-admin
+Agent account, Password logon, Limited run level, zero triggers, no restart and a
+fixed PowerShell action. Only owner/Admin/System can manage/run it; Agent receives
+read access to the task and read/execute access to its files. Build gets neither.
+
+The entry pins all seven broker dependencies, rejects the wrong/elevated token,
+checks effective denial of writes to trusted scripts, invokes the existing small
+fixture and verifies trusted-source integrity and absence of a retained lease.
+The original fixture verifies actual Build SID, non-admin membership, denied
+source writes, unchanged fixture source and closed lease. Broker protected-path
+checks run before compilation. No model turn, EQ-38, merge or publication occurs.
+Fixture outputs and reports are retained as evidence; cleanup means ACL lease
+revocation and no retained journal, not deletion of diagnostic files. An uncertain
+termination remains blocked for explicit recovery; this does not fix the separate
+interruption-recovery review finding.
+
+Staged at `C:\Scheduled\Songsmith-Matrix\supervised-fixture`. File hashes and
+protected ACLs passed inspection. **Task registration remains blocked on the
+existing Agent password**; no password was extracted/reset and no fixture ran.
+Registration is not claimed complete. Supply that password in elevated PowerShell:
+
+```powershell
+$credential = Get-Credential -UserName 'MATRIX\SongsmithAgent' -Message 'Existing Agent password for disabled fixture task'
+try {
+    & 'C:\Scheduled\Songsmith-Matrix\supervised-fixture\Register-SupervisedFixture.ps1' -Credential $credential
+} finally { $credential = $null }
+```
+
+This registers disabled and verifies identity, fixed action, zero triggers and
+restricted DACL. To activate only the supervised task, then run the approved fixture:
+
+```powershell
+Enable-ScheduledTask -TaskPath '\' -TaskName 'Songsmith Matrix Supervised Fixture'
+Start-ScheduledTask -TaskPath '\' -TaskName 'Songsmith Matrix Supervised Fixture'
+```
+
+Do not run the legacy diagnostic task. Inspect the fixture task's exit result and
+`C:\Scheduled\Songsmith-Matrix\agent-private\supervised-fixture.json`, plus the
+fixture's `build\matrix\first-test.json`. A nonzero result or outstanding lease
+is failure; retain evidence and do not retry blindly. Runtime identity/access and
+cleanup checks remain unverified until that scheduled execution succeeds.
+
+Rollback (administrator): disable the dedicated fixture task, confirm zero running
+instances/no active lease, then unregister only that task. Retain staging evidence.
+Do not alter the Build task, scanner or diagnostic task.

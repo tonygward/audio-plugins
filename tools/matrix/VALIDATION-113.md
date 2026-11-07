@@ -132,3 +132,14 @@ termination, recovery and a real EQ/JUCE build through this new broker are expli
 unverified while disabled. Earlier launcher results above do not certify the new
 broker. Activation and supervised tests require separate approval; EQ-38 remains
 blocked and no merge or publication is authorised.
+
+## Dedicated fixture entry staging
+
+The missing fixed Agent entry is implemented and staged owner-protected. All 100
+local Node tests passed, including wrong-identity, writable-script, changed-source
+and retained-lease rejection. Staged scripts parse and hashes/ACLs pass inspection.
+The new task is not registered: Password logon requires the existing Agent password.
+No credential was extracted/reset and no task was started. Existing scanner, worker,
+Build and diagnostic tasks retain their state. See the
+[registration/activation commands](MANUAL-BUILD-TASK.md#dedicated-supervised-fixture-launch-path)
+and [staging evidence](evidence/auto-01-supervised-fixture-staged.json).
