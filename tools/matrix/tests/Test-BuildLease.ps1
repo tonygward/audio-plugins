@@ -72,6 +72,7 @@ function Denied([scriptblock]$Action) {
     try { & $Action; $script:violations += $script:case }
     catch [UnauthorizedAccessException] { }
     catch [System.Security.SecurityException] { }
+    catch [System.ComponentModel.Win32Exception] { if($_.Exception.NativeErrorCode -ne 5){throw} }
 }
 $null = Get-Content -LiteralPath (Join-Path $p.root 'eq/main.cpp')
 $null = Get-Content -LiteralPath (Join-Path $p.juce 'CMakeLists.txt')
@@ -89,7 +90,10 @@ Denied { [IO.File]::WriteAllText((Join-Path $p.juce ('matrix-denied-' + [Guid]::
 $output = Join-Path $p.root 'eq/build/owner-probe.txt'
 [IO.File]::WriteAllText($output, 'output works')
 $script:case = 'output WRITE_DAC'
-Denied { $acl = Get-Acl -LiteralPath $output; Set-Acl -LiteralPath $output -AclObject $acl -ErrorAction Stop }
+$ast=[Management.Automation.Language.Parser]::ParseFile($p.trustedLauncher,[ref]$null,[ref]$null)
+$function=$ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Set-MatrixDacl'},$false)[0]
+. ([scriptblock]::Create($function.Extent.Text))
+Denied { $acl = Get-Acl -LiteralPath $output; Set-MatrixDacl $output $acl }
 if ($script:violations.Count) { Write-Output ('VIOLATIONS:' + (ConvertTo-Json -Compress @($script:violations))); exit 74 }
 Write-Output 'PASS: source read; build write; source/JUCE write denied; metadata/state/credential/sibling reads denied; output WRITE_DAC denied'
 '@
@@ -105,7 +109,7 @@ try {
     Grant-MatrixBuildLease $root $w.worktreeRoot $buildSid $journal @('eq')
     try {
         $argsList = @('-NoProfile', '-NonInteractive', '-File', ('"{0}"' -f $probe))
-        $process = Start-Process -FilePath (Join-Path $PSHOME 'pwsh.exe') -Credential $credential -LoadUserProfile -ArgumentList $argsList -WorkingDirectory $root -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput $report -RedirectStandardError $errors
+        $process = Invoke-MatrixCredentialProbe $credential ($argsList -join ' ') $root $report $errors
         if ($process.ExitCode -ne 0) {
             $line = Get-Content -LiteralPath $report | Where-Object { $_.StartsWith('VIOLATIONS:') } | Select-Object -Last 1
             $violations = if ($line) { @($line.Substring(11) | ConvertFrom-Json) } else { @() }
@@ -148,7 +152,8 @@ Write-Output 'PASS: source and build-owned output inaccessible after revocation;
     # CreateProcessWithLogonW has a short command-line bound; avoid base64 expansion.
     $postProbe = ($postProbe -split '\r?\n' | Where-Object { $_.Trim() }) -join '; '
     $postProbe = $postProbe -replace ';\s*catch', ' catch'
-    $process = Start-Process -FilePath (Join-Path $PSHOME 'pwsh.exe') -Credential $credential -LoadUserProfile -ArgumentList @('-NoProfile', '-NonInteractive', '-Command', ('"{0}"' -f $postProbe.Replace('"', '\"'))) -WorkingDirectory $env:SystemRoot -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput $report -RedirectStandardError $errors
+    $arguments='-NoProfile -NonInteractive -Command "{0}"' -f $postProbe.Replace('"','\"')
+    $process = Invoke-MatrixCredentialProbe $credential $arguments $env:SystemRoot $report $errors
     if ($process.ExitCode -ne 0) { throw "Post-revocation access probe failed; inspect $errors" }
     Get-Content -LiteralPath $report
     $evidence.revocationPassed = $true

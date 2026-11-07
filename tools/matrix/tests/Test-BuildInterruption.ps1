@@ -78,7 +78,7 @@ set_target_properties(EQTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINAR
         $child = @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$($outer.Id)" | Where-Object { $_.Name -eq 'pwsh.exe' })
         if ($child.Count -ne 1) { throw 'Cannot uniquely identify the credentialed build child' }
         if ($mode -eq 'build-child') {
-            Stop-Process -Id $child[0].ProcessId -Force
+            Set-Content -LiteralPath (Join-Path $root 'build/matrix/CANCEL_BUILD') -Value 'operator test cancellation'
             if (-not $outer.WaitForExit(30000)) { throw 'Launcher did not finish after child termination' }
             Assert-Stopped @($child[0].ProcessId, $pids.test, $pids.descendant)
             if (Test-Path -LiteralPath $journal) { throw 'Normal failure did not revoke lease' }
@@ -97,7 +97,8 @@ set_target_properties(EQTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINAR
         # Check a known path directly under the real build token after recovery.
         $source = (Join-Path $root 'eq/main.cpp').Replace("'", "''")
         $probe = "try{[IO.File]::OpenRead('$source').Dispose();exit 9}catch [UnauthorizedAccessException]{exit 0}"
-        $check = Start-Process -FilePath (Join-Path $PSHOME 'pwsh.exe') -Credential $credential -LoadUserProfile -ArgumentList @('-NoProfile','-NonInteractive','-Command', ('"{0}"' -f $probe)) -WorkingDirectory $env:SystemRoot -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput (Join-Path $private "$mode.probe.stdout.log") -RedirectStandardError (Join-Path $private "$mode.probe.stderr.log")
+        $arguments='-NoProfile -NonInteractive -Command "{0}"' -f $probe
+        $check = Invoke-MatrixCredentialProbe $credential $arguments $env:SystemRoot (Join-Path $private "$mode.probe.stdout.log") (Join-Path $private "$mode.probe.stderr.log")
         if ($check.ExitCode -ne 0) { throw "Post-recovery read probe failed with exit $($check.ExitCode); inspect $mode.probe.stderr.log" }
         $report.cases += @{mode=$mode; worktree=$root; descendantsStopped=$true; leaseRecovered=$true; sourceReadDenied=$true}
         Write-Output "PASS: $mode; all recorded descendants stopped; lease recovered; source access denied"

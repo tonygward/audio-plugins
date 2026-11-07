@@ -138,6 +138,128 @@ function Grant-MatrixBuildLease([string]$Root, [string]$Parent, [string]$BuildSi
     } catch { Restore-MatrixBuildLease $Journal; throw }
 }
 
+function Start-MatrixCredentialProcess($Credential, [string]$Arguments, [string]$Directory, [string]$Stdout, [string]$Stderr) {
+    if (-not ('MatrixIsolatedProcess' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
+using System.Threading;
+using Microsoft.Win32.SafeHandles;
+public sealed class MatrixIsolatedProcess : IDisposable {
+    [StructLayout(LayoutKind.Sequential)] struct Security { public int Length; public IntPtr Descriptor; [MarshalAs(UnmanagedType.Bool)] public bool Inherit; }
+    [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)] struct Startup {
+        public uint Size; public IntPtr Reserved; public string Desktop; public IntPtr Title;
+        public uint X,Y,Width,Height,XChars,YChars,Fill,Flags; public ushort Show,ReservedSize;
+        public IntPtr ReservedBytes,Input,Output,Error;
+    }
+    [StructLayout(LayoutKind.Sequential)] struct ProcessInfo { public IntPtr Process,Thread; public uint Id,ThreadId; }
+    [StructLayout(LayoutKind.Sequential)] struct Basic { public long ProcessTime,JobTime; public uint Flags; public UIntPtr MinWorking,MaxWorking; public uint Active; public UIntPtr Affinity; public uint Priority,Scheduling; }
+    [StructLayout(LayoutKind.Sequential)] struct Io { public ulong ReadOps,WriteOps,OtherOps,ReadBytes,WriteBytes,OtherBytes; }
+    [StructLayout(LayoutKind.Sequential)] struct Extended { public Basic Basic; public Io Io; public UIntPtr ProcessMemory,JobMemory,PeakProcessMemory,PeakJobMemory; }
+    [StructLayout(LayoutKind.Sequential)] struct Accounting { public long User,Kernel,PeriodUser,PeriodKernel; public uint Faults,Total,Active,Terminated; }
+    [DllImport("advapi32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern bool ConvertStringSecurityDescriptorToSecurityDescriptorW(string text,uint revision,out IntPtr descriptor,out uint size);
+    [DllImport("advapi32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern bool CreateProcessWithLogonW(string user,string domain,string password,uint logon,string app,StringBuilder command,uint flags,IntPtr env,string cwd,ref Startup startup,out ProcessInfo info);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern IntPtr CreateWindowStationW(string name,uint flags,uint access,ref Security security);
+    [DllImport("user32.dll", SetLastError=true)] static extern IntPtr GetProcessWindowStation();
+    [DllImport("user32.dll", SetLastError=true)] static extern bool SetProcessWindowStation(IntPtr station);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern IntPtr CreateDesktopW(string name,IntPtr device,IntPtr mode,uint flags,uint access,ref Security security);
+    [DllImport("user32.dll")] static extern bool CloseDesktop(IntPtr desktop);
+    [DllImport("user32.dll")] static extern bool CloseWindowStation(IntPtr station);
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern SafeFileHandle CreateFileW(string path,uint access,uint share,ref Security security,uint creation,uint flags,IntPtr template);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern IntPtr CreateJobObjectW(IntPtr attributes,IntPtr name);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern bool SetInformationJobObject(IntPtr job,int kind,ref Extended info,uint size);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern bool QueryInformationJobObject(IntPtr job,int kind,out Accounting info,uint size,IntPtr returned);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern bool AssignProcessToJobObject(IntPtr job,IntPtr process);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern bool TerminateJobObject(IntPtr job,uint code);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern bool TerminateProcess(IntPtr process,uint code);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern uint ResumeThread(IntPtr thread);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern uint WaitForSingleObject(IntPtr handle,uint timeout);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern bool GetExitCodeProcess(IntPtr process,out uint code);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+    [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr memory);
+    IntPtr station,desktop,job,process;
+    public int Id { get; private set; }
+    public int ExitCode { get { uint code; if(!GetExitCodeProcess(process,out code)) Fail(); return unchecked((int)code); } }
+    static void Fail() { throw new Win32Exception(Marshal.GetLastWin32Error()); }
+    public MatrixIsolatedProcess(string user,string domain,string password,string exe,string arguments,string cwd,string stdout,string stderr) {
+        IntPtr descriptor=IntPtr.Zero,thread=IntPtr.Zero;
+        SafeFileHandle output=null,error=null,input=null;
+        try {
+            string owner=WindowsIdentity.GetCurrent().User.Value;
+            string build=new NTAccount(domain,user).Translate(typeof(SecurityIdentifier)).Value;
+            string sddl="D:P(A;;GA;;;"+owner+")(A;;GA;;;"+build+")(A;;GA;;;SY)(A;;GA;;;BA)";
+            uint size; if(!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl,1,out descriptor,out size)) Fail();
+            var security=new Security {Length=Marshal.SizeOf<Security>(),Descriptor=descriptor,Inherit=false};
+            string name="SongsmithBuild-"+Guid.NewGuid().ToString("N");
+            station=CreateWindowStationW(name,0,0xF037Fu,ref security); if(station==IntPtr.Zero) Fail();
+            IntPtr original=GetProcessWindowStation(); if(original==IntPtr.Zero) Fail();
+            if(!SetProcessWindowStation(station)) Fail();
+            try { desktop=CreateDesktopW("Default",IntPtr.Zero,IntPtr.Zero,0,0xF01FFu,ref security); if(desktop==IntPtr.Zero) Fail(); }
+            finally { if(!SetProcessWindowStation(original)) Fail(); }
+            // Anonymous, non-inheritable job belongs to Agent. Build never receives
+            // a handle and cannot retain it to defeat kill-on-last-handle-close.
+            job=CreateJobObjectW(IntPtr.Zero,IntPtr.Zero); if(job==IntPtr.Zero) Fail();
+            var limits=new Extended(); limits.Basic.Flags=0x2000;
+            if(!SetInformationJobObject(job,9,ref limits,(uint)Marshal.SizeOf<Extended>())) Fail();
+            var fileSecurity=new Security {Length=Marshal.SizeOf<Security>(),Inherit=true};
+            output=CreateFileW(stdout,0x40000000u,3,ref fileSecurity,2,0x80,IntPtr.Zero);
+            error=CreateFileW(stderr,0x40000000u,3,ref fileSecurity,2,0x80,IntPtr.Zero);
+            input=CreateFileW("NUL",0x80000000u,3,ref fileSecurity,3,0x80,IntPtr.Zero);
+            if(output.IsInvalid || error.IsInvalid || input.IsInvalid) Fail();
+            var startup=new Startup {Size=(uint)Marshal.SizeOf<Startup>(),Desktop=name+"\\Default",Flags=0x101,Show=0,Input=input.DangerousGetHandle(),Output=output.DangerousGetHandle(),Error=error.DangerousGetHandle()};
+            var command=new StringBuilder("\""+exe+"\" "+arguments);
+            if(command.Length>=1024) throw new InvalidOperationException("Credentialed command exceeds Windows bound");
+            ProcessInfo info;
+            if(!CreateProcessWithLogonW(user,domain,password,1,exe,command,0x08000004u,IntPtr.Zero,cwd,ref startup,out info)) Fail();
+            process=info.Process;thread=info.Thread;Id=(int)info.Id;
+            // No untrusted code runs before containment: primary thread is suspended.
+            if(!AssignProcessToJobObject(job,process)) Fail();
+            if(ResumeThread(thread)==0xFFFFFFFFu) Fail();
+        } catch { if(process!=IntPtr.Zero) TerminateProcess(process,1); Dispose(); throw; }
+        finally { if(thread!=IntPtr.Zero) CloseHandle(thread); if(descriptor!=IntPtr.Zero) LocalFree(descriptor); output?.Dispose();error?.Dispose();input?.Dispose(); }
+    }
+    public bool Wait(int milliseconds) { uint result=WaitForSingleObject(process,(uint)milliseconds); if(result==0) return true; if(result==258) return false; Fail();return false; }
+    public void Cancel() { if(job!=IntPtr.Zero && !TerminateJobObject(job,137)) Fail(); }
+    public void Dispose() {
+        try {
+            if(job!=IntPtr.Zero) {
+                if(!TerminateJobObject(job,137)) Fail();
+                var deadline=DateTime.UtcNow.AddSeconds(10);
+                for(;;) {
+                    Accounting info;
+                    if(!QueryInformationJobObject(job,1,out info,(uint)Marshal.SizeOf<Accounting>(),IntPtr.Zero)) Fail();
+                    if(info.Active==0) break;
+                    if(DateTime.UtcNow>=deadline) throw new InvalidOperationException("Build descendants did not terminate");
+                    Thread.Sleep(20);
+                }
+            }
+        } finally {
+            if(job!=IntPtr.Zero){CloseHandle(job);job=IntPtr.Zero;}
+            if(process!=IntPtr.Zero){CloseHandle(process);process=IntPtr.Zero;}
+            if(desktop!=IntPtr.Zero){CloseDesktop(desktop);desktop=IntPtr.Zero;}
+            if(station!=IntPtr.Zero){CloseWindowStation(station);station=IntPtr.Zero;}
+        }
+    }
+}
+'@
+    }
+    $parts=$Credential.UserName.Split('\')
+    if($parts.Count -ne 2){throw 'Qualified build identity required'}
+    [MatrixIsolatedProcess]::new($parts[1],$parts[0],$Credential.GetNetworkCredential().Password,(Join-Path $PSHOME 'pwsh.exe'),$Arguments,$Directory,$Stdout,$Stderr)
+}
+
+function Invoke-MatrixCredentialProbe($Credential, [string]$Arguments, [string]$Directory, [string]$Stdout, [string]$Stderr) {
+    $process=Start-MatrixCredentialProcess $Credential $Arguments $Directory $Stdout $Stderr
+    try {
+        if(-not $process.Wait(30000)){throw 'Credentialed probe timed out'}
+        [pscustomobject]@{Id=$process.Id;ExitCode=$process.ExitCode}
+    } finally {$process.Dispose()}
+}
+
 if ($RecoverLease) { Restore-MatrixBuildLease $RecoverLease; return }
 if (-not $RequestFile) { throw 'RequestFile is required' }
 $requestPath = (Resolve-Path -LiteralPath $RequestFile).Path
@@ -169,12 +291,17 @@ if (-not $Child) {
     $arguments = @('-NoProfile', '-NonInteractive', '-File', ('"{0}"' -f $PSCommandPath), '-Child', '-ControllerSid', $parentSid, '-RequestFile', ('"{0}"' -f $requestPath))
     # Credential is decrypted only by the trusted controller; never sent to the child.
     Grant-MatrixBuildLease $worktreePath $WorktreeRoot $buildSid $journal @($request.plugins)
+    $process=$null
     try {
-        $process = Start-Process -FilePath (Join-Path $PSHOME 'pwsh.exe') -ArgumentList $arguments -Credential $credential -LoadUserProfile -WorkingDirectory $worktreePath -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
-    } finally { Restore-MatrixBuildLease $journal }
+        $process = Start-MatrixCredentialProcess $credential ($arguments -join ' ') $worktreePath $stdoutPath $stderrPath
+        while(-not $process.Wait(250)) {
+            if(Test-Path -LiteralPath (Join-Path $worktreePath 'build/matrix/CANCEL_BUILD')){$process.Cancel()}
+        }
+        $exitCode=$process.ExitCode
+    } finally { if($process){$process.Dispose()}; Restore-MatrixBuildLease $journal }
     Get-Content -LiteralPath $stdoutPath -ErrorAction SilentlyContinue
     Get-Content -LiteralPath $stderrPath -ErrorAction SilentlyContinue
-    exit $process.ExitCode
+    exit $exitCode
 }
 
 # All executed commands are derived here, never taken from prompt/agent output.
@@ -194,40 +321,7 @@ foreach ($target in $targets) {
     catch [Security.SecurityException] { $denied = $true }
     if (-not $denied) { [Console]::Error.WriteLine('Build isolation check failed: protected controller path is readable'); exit 74 }
 }
-# The build child joins a non-breakaway job before executing CMake/tests. Its
-# last job handle closes on exit (including termination), killing descendants
-# before the waiting controller restores ACLs. Keep the handle alive statically.
-Add-Type -TypeDefinition @'
-using System;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
-public static class MatrixBuildJob {
-    [StructLayout(LayoutKind.Sequential)] struct Basic {
-        public long ProcessTime, JobTime; public uint Flags;
-        public UIntPtr MinWorking, MaxWorking; public uint Active;
-        public UIntPtr Affinity; public uint Priority, Scheduling;
-    }
-    [StructLayout(LayoutKind.Sequential)] struct Io {
-        public ulong ReadOps, WriteOps, OtherOps, ReadBytes, WriteBytes, OtherBytes;
-    }
-    [StructLayout(LayoutKind.Sequential)] struct Extended {
-        public Basic Basic; public Io Io;
-        public UIntPtr ProcessMemory, JobMemory, PeakProcessMemory, PeakJobMemory;
-    }
-    [DllImport("kernel32.dll", SetLastError=true)] static extern IntPtr CreateJobObject(IntPtr a, string n);
-    [DllImport("kernel32.dll", SetLastError=true)] static extern bool SetInformationJobObject(IntPtr j, int c, ref Extended i, uint s);
-    [DllImport("kernel32.dll", SetLastError=true)] static extern bool AssignProcessToJobObject(IntPtr j, IntPtr p);
-    [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
-    static IntPtr handle;
-    public static void Enter() {
-        handle = CreateJobObject(IntPtr.Zero, null);
-        var info = new Extended(); info.Basic.Flags = 0x2000;
-        if (handle == IntPtr.Zero || !SetInformationJobObject(handle, 9, ref info, (uint)Marshal.SizeOf<Extended>()) || !AssignProcessToJobObject(handle, GetCurrentProcess()))
-            throw new Win32Exception(Marshal.GetLastWin32Error());
-    }
-}
-'@
-[MatrixBuildJob]::Enter()
+# The controller assigned this process to its private job before resuming it.
 $buildProfile = (Get-ItemProperty -LiteralPath ('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\' + [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) -Name ProfileImagePath).ProfileImagePath
 $buildProfile = [Environment]::ExpandEnvironmentVariables($buildProfile)
 # Start-Process -Credential can inherit the controller's profile/temp variables.

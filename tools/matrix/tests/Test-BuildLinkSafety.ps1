@@ -30,12 +30,14 @@ try {
     catch { if ($_.Exception.Message -like '*Linked lease item*') { $report.hardLinkRejected = $true } else { throw } }
     if (-not $report.hardLinkRejected -or (Test-Path -LiteralPath $journal)) { throw 'Linked source was not rejected before granting access' }
     Remove-Item -LiteralPath $link
-    Grant-MatrixBuildLease $root $w.worktreeRoot $sid $journal @('eq')
     $link = Join-Path $root 'eq/build/output-junction'
+    $helper=Join-Path $root 'create-junction.ps1'
+    Set-Content -LiteralPath $helper -Value ('& "$env:SystemRoot\System32\cmd.exe" /d /c mklink /J "{0}" "{1}"; exit $LASTEXITCODE' -f $link,$target)
+    Grant-MatrixBuildLease $root $w.worktreeRoot $sid $journal @('eq')
     # Junction creation is performed as the untrusted build identity. Targets are
     # disposable fixtures; never link to personal, credential or production data.
-    $arguments = '/d /c mklink /J "{0}" "{1}"' -f $link,$target
-    $child = Start-Process -FilePath "$env:SystemRoot/System32/cmd.exe" -Credential $credential -LoadUserProfile -ArgumentList $arguments -WorkingDirectory $env:SystemRoot -WindowStyle Hidden -Wait -PassThru
+    $arguments = '-NoProfile -NonInteractive -File "{0}"' -f $helper
+    $child = Invoke-MatrixCredentialProbe $credential $arguments $env:SystemRoot (Join-Path (Split-Path -Parent $journal) 'junction.stdout.log') (Join-Path (Split-Path -Parent $journal) 'junction.stderr.log')
     if ($child.ExitCode -ne 0 -or (Get-Item -LiteralPath $link -Force).LinkType -ne 'Junction') { throw 'Build account could not create the test junction' }
     $report.outputJunctionCreatedByBuildAccount = $true
     try { Restore-MatrixBuildLease $journal }
