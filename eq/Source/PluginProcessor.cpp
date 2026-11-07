@@ -336,6 +336,8 @@ bool SongsmithEQAudioProcessor::isSidechainConnected() const
 void SongsmithEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     engine.prepare (sampleRate);
+    outputMeter.channels.store (juce::jlimit (1, (int) OutputMeter::maxChannels, getMainBusNumOutputChannels()));
+    outputMeter.resetLatch (sampleRate);   // a new session or layout starts without a stale warning
 
     // Larger host blocks are processed in chunks of this size, so nothing is allocated later.
     dryBuffer.setSize (EQ::Engine::maxChannels, juce::jmax (512, samplesPerBlock), false, true, false);
@@ -634,11 +636,16 @@ void SongsmithEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         for (int c = 0; c < numCh; ++c)
         {
             const auto range = juce::FloatVectorOperations::findMinAndMax (ch[c], num);
-            blockPeak = juce::jmax (blockPeak, -range.getStart(), range.getEnd());
+            const float channelBlockPeak = juce::jmax (-range.getStart(), range.getEnd());
+            blockPeak = juce::jmax (blockPeak, channelBlockPeak);
+            if (c < OutputMeter::maxChannels)
+                outputMeter.pushChannel (c, channelBlockPeak);
         }
     }
 
     outputMeter.push (blockPeak);
+    outputMeter.channels.store (juce::jlimit (1, (int) OutputMeter::maxChannels, numOut), std::memory_order_relaxed);
+    outputMeter.updateClipLatch (blockPeak, total);
     autoGainAppliedDb.store (juce::Decibels::gainToDecibels (autoGainSmoothed.getCurrentValue(), -100.0f), std::memory_order_relaxed);
 
     for (int b = 0; b < numBands; ++b)
