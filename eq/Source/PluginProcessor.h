@@ -96,10 +96,19 @@ public:
     bool isAutoGainOn() const noexcept { return autoGainParam->get(); }
 
     // Output peak meter, written by the audio thread and read (and reset) by the editor.
+    // EQ-39: also a peak per main-output channel, the channel count, and a clip warning that
+    // latches (sample peak >= 0 dBFS) until the output has been near-silent for a while.
     struct OutputMeter
     {
-        std::atomic<float> peak { 0.0f };       // max |sample| since the last read
-        std::atomic<bool>  clipped { false };   // latched when a sample reaches 0 dBFS
+        static constexpr int   maxChannels = 2;
+        static constexpr float silenceThreshold = 1.0e-4f;   // -80 dBFS
+        static constexpr double silenceSeconds = 0.75;
+
+        std::atomic<float> peak { 0.0f };       // max |sample| since the last read (all channels)
+        std::atomic<bool>  clipped { false };   // latched when a sample reaches 0 dBFS; cleared by the reader
+        std::array<std::atomic<float>, maxChannels> channelPeak {};   // per channel, since the last read
+        std::atomic<int>   channels { 2 };      // main output channels now: 1 (mono) or 2 (stereo)
+        std::atomic<bool>  clipLatched { false };   // the CLIP warning: stays on while there is audio
 
         void push (float blockPeak) noexcept
         {
@@ -109,7 +118,48 @@ public:
                 clipped.store (true, std::memory_order_relaxed);
         }
 
+        void pushChannel (int channel, float channelBlockPeak) noexcept
+        {
+            auto& a = channelPeak[(size_t) channel];
+            float prev = a.load (std::memory_order_relaxed);
+            while (channelBlockPeak > prev && ! a.compare_exchange_weak (prev, channelBlockPeak, std::memory_order_relaxed)) {}
+        }
+
+        // Audio thread, once per block, with the peak over every output channel: latches the warning on a
+        // clip and clears it after 'silenceSeconds' of near-silence. A quiet pause shorter than that
+        // does not clear it. Only the audio thread touches silentSamples.
+        void updateClipLatch (float blockPeak, int numSamples) noexcept
+        {
+            if (blockPeak >= 1.0f)
+            {
+                clipLatched.store (true, std::memory_order_relaxed);
+                silentSamples = 0.0;
+            }
+            else if (blockPeak < silenceThreshold)
+            {
+                silentSamples += (double) numSamples;
+                if (silentSamples >= silenceSamples)
+                    clipLatched.store (false, std::memory_order_relaxed);
+            }
+            else
+            {
+                silentSamples = 0.0;
+            }
+        }
+
+        // Prepare / layout change: no stale warning from the old layout.
+        void resetLatch (double sampleRate) noexcept
+        {
+            silenceSamples = silenceSeconds * juce::jmax (1.0, sampleRate);
+            silentSamples = 0.0;
+            clipLatched.store (false, std::memory_order_relaxed);
+        }
+
         float readAndReset() noexcept { return peak.exchange (0.0f, std::memory_order_relaxed); }
+        float readAndResetChannel (int channel) noexcept { return channelPeak[(size_t) channel].exchange (0.0f, std::memory_order_relaxed); }
+
+    private:
+        double silentSamples = 0.0, silenceSamples = silenceSeconds * 48000.0;
     } outputMeter;
 
     // Solo / audition (transient, never saved or automated): the band being auditioned,
