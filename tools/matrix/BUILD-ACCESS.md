@@ -1,5 +1,9 @@
 # AUTO-01 temporary build access: implementation and deployment evidence
 
+Canonical prompt: [AUTO-01](../../shared/prompts/AUTO-01-matrix-autonomous-development.md).
+Implementation: [draft PR #113](https://github.com/tonygward/audio-plugins/pull/113).
+Release checkpoint: unassigned; no version change. Work remains unmerged.
+
 Reviewed and tested on MATRIX, 7 November 2026. No live development or EQ-38 run
 was started. The installed trusted launcher and scanner were not replaced.
 
