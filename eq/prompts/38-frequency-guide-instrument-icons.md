@@ -1,3 +1,14 @@
+---
+id: EQ-38
+status: ready
+execution: build-now
+priority: high
+model: sonnet
+effort: low
+dependencies: ["EQ-32"]
+conflicts: []
+---
+
 # EQ-38 — Instrument icons in Frequency Guide
 
 **Priority:** 2 — early EQ UI polish, next suitable UI batch after v1.3.0.
