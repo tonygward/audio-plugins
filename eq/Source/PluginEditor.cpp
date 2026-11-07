@@ -212,6 +212,8 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     };
     content.addAndMakeVisible (guideButton);
 
+    guideBox.setName ("frequencyGuideInstrument");
+    guideBox.getProperties().set ("textIndent", 29);
     for (int i = 0; i < EQ::Guide::numInstruments(); ++i)
         guideBox.addItem (EQ::Guide::instrument (i).name, i + 1);
     guideBox.setSelectedItemIndex (processor.guideInstrument.load(), juce::dontSendNotification);
