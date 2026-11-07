@@ -228,3 +228,15 @@ test('Real child process timeout, output bound, cancellation and missing executa
   await assert.rejects(runProcess(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { cancelled: () => true }), /paused/);
   await assert.rejects(runProcess(path.resolve('missing-matrix-executable'), []), /could not start/);
 });
+
+test('Scheduled build cancellation signals its controller before process termination', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'matrix-cancel-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const marker = path.join(root, 'CANCEL_BUILD');
+  const ready = path.join(root, 'ready');
+  const code = 'const fs=require("node:fs");fs.writeFileSync(process.argv[2],"ready");setInterval(()=>{if(fs.existsSync(process.argv[1]))process.exit(0)},10);';
+  await assert.rejects(runProcess(process.execPath, ['-e', code, marker, ready], {
+    cancelled: () => fs.existsSync(ready), cancellationFile: marker, cancellationGraceMs: 3000
+  }), /paused/);
+  assert.match(fs.readFileSync(marker, 'utf8'), /Controller requested cancellation/);
+});

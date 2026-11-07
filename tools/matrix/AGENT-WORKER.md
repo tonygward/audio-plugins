@@ -35,6 +35,10 @@ the existing lease mechanism. The original scanner's trusted bundle is untouched
 
 ### Deployment status: blocked at scheduled build launch
 
+**Latest:** the manual-only Build task design is approved for implementation and
+disabled staging. See [implementation, disabled checks and activation gates](MANUAL-BUILD-TASK.md).
+No activation or runtime test is authorised by that approval.
+
 The separate worker is registered **disabled** under SongsmithAgent with Password
 logon/Limited run level. Actual session-0 tests confirm administrator membership
 is disabled, Agent decrypts its own DPAPI build credential, and Tony's credential
