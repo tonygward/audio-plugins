@@ -105,3 +105,30 @@ leases were recovered, no fixture descendants remain from successful tests, and
 temporary diagnostic tasks were removed. Final checks show `liveExecution: false`,
 `worker.enabled: false`, `autoMerge: false` and no active lease journal. The PR
 remains draft; neither merge nor autonomous activation is authorised by these tests.
+
+## Disabled manual Build staging — 7 November 2026
+
+The approved manual-only broker is installed at revision
+`769e296f791257f50d73118d1c385c32e9cc3d85`. See
+[the design, separate approval gates and rollback](MANUAL-BUILD-TASK.md) and
+[retained staging evidence](evidence/auto-01-build-broker-staged.json).
+
+`Songsmith Matrix Build` is disabled, has zero triggers/instances and last result
+267011 (never run). Fixed action, protected task DACL, dependency hashes and
+file-specific Build read/execute permissions passed inspection. The disabled
+client refused a request before creating a lease. Scanner/worker definitions and
+existing runtime configuration passed unchanged assertions. Both identities remain
+non-admin; Build still lacks the batch-logon right. All four execution/merge/release
+switches remain false; no active lease exists.
+
+Local validation: 97 Node tests passed; 31 offline broker policy checks passed;
+PowerShell scripts parsed successfully. Windows CI initially failed because the
+fixture compared a normalised path with its unnormalised input; the assertion now
+normalises the expected path too. CI must confirm that correction. This test-only
+change does not alter the installed broker package.
+
+Scheduled-token execution, effective permissions, task run/stop rights, descendant
+termination, recovery and a real EQ/JUCE build through this new broker are explicitly
+unverified while disabled. Earlier launcher results above do not certify the new
+broker. Activation and supervised tests require separate approval; EQ-38 remains
+blocked and no merge or publication is authorised.

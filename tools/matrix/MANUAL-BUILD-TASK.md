@@ -112,3 +112,23 @@ tasks or configs. To withdraw it, obtain approval to unregister only
 new directories after checking resolved paths. No password reset, account removal,
 global task-folder ACL change or scanner rollback is required. Existing lease
 journals must be investigated, not deleted to bypass recovery.
+
+## Actual staged result
+
+Installed package: `C:\Scheduled\Songsmith-Matrix\build-broker\769e296f791257f50d73118d1c385c32e9cc3d85`.
+The disabled task has zero triggers/instances and never-run result 267011.
+Inspection verified the fixed action, protected task DACL and dependency hashes;
+the client refused execution before leasing. Build has RX only on its entry,
+common code and contract, with no Build ACE on client/lease/proposed-config files.
+Existing scanner, worker and runtime config passed unchanged checks. Build still
+lacks `SeBatchLogonRight`. See [staging evidence](evidence/auto-01-build-broker-staged.json).
+No effective scheduled Build access or runtime recovery pass is claimed.
+
+After separate rollback approval, unregister the new task only:
+
+```powershell
+Unregister-ScheduledTask -TaskName 'Songsmith Matrix Build' -Confirm:$false
+```
+
+Retain the package/exchange and evidence for inspection; deleting them is optional
+and requires checking their exact resolved paths and absence of active leases.

@@ -11,7 +11,7 @@ try{
     $now=[DateTime]::UtcNow
     $contract=[pscustomobject]@{worktreeRoot=$root;juceDirectory='C:\JUCE';maximumSeconds=10800;cmakeExecutable='C:\Tools\cmake.exe'}
     $request=[pscustomobject]@{version=1;id=('a'*32);worktree=(Join-Path $root 'EQ-38');plugins=@('eq');createdAt=$now.ToString('o');expiresAt=$now.AddMinutes(30).ToString('o')}
-    Check ((Test-BrokerRequest $request $contract $now) -eq $request.worktree) 'Valid bounded worktree rejected'
+    Check ((Test-BrokerRequest $request $contract $now) -eq [IO.Path]::GetFullPath($request.worktree)) 'Valid bounded worktree rejected'
     function Clone-Request {$request | ConvertTo-Json -Depth 4 | ConvertFrom-Json}
     foreach($path in @('C:\outside','C:\Windows\..\escape','\\server\share\x','C:\work:stream')){$r=Clone-Request;$r.worktree=$path;Reject {Test-BrokerRequest $r $contract $now} "Unsafe path accepted: $path"}
     $r=Clone-Request;$r | Add-Member command 'powershell evil';Reject {Test-BrokerRequest $r $contract $now} 'Command field accepted'
