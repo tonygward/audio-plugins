@@ -47,3 +47,6 @@ User-facing explanations should describe what the musician might hear and whethe
 ## Not included, possible follow-ups
 
 Piano and keys, backing vocals, overheads and cymbals, and separate Acoustic Guitar variants (full mix, pickup, 12-string). The notes don't have enough detail for them yet, or the variants are covered by tooltips.
+
+![Songsmith EQ showing the Acoustic Guitar Frequency Guide,
+live spectrum analyser, EQ controls and piano strip](images/songsmith-eq-frequency-guide-example.png)
