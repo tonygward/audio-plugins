@@ -40,6 +40,7 @@ $requestFile = Join-Path $root 'build/matrix/request.json'
 @{worktree=$root; juceDirectory=$w.juceDirectory; plugins=@('eq')} | ConvertTo-Json | Set-Content -LiteralPath $requestFile
 $probe = Join-Path $root 'probe.ps1'
 $protected = @(
+    $Config,
     (Join-Path $settings.repository '.git'),
     (Join-Path $settings.repository '.git/HEAD'),
     (Join-Path $settings.repository '.git/config'),
@@ -52,12 +53,15 @@ $protected = @(
 foreach ($candidate in @((Join-Path $env:USERPROFILE '.claude'), (Join-Path $env:APPDATA 'GitHub CLI'), (Join-Path $env:APPDATA 'gh'))) {
     if (Test-Path -LiteralPath $candidate) { $protected += $candidate }
 }
+foreach ($candidate in @((Join-Path $env:USERPROFILE '.claude/.credentials.json'), (Join-Path $env:APPDATA 'GitHub CLI/hosts.yml'), (Join-Path $env:APPDATA 'gh/hosts.yml'))) {
+    if (Test-Path -LiteralPath $candidate) { $protected += $candidate }
+}
 $protectedItems = @($protected | ForEach-Object {
     $item = Get-Item -LiteralPath $_ -Force -ErrorAction Stop
     @{path=$item.FullName; directory=[bool]$item.PSIsContainer}
 })
 @{worktree=$root; juceDirectory=$w.juceDirectory; plugins=@('eq'); isolationTargets=$protectedItems} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $requestFile
-@{root=$root; protected=$protectedItems; juce=$w.juceDirectory; sid=$buildSid} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $root 'probe.json')
+@{root=$root; protected=$protectedItems; juce=$w.juceDirectory; sid=$buildSid; trustedLauncher=$w.buildScript} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $root 'probe.json')
 Set-Content -LiteralPath $probe -Value @'
 $ErrorActionPreference = 'Stop'
 $p = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'probe.json') -Raw | ConvertFrom-Json
@@ -71,6 +75,8 @@ function Denied([scriptblock]$Action) {
 }
 $null = Get-Content -LiteralPath (Join-Path $p.root 'eq/main.cpp')
 $null = Get-Content -LiteralPath (Join-Path $p.juce 'CMakeLists.txt')
+try { $stream = [IO.File]::OpenRead($p.trustedLauncher); $stream.Dispose(); Write-Output 'Installed trusted launcher readable: True' }
+catch [UnauthorizedAccessException] { Write-Output 'Installed trusted launcher readable: False' }
 foreach ($target in $p.protected) {
     $script:case = 'read ' + $target.path
     Write-Output ('Checking denied read: ' + $target.path)
@@ -93,6 +99,8 @@ $siblingDacl = (Get-Acl -LiteralPath $sibling).GetSecurityDescriptorSddlForm('Ac
 foreach ($item in Get-MatrixLeaseItems $root) { $before[$item.FullName] = (Get-Acl -LiteralPath $item.FullName).GetSecurityDescriptorSddlForm('Access') }
 $report = Join-Path (Split-Path -Parent $w.buildCredentialFile) 'build-lease-test.stdout.log'
 $errors = Join-Path (Split-Path -Parent $w.buildCredentialFile) 'build-lease-test.stderr.log'
+$evidenceFile = Join-Path (Split-Path -Parent $w.buildCredentialFile) ('lease-validation-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '.json')
+$evidence = [ordered]@{worktree=$root; buildAccount=$BuildAccount; permissionsProbePassed=$false; installedTrustedLauncherReadable=$null; compilationPassed=$false; revocationPassed=$false}
 try {
     Grant-MatrixBuildLease $root $w.worktreeRoot $buildSid $journal @('eq')
     try {
@@ -107,7 +115,10 @@ try {
             }
             Write-Warning 'Confirmed existing Git metadata exposure; audit will verify launcher refusal and revocation, not approve deployment'
         }
-        Get-Content -LiteralPath $report
+        $probeOutput = Get-Content -LiteralPath $report -Raw
+        $evidence.permissionsProbePassed = $process.ExitCode -eq 0
+        $evidence.installedTrustedLauncherReadable = $probeOutput.Contains('Installed trusted launcher readable: True')
+        Write-Output $probeOutput
     } finally { Restore-MatrixBuildLease $journal }
     foreach ($path in $before.Keys) {
         if ((Get-Acl -LiteralPath $path).GetSecurityDescriptorSddlForm('Access') -ne $before[$path]) { throw "DACL restoration mismatch: $path" }
@@ -118,6 +129,7 @@ try {
         if ($LASTEXITCODE -ne 74) { throw 'Launcher did not refuse exposed Git metadata' }
         Write-Output 'PASS: final launcher refused compilation with exit 74 for exposed Git metadata'
     } elseif ($LASTEXITCODE -ne 0) { throw 'Compilation through trusted launcher failed' }
+    else { $evidence.compilationPassed = $true }
     if (Test-Path -LiteralPath $journal) { throw 'Lease was not revoked' }
     if ((Get-Acl -LiteralPath $w.worktreeRoot).GetSecurityDescriptorSddlForm('Access') -ne $parentDacl -or (Get-Acl -LiteralPath $sibling).GetSecurityDescriptorSddlForm('Access') -ne $siblingDacl) { throw 'Parent or sibling DACL changed' }
     $sourceJson = ConvertTo-Json -Compress @((Join-Path $root 'eq/main.cpp'), (Join-Path $root 'eq/build/owner-probe.txt'))
@@ -139,9 +151,13 @@ Write-Output 'PASS: source and build-owned output inaccessible after revocation;
     $process = Start-Process -FilePath (Join-Path $PSHOME 'pwsh.exe') -Credential $credential -LoadUserProfile -ArgumentList @('-NoProfile', '-NonInteractive', '-Command', ('"{0}"' -f $postProbe.Replace('"', '\"'))) -WorkingDirectory $env:SystemRoot -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput $report -RedirectStandardError $errors
     if ($process.ExitCode -ne 0) { throw "Post-revocation access probe failed; inspect $errors" }
     Get-Content -LiteralPath $report
+    $evidence.revocationPassed = $true
     if ($AuditKnownGitExposure) { Write-Output "AUDIT COMPLETE; deployment BLOCKED on common Git ACL. Retained fixture: $root" }
     else { Write-Output "PASS: actual separate-account CMake configure/build/test and ACL restoration. Retained fixture: $root" }
 } finally {
     if (Test-Path -LiteralPath $journal) { Write-Warning "Lease requires recovery: & '$launcher' -RecoverLease '$journal'" }
+    $evidence.activeLease = Test-Path -LiteralPath $journal
+    $evidence | ConvertTo-Json | Set-Content -LiteralPath $evidenceFile
+    Write-Output "Evidence: $evidenceFile"
 }
 # Retain fixtures and logs for inspection. No protected production ACL is changed.

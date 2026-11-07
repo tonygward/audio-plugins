@@ -75,6 +75,13 @@ No installer, Claude turn, branch push, PR creation or DAW test was performed.
 
 ## Deployment blockers
 
+**Updated validation:** [PR #113 follow-up](VALIDATION-113.md) supersedes the
+initial checklist below. A real EQ/JUCE build and 12,034 checks now pass, interruption
+and linked-output recovery have been exercised, and the actual scheduled-principal
+test found deployment blockers: enabled administrator membership, unavailable DPAPI
+decryption under S4U, and an unreadable installed launcher. Two JUCE warnings also
+block the worker's current warning gate. The original deployment remains disabled.
+
 1. Review/merge the implementation through a PR and validate CI. Repository code
    is on `fix/auto-01-worktree-build-lease`; trusted deployment is not updated.
 2. Deploy the revised launcher and controller modules together using the existing
