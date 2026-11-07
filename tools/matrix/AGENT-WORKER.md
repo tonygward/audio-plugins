@@ -33,6 +33,39 @@ the existing lease mechanism. The original scanner's trusted bundle is untouched
 
 ## Approval and tests
 
+### Deployment status: blocked at scheduled build launch
+
+The separate worker is registered **disabled** under SongsmithAgent with Password
+logon/Limited run level. Actual session-0 tests confirm administrator membership
+is disabled, Agent decrypts its own DPAPI build credential, and Tony's credential
+files are denied. Claude reports a first-party `claude.ai` login. An independent
+owner-launched file-permission probe confirms SongsmithBuild can read, but cannot
+write, the installed launcher.
+
+The scheduled build is **not validated**: secondary-account PowerShell startup
+exits `0xC0000142` before output. A private-window-station/desktop prototype also
+returned access denied. No real EQ build or interruption suite has passed under
+the scheduled Agent token. The previous Tony-launched EQ pass is not a substitute.
+A separate fixed, manual-only Build task is proposed, not implemented or activated;
+the launch-mechanism decision is pending.
+
+See [sanitised deployment evidence](evidence/auto-01-agent-deployment.json).
+The latest test restored its lease; all four live/merge/publication settings remain
+false. Tony's scanner is unchanged. PR #113 remains draft and unmerged.
+
+Additional approved Windows changes were Agent's `SeBatchLogonRight` and denial
+of Agent access to the superseded Tony-owned build credential. The old credential
+ACL is backed up at `agent-private/owner-build-credential-acl.before.json`, protected
+against Agent modification. No password was reset. A DACL-only API corrected the
+original setter's unintended `SeSecurityPrivilege` requirement; no such privilege
+was granted.
+
+Windows requires the password again when changing a Password-logon task action.
+The fixed diagnostic task now calls an owner-protected dispatcher and pinned
+request, allowing further approved reruns without changing that action. It has
+no triggers and invokes validation only, separately from the disabled worker.
+No approval file authorising autonomous execution has been generated.
+
 The setup script changes protected directories/ACLs/configuration and registers a
 disabled task. `-RunDiagnostics` additionally registers and explicitly starts a
 separate fixed diagnostic task. Both operations require owner approval; approving
