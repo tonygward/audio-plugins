@@ -1,0 +1,8 @@
+{
+  "staged": true,
+  "registered": false,
+  "entryHash": "C005D11901C4ABADE4A179F80337E94761376FC2CF2C6F697B3BB7C42CB8EDF8",
+  "protectedAcl": true,
+  "runtimeValidated": false,
+  "blocker": "Existing Agent password required for Password-logon registration"
+}

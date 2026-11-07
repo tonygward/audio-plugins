@@ -35,8 +35,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../shared ${CMAKE_BINARY_DIR}/share
 set(MAX_DEFINITIONS
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
-    JUCE_VST3_CAN_REPLACE_VST2=0
-    JUCE_DISPLAY_SPLASH_SCREEN=0)
+    JUCE_VST3_CAN_REPLACE_VST2=0)
 
 # --- Names and identity ------------------------------------------------------
 # Second plug-in of the Songsmith family. It shares the manufacturer code with Songsmith EQ

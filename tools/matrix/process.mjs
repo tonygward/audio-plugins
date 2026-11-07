@@ -1,11 +1,11 @@
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 
 // Shell-free, bounded process execution. Stop the entire process tree on Windows.
-export function runProcess(executable, args, { cwd, env, input = '', timeoutMs = 60000, cancelled = () => false, maximumBytes = 4 * 1024 * 1024 } = {}) {
+export function runProcess(executable, args, { cwd, env, input = '', timeoutMs = 60000, cancelled = () => false, maximumBytes = 4 * 1024 * 1024, cancellationFile, cancellationGraceMs = 15000 } = {}) {
   return new Promise((resolve, reject) => {
-    let child, timer, poll, stopped, bytes = 0, stdout = '', stderr = '';
-    function stop(reason) {
-      if (stopped) return; stopped = reason;
+    let child, timer, poll, killTimer, stopped, bytes = 0, stdout = '', stderr = '';
+    function kill() {
       if (!child?.pid) return;
       if (process.platform === 'win32') {
         const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
@@ -15,7 +15,15 @@ export function runProcess(executable, args, { cwd, env, input = '', timeoutMs =
         try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); }
       }
     }
-    function cleanup() { clearTimeout(timer); clearInterval(poll); }
+    function stop(reason) {
+      if (stopped) return; stopped = reason;
+      if (cancellationFile) {
+        try { fs.writeFileSync(cancellationFile, 'Controller requested cancellation\n', { flag: 'wx' }); }
+        catch (error) { if (error.code !== 'EEXIST') { kill(); return; } }
+        killTimer = setTimeout(kill, cancellationGraceMs);
+      } else kill();
+    }
+    function cleanup() { clearTimeout(timer); clearInterval(poll); clearTimeout(killTimer); }
     try { child = spawn(executable, args, { cwd, env, shell: false, windowsHide: true, detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'] }); }
     catch { reject(new Error('Process could not start')); return; }
     child.on('error', () => { cleanup(); reject(new Error('Process could not start')); });
@@ -25,7 +33,7 @@ export function runProcess(executable, args, { cwd, env, input = '', timeoutMs =
     child.on('close', (code, signal) => {
       cleanup();
       if (stopped) reject(new Error(stopped));
-      else if (code !== 0 || signal) reject(Object.assign(new Error('Process failed'), { stdout, stderr }));
+      else if (code !== 0 || signal) reject(Object.assign(new Error('Process failed'), { stdout, stderr, exitCode: code }));
       else resolve({ stdout, stderr });
     });
     child.stdin.on('error', () => {}); child.stdin.end(input);

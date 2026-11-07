@@ -202,7 +202,8 @@ test('Actual repository backlog parses legacy files and preserves AUTO-02 deferr
   const result = scan(snapshot(repo, { local: true }).files);
   assert.deepEqual(result.errors, []);
   assert.equal(result.prompts.find(p => p.id === 'AUTO-02').deferred, true);
-  assert.equal(result.prompts.find(p => p.id === 'EQ-38').defaulted, true);
+  assert.equal(result.prompts.find(p => p.id === 'EQ-38').execution, 'build-now');
+  assert.equal(result.prompts.find(p => p.id === 'EQ-38').defaulted, false);
   assert.equal(result.prompts.find(p => p.id === 'ACOMP-07').dependencies.includes('ACOMP-06'), true);
 });
 test('Timer acknowledges notification only after reconciliation and does one daily scan per London date', t => {
