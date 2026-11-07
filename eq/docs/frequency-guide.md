@@ -50,3 +50,11 @@ Piano and keys, backing vocals, overheads and cymbals, and separate Acoustic Gui
 
 ![Songsmith EQ showing the Acoustic Guitar Frequency Guide,
 live spectrum analyser, EQ controls and piano strip](images/songsmith-eq-frequency-guide-example.png)
+## Instrument icons (EQ-38)
+
+Each instrument in the selector has a small drawn icon beside its full name, both in the list and on the closed selector, so the ten choices are quick to scan. The icons are vector drawings, so they stay crisp at every interface size and look the same on Windows and macOS. They are presentation only: the names, ordering, frequency ranges, saved sessions and audio are unchanged.
+
+![Acoustic Guitar selected, with its guitar icon beside the name](images/eq-38/guide-acoustic-guitar.png)
+![Vocal selected, with its microphone icon beside the name](images/eq-38/guide-vocal.png)
+![Drum Bus selected, with its grouped-channels icon beside the name](images/eq-38/guide-drum-bus.png)
+![Any Instrument selected, with its waveform icon beside the name](images/eq-38/guide-any-instrument.png)

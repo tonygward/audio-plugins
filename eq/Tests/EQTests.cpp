@@ -5162,6 +5162,24 @@ public:
             expectEquals (Guide::rangeText ({ "x", 800.0f, 1200.0f, "", "" }), juce::String ("around 800 Hz to 1.2 kHz"));
         }
 
+        beginTest ("Every guide instrument has room for its icon beside its full name in the selector menu");
+        {
+            EQLookAndFeel lf;
+            for (int i = 0; i < Guide::numInstruments(); ++i)
+            {
+                int plainW = 0, plainH = 0, guideW = 0, guideH = 0;
+                const juce::String label (Guide::instrument (i).name);
+                lf.LookAndFeel_V4::getIdealPopupMenuItemSize (label, false, 24, plainW, plainH);
+                lf.getIdealPopupMenuItemSize (label, false, 24, guideW, guideH);
+                expect (guideW >= plainW + 20, label + " reserves an icon column");
+                expectEquals (guideH, plainH);
+            }
+            int otherW = 0, otherH = 0, baseW = 0, baseH = 0;
+            lf.LookAndFeel_V4::getIdealPopupMenuItemSize ("Not an instrument", false, 24, baseW, baseH);
+            lf.getIdealPopupMenuItemSize ("Not an instrument", false, 24, otherW, otherH);
+            expectEquals (otherW, baseW);
+        }
+
         beginTest ("Switching the guide on, off or to another instrument leaves the sound and the bands exactly as they were");
         {
             SongsmithEQAudioProcessor reference;

@@ -109,8 +109,11 @@ class EQLookAndFeel : public Songsmith::UI::LookAndFeelBase
         else if (index == 4) // Vocal: microphone and stand
         {
             g.drawRoundedRectangle (7.0f, 2.0f, 6.0f, 10.0f, 3.0f, 1.4f);
-            g.drawArc (juce::Rectangle<float> (4.8f, 5.0f, 10.4f, 10.0f), 0.0f,
-                       juce::MathConstants<float>::pi, 1.4f);
+            juce::Path cradle;
+            cradle.addCentredArc (10.0f, 10.0f, 5.2f, 5.0f, 0.0f,
+                                  juce::MathConstants<float>::pi,
+                                  juce::MathConstants<float>::twoPi, true);
+            g.strokePath (cradle, juce::PathStrokeType (1.4f));
             stroke (10.0f, 14.0f, 10.0f, 18.0f);
             stroke (6.0f, 18.0f, 14.0f, 18.0f);
         }
@@ -165,6 +168,8 @@ class EQLookAndFeel : public Songsmith::UI::LookAndFeelBase
         }
     }
 
+    static constexpr int guideIconColumn = 24;
+
     static int guideIndexForName (const juce::String& name)
     {
         for (int i = 0; i < EQ::Guide::numInstruments(); ++i)
@@ -186,20 +191,30 @@ public:
         }
     }
 
+    void getIdealPopupMenuItemSize (const juce::String& text, bool separator, int standardHeight,
+                                    int& idealWidth, int& idealHeight) override
+    {
+        LookAndFeelBase::getIdealPopupMenuItemSize (text, separator, standardHeight, idealWidth, idealHeight);
+        if (! separator && guideIndexForName (text) >= 0)
+            idealWidth += guideIconColumn;
+    }
+
     void drawPopupMenuItem (juce::Graphics& g, const juce::Rectangle<int>& area,
                             bool separator, bool active, bool highlighted, bool ticked,
                             bool submenu, const juce::String& text, const juce::String& shortcut,
                             const juce::Drawable* icon, const juce::Colour* textColour) override
     {
-        // Keep the normal JUCE menu semantics, selection checkmarks and keyboard handling.
-        LookAndFeelBase::drawPopupMenuItem (g, area, separator, active, highlighted,
-                                             ticked, submenu, text, shortcut, icon, textColour);
         const int index = separator ? -1 : guideIndexForName (text);
+        // Keep the normal JUCE menu semantics, checkmarks and keyboard handling; guide items
+        // just get a column at the left for their icon.
+        LookAndFeelBase::drawPopupMenuItem (g, index >= 0 ? area.withTrimmedLeft (guideIconColumn) : area,
+                                            separator, active, highlighted, ticked, submenu, text,
+                                            shortcut, icon, textColour);
         if (index >= 0)
         {
             g.setColour (findColour (juce::PopupMenu::textColourId)
                             .withMultipliedAlpha (active ? 0.9f : 0.4f));
-            drawGuideIcon (g, index, { (float) area.getX() + 4.0f,
+            drawGuideIcon (g, index, { (float) area.getX() + 6.0f,
                                        (float) area.getCentreY() - 8.0f, 16.0f, 16.0f });
         }
     }
