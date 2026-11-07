@@ -86,6 +86,47 @@ test('Disabled worker performs no external operation', async () => {
   const result = await work({ enabled: true, liveExecution: false, worker: { enabled: true } }, { run: () => { throw Error('must not run'); } });
   assert.equal(result.liveExecution, false);
 });
+
+test('Build launcher receives the approved worktree root', async t => {
+  const f = fixture(t), a = adapter(f); await work(f.config, a);
+  const build = a.calls.find(c => c.args[0] === '-NoProfile');
+  assert.equal(build.args[build.args.indexOf('-WorktreeRoot') + 1], f.config.worker.worktreeRoot);
+  const request = JSON.parse(fs.readFileSync(build.args[build.args.indexOf('-RequestFile') + 1], 'utf8'));
+  const targets = request.isolationTargets;
+  assert.deepEqual(targets.map(t => t.path), [path.join(f.repo, '.git'), path.join(f.repo, '.git', 'HEAD'), path.join(f.repo, '.git', 'config'), f.config.stateDirectory, f.config.worker.worktreeRoot, f.config.worker.buildCredentialFile, f.config.worker.approvalFile]);
+});
+
+test('An outstanding ACL lease stops work before any external operation', async t => {
+  const f = fixture(t), a = adapter(f);
+  fs.writeFileSync(path.join(path.dirname(f.config.worker.buildCredentialFile), 'active-build-lease.json'), '{}');
+  await assert.rejects(work(f.config, a), /Outstanding build ACL lease/);
+  assert.equal(a.calls.length, 0);
+});
+
+test('A failed ACL recovery prevents repair and publication', async t => {
+  const f = fixture(t), a = adapter(f), original = a.run;
+  a.run = async (exe, args, invocation) => {
+    if (args[0] === '-NoProfile') {
+      fs.writeFileSync(path.join(path.dirname(f.config.worker.buildCredentialFile), 'active-build-lease.json'), '{}');
+      throw Error('ACL recovery failed');
+    }
+    return original(exe, args, invocation);
+  };
+  const result = await work(f.config, a);
+  assert.equal(result.outcomes[0].interrupted, true);
+  assert.equal(a.counts.agent, 1); assert.equal(a.counts.pr, 0);
+});
+
+test('Effective build isolation failure stops without repair or publication', async t => {
+  const f = fixture(t), a = adapter(f), original = a.run;
+  a.run = async (exe, args, invocation) => {
+    if (args[0] === '-NoProfile') throw Object.assign(Error('Isolation failure'), { exitCode: 74 });
+    return original(exe, args, invocation);
+  };
+  const result = await work(f.config, a);
+  assert.equal(result.outcomes[0].interrupted, true);
+  assert.equal(a.counts.agent, 1); assert.equal(a.counts.pr, 0);
+});
 test('Unknown/high usage or enabled paid continuation prevents claims and agent invocation', async t => {
   for (const usage of [{ allowed: false, reason: '85%' }, { ...goodUsage(), extraUsageEnabled: true }, { ...goodUsage(), snapshot: { ...goodUsage().snapshot, percentage: 85 } }]) {
     const f = fixture(t), a = adapter(f, { loadUsage: () => usage }); await work(f.config, a);

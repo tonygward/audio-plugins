@@ -74,6 +74,9 @@ export async function work(config, { trigger = 'daily', run = runProcess, loadSn
   if (!config.enabled || !config.worker?.enabled || config.liveExecution !== true) return { liveExecution: false, reason: 'Controlled worker is disabled' };
   validateWorker(config);
   const w = config.worker, dir = config.stateDirectory, paused = () => fs.existsSync(path.join(dir, 'PAUSED'));
+  const leaseJournal = path.join(path.dirname(w.buildCredentialFile), 'active-build-lease.json');
+  const verifyLeaseClosed = () => { if (fs.existsSync(leaseJournal)) throw Error('Outstanding build ACL lease requires operator recovery'); };
+  verifyLeaseClosed();
   return lockedAsync(dir, async () => {
     if (paused()) return { liveExecution: false, reason: 'Worker paused' };
     let approval = loadApproval(config, clock());
@@ -175,16 +178,28 @@ export async function work(config, { trigger = 'daily', run = runProcess, loadSn
           const requests = impacted.flatMap(plugin => buildPlan(plugin, plan.directory, w.juceDirectory));
           const exchange = path.join(plan.directory, 'build', 'matrix'); fs.mkdirSync(exchange, { recursive: true });
           const requestFile = path.join(exchange, 'request.json');
-          atomic(requestFile, { worktree: plan.directory, juceDirectory: w.juceDirectory, plugins: impacted });
+          const isolationTargets = [
+              { path: path.join(config.repository, '.git'), directory: true },
+              { path: path.join(config.repository, '.git', 'HEAD'), directory: false },
+              { path: path.join(config.repository, '.git', 'config'), directory: false },
+              { path: config.stateDirectory, directory: true },
+              { path: w.worktreeRoot, directory: true },
+              { path: w.buildCredentialFile, directory: false },
+              { path: w.approvalFile, directory: false }
+            ];
+          atomic(requestFile, { worktree: plan.directory, juceDirectory: w.juceDirectory, plugins: impacted, isolationTargets });
           log(p.id, 'build-started', { plugins: impacted });
           try {
             const build = await command(w.powershellExecutable, ['-NoProfile', '-NonInteractive', '-File', w.buildScript,
-              '-RequestFile', requestFile, '-CredentialFile', w.buildCredentialFile], plan.directory,
+              '-RequestFile', requestFile, '-CredentialFile', w.buildCredentialFile, '-WorktreeRoot', w.worktreeRoot], plan.directory,
               { timeoutMs: (requests.reduce((sum, c) => sum + c.timeoutSeconds, 0) + 60) * 1000 });
+            verifyLeaseClosed();
             if (/\bwarning\s*(?:[A-Z]+\d+|:)/i.test(build.stdout + build.stderr)) throw Error('Build warnings require review');
             if (await sourceFingerprint(plan.directory) !== fingerprint) throw Error('Build altered source files');
             blocked = null; log(p.id, 'build-passed'); break;
-          } catch {
+          } catch (error) {
+            verifyLeaseClosed();
+            if (error.exitCode === 74) { log(p.id, 'build-isolation-blocked'); throw Error('Build identity can access protected controller paths'); }
             // Never feed subprocess output (which untrusted builds control) back as
             // privileged instructions. A bounded plain failure summary is sufficient.
             if (await sourceFingerprint(plan.directory) !== fingerprint) throw Error('Build altered source files');

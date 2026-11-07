@@ -1,5 +1,25 @@
 # AUTO-01 validation evidence
 
+## Temporary worktree build access — 7 November 2026
+
+Local Matrix Node tests: **95 passed, 0 failed**. All three new/changed PowerShell
+scripts parse; `git diff --check` passes. The real Windows integration probe ran
+as `MATRIX\SongsmithBuild`, configured/compiled/ran a tiny MSVC fixture through the
+launcher, verified protected-path denials and exact DACL restoration, and confirmed
+that source and build-owned output were inaccessible after lease revocation.
+Parent and unrelated-worktree DACLs remained unchanged.
+
+The probe uncovered readable common Git metadata. After explicit approval, its
+DACLs were backed up and access denied to SongsmithBuild only. Direct HEAD/config
+reads are now denied. Before repair, the final launcher correctly refused the
+exposure with exit 74 and revoked its lease. See [full evidence, deployment blockers
+and rollback commands](BUILD-ACCESS.md).
+
+Final read-only deployment check: liveExecution false, worker.enabled false,
+autoMerge false, no active lease journal, existing Songsmith Matrix task Ready,
+controller Git metadata readable. No trusted deployment replacement, live agent,
+EQ-38 run, real plugin suite build or DAW verification was performed.
+
 ## Controlled worker follow-up
 
 Local `node --test tools/matrix/tests/*.test.mjs`: **91 passed, 0 failed**.

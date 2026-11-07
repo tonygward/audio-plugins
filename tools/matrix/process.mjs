@@ -25,7 +25,7 @@ export function runProcess(executable, args, { cwd, env, input = '', timeoutMs =
     child.on('close', (code, signal) => {
       cleanup();
       if (stopped) reject(new Error(stopped));
-      else if (code !== 0 || signal) reject(Object.assign(new Error('Process failed'), { stdout, stderr }));
+      else if (code !== 0 || signal) reject(Object.assign(new Error('Process failed'), { stdout, stderr, exitCode: code }));
       else resolve({ stdout, stderr });
     });
     child.stdin.on('error', () => {}); child.stdin.end(input);
