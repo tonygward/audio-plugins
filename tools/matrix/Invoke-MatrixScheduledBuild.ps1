@@ -59,13 +59,23 @@ function Save-BrokerJournal([hashtable]$Fields){
     try{$stream.Write($bytes);$stream.Flush($true)}finally{$stream.Dispose()}
     [IO.File]::Move($temp,$contract.journalFile,$true)
 }
+# Processes are remembered by ID *and start time*. Windows recycles process IDs, so an unrelated
+# system process whose parent happens to reuse the ID of an exited build child must not count as
+# a build descendant (that wrongly retained the lease after a clean build).
 function Remember-Processes {
     $all=@(Get-CimInstance Win32_Process -ErrorAction Stop)
+    $live=@{};foreach($p in $all){$live[[int]$p.ProcessId]=$p}
     do{
         $added=$false
-        foreach($p in $all){if($known.Contains([int]$p.ParentProcessId) -and $known.Add([int]$p.ProcessId)){$added=$true}}
+        foreach($p in $all){
+            $id=[int]$p.ProcessId;$parent=[int]$p.ParentProcessId
+            if($known.ContainsKey($id) -or -not $known.ContainsKey($parent)){continue}
+            # If a live process holds the parent's ID, it must be the very process we recorded.
+            if($live.ContainsKey($parent) -and $live[$parent].CreationDate.Ticks -ne $known[$parent]){continue}
+            $known[$id]=$p.CreationDate.Ticks;$added=$true
+        }
     }while($added)
-    @($all | Where-Object {$known.Contains([int]$_.ProcessId)})
+    @($all | Where-Object {$known.ContainsKey([int]$_.ProcessId) -and $known[[int]$_.ProcessId] -eq $_.CreationDate.Ticks})
 }
 try{
     if($task.GetInstances(0).Count -ne 0){throw 'Build became busy before lease'}
@@ -86,9 +96,11 @@ try{
     do{$running.Refresh();$engine=[int]$running.EnginePID;if($engine -gt 0){break};Start-Sleep -Milliseconds 100}while([DateTime]::UtcNow -lt $startupDeadline)
     if($engine -le 0){throw 'No scheduler engine identity observed; retain lease for review'}
     Write-ControllerLog "Build task started; engine $engine"
-    $known=[Collections.Generic.HashSet[int]]::new()
+    $known=[Collections.Generic.Dictionary[int,long]]::new()
     # Engine PID is supplied by Task Scheduler, never by build output.
-    $null=$known.Add($engine)
+    $engineProcess=Get-CimInstance Win32_Process -Filter "ProcessId=$engine" -ErrorAction Stop
+    if(-not $engineProcess){throw 'Scheduler engine process disappeared before it could be recorded; retain lease for review'}
+    $known[$engine]=$engineProcess.CreationDate.Ticks
     $lastBeat=[DateTime]::MinValue;$cancelled=$false
     while($task.GetInstances(0).Count -gt 0){
         if($running.InstanceGuid -ne $instance){throw 'Scheduler instance changed'}
