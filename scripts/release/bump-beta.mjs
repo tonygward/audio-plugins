@@ -10,16 +10,23 @@ export function nextBetaVersion(current) {
   assert(patch<Number.MAX_SAFE_INTEGER,'Beta patch counter overflow');
   return [major,minor,patch+1].join('.');
 }
-export function betaChangelog(changelog,version,sha,message) {
+// Release notes are written for musicians: features and fixes in plain words,
+// never commit hashes or pull request titles. Authors add them under
+// "## Unreleased"; the bump moves that text into the new version's section.
+export const QUIET_RELEASE_NOTE='Behind-the-scenes improvements and fixes. There is nothing you need to do.';
+export function betaChangelog(changelog,version,sha) {
   assert(/^([a-f0-9]{40})$/.test(sha),'Invalid source revision');
   assert(/^\d+\.\d+\.\d+$/.test(version),'Invalid beta version');
-  const summary=String(message||'Development updates').split('\n')[0]
-    .replace(/[\r\n\t]/g,' ').replace(/^\[beta-version\]\s*/i,'').trim().slice(0,140);
-  const note=summary || 'Development updates';
   assert(!new RegExp('^## '+version.replaceAll('.','\\.')+'\\s*$','m').test(changelog),'Changelog version already exists');
-  const pos=changelog.indexOf('## ');
+  let rest=changelog,notes=QUIET_RELEASE_NOTE;
+  const unreleased=/^## Unreleased[ \t]*\r?\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(changelog);
+  if(unreleased) {
+    rest=changelog.slice(0,unreleased.index)+changelog.slice(unreleased.index+unreleased[0].length);
+    if(/[\p{L}\p{N}]/u.test(unreleased[1]))notes=unreleased[1].trim();
+  }
+  const pos=rest.indexOf('## ');
   assert(pos!==-1,'Changelog missing version sections');
-  return changelog.slice(0,pos)+`## ${version}\n\nPrivate beta development update from \`${sha.slice(0,12)}\`.\n\n- ${note}\n\n`+changelog.slice(pos);
+  return rest.slice(0,pos)+`## ${version}\n\n${notes}\n\n`+rest.slice(pos);
 }
 export function shouldBump({message,tagFound}) {
   return tagFound && !String(message).startsWith('[beta-version]');

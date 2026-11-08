@@ -73,3 +73,7 @@ approved merge/version checkpoint and GitHub Release publishing.
 ## Automatic beta version bump
 
 When `AUTO_BETA_VERSION_ENABLED=true`, every successful first-attempt `Build` push on `main` whose current `VERSION` is already tagged is followed by a `[beta-version]` commit that raises the patch number and adds a changelog entry. That commit builds again, and the publish workflow then releases it. Commits that only change documentation, prompts or screenshots (the paths `build.yml` ignores) landing after a successful build no longer make that build "stale": the bump is applied on top of them and a release is still published. A later *source* commit still supersedes the build, and its own build takes over. Pause with `AUTO_BETA_VERSION_ENABLED=false`.
+
+### Release notes are for musicians
+
+Notes on the website and the release page come from the `CHANGELOG.md` section for that version. Write them in plain words about what a musician sees or hears, not commit hashes or pull request titles. When a PR changes something users will notice, add bullets under a `## Unreleased` heading at the top of `CHANGELOG.md`; the automatic bump moves that text into the new version's section. If there is no such text, the notes say: "Behind-the-scenes improvements and fixes. There is nothing you need to do."

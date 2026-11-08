@@ -4,9 +4,14 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 ## 1.3.2
 
-Private beta development update from `49481af06ffc`.
+### Songsmith EQ
+- **Instrument icons in the Frequency Guide:** each instrument in the list now has a small picture beside its name, so you can find the one you want at a glance.
+- **The output meter follows your track:** it shows two bars (Left and Right) on a stereo track and one bar on a mono track. It switches by itself if you move the plugin to a different kind of track.
+- **A CLIP warning that stays lit:** if the output reaches full scale, a red CLIP label above the meter stays on until the audio stops, so a brief clip is not missed. It clears by itself after a short stretch of silence. There is nothing you need to do unless you want to turn the level down.
+- **Starting Points are grouped by instrument:** the list is easier to scan, with new Mid Tom and High Tom variations. The duplicate Factory section is gone; every starting point is still available under its instrument. Your saved sessions and presets load as before.
 
-- Merge pull request #120 from tonygward/fix/auto-release-docs-only-stale
+### Other
+- Songsmith Analog Compressor and Songsmith Maximiser include the latest behind-the-scenes improvements. Nothing you need to do.
 
 ## 1.3.1
 
