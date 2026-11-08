@@ -42,7 +42,9 @@ namespace EQ
         const std::vector<FactoryPreset>& factoryPresets()
         {
             using T = FilterType;
-            static const std::vector<FactoryPreset> presets {
+            static const std::vector<FactoryPreset> presets = []
+            {
+            std::vector<FactoryPreset> list {
                 { "Flat", { { T::Bell, 100.0f, 0.0f, defaultQ }, { T::Bell, 1000.0f, 0.0f, defaultQ }, { T::Bell, 8000.0f, 0.0f, defaultQ } } },
                 { "Vocal clean-up", { { T::LowCut, 90.0f, 0.0f, defaultQ, 2 },
                                       { T::Bell, 250.0f, -3.0f, 1.2f },
@@ -179,6 +181,26 @@ namespace EQ
                                 { T::HighCut,  10700.0f, 0.0f, defaultQ, 3 } },
                   1.4f, "Tony's toms-bus EQ from the album. The 317 Hz cut is off: turn it on for a tighter bus.", true },
             };
+
+            // ---- EQ-40; append only ----
+            // Mid tom and High tom. Tony's source tracks use ONE saved EQ for both: the Rack tom settings
+            // come from "Gone from Here" High Tom and "You Want More" Mid Tom and High Tom, and those
+            // settings coincide. So these two are the Rack tom curve under two labels, not two invented
+            // curves. Rack tom (index 22) stays for sessions that saved it.
+            {
+                auto mid = list[22];
+                mid.name = "Mid tom";
+                mid.hint = "Tony's tom EQ from the album; his high tom uses the same settings. Lower the 670 Hz cut if hollow.";
+                mid.formerName = nullptr;
+                auto high = list[22];
+                high.name = "High tom";
+                high.hint = "Tony's tom EQ from the album; his mid tom uses the same settings. Lower the 670 Hz cut if hollow.";
+                high.formerName = nullptr;
+                list.push_back (mid);
+                list.push_back (high);
+            }
+            return list;
+            }();
             return presets;
         }
 
@@ -268,6 +290,90 @@ namespace EQ
     int PresetManager::getFactoryUsedBands (int index)        { return (int) factoryPresets()[(size_t) index].bands.size(); }
     bool PresetManager::isStartingPoint (int index)           { return factoryPresets()[(size_t) index].startingPoint; }
 
+    //==========================================================================
+    // EQ-40: the menu. Every entry names a stable index, so the list can be regrouped or relabelled
+    // without touching saved sessions. Order here is the menu order.
+    namespace
+    {
+        struct MenuItem { int index; const char* group; const char* label; };
+
+        const std::vector<MenuItem>& menuItems()
+        {
+            static const std::vector<MenuItem> items {
+                { 5,  "Drums",   "Drums - Kick" },                          // was "Kick punch"
+                { 16, "Drums",   "Drums - Snare" },
+                { 25, "Drums",   "Drums - Mid Tom" },
+                { 26, "Drums",   "Drums - High Tom" },
+                { 23, "Drums",   "Drums - Floor Tom" },
+                { 24, "Drums",   "Drums - Toms Bus" },
+                { 15, "Drums",   "Drums - Drum Bus" },
+
+                { 11, "Guitars", "Guitars - Acoustic Guitar" },
+                { 19, "Guitars", "Guitars - Acoustic Guitar (Full Mix)" },
+                { 20, "Guitars", "Guitars - Acoustic Guitar (Pickup)" },
+                { 6,  "Guitars", "Guitars - Acoustic Guitar (Bright)" },    // was "Bright acoustic"
+                { 12, "Guitars", "Guitars - Electric Guitar" },
+                { 13, "Guitars", "Guitars - Electric Guitar Bus" },
+                { 14, "Guitars", "Guitars - Bass Guitar" },
+
+                { 8,  "Vocals",  "Vocals - Lead Vocal" },
+                { 9,  "Vocals",  "Vocals - Backing Vocals" },
+                { 10, "Vocals",  "Vocals - Spoken Word" },
+                { 1,  "Vocals",  "Vocals - Quick Clean-up" },               // was "Vocal clean-up"
+
+                { 17, "Effects", "Effects - Reverb Return" },
+                { 21, "Effects", "Effects - Abbey Road Reverb" },
+                { 4,  "Effects", "Effects - Telephone" },
+
+                { 2,  "General", "General - Low-End Tidy" },                // was "Low-end tidy"
+                { 7,  "General", "General - Reduce Mud" },                  // was "De-mud"
+                { 3,  "General", "General - Add Air" },                     // was "Air"
+            };
+            // Not listed: 0 Flat (a new EQ is already flat), 18 Five-zone start (the Frequency Guide
+            // teaches the same zones), 22 Rack tom (replaced by Mid Tom and High Tom, same curve).
+            return items;
+        }
+
+        const MenuItem* findMenuItem (int index)
+        {
+            for (const auto& m : menuItems())
+                if (m.index == index)
+                    return &m;
+            return nullptr;
+        }
+    }
+
+    bool PresetManager::isListed (int index)                  { return findMenuItem (index) != nullptr; }
+
+    juce::String PresetManager::getMenuGroup (int index)
+    {
+        const auto* m = findMenuItem (index);
+        return m != nullptr ? juce::String (m->group) : juce::String();
+    }
+
+    juce::String PresetManager::getMenuLabel (int index)
+    {
+        const auto* m = findMenuItem (index);
+        return m != nullptr ? juce::String (m->label) : getFactoryName (index);
+    }
+
+    std::vector<int> PresetManager::getListedIndices()
+    {
+        std::vector<int> list;
+        for (const auto& m : menuItems())
+            list.push_back (m.index);
+        return list;
+    }
+
+    std::vector<juce::String> PresetManager::getMenuGroups()
+    {
+        std::vector<juce::String> groups;
+        for (const auto& m : menuItems())
+            if (std::find (groups.begin(), groups.end(), juce::String (m.group)) == groups.end())
+                groups.push_back (m.group);
+        return groups;
+    }
+
     juce::String PresetManager::getFactoryHint (int index)
     {
         const auto* h = factoryPresets()[(size_t) index].hint;
@@ -320,8 +426,8 @@ namespace EQ
     std::vector<PresetManager::Entry> PresetManager::getAllPresets() const
     {
         std::vector<Entry> list;
-        for (int i = 0; i < getNumFactoryPresets(); ++i)
-            list.push_back ({ getFactoryName (i), i, {} });
+        for (int i : getListedIndices())
+            list.push_back ({ getMenuLabel (i), i, {}, getMenuGroup (i) });
         for (auto& e : getUserPresets())
             list.push_back (e);
         return list;
@@ -381,9 +487,12 @@ namespace EQ
         resolveAttempted = true;
     }
 
-    bool PresetManager::load (const Entry& e, juce::String& error)
+    bool PresetManager::load (const Entry& given, juce::String& error)
     {
         PresetData data;
+        auto e = given;
+        if (e.isFactory() && e.factoryIndex < getNumFactoryPresets())
+            e.name = getMenuLabel (e.factoryIndex);   // the index is the identity; the label is what we show
 
         if (e.isFactory())
             data = getFactoryPreset (e.factoryIndex);
@@ -532,11 +641,10 @@ namespace EQ
         current.name = name;
         current.factoryIndex = (factory >= 0 && factory < getNumFactoryPresets()) ? factory : -1;
 
-        // A factory preset that was renamed (task 26): a session saved with its old name at
-        // its index shows the preset under its new name. Indices never change.
+        // A factory preset is found by its index, which never changes, so a session saved under any
+        // earlier name (task 26's rename, or before EQ-40's labels) shows the current label.
         if (current.isFactory())
-            if (const auto& f = factoryPresets()[(size_t) current.factoryIndex]; f.formerName != nullptr && name == f.formerName)
-                current.name = f.name;
+            current.name = getMenuLabel (current.factoryIndex);
 
         const juce::String path = ui.getProperty ("presetFile", juce::String());
         if (! current.isFactory() && juce::File::isAbsolutePath (path))
