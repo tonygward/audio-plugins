@@ -8,3 +8,19 @@ test('canonical version only',()=>{assert.equal(releaseVersion('1.4.0\n'),versio
 test('exactly one nonempty changelog section',()=>{assert.equal(releaseNotes('## 1.4.0\n- New feature\n\n## 1.3.0\n- Old',version),'- New feature');for(const s of ['## 1.3.0\n- Old','## 1.4.0\n\n## 1.3.0\n- Old','## 1.4.0\n- A\n## 1.4.0\n- B'])assert.throws(()=>releaseNotes(s,version));});
 test('successful exact full main Build and first attempt only',()=>{assert.doesNotThrow(()=>validateRun(run,jobs,sha));for(const p of [{event:'pull_request'},{head_branch:'feature'},{conclusion:'failure'},{run_attempt:2},{head_sha:'b'.repeat(40)},{path:'.github/workflows/other.yml@main'}])assert.throws(()=>validateRun({...run,...p},jobs,sha));for(const p of [{conclusion:'failure'},{conclusion:'skipped'},{status:'in_progress'}])assert.throws(()=>validateRun(run,[{...jobs[0],...p},...jobs.slice(1)],sha));assert.throws(()=>validateRun(run,jobs.slice(0,-1),sha));});
 test('require exactly two correctly named files',()=>{const files=[`tmp/Songsmith-Plugins-${version}-win64-setup.exe`,`tmp/Songsmith-Plugins-${version}-macOS.pkg`];assert.equal(validateInstallerFiles(files,version),true);assert.throws(()=>validateInstallerFiles(files.slice(0,1),version));assert.throws(()=>validateInstallerFiles([...files,'bad.zip'],version));assert.throws(()=>validateInstallerFiles([files[0],files[0]],version));});
+
+import {isBuildPath,onlyNonBuildChanges,currentMainFor} from '../scripts/release/prepare.mjs';
+test('documentation-only commits do not make a build stale',()=>{
+  assert.equal(onlyNonBuildChanges(['eq/prompts/README.md','eq/prompts/done/38-x.md','CHANGELOG.md','docs/style-guide.md','eq/docs/a.png']),true);
+  for(const p of ['eq/Source/Foo.cpp','shared/Source/Bar.h','VERSION','.github/workflows/build.yml','installer/x.iss'])
+    assert.equal(isBuildPath(p),true,p);
+  assert.equal(onlyNonBuildChanges(['README.md','eq/Source/Foo.cpp']),false);
+});
+test('currentMainFor accepts docs-only drift and rejects source drift',async()=>{
+  const sha='a'.repeat(40),tip='b'.repeat(40);
+  const make=(status,names)=>async path=>path==='/branches/main'?{commit:{sha:tip}}:{status,files:names.map(filename=>({filename}))};
+  assert.equal(await currentMainFor(async()=>({commit:{sha}}),sha),sha);
+  assert.equal(await currentMainFor(make('ahead',['eq/prompts/README.md']),sha),tip);
+  await assert.rejects(currentMainFor(make('ahead',['maximiser/Source/X.cpp']),sha),/no longer current main/);
+  await assert.rejects(currentMainFor(make('diverged',['README.md']),sha),/no longer current main/);
+});

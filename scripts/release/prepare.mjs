@@ -10,6 +10,30 @@ export function releaseVersion(contents) {
   if(!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(v)||!v.split('.').every(n=>Number.isSafeInteger(Number(n))))throw Error('VERSION must be canonical X.Y.Z');
   return v;
 }
+// Mirrors the path filter in .github/workflows/build.yml: a commit that touches
+// only documentation, prompts, screenshots or ignore files never builds, so it
+// must not make an earlier successful Build look stale.
+const buildRoots=['eq/','analog-compressor/','maximiser/','shared/','installer/','.github/workflows/'];
+const buildFiles=['VERSION','.gitattributes'];
+export function isBuildPath(path) {
+  const p=String(path).replaceAll('\\','/');
+  if(!(buildFiles.includes(p)||buildRoots.some(r=>p.startsWith(r))))return false;
+  const parts=p.split('/'),name=parts.at(-1);
+  return !(p.endsWith('.md')||p.endsWith('.png')||name==='.gitignore'||parts.slice(0,-1).some(d=>d==='prompts'||d==='docs'));
+}
+export function onlyNonBuildChanges(files) {
+  return Array.isArray(files)&&files.every(f=>!isBuildPath(f));
+}
+// Returns the current main SHA when main is the built commit or only
+// documentation landed after it; throws when a later source commit exists.
+export async function currentMainFor(api,sha) {
+  const tip=(await api('/branches/main')).commit?.sha;
+  if(tip===sha)return tip;
+  const cmp=await api(`/compare/${sha}...${tip}`);
+  const files=(cmp.files||[]).map(f=>f.filename);
+  if(cmp.status==='ahead'&&files.length<300&&onlyNonBuildChanges(files))return tip;
+  throw Error('Build is no longer current main; a later source commit superseded it');
+}
 export function releaseNotes(changelog,version) {
   const headings=[...changelog.matchAll(/^## (\d+\.\d+\.\d+)\s*$/gm)];
   const matches=headings.filter(m=>m[1]===version);
@@ -57,8 +81,6 @@ async function main() {
     if(page===10)throw Error('Too many Build jobs');
   }
   validateRun(run,jobs,env.BUILD_SHA);
-  const mainBranch=await api('/branches/main');
-  if(mainBranch.commit?.sha!==env.BUILD_SHA)throw Error('Build is no longer current main; refusing stale release');
   const version=releaseVersion(await readFile('VERSION','utf8'));
   const notes=releaseNotes(await readFile('CHANGELOG.md','utf8'),version);
   const lookup=await fetch(`https://api.github.com/repos/${repo}/git/ref/tags/v${version}`,{headers:{
@@ -70,6 +92,9 @@ async function main() {
     return;
   }
   if(lookup.status!==404)throw Error(`GitHub tag lookup returned ${lookup.status}`);
+  // Checked after the tag lookup so a build superseded by its own version
+  // bump commit is a quiet no-op rather than a red failure.
+  await currentMainFor(api,env.BUILD_SHA);
   await writeFile('release-notes.md',notes+'\n');
   await writeFile(env.GITHUB_OUTPUT,`publish=true\nversion=${version}\n`,{flag:'a'});
   console.log(`Ready for release v${version} from verified main Build run ${runId}`);
