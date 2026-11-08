@@ -81,7 +81,7 @@ try{
     while($task.GetInstances(0).Count -gt 0){
         if($running.InstanceGuid -ne $instance){throw 'Scheduler instance changed'}
         $null=Remember-Processes
-        if([DateTime]::UtcNow -gt [DateTime]::Parse($request.expiresAt).ToUniversalTime() -or (Test-Path -LiteralPath (Join-Path $root 'build/matrix/CANCEL_BUILD'))){$cancelled=$true;$task.Stop(0)}
+        if([DateTime]::UtcNow -gt (ConvertTo-BrokerTime $request.expiresAt) -or (Test-Path -LiteralPath (Join-Path $root 'build/matrix/CANCEL_BUILD'))){$cancelled=$true;$task.Stop(0)}
         if(([DateTime]::UtcNow-$lastBeat).TotalSeconds -ge 1){Write-Heartbeat;$lastBeat=[DateTime]::UtcNow}
         Start-Sleep -Milliseconds 250
     }

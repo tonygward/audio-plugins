@@ -40,7 +40,7 @@ try{
         try{
             while(-not $p.WaitForExit(250)){
                 $heartbeat=Get-Content -LiteralPath (Join-Path $contract.exchangeDirectory 'heartbeat.json') -Raw | ConvertFrom-Json
-                if($heartbeat.id -ne $request.id -or [DateTime]::Parse($heartbeat.time).ToUniversalTime() -lt [DateTime]::UtcNow.AddSeconds(-15) -or [DateTime]::UtcNow -gt $deadline -or [DateTime]::UtcNow -gt [DateTime]::Parse($request.expiresAt).ToUniversalTime()){throw 'Build controller heartbeat expired or deadline reached'}
+                if($heartbeat.id -ne $request.id -or (ConvertTo-BrokerTime $heartbeat.time) -lt [DateTime]::UtcNow.AddSeconds(-15) -or [DateTime]::UtcNow -gt $deadline -or [DateTime]::UtcNow -gt (ConvertTo-BrokerTime $request.expiresAt)){throw 'Build controller heartbeat expired or deadline reached'}
             }
             $steps+=@{name=$step.name;exitCode=$p.ExitCode}
             if($p.ExitCode -ne 0){$exitCode=$p.ExitCode;throw 'Fixed build step failed'}

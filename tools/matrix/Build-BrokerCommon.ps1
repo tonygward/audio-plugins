@@ -11,17 +11,24 @@ function Assert-BrokerPath([string]$Path) {
     if($full -notmatch '^[A-Za-z]:\\' -or $full.Substring(2).Contains(':')){throw 'Broker requires a local absolute path'}
     $full.TrimEnd('\')
 }
+# PowerShell 7 turns ISO-8601 strings in JSON into DateTime objects when it reads
+# them back, so a time field is accepted as either, and always compared in UTC.
+function ConvertTo-BrokerTime($Value) {
+    if($Value -is [DateTime]){return $Value.ToUniversalTime()}
+    if($Value -is [string]){return [DateTime]::Parse($Value,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime()}
+    throw 'Invalid broker time'
+}
 function Test-BrokerRequest($Request,$Contract,[DateTime]$Now=[DateTime]::UtcNow) {
     Assert-BrokerKeys $Request @('version','id','worktree','plugins','createdAt','expiresAt')
     if($Request.version -isnot [long] -and $Request.version -isnot [int]){throw 'Invalid broker version type'}
-    if($Request.version -ne 1 -or $Request.id -isnot [string] -or $Request.id -notmatch '^[a-f0-9]{32}$' -or $Request.worktree -isnot [string] -or $Request.createdAt -isnot [string] -or $Request.expiresAt -isnot [string]){throw 'Invalid broker request identity'}
+    if($Request.version -ne 1 -or $Request.id -isnot [string] -or $Request.id -notmatch '^[a-f0-9]{32}$' -or $Request.worktree -isnot [string] -or ($Request.createdAt -isnot [string] -and $Request.createdAt -isnot [DateTime]) -or ($Request.expiresAt -isnot [string] -and $Request.expiresAt -isnot [DateTime])){throw 'Invalid broker request identity'}
     $worktree=Assert-BrokerPath $Request.worktree
     $parent=Assert-BrokerPath $Contract.worktreeRoot
     if([IO.Directory]::GetParent($worktree).FullName -ne $parent){throw 'Worktree must be one direct child of the approved root'}
     if($Request.plugins -isnot [array] -or @($Request.plugins).Count -lt 1 -or @($Request.plugins).Count -gt 3 -or @($Request.plugins | Select-Object -Unique).Count -ne @($Request.plugins).Count){throw 'Invalid plugin list'}
     foreach($plugin in $Request.plugins){if($plugin -notin @('eq','analog-compressor','maximiser')){throw 'Unknown plugin'}}
-    $created=[DateTime]::Parse($Request.createdAt).ToUniversalTime()
-    $expires=[DateTime]::Parse($Request.expiresAt).ToUniversalTime()
+    $created=(ConvertTo-BrokerTime $Request.createdAt)
+    $expires=(ConvertTo-BrokerTime $Request.expiresAt)
     if($created -gt $Now.AddSeconds(5) -or $created -lt $Now.AddSeconds(-60) -or $expires -le $Now -or $expires -gt $created.AddSeconds($Contract.maximumSeconds)){throw 'Stale or excessive broker deadline'}
     $worktree
 }
