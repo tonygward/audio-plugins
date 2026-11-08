@@ -99,7 +99,10 @@ try{
     }
     # A shared task engine may remain alive, but its recorded descendants may not.
     $null=$known.Remove($engine)
-    $remaining=@(Remember-Processes)
+    # Children such as the console host can still be exiting when the instance ends; give them a short grace period, still failing closed.
+    $grace=[DateTime]::UtcNow.AddSeconds(20)
+    do{$remaining=@(Remember-Processes);if(-not $remaining.Count){break};Start-Sleep -Milliseconds 500}while([DateTime]::UtcNow -lt $grace)
+    if($remaining.Count){Write-ControllerLog ('Still running: '+(($remaining | ForEach-Object {'{0}({1}) parent {2}' -f $_.Name,$_.ProcessId,$_.ParentProcessId}) -join '; '))}
     if($remaining.Count){throw 'Recorded build descendants remain; retain lease for operator recovery'}
     $confirmedStopped=$true
     Save-BrokerJournal @{brokerPhase='stopped'}
