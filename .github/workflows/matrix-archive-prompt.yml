@@ -1,0 +1,65 @@
+name: Matrix archive merged prompt
+
+# A prompt counts as done only once its Matrix pull request is merged into main. This moves the
+# prompt into its done/ folder (status: done) in a docs-only commit on main, which Matrix reads
+# as completion evidence (and which unlocks prompts that depend on it). Docs-only commits do not
+# start a Build. Switch off with MATRIX_AUTOMERGE_ENABLED=false.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: matrix-archive-prompt
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    if: github.repository == 'tonygward/audio-plugins' && vars.MATRIX_AUTOMERGE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Find the merged Matrix pull request for this commit
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          row=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
+            --jq '[.[] | select(.merged_at != null and (.head.ref | startswith("matrix/")))][0] | select(. != null) | "\(.number) \(.head.ref)"')
+          echo "row=$row" >> "$GITHUB_OUTPUT"
+          echo "Matrix pull request for this commit: ${row:-none}"
+
+      - name: Move the prompt to done/ and push
+        if: steps.pr.outputs.row != ''
+        env:
+          ROW: ${{ steps.pr.outputs.row }}
+        run: |
+          set -euo pipefail
+          number=${ROW%% *}; branch=${ROW#* }
+          code=0
+          node scripts/matrix/archive-cli.mjs "$branch" || code=$?
+          if [[ "$code" == 3 ]]; then echo "Nothing to archive"; exit 0; fi
+          [[ "$code" == 0 ]]
+          git config user.name 'Songsmith Matrix'
+          git config user.email 'songsmith-matrix@users.noreply.github.com'
+          git add -A shared eq analog-compressor maximiser
+          git commit -m "Archive prompt after Matrix pull request #$number merged"
+          for attempt in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git pull --rebase origin main
+          done
+          exit 1

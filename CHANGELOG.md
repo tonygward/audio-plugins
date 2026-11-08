@@ -7,6 +7,10 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 ### Songsmith EQ
 - **Clearer Frequency Guide hints:** the hover text now speaks directly to you: what a region might sound like, when to listen for it in your mix, and whether a small adjustment may help. The Plastic and Cheap regions on Acoustic Guitar say that the band may need no adjustment. Nothing about your sound, presets or saved sessions changes, and you don't need to do anything.
 
+## 1.3.3
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
 ## 1.3.2
 
 ### Songsmith EQ
