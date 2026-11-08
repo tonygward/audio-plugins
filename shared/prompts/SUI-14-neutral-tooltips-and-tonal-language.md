@@ -1,3 +1,14 @@
+---
+id: SUI-14
+status: ready
+execution: build-now
+priority: 1
+model: sonnet
+effort: medium
+dependencies: []
+conflicts: []
+---
+
 # SUI-14 — Neutral tooltips and clear tonal language
 
 **Status:** Planned; not implemented. **Priority:** Early UI/content polish (after current EQ-38–40 work, or alongside it if independent).

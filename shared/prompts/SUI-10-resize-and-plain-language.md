@@ -1,3 +1,14 @@
+---
+id: SUI-10
+status: ready
+execution: build-now
+priority: 3
+model: sonnet
+effort: medium
+dependencies: ["SUI-09"]
+conflicts: []
+---
+
 # SUI-10 · Resizable editors and clear control help
 
 **Recommended model:** Sonnet.  
