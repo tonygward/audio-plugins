@@ -77,3 +77,12 @@ When `AUTO_BETA_VERSION_ENABLED=true`, every successful first-attempt `Build` pu
 ### Release notes are for musicians
 
 Notes on the website and the release page come from the `CHANGELOG.md` section for that version. Write them in plain words about what a musician sees or hears, not commit hashes or pull request titles. When a PR changes something users will notice, add bullets under a `## Unreleased` heading at the top of `CHANGELOG.md`; the automatic bump moves that text into the new version's section. If there is no such text, the notes say: "Behind-the-scenes improvements and fixes. There is nothing you need to do."
+
+## Matrix pull requests merge and archive themselves
+
+With `MATRIX_AUTOMERGE_ENABLED=true`, two workflows close the loop after the Matrix worker opens a draft pull request:
+
+- **Matrix auto-merge** (`matrix-auto-merge.yml`) runs after the hosted `Build` (Windows and macOS) succeeds for a `matrix/*` pull request from this repository. It checks, from `main`'s own scripts, that the build was for the exact head commit, that every changed file is inside the worker's permitted source, test, documentation, README or `CHANGELOG.md` scope, and that the worker recorded a clean local build and test run. The one block it accepts is the worker's "UI changes need screenshots and visual review" note, because the owner chose hands-off merging of UI work. It then comments with what it checked, marks the draft ready and squash-merges it. The usual beta bump and publish pipeline follows.
+- **Matrix archive merged prompt** (`matrix-archive-prompt.yml`) runs on `main` after such a merge and moves the prompt into its `done/` folder with `status: done`. A prompt is therefore only "done" once its work is in `main`, and prompts that depend on it become available.
+
+Logic and tests: `scripts/matrix/automerge.mjs`, `test/matrix-automerge.test.mjs`. Set `MATRIX_AUTOMERGE_ENABLED=false` to stop both. Not covered: a person did not see the interface before the merge, and nothing was checked in a DAW; check the beta build.

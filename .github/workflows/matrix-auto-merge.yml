@@ -1,0 +1,98 @@
+name: Matrix auto-merge
+
+# Merges a Matrix draft pull request once the hosted Build (Windows and macOS) has succeeded for
+# its exact head commit and every gate in scripts/matrix/automerge.mjs holds. Runs from main's
+# copy of the workflow and scripts; pull-request code is never checked out or executed here.
+# After the merge, the existing pipeline bumps the beta version and publishes (auto-beta-version,
+# auto-publish-release, distribute-beta-r2). Switch off with the repository variable
+# MATRIX_AUTOMERGE_ENABLED=false (or delete it).
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+concurrency:
+  group: matrix-auto-merge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: >-
+      vars.MATRIX_AUTOMERGE_ENABLED == 'true' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      startsWith(github.event.workflow_run.head_branch, 'matrix/') &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out main (trusted scripts only)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Gather facts about the pull request and the build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$PR_NUMBER" =~ ^[0-9]+$ ]] || { echo "No pull request is linked to this build"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > pr.json
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename' > files.txt
+          jq -n --arg repo "$GITHUB_REPOSITORY" --slurpfile pr pr.json --rawfile files files.txt \
+            --arg conclusion "$RUN_CONCLUSION" --arg event "$RUN_EVENT" --arg sha "$RUN_SHA" '{
+              repository: $repo,
+              pr: { state: ($pr[0].state | ascii_upcase), baseRefName: $pr[0].base.ref, headRefName: $pr[0].head.ref,
+                    headRefOid: $pr[0].head.sha, headRepository: $pr[0].head.repo.full_name, body: ($pr[0].body // "") },
+              files: ($files | split("\n") | map(select(length > 0))),
+              run: { conclusion: $conclusion, event: $event, head_sha: $sha } }' > facts.json
+
+      - name: Decide
+        id: gate
+        run: |
+          set +e
+          node scripts/matrix/gate-cli.mjs facts.json | tee decision.json
+          code=${PIPESTATUS[0]}
+          { echo '### Matrix auto-merge decision'; echo '```json'; cat decision.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          [[ "$code" == 0 || "$code" == 1 ]]
+
+      - name: Approve, mark ready and merge
+        if: steps.gate.outputs.code == '0'
+        env:
+          # A scoped token is required so the merge to main starts the Build and release workflows.
+          GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -euo pipefail
+          [[ -n "$GH_TOKEN" ]] || { echo '::error::Configure RELEASE_PUBLISH_TOKEN'; exit 1; }
+          cat > comment.md <<EOF
+          Matrix auto-merge checked and approved this pull request:
+
+          - hosted Build (Windows and macOS) succeeded for exactly ${RUN_SHA}: ${RUN_URL}
+          - Matrix's own local Release build and tests passed; the worker recorded no warnings
+          - every changed file is inside the permitted source, test, documentation, README or CHANGELOG scope
+          - no workflow, tool, version or installer file was changed
+          - the description was written by the Matrix worker, on a Matrix branch from this repository
+
+          Not verified in a DAW, and the interface was not reviewed by a person before this merge. Merging now; the beta release pipeline follows.
+          EOF
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file comment.md
+          if [[ "$(jq -r .draft pr.json)" == "true" ]]; then gh pr ready "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"; fi
+          gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$RUN_SHA"
