@@ -5478,6 +5478,43 @@ public:
             }
         }
 
+        beginTest ("On-screen guide text names no educator or person; provenance stays in the source field");
+        for (const auto& inst : all)
+        {
+            juce::StringArray texts { inst.name, inst.note };
+            for (const auto& r : inst.regions)
+            {
+                texts.add (r.label);
+                texts.add (Guide::tooltipFor (inst, r));
+                expect (juce::String (r.source).isNotEmpty(), juce::String (inst.name) + "/" + r.label + ": provenance kept");
+            }
+            for (const auto& t : texts)
+            {
+                expect (! t.containsIgnoreCase ("gilder"), "\"" + t.substring (0, 40) + "\" names an educator");
+                expect (! t.containsWholeWord ("Joe") && ! t.containsWholeWord ("Joe's"), "\"" + t.substring (0, 40) + "\" names Joe");
+                expect (! t.containsWholeWord ("Tony") && ! t.contains ("Tony's"), "\"" + t.substring (0, 40) + "\" names a person");
+                expect (! t.containsIgnoreCase ("video") && ! t.containsIgnoreCase ("tutorial"), "\"" + t.substring (0, 40) + "\" cites a tutorial");
+            }
+        }
+
+        beginTest ("Plastic and Cheap are kept, explained in hedged listening terms, with a note that no change may be needed");
+        {
+            for (const auto* label : { "Plastic", "Cheap" })
+            {
+                const Guide::Region* found = nullptr;
+                for (const auto& r : named ("Acoustic Guitar").regions)
+                    if (juce::String (r.label) == label)
+                        found = &r;
+                expect (found != nullptr, juce::String (label) + " is still there");
+                if (found == nullptr) continue;
+                const juce::String tip (found->tip);
+                expect (tip.containsIgnoreCase ("if this band is strong"), juce::String (label) + ": conditional, not a diagnosis");
+                expect (tip.containsIgnoreCase ("may need no adjustment"), juce::String (label) + ": says nothing may be needed");
+                expect (tip.containsIgnoreCase ("listen"), juce::String (label) + ": says what to do: listen");
+                expect (! tip.containsIgnoreCase ("always") && ! tip.containsIgnoreCase ("electronic"), juce::String (label) + ": no absolute or genre claim");
+            }
+        }
+
         beginTest ("Sources that are Tony's notes exist in his music-recording folder (when it is on this machine)");
         {
             const juce::File notes ("C:/dev/music-recording");
