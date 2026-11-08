@@ -2,7 +2,7 @@
 
 **Status:** To do. **Priority:** 2 — early EQ improvements (after v1.3.0; near EQ-38). **Recommended model:** Sonnet. **Estimated effort / usage:** Medium. **Escalation:** Opus only for meter transport/host-layout architecture review, returning to Sonnet for implementation.
 **Branch:** `roadmap/39-stereo-meter-clip-latch`.
-**Related:** [EQ-27 vertical output meter](done/27-vertical-output-meter.md) (shipped), [EQ-38 Frequency Guide icons](38-frequency-guide-instrument-icons.md).
+**Related:** [EQ-27 vertical output meter](done/27-vertical-output-meter.md) (shipped), [EQ-38 Frequency Guide icons](done/38-frequency-guide-instrument-icons.md).
 
 ## User story
 The Songsmith EQ output meter must match the track's audio layout: **two visible bars (Left and Right) for stereo, one bar for mono**. A clear red **CLIP** warning appears **above the meter** when either active output channel reaches or exceeds digital full scale, then stays lit **for the rest of the current audio activity**, and disappears **only after audio has stopped**.
