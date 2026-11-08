@@ -35,10 +35,21 @@ if([IO.Path]::GetFullPath($RequestFile) -ne (Join-Path $root 'build/matrix/reque
 Assert-MatrixPlainPath $root
 $lock=[IO.File]::Open((Join-Path $contract.exchangeDirectory 'client.lock'),'Open','ReadWrite','None')
 $leased=$false;$mayHaveStarted=$false;$confirmedStopped=$false;$running=$null
+# Diagnostic log beside the lease journal (owned by the Agent); never contains secrets.
+$controllerLog=Join-Path (Split-Path -Parent $contract.journalFile) 'controller.log'
+function Write-ControllerLog([string]$Message){
+    try{Add-Content -LiteralPath $controllerLog -Value ('{0} {1}' -f [DateTime]::UtcNow.ToString('o'),$Message)}catch{}
+}
+# The build entry reads heartbeat.json at the same moment it is replaced, so a brief
+# sharing violation is normal and must not abort the controller.
 function Write-Heartbeat {
     $path=Join-Path $contract.exchangeDirectory 'heartbeat.json';$temp=$path+'.tmp'
     @{id=$request.id;time=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath $temp
-    [IO.File]::Move($temp,$path,$true)
+    for($try=1;;$try++){
+        try{[IO.File]::Move($temp,$path,$true);return}
+        catch [IO.IOException]{if($try -ge 40){throw};Start-Sleep -Milliseconds 25}
+        catch [UnauthorizedAccessException]{if($try -ge 40){throw};Start-Sleep -Milliseconds 25}
+    }
 }
 function Save-BrokerJournal([hashtable]$Fields){
     $value=Get-Content -LiteralPath $contract.journalFile -Raw | ConvertFrom-Json
@@ -74,6 +85,7 @@ try{
     $startupDeadline=[DateTime]::UtcNow.AddSeconds(30)
     do{$running.Refresh();$engine=[int]$running.EnginePID;if($engine -gt 0){break};Start-Sleep -Milliseconds 100}while([DateTime]::UtcNow -lt $startupDeadline)
     if($engine -le 0){throw 'No scheduler engine identity observed; retain lease for review'}
+    Write-ControllerLog "Build task started; engine $engine"
     $known=[Collections.Generic.HashSet[int]]::new()
     # Engine PID is supplied by Task Scheduler, never by build output.
     $null=$known.Add($engine)
@@ -110,6 +122,9 @@ try{
     Set-Content -LiteralPath (Join-Path $root 'build/matrix/build.stderr.log') -Value $stderr
     [Console]::Out.Write($stdout);[Console]::Error.Write($stderr)
     $resultCode=$exitCode
+}catch{
+    Write-ControllerLog ('FAILED: '+$_.Exception.GetType().Name+': '+$_.Exception.Message+' at '+$_.InvocationInfo.PositionMessage)
+    throw
 }finally{
     try{
         if($leased){
