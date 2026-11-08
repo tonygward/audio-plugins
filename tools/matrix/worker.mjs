@@ -44,10 +44,10 @@ export function approve(config, now = Date.now(), identity = { user: os.userInfo
   return a;
 }
 
-// Claude enforces --max-turns and --max-budget-usd itself. Its reported num_turns does not track
-// --max-turns exactly (observed 32 reported against a limit of 28), so this worker-side sanity
-// check allows a fixed overshoot; the spend bound stays exact.
-const TURN_REPORT_SLACK = 8;
+// Claude's reported num_turns does not follow --max-turns (observed 30, 32, 31 and 49 against a
+// limit of 30). The binding limits are the spend cap (--max-budget-usd, exact) and the process
+// timeout. The worker-side turn check is only a runaway guard at a multiple of the configured limit.
+const TURN_RUNAWAY_FACTOR = 3;
 
 export function agentArguments(w, turns = w.maximumTurns, budget = w.maximumBudgetUsd) {
   return ['-p', '--model', 'sonnet', '--max-turns', String(turns), '--max-budget-usd', String(budget),
@@ -176,7 +176,7 @@ export async function work(config, { trigger = 'daily', run = runProcess, loadSn
             env: limitedEnvironment(process.env, { agent: true }), input: basePrompt + feedback, timeoutMs: w.timeoutSeconds * 1000 });
           const metrics = parseAgent(response.stdout);
           usedTurns += metrics.turns; spentUsd += metrics.estimatedCostUsd;
-          if (usedTurns > w.maximumTurns + TURN_REPORT_SLACK || spentUsd > w.maximumBudgetUsd) throw Error(`Agent exceeded configured bounds (turns ${usedTurns}/${w.maximumTurns}, cost ${spentUsd.toFixed(2)}/${w.maximumBudgetUsd} USD)`);
+          if (usedTurns > w.maximumTurns * TURN_RUNAWAY_FACTOR || spentUsd > w.maximumBudgetUsd) throw Error(`Agent exceeded configured bounds (turns ${usedTurns}/${w.maximumTurns}, cost ${spentUsd.toFixed(2)}/${w.maximumBudgetUsd} USD)`);
           log(p.id, 'agent-finished', metrics);
           files = await changes(plan.directory);
           validateChanges(files);
