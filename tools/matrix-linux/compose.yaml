@@ -15,7 +15,6 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     privileged: false
-    pid: private
     ipc: private
     init: true
     pids_limit: 512
