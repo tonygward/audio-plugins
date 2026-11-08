@@ -150,8 +150,16 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
           if (usedTurns >= w.maximumTurns || spentUsd >= w.maximumBudgetUsd) return 'Repair stopped by per-prompt turn/cost bounds';
           log(p.id, 'agent-started', { attempt: attempt + 1 });
           // The agent never sees the GitHub token; its environment is the base environment only.
-          const response = await command(config.claudeUsage.executable, agentArguments(w, w.maximumTurns - usedTurns, w.maximumBudgetUsd - spentUsd), plan.directory,
-            { env: { ...env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: '8192' }, input: basePrompt + feedback, timeoutMs: w.timeoutSeconds * 1000 });
+          let response;
+          try {
+            response = await command(config.claudeUsage.executable, agentArguments(w, w.maximumTurns - usedTurns, w.maximumBudgetUsd - spentUsd), plan.directory,
+              { env: { ...env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: '8192' }, input: basePrompt + feedback, timeoutMs: w.timeoutSeconds * 1000 });
+          } catch (error) {
+            // Say why Claude stopped (result fields only; never the model's text), so an interruption can be explained.
+            let why = {}; try { const r = JSON.parse(error.stdout); why = { subtype: r.subtype, turns: r.num_turns, costUsd: r.total_cost_usd, isError: r.is_error }; }
+            catch { why = { exitCode: error.exitCode, stderr: String(error.stderr ?? '').replace(/\s+/g, ' ').slice(-200) }; }
+            log(p.id, 'agent-failed', why); throw error;
+          }
           const metrics = parseAgent(response.stdout); usedTurns += metrics.turns; spentUsd += metrics.estimatedCostUsd;
           if (usedTurns > w.maximumTurns * TURN_RUNAWAY_FACTOR || spentUsd > w.maximumBudgetUsd) throw Error(`Agent exceeded configured bounds (turns ${usedTurns}/${w.maximumTurns}, cost ${spentUsd.toFixed(2)}/${w.maximumBudgetUsd} USD)`);
           log(p.id, 'agent-finished', metrics);

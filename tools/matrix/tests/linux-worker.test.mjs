@@ -38,7 +38,7 @@ function fixture(t) {
 }
 
 // Real git; fake Claude and GitHub. `builds` gives the hosted-build conclusion for each new head commit, in order.
-function adapter({ builds = ['success'], onClaude } = {}) {
+function adapter({ builds = ['success'], onClaude, claudeFails } = {}) {
   const seen = { claude: [], gh: [] }, results = new Map();
   let counter = 0;
   const run = async (exe, args, o) => {
@@ -50,6 +50,7 @@ function adapter({ builds = ['success'], onClaude } = {}) {
     }
     if (exe === CLAUDE) {
       seen.claude.push({ args, env: o.env, input: o.input, cwd: o.cwd });
+      if (claudeFails) throw Object.assign(Error('Process failed'), { stdout: JSON.stringify(claudeFails), stderr: '', exitCode: 1 });
       if (onClaude) onClaude(o.cwd, seen.claude.length); else fs.appendFileSync(path.join(o.cwd, 'eq/Source/example.cpp'), `change ${seen.claude.length}\n`);
       return { stdout: agentJson, stderr: '' };
     }
@@ -189,4 +190,12 @@ test('usage at or above the limit starts no agent', async t => {
   const f = fixture(t), a = adapter();
   await runLinuxWorker(f.config, options(f, a, { loadUsage: () => ({ allowed: false, reason: 'Weekly usage at or above 85%', snapshot: null }) }));
   assert.equal(a.seen.claude.length, 0);
+});
+
+test('when Claude stops with an error the log says why, without the model text', async t => {
+  const f = fixture(t), a = adapter({ claudeFails: { type: 'result', subtype: 'error_max_turns', is_error: true, num_turns: 31, total_cost_usd: 1.5, result: 'SECRET MODEL TEXT' } });
+  const report = await runLinuxWorker(f.config, options(f, a));
+  assert.equal(report.outcomes[0].interrupted, true);
+  const log = fs.readFileSync(path.join(f.config.stateDirectory, 'logs', 'worker.jsonl'), 'utf8');
+  assert.match(log, /"stage":"agent-failed"[^\n]*"subtype":"error_max_turns"[^\n]*"turns":31/); assert.doesNotMatch(log, /SECRET MODEL TEXT/);
 });
