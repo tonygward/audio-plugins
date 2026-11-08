@@ -17,6 +17,15 @@ try{
     Check ((Test-BrokerRequest (Clone-Request) $contract $now) -eq [IO.Path]::GetFullPath($request.worktree)) 'JSON round-tripped request rejected'
     Check ((ConvertTo-BrokerTime $now.ToString('o')) -eq $now -and (ConvertTo-BrokerTime $now) -eq $now) 'Broker time conversion changed the instant'
     Reject {ConvertTo-BrokerTime 12345} 'Numeric broker time accepted'
+    # Compiler helpers that outlive the build are stopped by the build entry; other processes are left alone.
+    $helper=Start-Process -FilePath ping -ArgumentList '-n','60','127.0.0.1' -WindowStyle Hidden -PassThru
+    $bystander=Start-Process -FilePath ping -ArgumentList '-n','60','127.0.0.1' -WindowStyle Hidden -PassThru
+    try{
+        Stop-BrokerToolHelpers -Names @('definitely-not-running-helper')
+        Check (-not $helper.HasExited -and -not $bystander.HasExited) 'Unrelated names must not be stopped'
+        Stop-BrokerToolHelpers -Names @('ping')
+        Check ($helper.HasExited -and $bystander.HasExited) 'Named helper processes were not stopped'
+    }finally{foreach($h in @($helper,$bystander)){if(-not $h.HasExited){$h.Kill()};$h.Dispose()}}
     foreach($path in @('C:\outside','C:\Windows\..\escape','\\server\share\x','C:\work:stream')){$r=Clone-Request;$r.worktree=$path;Reject {Test-BrokerRequest $r $contract $now} "Unsafe path accepted: $path"}
     $r=Clone-Request;$r | Add-Member command 'powershell evil';Reject {Test-BrokerRequest $r $contract $now} 'Command field accepted'
     foreach($plugins in @(@('eq','eq'),@('eq;evil'),@('not-a-plugin'))){$r=Clone-Request;$r.plugins=$plugins;Reject {Test-BrokerRequest $r $contract $now} 'Unsafe plugin list accepted'}

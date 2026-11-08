@@ -48,5 +48,5 @@ try{
     }
     $exitCode=0
 }catch{[Console]::Error.WriteLine($_.Exception.Message)}
-finally{@{id=$request.id;exitCode=$exitCode;steps=$steps;buildSid=$identity.User.Value} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $logs 'result.json')}
+finally{Stop-BrokerToolHelpers;@{id=$request.id;exitCode=$exitCode;steps=$steps;buildSid=$identity.User.Value} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $logs 'result.json')}
 exit $exitCode
