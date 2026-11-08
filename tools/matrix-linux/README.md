@@ -4,7 +4,7 @@ An isolated, unprivileged container for the Claude developer agent, for **wslc (
 Native Windows and macOS builds stay on GitHub-hosted runners (`build.yml`); the container never builds
 plugins and never holds publishing credentials.
 
-**Status: image and isolation tested with wslc on the development machine (all 16 self-test checks pass). The Linux worker is not written (phase 2). The current Windows worker is untouched.
+**Status:** the image, isolation and the Linux worker are built and tested (all 16 container self-test checks and the worker's unit tests pass). It has **not** been run live with real credentials; that is the supervised pilot below, started only by the owner.
 
 ## What it enforces
 
@@ -19,18 +19,39 @@ plugins and never holds publishing credentials.
 
 ## Run it (PowerShell, no administrator needed)
 
-wslc is part of WSL (`wsl --update`). Compose is not available in wslc, so a script does the same job.
+wslc is part of WSL (`wsl --update`). Compose is not available in wslc, so `Start-MatrixAgent.ps1` does the same job.
 
 ```powershell
 cd toolsmatrix-linux
 ./Start-MatrixAgent.ps1 -Action Build -ClaudeCodeVersion <exact version you have vetted>
-./Start-MatrixAgent.ps1 -Action Verify    # starts the proxy, runs the self-test; must print ALL CHECKS PASSED
-./Start-MatrixAgent.ps1 -Action Down      # removes the proxy container and internal network
+./Start-MatrixAgent.ps1 -Action Verify     # isolation self-test; must print ALL CHECKS PASSED
+./Start-MatrixAgent.ps1 -Action Login      # one time: sign in with the Claude subscription (opens a URL; paste the code back)
+./Start-MatrixAgent.ps1 -Action Run -SecretsDirectory C:pathoutsideepo   # the owner's go-ahead: starts the worker
+./Start-MatrixAgent.ps1 -Action Logs       # follow it
+./Start-MatrixAgent.ps1 -Action Pause      # no new work starts (Resume to allow it again)
+./Start-MatrixAgent.ps1 -Action Stop       # stop the worker;  -Action Down also removes the proxy and network
 ```
 
-For real runs pass `-SecretsDirectory <folder outside the repository>` containing `anthropic_api_key` and `agent_github_token`
-(fine-grained token for this repository only: Contents and Pull requests read/write, nothing else).
-The folder is mounted read-only at `/run/secrets`. Do not put release, Cloudflare, R2 or website tokens there.
+The secrets folder holds one file, `agent_github_token`: a fine-grained GitHub token for `tonygward/audio-plugins` only (Contents and
+Pull requests: read and write; nothing else). It is mounted read-only. **No Anthropic API key is used**: the usage gate requires a Claude
+subscription login and refuses API keys, and the login is kept in the `matrix-home` volume. Do not put release, Cloudflare, R2 or website tokens anywhere near it.
+
+## What the Linux worker does
+
+`tools/matrix/linux-worker.mjs` reuses the Windows worker's backlog selection, 85 % usage gate (unknown fails closed), task states, turn/cost bounds and
+change-scope rules. It differs in validation: there is no local build.
+
+1. Pick up `build-now` prompts within about five minutes; `scheduled` prompts at the daily run after 02:00 London time.
+2. Claude edits a worktree with file tools only. The GitHub token is never in Claude's environment.
+3. Commit, merge `main` in if it moved (a changelog-only conflict is resolved; anything else stops with a Blocked note), push, open a **draft** PR.
+4. Wait for the hosted Windows and macOS **Build** on the exact head commit. Stale runs never count. On failure, up to two repairs: the failed-job log is saved to a file
+   the agent may read as untrusted data; it is never pasted into the instructions.
+5. When the build is green, `matrix-auto-merge.yml` (the existing workflow) merges it; the existing release pipeline publishes the beta. The worker never merges or releases.
+6. If it cannot get a green build, the PR stays a draft with a **Blocked** section.
+
+Before every run the worker checks its own isolation (not root, no Docker socket, no publishing or GitHub credentials in its environment, proxy configured,
+no capabilities) and refuses to start if any check fails. There is no 24-hour approval file: starting the container is the owner's approval, and
+`-Action Pause` / `-Action Stop` are the controls.
 
 ## Self-test (`verify`)
 
@@ -43,10 +64,11 @@ Passing proves the container is configured as designed; it does not prove the WS
 
 `./Start-MatrixAgent.ps1 -Action Down` removes the proxy container and the internal network. The image can be removed with `wslc rmi songsmith-matrix-agent:dev`. Nothing else is touched.
 
-## Next phases (not done)
+## Next steps (owner)
 
-2. Linux worker: reuse `backlog.mjs`, `usage.mjs`, `state.mjs`, `policy.mjs` and the validation rules; replace the local Windows
-   build with "push draft PR, wait for hosted Build on the exact head SHA, bounded repair".
-   (`worker.mjs` currently requires a build launcher; this needs a CI mode.)
-3. Supervised pilot with one low-risk prompt, then retire the Windows accounts, build broker and approval renewals.
+1. `-Action Login` and create the fine-grained token (above).
+2. Supervised pilot: run with one low-risk `build-now` prompt and watch `-Action Logs`.
+3. Only after a clean pilot: retire the Windows accounts, build broker and approval renewals (they stay untouched until then; run only one worker at a time, so stop the Windows worker tasks first).
 4. Replace the owner's GitHub login with a dedicated bot identity or GitHub App.
+
+Limits: hosted builds do not detect compiler warnings, so the worker's old "no new warnings" check is not applied here; DAW and screenshot review still need a person.

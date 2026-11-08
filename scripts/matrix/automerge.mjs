@@ -3,6 +3,8 @@
 
 export const UI_REVIEW_NOTE = 'UI changes require retained before/after screenshots and visual review before marking this draft ready';
 export const CLEAN_VALIDATION = 'Local Release configure, build and tests passed without detected warnings.';
+// Linux (container) worker: no local build; the hosted Build on the exact head commit is the validation, which this gate also requires.
+export const CI_VALIDATION = 'Hosted Windows and macOS builds and tests decide; this worker ran no local build.';
 
 // Same scope as the worker's validateChanges (tools/matrix/worker.mjs), plus the root CHANGELOG.md.
 export function inScope(file) {
@@ -30,7 +32,7 @@ export function evaluate({ repository, pr, files, run, allowUiWithoutReview = tr
   if (!/^Implements [A-Z]+(?:-[A-Z]+)*-\d+ from \[canonical prompt\]/.test(pr?.body ?? '') || !/Release checkpoint: unassigned; no version bump/.test(pr?.body ?? '')) no('Description was not written by the Matrix worker');
   const blocked = blockedReason(pr?.body ?? '');
   if (blocked !== null && !(allowUiWithoutReview && blocked === UI_REVIEW_NOTE)) no(`Worker marked the work blocked: ${blocked.slice(0, 200)}`);
-  if (blocked === null && !(pr?.body ?? '').includes(`Validation: ${CLEAN_VALIDATION}`)) no('Worker did not record a clean local build and test run');
+  if (blocked === null && ![CLEAN_VALIDATION, CI_VALIDATION].some(text => (pr?.body ?? '').includes(`Validation: ${text}`))) no('Worker did not record a clean build and test run');
   if (!Array.isArray(files) || files.length === 0 || files.length > 100) no('Unexpected number of changed files');
   else for (const file of files) if (!inScope(file)) no(`Changed file outside the permitted scope: ${String(file).slice(0, 120)}`);
   if (!run || run.conclusion !== 'success' || run.event !== 'pull_request') no('Hosted Build workflow has not succeeded for the pull request');

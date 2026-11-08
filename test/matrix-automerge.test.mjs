@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluate, inScope, promptIdFromBranch, archivePath, markDone, blockedReason, UI_REVIEW_NOTE, CLEAN_VALIDATION } from '../scripts/matrix/automerge.mjs';
+import { evaluate, inScope, promptIdFromBranch, archivePath, markDone, blockedReason, UI_REVIEW_NOTE, CLEAN_VALIDATION, CI_VALIDATION } from '../scripts/matrix/automerge.mjs';
 
 const repository = 'tonygward/audio-plugins';
 const sha = 'a'.repeat(40);
@@ -82,4 +82,11 @@ test('markDone changes only the status line and keeps line endings', () => {
   assert.equal(markDone('---\r\nid: A-1\r\nstatus: ready\r\n---\r\nbody\r\n'), '---\r\nid: A-1\r\nstatus: done\r\n---\r\nbody\r\n');
   assert.equal(markDone('---\nid: A-1\n---\nbody\n'), '---\nstatus: done\nid: A-1\n---\nbody\n');
   assert.equal(markDone('# No metadata\n'), '# No metadata\n');
+});
+
+test('the Linux worker hosted-build validation line is accepted, and an unknown one is not', () => {
+  const facts = good(); facts.pr.body = bodyWith(CI_VALIDATION);
+  assert.equal(evaluate(facts).merge, true);
+  facts.pr.body = bodyWith('Looks fine to me.');
+  assert.equal(evaluate(facts).merge, false);
 });

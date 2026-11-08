@@ -86,7 +86,7 @@ jobs:
           Matrix auto-merge checked and approved this pull request:
 
           - hosted Build (Windows and macOS) succeeded for exactly ${RUN_SHA}: ${RUN_URL}
-          - Matrix's own local Release build and tests passed; the worker recorded no warnings
+          - the worker recorded no problems (a local Release build passed, or the hosted build is the only validation)
           - every changed file is inside the permitted source, test, documentation, README or CHANGELOG scope
           - no workflow, tool, version or installer file was changed
           - the description was written by the Matrix worker, on a Matrix branch from this repository
