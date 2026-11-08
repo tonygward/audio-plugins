@@ -15,7 +15,15 @@ test('new notes prepend one matching section and retain existing changelog',()=>
   const old='# Songsmith Plugins\n\n## 1.3.0\n\n- Old\n';
   const result=betaChangelog(old,'1.3.1','a'.repeat(40),'Fix band hover\nBody');
   assert.match(result,/## 1\.3\.1\n/);
-  assert.match(result,/- Fix band hover/);
   assert.ok(result.includes(old.slice(old.indexOf('## 1.3.0'))));
   assert.throws(()=>betaChangelog(result,'1.3.1','a'.repeat(40),'duplicate'));
+});
+test('notes are plain feature text with no hashes or pull request titles',()=>{
+  const sha='a'.repeat(40);
+  const old='# T\n\n## Unreleased\n\n- **Meter:** new thing.\n\n## 1.3.0\n\n- Old\n';
+  const result=betaChangelog(old,'1.3.1',sha,'Merge pull request #1');
+  assert.match(result,/## 1\.3\.1\n\n- \*\*Meter:\*\* new thing\.\n\n## 1\.3\.0/);
+  assert.ok(!result.includes('Unreleased')&&!result.includes(sha.slice(0,12))&&!/pull request/i.test(result));
+  assert.match(betaChangelog('# T\n\n## 1.3.0\n\n- Old\n','1.3.1',sha),/## 1\.3\.1\n\nBehind-the-scenes improvements/);
+  assert.match(betaChangelog('# T\n\n## Unreleased\n\n## 1.3.0\n\n- Old\n','1.3.1',sha),/Behind-the-scenes/);
 });
