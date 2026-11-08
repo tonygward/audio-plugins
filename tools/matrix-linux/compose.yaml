@@ -1,0 +1,72 @@
+# Run from WSL 2 (Docker Engine installed inside the Ubuntu distribution, not Docker Desktop):
+#   cd tools/matrix-linux && docker compose build --build-arg CLAUDE_CODE_VERSION=<exact> && docker compose run --rm agent verify
+# Nothing here touches existing containers: the project has its own network and volume names.
+name: songsmith-matrix
+
+services:
+  agent:
+    build:
+      context: .
+      args:
+        CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:?set the exact Claude Code version}
+    image: songsmith-matrix-agent:dev
+    user: "10001:10001"
+    read_only: true                 # image is immutable; only the mounts below are writable
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    privileged: false
+    pid: private
+    ipc: private
+    init: true
+    pids_limit: 512
+    mem_limit: 4g
+    memswap_limit: 4g
+    cpus: 2
+    # No published ports, no host network, no Docker socket, no host bind mounts.
+    tmpfs:
+      - /tmp:size=512m,mode=1777,noexec,nosuid,nodev
+      - /home/agent:size=256m,uid=10001,gid=10001,mode=0700,nosuid,nodev
+    volumes:
+      - workspace:/work              # disposable clone and worktrees
+    secrets:
+      - source: anthropic_api_key
+      - source: agent_github_token   # fine-grained token: this repository only, contents + pull requests write
+    environment:
+      EGRESS_CHECK: "1"
+      HTTPS_PROXY: http://egress:3128
+      HTTP_PROXY: http://egress:3128
+      NO_PROXY: egress
+      GH_TOKEN_FILE: /run/secrets/agent_github_token
+    networks: [agent_internal]       # internal network: no route to the internet or the LAN
+    depends_on: [egress]
+    restart: "no"
+
+  egress:
+    # Allow-list proxy: the only path out. Lists api.anthropic.com and GitHub, nothing else.
+    image: ubuntu/squid:6.6-24.04_edge
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID]       # squid drops to its own unprivileged user at start-up
+    security_opt: ["no-new-privileges:false"]
+    tmpfs:
+      - /var/run:size=16m
+      - /var/spool/squid:size=128m
+      - /var/log/squid:size=64m
+    volumes:
+      - ./squid/squid.conf:/etc/squid/squid.conf:ro
+    networks: [agent_internal, egress_out]
+    restart: unless-stopped
+
+networks:
+  agent_internal:
+    internal: true                   # no outbound route except through the proxy
+  egress_out: {}
+
+volumes:
+  workspace: {}
+
+secrets:
+  anthropic_api_key:
+    file: ${MATRIX_SECRETS_DIR:?directory outside the repository, e.g. ~/.matrix-secrets}/anthropic_api_key
+  agent_github_token:
+    file: ${MATRIX_SECRETS_DIR}/agent_github_token
