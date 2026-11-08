@@ -24,13 +24,13 @@ namespace FET
     const std::vector<FactoryPreset>& Presets::factory()
     {
         static const std::vector<FactoryPreset> presets {
-            { "Lead vocal", 1.0f, 3.7f, 3.0f, 5.0f, 0, false,
+            { "Lead Vocal Control", 1.0f, 3.7f, 3.0f, 5.0f, 0, false,
               "4:1, about 3-5 dB on loud lines. Raise Input for more control; turn Attack down (counter-clockwise) if consonants dull." },
-            { "Acoustic guitar", 2.0f, 3.3f, 2.0f, 6.0f, 0, false,
+            { "Acoustic Guitar Strum Control", 2.0f, 3.3f, 2.0f, 6.0f, 0, false,
               "4:1 with a slower attack so each pick comes through. Listen for the strum to sit steady without the attack going soft." },
-            { "Bass", 3.0f, 2.4f, 3.0f, 3.0f, 1, false,
+            { "Bass Guitar Evening", 3.0f, 2.4f, 3.0f, 3.0f, 1, false,
               "8:1 with a moderate release so low notes don't distort. Each note should come out even; if it growls, slow the Release." },
-            { "Drum room", 6.0f, 1.4f, 2.0f, 7.0f, 1, false,
+            { "Drum Room Punch", 6.0f, 1.4f, 2.0f, 7.0f, 1, false,
               "8:1, slow attack, fastest release: hits punch through and the room swells between them. For more, try All Buttons." },
         };
         return presets;
@@ -103,6 +103,12 @@ namespace FET
         currentName = file.getFileNameWithoutExtension();
         currentHint = {};
         return true;
+    }
+
+    bool Presets::userPresetExists (const juce::String& name) const
+    {
+        const auto clean = juce::File::createLegalFileName (name.trim());
+        return clean.isNotEmpty() && userFolder.getChildFile (clean + fileExtension).existsAsFile();
     }
 
     bool Presets::saveAs (const juce::String& name, juce::String& error)

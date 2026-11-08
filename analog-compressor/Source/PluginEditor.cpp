@@ -480,13 +480,40 @@ void SongsmithAnalogCompressorEditor::savePresetAsync()
     saveDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
     saveDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this] (int result)
     {
-        if (result == 1 && saveDialog != nullptr)
+        const auto name = saveDialog != nullptr ? saveDialog->getTextEditorContents ("name") : juce::String();
+        const bool save = result == 1 && saveDialog != nullptr;
+        saveDialog.reset();
+
+        if (save && proc.presets.userPresetExists (name))
+        {
+            // Replacing a saved preset is deliberate: ask first.
+            const auto options = juce::MessageBoxOptions{}
+                                     .withIconType (juce::MessageBoxIconType::QuestionIcon)
+                                     .withTitle ("Replace preset")
+                                     .withMessage ("A preset called \"" + name.trim() + "\" already exists. Replace it with the current settings?")
+                                     .withButton ("Replace", 1)
+                                     .withButton ("Cancel", 0)
+                                     .withAssociatedComponent (this);
+            juce::Component::SafePointer<SongsmithAnalogCompressorEditor> safe (this);
+            replaceBox = juce::AlertWindow::showScopedAsync (options, [safe, name] (int answer)
+            {
+                if (safe == nullptr || answer == 0)
+                    return;
+                juce::String error;
+                if (! safe->proc.presets.saveAs (name, error))
+                    juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Preset", error);
+                safe->rebuildPresetMenu();
+                safe->content.repaint();
+            });
+            return;
+        }
+
+        if (save)
         {
             juce::String error;
-            if (! proc.presets.saveAs (saveDialog->getTextEditorContents ("name"), error))
+            if (! proc.presets.saveAs (name, error))
                 juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Preset", error);
         }
-        saveDialog.reset();
         rebuildPresetMenu();
         content.repaint();
     }), false);

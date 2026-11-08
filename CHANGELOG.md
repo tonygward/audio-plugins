@@ -2,6 +2,16 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
 
+## Unreleased
+
+### Songsmith EQ
+- **A shorter, clearer Starting Points list:** the menu now offers ten starting points named for the job they do, such as Acoustic Guitar Smoothing and Lead Vocal Control. Starting points that we can't yet trace to a published tutorial have left the menu. Your saved sessions and presets still load exactly as before, and you don't need to do anything.
+- **Saving over a preset asks first:** if you save under a name you've already used, Songsmith EQ asks whether to replace the old preset.
+
+### Songsmith Analog Compressor
+- **Clearer starting point names:** they are now Lead Vocal Control, Acoustic Guitar Strum Control, Bass Guitar Evening and Drum Room Punch. The settings are unchanged.
+- **Saving over a preset asks first:** if you save under a name you've already used, you are asked whether to replace the old preset.
+
 ## 1.3.4
 
 ### Songsmith EQ

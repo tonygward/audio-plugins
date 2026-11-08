@@ -42,6 +42,9 @@ namespace FET
         // Each changed parameter is set as one complete gesture (automation-friendly).
         void loadFactory (int index);
         bool loadFile (const juce::File&, juce::String& error);
+        // True if a user preset of this name exists, so the editor can ask before replacing it.
+        // saveAs itself replaces without asking. Factory presets are never files, so they can't be replaced.
+        bool userPresetExists (const juce::String& name) const;
         bool saveAs (const juce::String& name, juce::String& error);
 
         static const char* const presetParameterIds[];

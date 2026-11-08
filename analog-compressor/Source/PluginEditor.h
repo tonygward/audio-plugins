@@ -96,6 +96,7 @@ private:
     // Latency and the optional Processing Load readout, in the strip below the controls.
     std::unique_ptr<Songsmith::Diagnostics::Bar> diagnostics;
     std::unique_ptr<juce::AlertWindow> saveDialog;
+    juce::ScopedMessageBox replaceBox;   // "Replace preset?" question, kept alive while it is open
     static constexpr int savePresetId = 1000, openFolderId = 1001, firstUserId = 100;
     juce::Array<juce::File> userPresetFiles;
     juce::AudioProcessorValueTreeState::ComboBoxAttachment oversamplingAttachment;

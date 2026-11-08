@@ -55,7 +55,7 @@ struct PresetTests final : juce::UnitTest
             expect (juce::String (p.hint).isNotEmpty(), juce::String (p.name) + " has a listening cue");
             expect (! p.allButtons, "starting points stay out of All Buttons");
         }
-        expectEquals (names.joinIntoString (", "), juce::String ("Lead vocal, Acoustic guitar, Bass, Drum room"));
+        expectEquals (names.joinIntoString (", "), juce::String ("Lead Vocal Control, Acoustic Guitar Strum Control, Bass Guitar Evening, Drum Room Punch"));
 
         beginTest ("each starting point is level-matched and gently compressing at 0 VU");
         for (int i = 0; i < (int) f.size(); ++i)
@@ -71,12 +71,12 @@ struct PresetTests final : juce::UnitTest
         {
             SongsmithAnalogCompressorProcessor p;
             expectEquals (p.getNumPrograms(), 4);
-            expectEquals (p.getProgramName (3), juce::String ("Drum room"));
+            expectEquals (p.getProgramName (3), juce::String ("Drum Room Punch"));
             p.setCurrentProgram (2);
             expectEquals (p.getCurrentProgram(), 2);
             expectEquals ((int) p.apvts.getRawParameterValue (ID::ratio)->load(), f[2].ratio);
             expectWithinAbsoluteError (p.apvts.getRawParameterValue (ID::input)->load(), f[2].input, 0.01f);
-            expectEquals (p.presets.currentName, juce::String ("Bass"));
+            expectEquals (p.presets.currentName, juce::String ("Bass Guitar Evening"));
         }
 
         beginTest ("loading a preset is one gesture per changed parameter");
@@ -150,8 +150,51 @@ struct PresetTests final : juce::UnitTest
             }
             SongsmithAnalogCompressorProcessor b;
             b.setStateInformation (mb.getData(), (int) mb.getSize());
-            expectEquals (b.presets.currentName, juce::String ("Acoustic guitar"));
+            expectEquals (b.presets.currentName, juce::String ("Acoustic Guitar Strum Control"));
             expect (b.presets.currentHint.isNotEmpty());
+        }
+
+        beginTest ("SUI-09: duplicate names are detected, a replace keeps one file, factory names are never files");
+        {
+            const auto folder = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                    .getNonexistentChildFile ("fet-preset-dup-test", {}, false);
+            SongsmithAnalogCompressorProcessor a;
+            a.presets.setUserFolder (folder);
+            juce::String error;
+
+            expect (! a.presets.userPresetExists ("Mine"), "nothing saved yet");
+            ColourMeasure::set (a, ID::input, 10.0f);
+            expect (a.presets.saveAs ("Mine", error), error);
+            expect (a.presets.userPresetExists ("Mine"));
+            expect (a.presets.userPresetExists ("  Mine  "), "names are trimmed like saveAs does");
+            expect (! a.presets.userPresetExists ("   "), "an empty name never exists");
+
+            ColourMeasure::set (a, ID::input, 20.0f);
+            expect (a.presets.saveAs ("Mine", error), error);   // the editor asks first, then calls this
+            expectEquals (a.presets.getUserPresetFiles().size(), 1, "replacing doesn't add a second file");
+
+            SongsmithAnalogCompressorProcessor b;
+            b.presets.setUserFolder (folder);
+            expect (b.presets.loadFile (a.presets.getUserPresetFiles()[0], error), error);
+            expectWithinAbsoluteError (b.apvts.getRawParameterValue (ID::input)->load(), 20.0f, 0.01f, "the newer settings won");
+
+            // A factory preset is not a file, so saving under its name makes a separate user preset.
+            const auto factoryName = juce::String (Presets::factory()[0].name);
+            expect (! a.presets.userPresetExists (factoryName));
+            expect (a.presets.saveAs (factoryName, error), error);
+            expectEquals (a.presets.getUserPresetFiles().size(), 2);
+            expectEquals ((int) Presets::factory().size(), 4, "the factory list is unchanged");
+
+            // Invalid files: wrong root tag and empty files are refused without changing the sound.
+            const auto before = b.apvts.getRawParameterValue (ID::input)->load();
+            const auto wrong = folder.getChildFile ("Wrong.sspreset");
+            wrong.replaceWithText ("<SomethingElse input=\"3\"/>");
+            expect (! b.presets.loadFile (wrong, error), "a different root tag is refused");
+            const auto empty = folder.getChildFile ("Empty.sspreset");
+            empty.replaceWithText ("");
+            expect (! b.presets.loadFile (empty, error), "an empty file is refused");
+            expectEquals (b.apvts.getRawParameterValue (ID::input)->load(), before, "a refused file changes nothing");
+            folder.deleteRecursively();
         }
     }
 };

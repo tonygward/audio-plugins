@@ -208,9 +208,32 @@ The Neutron 3 Equalizer on the Toms bus has the same shape in four songs. Each v
 
 **Compared with Tony's later Pro-Q 4 tom presets** (*Drums - Floor Tom*, *Drums - Mid Tom*, Jan 2025): not done. The `.ffp` files are OneDrive cloud-only placeholders that couldn't be opened here, and they aren't decoded in the catalogue.
 
-## The Starting Points menu (EQ-40)
+## The curated Starting Points menu (SUI-09)
 
-The preset menu has one **Starting Points** section, with a submenu for each instrument group, then **User Presets**. There is no separate Factory section. The preset bar shows the full label, such as **Drums - Kick**.
+The menu now lists only presets whose settings this document ties to a Joe Gilder video (with date and timestamp). Every label names the job, with no hardware, model, tutorial or playful names. Indices and stored names are unchanged, so sessions and host program numbers recall exactly as before.
+
+| Index | Menu label | Source in this document | What it recalls |
+|---|---|---|---|
+| 16 | Drums - Snare Low-Mid Control | Joe *2018-04-16, 3:43-4:14* | 2 bands: 190 Hz cut, 200 Hz low shelf |
+| 15 | Drums - Drum Bus Boxiness Control | Joe *2026-09-15, 3:34, 4:35*; *2018-04-16, 1:02* | 4 bands, 2 of them off |
+| 11 | Guitars - Acoustic Guitar Smoothing | Joe *2021-12-02, 2:07-6:58*; *2023-09-27*; Tony's values where more specific | 5 bands, one dynamic |
+| 12 | Guitars - Electric Guitar Tidy | Joe *2026-09-09, 2:05, 3:40*; *2021-12-09, 1:32* | 3 bands |
+| 13 | Guitars - Electric Guitar Bus Warmth | Joe *2026-09-09, 3:40*; *2019-01-15, 5:13* | 2 bands, notch off |
+| 14 | Guitars - Bass Guitar Mud Control | Joe *2026-09-08, 3:48*; *2019-01-10, 7:29* | 3 bands, click band off |
+| 8 | Vocals - Lead Vocal Control | Joe *2024-05-29, 8:53-12:12*; *2023-08-02, 2:40* | 5 bands, one dynamic, two off |
+| 9 | Vocals - Backing Vocal Blend | Joe *2018-08-30, 2:11, 3:19* | 3 bands |
+| 10 | Vocals - Spoken Word Clarity | Joe *2023-08-02, 2:40*; *2024-05-29* (the 2018-03-08 video gives no numbers) | 3 bands |
+| 17 | Effects - Reverb Return Clean-up | Joe *2021-09-09, 3:44, 4:14* | 2 bands, one off |
+
+Each preset recalls every band (used or not, type, slope, frequency, gain, Q, on or off, dynamic settings) and the output gain. It never recalls bypass, editor size or analyser settings.
+
+**Evidence gaps.** This pass could read only this document, not the original videos or `techniques/joe-gilder.md`, so the timestamps are as recorded in task 26 and have not been re-checked against the videos or auditioned on Tony's mixes. Spoken Word Clarity is the weakest: its numbers are derived from the vocal videos rather than stated for speech.
+
+**Left out of the curated menu, still recalled by index:** Vocal clean-up, Low-end tidy, Air, Telephone, Kick punch, Bright acoustic and De-mud (no Joe source recorded here); Acoustic guitar in a full mix and Acoustic guitar pickup (Tony's own notes); Abbey Road reverb, Floor tom, Toms bus, Mid tom and High tom (Tony's own settings). Each can return if a tutorial source is recorded.
+
+## The earlier Starting Points menu (EQ-40, superseded by the curated menu above)
+
+The preset menu had one **Starting Points** section, with a submenu for each instrument group, then **User Presets**. There is no separate Factory section. The preset bar shows the full label, such as **Drums - Kick**.
 
 | Group | Starting Points |
 |---|---|

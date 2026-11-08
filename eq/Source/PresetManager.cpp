@@ -300,37 +300,31 @@ namespace EQ
         const std::vector<MenuItem>& menuItems()
         {
             static const std::vector<MenuItem> items {
-                { 5,  "Drums",   "Drums - Kick" },                          // was "Kick punch"
-                { 16, "Drums",   "Drums - Snare" },
-                { 25, "Drums",   "Drums - Mid Tom" },
-                { 26, "Drums",   "Drums - High Tom" },
-                { 23, "Drums",   "Drums - Floor Tom" },
-                { 24, "Drums",   "Drums - Toms Bus" },
-                { 15, "Drums",   "Drums - Drum Bus" },
+                // SUI-09: the curated set. Each label names the practical job. Only presets whose
+                // settings are documented against a Joe Gilder video in docs/starting-points.md are
+                // listed. Indices never change, so every preset below and every hidden one still
+                // loads from an old session or host program number.
+                { 16, "Drums",   "Drums - Snare Low-Mid Control" },
+                { 15, "Drums",   "Drums - Drum Bus Boxiness Control" },
 
-                { 11, "Guitars", "Guitars - Acoustic Guitar" },
-                { 19, "Guitars", "Guitars - Acoustic Guitar (Full Mix)" },
-                { 20, "Guitars", "Guitars - Acoustic Guitar (Pickup)" },
-                { 6,  "Guitars", "Guitars - Acoustic Guitar (Bright)" },    // was "Bright acoustic"
-                { 12, "Guitars", "Guitars - Electric Guitar" },
-                { 13, "Guitars", "Guitars - Electric Guitar Bus" },
-                { 14, "Guitars", "Guitars - Bass Guitar" },
+                { 11, "Guitars", "Guitars - Acoustic Guitar Smoothing" },
+                { 12, "Guitars", "Guitars - Electric Guitar Tidy" },
+                { 13, "Guitars", "Guitars - Electric Guitar Bus Warmth" },
+                { 14, "Guitars", "Guitars - Bass Guitar Mud Control" },
 
-                { 8,  "Vocals",  "Vocals - Lead Vocal" },
-                { 9,  "Vocals",  "Vocals - Backing Vocals" },
-                { 10, "Vocals",  "Vocals - Spoken Word" },
-                { 1,  "Vocals",  "Vocals - Quick Clean-up" },               // was "Vocal clean-up"
+                { 8,  "Vocals",  "Vocals - Lead Vocal Control" },
+                { 9,  "Vocals",  "Vocals - Backing Vocal Blend" },
+                { 10, "Vocals",  "Vocals - Spoken Word Clarity" },
 
-                { 17, "Effects", "Effects - Reverb Return" },
-                { 21, "Effects", "Effects - Abbey Road Reverb" },
-                { 4,  "Effects", "Effects - Telephone" },
-
-                { 2,  "General", "General - Low-End Tidy" },                // was "Low-end tidy"
-                { 7,  "General", "General - Reduce Mud" },                  // was "De-mud"
-                { 3,  "General", "General - Add Air" },                     // was "Air"
+                { 17, "Effects", "Effects - Reverb Return Clean-up" },
             };
-            // Not listed: 0 Flat (a new EQ is already flat), 18 Five-zone start (the Frequency Guide
-            // teaches the same zones), 22 Rack tom (replaced by Mid Tom and High Tom, same curve).
+            // Not listed, because docs/starting-points.md gives no Joe Gilder source for them (evidence
+            // gap, kept for old sessions): 1 Vocal clean-up, 2 Low-end tidy, 3 Air, 4 Telephone,
+            // 5 Kick punch, 6 Bright acoustic, 7 De-mud, 19 Acoustic guitar in a full mix,
+            // 20 Acoustic guitar pickup. Tony's own settings, not Joe's: 21 Abbey Road reverb,
+            // 23 Floor tom, 24 Toms bus, 25 Mid tom, 26 High tom. Also hidden: 0 Flat (a new EQ is
+            // already flat), 18 Five-zone start (the Frequency Guide teaches the same zones),
+            // 22 Rack tom (same curve as Mid tom and High tom).
             return items;
         }
 
@@ -525,6 +519,17 @@ namespace EQ
         const int n = (int) all.size();
         const int next = index < 0 ? (delta > 0 ? 0 : n - 1) : ((index + delta) % n + n) % n;
         return load (all[(size_t) next], error);
+    }
+
+    bool PresetManager::userPresetExists (const juce::String& rawName) const
+    {
+        const auto name = juce::File::createLegalFileName (rawName.trim());
+        if (name.isEmpty())
+            return false;
+
+        migrateIfNeeded();
+        return userFolder.getChildFile (name + fileExtension).existsAsFile()
+               || userFolder.getChildFile (name + legacyFileExtension).existsAsFile();
     }
 
     bool PresetManager::saveAs (const juce::String& rawName, juce::String& error)

@@ -19,12 +19,14 @@ These are conservative settings for common sources. Each one is level-matched: a
 
 | Starting point | Input | Output | Attack | Release | Ratio | Listening cue |
 |---|---|---|---|---|---|---|
-| Lead vocal | +1 dB | +3.7 dB | 3 (234 µs) | 5 (~140 ms) | 4:1 | About 3-5 dB on loud lines. Raise Input for more control. Turn Attack down (counter-clockwise) if the consonants go dull. |
-| Acoustic guitar | +2 dB | +3.3 dB | 2 (~430 µs) | 6 (~84 ms) | 4:1 | A slower attack lets each pick come through. Listen for the strum to sit steady without the attack going soft. |
-| Bass | +3 dB | +2.4 dB | 3 (234 µs) | 3 (~390 ms) | 8:1 | A moderate release keeps low notes from distorting. Each note should come out even. If it growls, slow the Release. |
-| Drum room | +6 dB | +1.4 dB | 2 (~430 µs) | 7 (50 ms) | 8:1 | Slow attack, fastest release: the hits punch through and the room swells between them. For more, try **All**. |
+| Lead Vocal Control | +1 dB | +3.7 dB | 3 (234 µs) | 5 (~140 ms) | 4:1 | About 3-5 dB on loud lines. Raise Input for more control. Turn Attack down (counter-clockwise) if the consonants go dull. |
+| Acoustic Guitar Strum Control | +2 dB | +3.3 dB | 2 (~430 µs) | 6 (~84 ms) | 4:1 | A slower attack lets each pick come through. Listen for the strum to sit steady without the attack going soft. |
+| Bass Guitar Evening | +3 dB | +2.4 dB | 3 (234 µs) | 3 (~390 ms) | 8:1 | A moderate release keeps low notes from distorting. Each note should come out even. If it growls, slow the Release. |
+| Drum Room Punch | +6 dB | +1.4 dB | 2 (~430 µs) | 7 (50 ms) | 8:1 | Slow attack, fastest release: the hits punch through and the room swells between them. For more, try **All**. |
 
 The listening cue for the loaded starting point appears at the bottom of the editor.
+
+**Where these come from (evidence gap).** The control directions follow the UA manual cited above, and the level matching is tested. No Joe Gilder tutorial source, timestamp or lesson has been recorded for these four settings, so they are not yet grounded in a tutorial. They stay in this release for host program numbers, and need a source or a decision to remove them.
 
 ## Your presets
 
@@ -33,6 +35,8 @@ The listening cue for the loaded starting point appears at the bottom of the edi
   - macOS: `~/Library/Songsmith Studio/Songsmith Analog Compressor/Presets`
 
   The workflow is the same as Songsmith EQ's, but in a folder of its own.
+  If a preset with that name already exists, you are asked whether to replace it. Nothing is replaced unless you choose **Replace**.
+- **Starting points are read-only.** Saving under a starting point's name makes a separate preset of your own; the starting point is never changed.
 - **Preset → Open presets folder** shows the folder.
 - **What a preset stores:** Input, Output, Attack, Release, Ratio, All Buttons and GR Off. It never stores bypass, oversampling or the editor size.
 - **Loading** a preset is one automation gesture per control it changes. A preset file with missing values loads them as defaults, and out-of-range values are clamped.
