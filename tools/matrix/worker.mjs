@@ -46,7 +46,7 @@ export function approve(config, now = Date.now(), identity = { user: os.userInfo
 
 export function agentArguments(w, turns = w.maximumTurns, budget = w.maximumBudgetUsd) {
   return ['-p', '--model', 'sonnet', '--max-turns', String(turns), '--max-budget-usd', String(budget),
-    '--output-format', 'json', '--safe-mode', '--restricted', '--permission-mode', 'dontAsk',
+    '--output-format', 'json', '--safe-mode', '--restricted', '--permission-mode', 'acceptEdits',
     '--tools', 'Read,Edit,Write,Glob,Grep', '--allowedTools', 'Read,Edit,Write,Glob,Grep',
     '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--setting-sources', '', '--no-session-persistence'];
 }
@@ -232,9 +232,10 @@ export async function work(config, { trigger = 'daily', run = runProcess, loadSn
         if (!new RegExp(`^https://github\\.com/${w.repositorySlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/pull/\\d+$`).test(url)) throw Error('Unverified draft PR response; inspect retained branch');
         finish(state, p.id, 'awaiting-review', { pr: url, reason: blocked, phase: 'draft-pr' }); log(p.id, 'draft-pr-created', { pr: url, blocked: !!blocked });
         outcomes.push({ id: p.id, pr: url, blocked: !!blocked });
-      } catch {
+      } catch (error) {
         finish(state, p.id, 'interrupted', { phase: 'interrupted', reason: 'Execution interrupted; inspect retained worktree, command logs and remote branch/PR before retry' });
-        log(p.id, 'interrupted'); outcomes.push({ id: p.id, interrupted: true }); break;
+        // Local diagnostic only: a short error message so an interruption can be explained.
+        log(p.id, 'interrupted', { error: String(error?.message ?? error).slice(0, 300) }); outcomes.push({ id: p.id, interrupted: true }); break;
       }
     }
     if (trigger === 'daily') state.lastWorkerDaily = londonDay(new Date(clock()));

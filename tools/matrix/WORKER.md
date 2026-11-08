@@ -36,7 +36,7 @@ For each selected prompt, the worker:
 3. Creates an isolated named branch/worktree. Existing retained worktrees are never
    reused automatically. Tracked symlinks/submodules require manual review.
 4. Sends pinned task text and AGENTS.md/CLAUDE.md to Claude over stdin. Claude gets
-   `Read,Edit,Write,Glob,Grep` only, safe/restricted modes, `dontAsk`, explicit Sonnet,
+   `Read,Edit,Write,Glob,Grep` only, safe/restricted modes, `acceptEdits` (edits inside the worktree only; headless `dontAsk` denied every write, so no changes were produced), explicit Sonnet,
    no custom settings, MCP or persisted agent session. No shell, browser, subagent,
    installer, GitHub or release tools are granted. Provider/GitHub environment secrets
    are not passed to the agent. CLI subscription credentials remain accessible through
