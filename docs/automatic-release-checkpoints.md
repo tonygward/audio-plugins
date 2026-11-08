@@ -69,3 +69,7 @@ This does **not** automatically operate Matrix, implement prompts, merge PRs
 or choose release scope. AUTO-01's live controlled worker and automatic
 merging are separate phases. It **does** close the missing link between an
 approved merge/version checkpoint and GitHub Release publishing.
+
+## Automatic beta version bump
+
+When `AUTO_BETA_VERSION_ENABLED=true`, every successful first-attempt `Build` push on `main` whose current `VERSION` is already tagged is followed by a `[beta-version]` commit that raises the patch number and adds a changelog entry. That commit builds again, and the publish workflow then releases it. Commits that only change documentation, prompts or screenshots (the paths `build.yml` ignores) landing after a successful build no longer make that build "stale": the bump is applied on top of them and a release is still published. A later *source* commit still supersedes the build, and its own build takes over. Pause with `AUTO_BETA_VERSION_ENABLED=false`.

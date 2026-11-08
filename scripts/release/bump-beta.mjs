@@ -1,7 +1,7 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
-import {releaseVersion,validateRun} from './prepare.mjs';
+import {releaseVersion,validateRun,currentMainFor} from './prepare.mjs';
 
 const repository='tonygward/audio-plugins';
 const assert=(ok,message)=>{if(!ok)throw Error(message);};
@@ -44,7 +44,16 @@ async function main() {
     assert(page<10,'Build job pagination limit');
   }
   validateRun(run,jobs,sha);
-  assert((await api('/branches/main')).commit.sha===sha,'Another main commit superseded this build; skip stale version bump');
+  const tip=await currentMainFor(api,sha);
+  const childEnv={...e,GIT_TERMINAL_PROMPT:'0',
+    GIT_CONFIG_COUNT:'2',GIT_CONFIG_KEY_0:'credential.helper',GIT_CONFIG_VALUE_0:'',
+    GIT_CONFIG_KEY_1:'credential.helper',GIT_CONFIG_VALUE_1:'!gh auth git-credential'};
+  if(tip!==sha) {
+    // Only documentation landed after the build: bump on top of it.
+    git(['fetch','origin','main'],{env:childEnv});
+    assert(git(['rev-parse','FETCH_HEAD'])===tip,'main moved while preparing the bump');
+    git(['checkout','--detach',tip]);
+  }
   const commit=await api(`/commits/${sha}`);
   const message=commit.commit?.message??'';
   const current=releaseVersion(await readFile('VERSION','utf8'));
@@ -68,9 +77,6 @@ async function main() {
   assert(git(['diff','--cached','--name-only']).split('\n').sort().join(',')==='CHANGELOG.md,VERSION','Unexpected staged files');
   git(['commit','-m',`[beta-version] ${version}: ${message.split('\n')[0].slice(0,100)}`]);
   // Protected from force pushing: if main advanced, non-fast-forward push fails.
-  const childEnv={...e,GIT_TERMINAL_PROMPT:'0',
-    GIT_CONFIG_COUNT:'2',GIT_CONFIG_KEY_0:'credential.helper',GIT_CONFIG_VALUE_0:'',
-    GIT_CONFIG_KEY_1:'credential.helper',GIT_CONFIG_VALUE_1:'!gh auth git-credential'};
   git(['push','origin','HEAD:refs/heads/main'],{env:childEnv});
   console.log(`New beta checkpoint ${version} pushed; full Build will run before release publication`);
 }
