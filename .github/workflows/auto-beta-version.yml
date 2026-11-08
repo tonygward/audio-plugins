@@ -1,4 +1,6 @@
 name: Increment private beta version after successful development build
+# Trigger: a successful first-attempt Build push on main (source changes only; see
+# docs/automatic-release-checkpoints.md). Gated by AUTO_BETA_VERSION_ENABLED.
 on:
   workflow_run:
     workflows: [Build]
