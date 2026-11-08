@@ -55,7 +55,8 @@ export function validateChanges(files) {
   if (!files.length) throw Error('Agent produced no changes');
   for (const file of files) {
     if (!file || /[\\\x00-\x1f]/.test(file) || file.split('/').some(p => p === '..' || p.startsWith('.'))
-      || !/^(eq|analog-compressor|maximiser|shared)\/(Source|Tests|Resources|docs)\//.test(file) && !/^(eq|analog-compressor|maximiser)\/README\.md$/.test(file)
+      // Root CHANGELOG.md is the one root file allowed: CLAUDE.md requires user-visible changes to add notes under "## Unreleased".
+      || !/^(eq|analog-compressor|maximiser|shared)\/(Source|Tests|Resources|docs)\//.test(file) && !/^(eq|analog-compressor|maximiser)\/README\.md$/.test(file) && file !== 'CHANGELOG.md'
       || /\.(exe|dll|cmd|bat|ps1|sh|cmake)$/i.test(file)) throw Error('Change outside permitted source/test/documentation scope');
   }
 }
