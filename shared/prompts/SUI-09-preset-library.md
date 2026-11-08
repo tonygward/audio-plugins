@@ -1,3 +1,14 @@
+---
+id: SUI-09
+status: ready
+execution: build-now
+priority: 2
+model: sonnet
+effort: medium
+dependencies: ["SUI-14"]
+conflicts: []
+---
+
 # SUI-09 · Curated factory presets and custom preset saving
 
 **Recommended model:** Sonnet.  
