@@ -10,14 +10,16 @@ bad()  { echo "FAIL  $1"; fail=1; }
 command -v docker >/dev/null 2>&1 && bad "docker CLI present" || pass "no Docker CLI"
 command -v sudo >/dev/null 2>&1 && bad "sudo present" || pass "no sudo"
 
-# Root file system must be read-only (run with read_only: true).
-if touch /probe 2>/dev/null; then rm -f /probe; bad "root file system is writable"; else pass "root file system is read-only"; fi
+# The agent user must not be able to change the image (wslc has no --read-only flag; file permissions enforce it).
+if touch /probe 2>/dev/null; then rm -f /probe; bad "root file system is writable by the agent"; else pass "cannot write to the root file system"; fi
 if touch /work/.probe 2>/dev/null; then rm -f /work/.probe; pass "workspace is writable"; else bad "workspace is not writable"; fi
 
 # No Linux capabilities and no privilege gain.
 caps=$(grep '^CapEff:' /proc/self/status | awk '{print $2}')
 [ "$caps" = "0000000000000000" ] && pass "no effective capabilities" || bad "capabilities present: $caps"
-grep -q '^NoNewPrivs:[[:space:]]*1' /proc/self/status && pass "no-new-privileges set" || bad "no-new-privileges not set"
+if grep -q '^NoNewPrivs:[[:space:]]*1' /proc/self/status; then pass "no-new-privileges set"
+elif [ -z "$(find / -xdev -perm /6000 -type f 2>/dev/null | head -1)" ]; then pass "no set-id programs exist, so there is nothing to gain privilege from (wslc has no no-new-privileges flag)"
+else bad "set-id programs exist and no-new-privileges is not set"; fi
 
 # Publishing credentials must never be available to the agent.
 for name in RELEASE_PUBLISH_TOKEN CLOUDFLARE_API_TOKEN R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY WEBSITE_DISPATCH_TOKEN GH_TOKEN GITHUB_TOKEN; do
@@ -36,7 +38,7 @@ const r=http.request({host:p.hostname,port:p.port,method:'CONNECT',path:'example
 r.on('connect',res=>{console.log(res.statusCode);process.exit(0)});r.on('error',()=>{console.log('error');process.exit(0)});r.on('timeout',()=>{console.log('timeout');process.exit(0)});r.end();" 2>/dev/null)
   [ "$curl_status" != "200" ] && pass "proxy refuses a host that is not on the allow-list ($curl_status)" || bad "proxy allowed example.com"
 else
-  echo "SKIP  network checks (set EGRESS_CHECK=1 when running through compose)"
+  echo "SKIP  network checks (run through Start-MatrixAgent.ps1 -Action Verify)"
 fi
 
 claude --version >/dev/null 2>&1 && pass "claude CLI runs" || bad "claude CLI missing"
