@@ -138,7 +138,7 @@ test('One bounded repair uses a fresh usage check and remaining budget', async t
   const a = adapter(f, { failedBuilds: 1, loadUsage: () => { checks++; return goodUsage(); } });
   const result = await work(f.config, a); assert.equal(a.counts.agent, 2); assert.equal(checks, 2); assert.equal(result.outcomes[0].blocked, false);
   const calls = a.calls.filter(c => c.args[0] === '-p');
-  assert.equal(calls[1].args[calls[1].args.indexOf('--max-turns') + 1], '7');
+  assert.equal(calls[1].args[calls[1].args.indexOf('--max-turns') + 1], '9');
 });
 test('Failed tests remain a blocked draft PR after at most one repair', async t => {
   const f = fixture(t), a = adapter(f, { failedBuilds: 99 });

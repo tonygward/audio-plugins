@@ -44,6 +44,11 @@ export function approve(config, now = Date.now(), identity = { user: os.userInfo
   return a;
 }
 
+// Claude enforces --max-turns and --max-budget-usd itself. Its reported num_turns does not track
+// --max-turns exactly (observed 32 reported against a limit of 28), so this worker-side sanity
+// check allows a fixed overshoot; the spend bound stays exact.
+const TURN_REPORT_SLACK = 8;
+
 export function agentArguments(w, turns = w.maximumTurns, budget = w.maximumBudgetUsd) {
   return ['-p', '--model', 'sonnet', '--max-turns', String(turns), '--max-budget-usd', String(budget),
     '--output-format', 'json', '--safe-mode', '--restricted', '--permission-mode', 'acceptEdits',
@@ -167,11 +172,11 @@ export async function work(config, { trigger = 'daily', run = runProcess, loadSn
           }
           if (usedTurns >= w.maximumTurns || spentUsd >= w.maximumBudgetUsd) { blocked = 'Repair stopped by per-prompt turn/cost bounds'; break; }
           log(p.id, 'agent-started', { attempt: attempt + 1 });
-          const response = await command(config.claudeUsage.executable, agentArguments(w, Math.max(1, w.maximumTurns - usedTurns - 2), w.maximumBudgetUsd - spentUsd), plan.directory, {
+          const response = await command(config.claudeUsage.executable, agentArguments(w, w.maximumTurns - usedTurns, w.maximumBudgetUsd - spentUsd), plan.directory, {
             env: limitedEnvironment(process.env, { agent: true }), input: basePrompt + feedback, timeoutMs: w.timeoutSeconds * 1000 });
           const metrics = parseAgent(response.stdout);
           usedTurns += metrics.turns; spentUsd += metrics.estimatedCostUsd;
-          if (usedTurns > w.maximumTurns || spentUsd > w.maximumBudgetUsd) throw Error(`Agent exceeded configured bounds (turns ${usedTurns}/${w.maximumTurns}, cost ${spentUsd.toFixed(2)}/${w.maximumBudgetUsd} USD)`);
+          if (usedTurns > w.maximumTurns + TURN_REPORT_SLACK || spentUsd > w.maximumBudgetUsd) throw Error(`Agent exceeded configured bounds (turns ${usedTurns}/${w.maximumTurns}, cost ${spentUsd.toFixed(2)}/${w.maximumBudgetUsd} USD)`);
           log(p.id, 'agent-finished', metrics);
           files = await changes(plan.directory);
           validateChanges(files);
