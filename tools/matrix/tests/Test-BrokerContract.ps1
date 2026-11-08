@@ -13,6 +13,10 @@ try{
     $request=[pscustomobject]@{version=1;id=('a'*32);worktree=(Join-Path $root 'EQ-38');plugins=@('eq');createdAt=$now.ToString('o');expiresAt=$now.AddMinutes(30).ToString('o')}
     Check ((Test-BrokerRequest $request $contract $now) -eq [IO.Path]::GetFullPath($request.worktree)) 'Valid bounded worktree rejected'
     function Clone-Request {$request | ConvertTo-Json -Depth 4 | ConvertFrom-Json}
+    # Regression: the real request is read back from JSON, where PowerShell 7 yields DateTime values.
+    Check ((Test-BrokerRequest (Clone-Request) $contract $now) -eq [IO.Path]::GetFullPath($request.worktree)) 'JSON round-tripped request rejected'
+    Check ((ConvertTo-BrokerTime $now.ToString('o')) -eq $now -and (ConvertTo-BrokerTime $now) -eq $now) 'Broker time conversion changed the instant'
+    Reject {ConvertTo-BrokerTime 12345} 'Numeric broker time accepted'
     foreach($path in @('C:\outside','C:\Windows\..\escape','\\server\share\x','C:\work:stream')){$r=Clone-Request;$r.worktree=$path;Reject {Test-BrokerRequest $r $contract $now} "Unsafe path accepted: $path"}
     $r=Clone-Request;$r | Add-Member command 'powershell evil';Reject {Test-BrokerRequest $r $contract $now} 'Command field accepted'
     foreach($plugins in @(@('eq','eq'),@('eq;evil'),@('not-a-plugin'))){$r=Clone-Request;$r.plugins=$plugins;Reject {Test-BrokerRequest $r $contract $now} 'Unsafe plugin list accepted'}
