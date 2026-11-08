@@ -167,11 +167,11 @@ export async function work(config, { trigger = 'daily', run = runProcess, loadSn
           }
           if (usedTurns >= w.maximumTurns || spentUsd >= w.maximumBudgetUsd) { blocked = 'Repair stopped by per-prompt turn/cost bounds'; break; }
           log(p.id, 'agent-started', { attempt: attempt + 1 });
-          const response = await command(config.claudeUsage.executable, agentArguments(w, w.maximumTurns - usedTurns, w.maximumBudgetUsd - spentUsd), plan.directory, {
+          const response = await command(config.claudeUsage.executable, agentArguments(w, Math.max(1, w.maximumTurns - usedTurns - 2), w.maximumBudgetUsd - spentUsd), plan.directory, {
             env: limitedEnvironment(process.env, { agent: true }), input: basePrompt + feedback, timeoutMs: w.timeoutSeconds * 1000 });
           const metrics = parseAgent(response.stdout);
           usedTurns += metrics.turns; spentUsd += metrics.estimatedCostUsd;
-          if (usedTurns > w.maximumTurns || spentUsd > w.maximumBudgetUsd) throw Error('Agent exceeded configured bounds');
+          if (usedTurns > w.maximumTurns || spentUsd > w.maximumBudgetUsd) throw Error(`Agent exceeded configured bounds (turns ${usedTurns}/${w.maximumTurns}, cost ${spentUsd.toFixed(2)}/${w.maximumBudgetUsd} USD)`);
           log(p.id, 'agent-finished', metrics);
           files = await changes(plan.directory);
           validateChanges(files);
