@@ -11,6 +11,21 @@ function Assert-BrokerPath([string]$Path) {
     if($full -notmatch '^[A-Za-z]:\\' -or $full.Substring(2).Contains(':')){throw 'Broker requires a local absolute path'}
     $full.TrimEnd('\')
 }
+# Visual C++ leaves background helpers (telemetry, PDB server) running after a build.
+# The controller treats any surviving build descendant as an unconfirmed stop and keeps
+# the lease, so the build entry (running as the Build account) stops its own known
+# helpers when it finishes. Only these names, only in the caller's own logon session;
+# a non-admin account cannot stop another account's processes anyway.
+function Stop-BrokerToolHelpers([string[]]$Names=@('vctip','mspdbsrv')) {
+    $session=[Diagnostics.Process]::GetCurrentProcess().SessionId
+    foreach($name in $Names){
+        foreach($p in @(Get-Process -Name $name -ErrorAction SilentlyContinue)){
+            if($p.SessionId -ne $session){continue}
+            try{$p.Kill($true);$null=$p.WaitForExit(5000)}catch{}
+            $p.Dispose()
+        }
+    }
+}
 # PowerShell 7 turns ISO-8601 strings in JSON into DateTime objects when it reads
 # them back, so a time field is accepted as either, and always compared in UTC.
 function ConvertTo-BrokerTime($Value) {

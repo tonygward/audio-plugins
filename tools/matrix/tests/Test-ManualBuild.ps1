@@ -22,8 +22,8 @@ Set-Content -LiteralPath (Join-Path $root 'eq/main.cpp') -Value @'
 int main() {
     HANDLE token{}; if(!OpenProcessToken(GetCurrentProcess(),TOKEN_QUERY,&token)) return 1;
     DWORD size{}; GetTokenInformation(token,TokenUser,nullptr,0,&size);
-    std::string storage(size,'\0'); if(!GetTokenInformation(token,TokenUser,storage.data(),size,&size)) return 2;
-    char* sid{}; if(!ConvertSidToStringSidA(reinterpret_cast<TOKEN_USER*>(storage.data())->User.Sid,&sid)) return 3;
+    std::string storage(size,'\0'); if(!GetTokenInformation(token,TokenUser,&storage[0],size,&size)) return 2;
+    char* sid{}; if(!ConvertSidToStringSidA(reinterpret_cast<TOKEN_USER*>(&storage[0])->User.Sid,&sid)) return 3;
     const bool expected=std::string(sid)==EXPECTED_BUILD_SID; LocalFree(sid); CloseHandle(token);
     if(!expected) return 4;
     SID_IDENTIFIER_AUTHORITY authority=SECURITY_NT_AUTHORITY; PSID admins{}; BOOL elevated{};
