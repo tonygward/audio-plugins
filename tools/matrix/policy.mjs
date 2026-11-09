@@ -1,3 +1,4 @@
+export const WEEKLY_LIMIT_PERCENT = 70;
 export const TELEMETRY_SOURCE = 'claude-code-usage-report-weekly-all';
 
 export function usageGate(snapshot, now = Date.now()) {
@@ -5,7 +6,7 @@ export function usageGate(snapshot, now = Date.now()) {
   const { percentage, observedAt, resetsAt } = snapshot;
   const age = now - Date.parse(observedAt), reset = Date.parse(resetsAt);
   if (typeof percentage !== 'number' || !Number.isFinite(percentage) || percentage < 0 || percentage > 100 || !Number.isFinite(age) || age < 0 || age > 60000 || !Number.isFinite(reset) || reset <= now || reset > now + 8 * 86400000) return { allowed: false, reason: 'Malformed, stale or contradictory weekly telemetry', snapshot: null };
-  return { allowed: percentage < 85, reason: percentage < 85 ? 'Weekly usage below 85%' : 'Weekly usage at or above 85%', snapshot };
+  return { allowed: percentage < WEEKLY_LIMIT_PERCENT, reason: percentage < WEEKLY_LIMIT_PERCENT ? `Weekly usage below ${WEEKLY_LIMIT_PERCENT}%` : `Weekly usage at or above ${WEEKLY_LIMIT_PERCENT}%`, snapshot };
 }
 
 export function londonDay(now = new Date()) {

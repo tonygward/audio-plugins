@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { TELEMETRY_SOURCE, usageGate } from './policy.mjs';
+import { TELEMETRY_SOURCE, WEEKLY_LIMIT_PERCENT, usageGate } from './policy.mjs';
 
 export const USAGE_ARGS = Object.freeze(['-p', '/usage', '--safe-mode', '--tools', '', '--max-turns', '1',
   '--output-format', 'stream-json', '--verbose', '--no-session-persistence', '--strict-mcp-config',
@@ -51,7 +51,7 @@ export function parseUsage(stdout, { startedAt, now = Date.now() }) {
   }
   const snapshot = { source: TELEMETRY_SOURCE, percentage: weekly[0].percent, observedAt: new Date(startedAt).toISOString(), resetsAt: weekly[0].resets_at };
   const gate = usageGate(snapshot, now), reasons = gate.allowed ? [] : [gate.reason];
-  if (limits.some(row => row.kind === 'weekly_scoped' && row.percent >= 85)) reasons.push('Scoped weekly usage at or above 85%');
+  if (limits.some(row => row.kind === 'weekly_scoped' && row.percent >= WEEKLY_LIMIT_PERCENT)) reasons.push(`Scoped weekly usage at or above ${WEEKLY_LIMIT_PERCENT}%`);
   if (limits.some(row => row.kind === 'session' && row.percent >= 100)) reasons.push('Session allowance exhausted');
   const extra = report.rate_limits.extra_usage;
   // Missing/null is unknown, not proof that paid continuation is disabled.

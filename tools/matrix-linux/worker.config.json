@@ -1,0 +1,27 @@
+{
+  "repository": "/work/source",
+  "stateDirectory": "/work/state",
+  "enabled": true,
+  "dailyTime": "02:00",
+  "batchLimit": 1,
+  "liveExecution": true,
+  "autoMerge": false,
+  "releasePublication": false,
+  "claudeUsage": { "enabled": true, "executable": "/usr/local/bin/claude" },
+  "worker": {
+    "enabled": true,
+    "mode": "ci",
+    "repositorySlug": "tonygward/audio-plugins",
+    "worktreeRoot": "/work/worktrees",
+    "gitExecutable": "/usr/bin/git",
+    "ghExecutable": "/usr/bin/gh",
+    "tokenFile": "/run/secrets/agent_github_token",
+    "maximumPrompts": 1,
+    "maximumTurns": 60,
+    "maximumBudgetUsd": 5,
+    "timeoutSeconds": 1800,
+    "ciTimeoutSeconds": 5400,
+    "maximumRepairs": 2,
+    "pollSeconds": 30
+  }
+}

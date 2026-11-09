@@ -1,7 +1,7 @@
 # Songsmith Matrix developer agent - isolated Linux container (AUTO-05).
 # Runs under wslc (WSL containers); plain OCI, so it also builds with Docker. It holds Claude Code and git/gh only: no compilers for the
 # native plugins (GitHub-hosted Windows and macOS runners build those), no Docker CLI, no sudo.
-# Build:  ./Start-MatrixAgent.ps1 -Action Build -ClaudeCodeVersion <exact version>
+# Build (context = repository root):  ./Start-MatrixAgent.ps1 -Action Build -ClaudeCodeVersion <exact version>
 ARG NODE_IMAGE=node:22-bookworm-slim
 FROM ${NODE_IMAGE}
 
@@ -19,17 +19,20 @@ RUN apt-get update \
  # No set-id binaries: nothing in this image can gain privilege.
  && find / -xdev -perm /6000 -type f -exec chmod a-s {} + 2>/dev/null || true
 
-# Trusted worker code is baked in (read-only at run time) instead of mounted from the host.
-COPY --chown=root:root entrypoint.sh verify-isolation.sh /opt/matrix/
-RUN chmod 0555 /opt/matrix/entrypoint.sh /opt/matrix/verify-isolation.sh
+# Trusted worker code and configuration are baked in (read-only at run time) instead of mounted from the host.
+# Build context is the repository root (see Start-MatrixAgent.ps1).
+COPY --chown=root:root tools/matrix/*.mjs /opt/matrix/tools/
+COPY --chown=root:root tools/matrix-linux/entrypoint.sh tools/matrix-linux/verify-isolation.sh tools/matrix-linux/worker.config.json /opt/matrix/
+RUN chmod 0555 /opt/matrix/entrypoint.sh /opt/matrix/verify-isolation.sh && chmod 0444 /opt/matrix/worker.config.json /opt/matrix/tools/*.mjs
 
 # Unprivileged, fixed identity with no login shell and no password.
 RUN groupadd --gid 10001 agent && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /home/agent --shell /usr/sbin/nologin agent
+# Home folder owned by the agent so a mounted volume (the Claude sign-in) is writable by it.
+RUN mkdir -p /home/agent && chown 10001:10001 /home/agent && chmod 0700 /home/agent
 USER 10001:10001
 WORKDIR /work
 ENV HOME=/home/agent \
     NODE_ENV=production \
-    CLAUDE_CONFIG_DIR=/home/agent/.claude \
     GIT_TERMINAL_PROMPT=0 \
     DISABLE_AUTOUPDATER=1
 ENTRYPOINT ["/opt/matrix/entrypoint.sh"]
