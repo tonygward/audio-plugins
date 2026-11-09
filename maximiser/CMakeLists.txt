@@ -100,6 +100,8 @@ if(MAX_BUILD_TESTS)
         ${MAX_DEFINITIONS}
         "JucePlugin_Name=\"${MAX_PRODUCT_NAME}\""
         "JucePlugin_Manufacturer=\"${MAX_COMPANY_NAME}\""
+        # The footer shows the one product version (the console app has no JucePlugin_VersionString of its own).
+        "JucePlugin_VersionString=\"${PROJECT_VERSION}\""
         # Pinned by the identity test (the console app has no JucePlugin_*Code).
         "MAX_MANUFACTURER_CODE=\"${MAX_MANUFACTURER_CODE}\""
         "MAX_PLUGIN_CODE=\"${MAX_PLUGIN_CODE}\"")
