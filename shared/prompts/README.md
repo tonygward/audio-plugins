@@ -1,5 +1,13 @@
 # Suite prompts
 
+## Overnight selection policy — functional changes only (9 November 2026)
+
+**Matrix's scheduled overnight and `build-now` development queues are reserved for functional Songsmith product work.** Eligible canonical prompt scopes are plugin tasks `EQ-`, `ACOMP-`, `MAX-`, and functional shared/plug-in work `SUI-`, `OPT-`, `PEQ-`, `BUS-`, `CLN-`, `ADV-`, `REC-` (subject to normal done/future/status, Sonnet/effort, dependency, allowance, security and CI gates). Infrastructure `AUTO-`, web/portal operations `WEB-`, and unknown scopes are **never selected** by the unattended functional worker, even when a file mistakenly says `execution: scheduled` or `build-now`. The code enforces this allowlist in `tools/matrix/backlog.mjs` for both daily and notification selection; changing Markdown metadata cannot override it.
+
+**AUTO-01–AUTO-10 are infrastructure tracking/implementation stories** and remain available for intentionally assigned, separate maintenance sessions, with human-controlled activation and applicable security gates. Open AUTO stories have `execution: deferred`; completed AUTO-06/07 stay archived. An optional infrastructure maintenance dispatcher must have an independent opt-in and audit trail; it is not implemented or authorised here. The overnight worker must not use product build/merge authority to modify its own orchestration, credentials or release policies.
+
+Do not treat this policy as proof a particular functional item will run tonight: normal runtime deployment and allowance checks still apply.
+
 ## Current AUTO-series platform — Linux container (9 November 2026)
 
 **Canonical target for AUTO-01–AUTO-05:** The autonomous Songsmith development worker runs inside an **isolated, non-root Linux container on Matrix**, using `tools/matrix/linux-worker.mjs`. The Linux worker handles canonical GitHub backlog discovery, subscription-usage safety, branches/worktrees, Claude editing, PRs, bounded CI repairs and durable task state. **GitHub-hosted Windows/macOS Actions build and validate native plugins/installers**; trusted CI owns permitted auto-merge and the existing release → private R2 → beta website sequence. The worker must not hold publishing credentials.
