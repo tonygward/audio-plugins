@@ -1,13 +1,4 @@
 ---
-
-## Current deployment target — Linux container (9 November 2026)
-
-This heartbeat is produced by the **trusted Linux-container controller**, **not Windows Task Scheduler**, and must be remotely readable even when Claude is not running or the Linux live worker is disabled. The historical Windows scanner, 02:00 report and skipped GitHub notification incidents below explain the original requirement only; they are *not* the current runtime design.
-
-Monitor the container's scheduled polling loop and actual successful canonical GitHub fetch separately. Publish sanitised container liveness, `linux-worker.mjs` execution mode, queue status, exact observed main SHA, latest PR-head CI validation, reason codes, last successful publication and staleness. Container paused/stopped/offline, missing credentials, failed egress and CI pending/failed must be distinguishable without exposing host names, mount paths, credentials or raw logs. Use least-privilege outbound-only GitHub publishing from an approved container-controlled component; never mount Docker socket or release credentials. Do not conflate a GitHub Actions CI run with proof the container itself is alive.
-
-Implement and test against the deployed Linux container's timer/process lifecycle. A Windows scheduled-task probe is relevant only when diagnosing the *legacy* scanner. Heartbeat must not spawn Claude, consume provider allowance or be blocked by the 85% development gate.
-
 id: AUTO-03
 status: planned
 execution: scheduled
@@ -17,6 +8,14 @@ effort: medium
 dependencies: []
 conflicts: []
 ---
+
+## Current deployment target — Linux container (9 November 2026)
+
+This heartbeat is produced by the **trusted Linux-container controller**, **not Windows Task Scheduler**, and must be remotely readable even when Claude is not running or the Linux live worker is disabled. The historical Windows scanner, 02:00 report and skipped GitHub notification incidents below explain the original requirement only; they are *not* the current runtime design.
+
+Monitor the container's scheduled polling loop and actual successful canonical GitHub fetch separately. Publish sanitised container liveness, `linux-worker.mjs` execution mode, queue status, exact observed main SHA, latest PR-head CI validation, reason codes, last successful publication and staleness. Container paused/stopped/offline, missing credentials, failed egress and CI pending/failed must be distinguishable without exposing host names, mount paths, credentials or raw logs. Use least-privilege outbound-only GitHub publishing from an approved container-controlled component; never mount Docker socket or release credentials. Do not conflate a GitHub Actions CI run with proof the container itself is alive.
+
+Implement and test against the deployed Linux container's timer/process lifecycle. A Windows scheduled-task probe is relevant only when diagnosing the *legacy* scanner. Heartbeat must not spawn Claude, consume provider allowance or be blocked by the 85% development gate.
 
 # AUTO-03 — Matrix remote heartbeat and backlog observability
 
