@@ -69,6 +69,7 @@ namespace Songsmith::Diagnostics::Testing
     // SUI-12 / EQ-35 footer layout: the switch is at the far left, the readout appears directly to its
     // right only while the switch is on, and a plugin's own control stays right-aligned either way.
     inline void checkVersionBinding (juce::UnitTest& t, juce::AudioProcessor& processor, const juce::String& context);
+    inline bool textAreaFits (juce::Label& label);
 
     inline void checkFooterLayout (juce::UnitTest& t, juce::AudioProcessor& processor, const juce::String& context)
     {
@@ -101,6 +102,7 @@ namespace Songsmith::Diagnostics::Testing
                     vg.addLineOfText (version.getFont(), version.getText(), 0.0f, 0.0f);
                     t.expect (vg.getBoundingBox (0, -1, false).getWidth() <= (float) version.getWidth(), where + ": the version is not clipped");
                 }
+                t.expect (textAreaFits (version), where + ": the version's text area (inside the label border) is wide enough");
                 t.expect (sw.getButtonText() == "Processing Load", where + ": the switch is named Processing Load");
                 t.expectEquals (probe.getRight(), bar.getWidth() - 16, where + ": the plugin's own control stays at the far right");
                 t.expect (! sw.getBounds().intersects (probe.getBounds()), where + ": no overlap");
@@ -124,6 +126,33 @@ namespace Songsmith::Diagnostics::Testing
             }
         }
         checkVersionBinding (t, processor, context);
+
+        // SUI-16: longer versions stay fully visible and never crowd the switch, readout or own control.
+        for (const char* longVersion : { "v0.5.10", "v1.12.3", "v10.20.30" })
+            for (int width : { 720, 1280, 2000 })
+            {
+                bar.setSize (width, Bar::designHeight);
+                bar.getLoadSwitch().setToggleState (true, juce::sendNotificationSync);
+                bar.setVersionTextForTesting (longVersion);
+                bar.refresh();
+                const auto where = context + ": version " + juce::String (longVersion) + " at " + juce::String (width) + " px";
+                auto& version = bar.getVersionLabel();
+                auto& sw = bar.getLoadSwitch();
+                t.expect (textAreaFits (version), where + ": the text area is wide enough, so no dots");
+                t.expect (version.getRight() <= sw.getX(), where + ": the version does not overlap Processing Load");
+                t.expect (bar.getReadout().getX() >= sw.getRight() && bar.getReadout().getRight() <= probe.getX(), where + ": the readout stays between the switch and the own control");
+                t.expect (bar.getReadout().getWidth() > 0, where + ": the readout still has room");
+                t.expect (! sw.getBounds().intersects (probe.getBounds()), where + ": Processing Load and the plugin's control do not overlap");
+            }
+    }
+
+    // True when the label's text area (its width minus its own border) holds the whole text.
+    inline bool textAreaFits (juce::Label& label)
+    {
+        juce::GlyphArrangement glyphs;
+        glyphs.addLineOfText (label.getFont(), label.getText(), 0.0f, 0.0f);
+        const auto textWidth = glyphs.getBoundingBox (0, -1, false).getWidth();
+        return textWidth <= (float) (label.getWidth() - label.getBorderSize().getLeftAndRight());
     }
 
     // SUI-15: the label shows the version in the root VERSION file (read independently of the build), so a
