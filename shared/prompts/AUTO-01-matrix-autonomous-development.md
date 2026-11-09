@@ -1,4 +1,29 @@
+---
+id: AUTO-01
+status: blocked
+execution: deferred
+priority: high
+model: sonnet
+effort: high
+dependencies: []
+conflicts: []
+---
+
 # AUTO-01 — Matrix autonomous Songsmith development orchestrator
+
+## Parent epic: split into verifiable delivery stories (9 November 2026)
+
+**This is now a tracking epic, not an executable Matrix backlog job.** The historical specification below remains for traceability. `status: blocked` / `execution: deferred` prevents duplicate work while the independently deliverable children progress.
+
+| Milestone | Scope | Status |
+|---|---|---|
+| [AUTO-06](done/AUTO-06-matrix-queue-and-usage-foundation.md) | GitHub canonical queue, dry-run, Claude subscription usage gate | **Done — merged code and observed dry run** (#101, #102) |
+| [AUTO-07](done/AUTO-07-linux-ci-worker-code-foundation.md) | Linux worker code, tests and CI handoff | **Done — code milestone only** (#139) |
+| [AUTO-08](AUTO-08-linux-container-deployment-validation.md) | Actual isolated container, scheduling, secrets and recovery validation | Open |
+| [AUTO-09](AUTO-09-container-development-ci-and-merge-pilot.md) | Real task → Claude → draft PR → Windows/macOS CI → policy merge | Open |
+| [AUTO-10](AUTO-10-verified-beta-distribution-e2e.md) | Automatic patch version, 2 installers, R2 and live website verification | Open |
+
+**Epic exit criteria:** AUTO-08, AUTO-09 and AUTO-10 accepted with actual deployment evidence. AUTO-03 heartbeat and AUTO-04 optional multi-agent TDD remain separate enhancement stories. No status change enables a running worker; release and CI integrity checks stay in force.
 
 ## Current target architecture — Linux container on Matrix (9 November 2026)
 
