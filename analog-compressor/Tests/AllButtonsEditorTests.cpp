@@ -347,6 +347,94 @@ struct EditorTests4 final : juce::UnitTest
             expectWithinAbsoluteError ((float) area.getWidth(), 112.0f * s, 1.5f);
         }
 
+        beginTest ("SUI-10: drag-resizing keeps the proportions, stays within limits and is remembered");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            std::unique_ptr<juce::AudioProcessorEditor> e (p.createEditor());
+            expect (e->isResizable(), "the editor can be resized by dragging");
+
+            // Smallest and largest sizes, and a size between the menu steps.
+            for (int w : { minEditorWidth, 1111, 1500, maxEditorWidth })
+            {
+                e->setSize (w, editorHeightFor (w));
+                expectEquals (p.editorWidth.load(), w, "the dragged width is kept for the session");
+                auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (e.get());
+                if (ed == nullptr) { expect (false); continue; }
+                expect (e->getLocalBounds().contains (e->getLocalArea (&ed->getKnob (ID::release), ed->getKnob (ID::release).getLocalBounds())),
+                        "release knob inside the window at " + juce::String (w));
+                const auto allBounds = e->getLocalArea (&ed->getAllButton(), ed->getAllButton().getLocalBounds());
+                expect (e->getLocalBounds().contains (allBounds), "All inside the window at " + juce::String (w));
+                expectGreaterOrEqual (allBounds.getHeight(), 40 * w / designWidth - 1, "All stays a large enough target");
+            }
+
+            // Too small or too large is held within the limits.
+            // (A drag goes through the window's constrainer.)
+            auto* constrainer = e->getConstrainer();
+            expect (constrainer != nullptr);
+            if (constrainer != nullptr)
+            {
+                expectEquals (constrainer->getMinimumWidth(), minEditorWidth);
+                expectEquals (constrainer->getMaximumWidth(), maxEditorWidth);
+                juce::Rectangle<int> tooSmall (0, 0, 200, 100), tooBig (0, 0, 9000, 9000);
+                constrainer->checkBounds (tooSmall, { 0, 0, minEditorWidth, editorHeightFor (minEditorWidth) }, { 0, 0, 20000, 20000 }, false, false, false, false);
+                constrainer->checkBounds (tooBig, { 0, 0, minEditorWidth, editorHeightFor (minEditorWidth) }, { 0, 0, 20000, 20000 }, false, false, false, false);
+                expectEquals (tooSmall.getWidth(), minEditorWidth);
+                expectLessOrEqual (tooBig.getWidth(), maxEditorWidth);
+                expectWithinAbsoluteError ((double) tooBig.getWidth() / tooBig.getHeight(), (double) designWidth / designHeight, 0.01);
+            }
+
+            // Session recall keeps the exact width; an older session (interface size only) still opens.
+            e->setSize (1234, editorHeightFor (1234));
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+            SongsmithAnalogCompressorProcessor q;
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expectEquals (q.editorWidth.load(), 1234);
+            std::unique_ptr<juce::AudioProcessorEditor> reopened (q.createEditor());
+            expectEquals (reopened->getWidth(), 1234);
+
+            SongsmithAnalogCompressorProcessor old;
+            juce::XmlElement oldState ("SongsmithAnalogCompressor");
+            oldState.createNewChildElement ("UI")->setAttribute ("uiScale", 1.5);
+            juce::AudioProcessor::copyXmlToBinary (oldState, mb);
+            old.setStateInformation (mb.getData(), (int) mb.getSize());
+            std::unique_ptr<juce::AudioProcessorEditor> oldEditor (old.createEditor());
+            expectEquals (oldEditor->getWidth(), juce::roundToInt (designWidth * 1.5f), "an older session keeps its interface size");
+
+            // Loading a sound preset keeps the window size.
+            const int before = e->getWidth();
+            p.presets.loadFactory (1);
+            expectEquals (e->getWidth(), before, "a preset does not change the window size");
+            expectEquals (p.editorWidth.load(), before);
+        }
+
+        beginTest ("SUI-10: the ratio panel says All, with a tooltip that explains it; every control has help and a matching name");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            SongsmithAnalogCompressorEditor e (p);
+            expectEquals (e.getAllButton().getButtonText(), juce::String ("All"));
+            expectEquals (e.getAllButton().getTitle(), juce::String ("All"));
+            expect (e.getAllButton().getTooltip().containsIgnoreCase ("all four ratio buttons"), "tooltip explains the action");
+
+            std::function<void (juce::Component&)> walk = [&] (juce::Component& c)
+            {
+                const bool interactive = dynamic_cast<juce::Button*> (&c) != nullptr || dynamic_cast<juce::ComboBox*> (&c) != nullptr
+                                         || dynamic_cast<juce::Slider*> (&c) != nullptr;
+                if (interactive && c.isVisible() && c.getParentComponent() != nullptr
+                    && dynamic_cast<juce::ComboBox*> (c.getParentComponent()) == nullptr)
+                {
+                    auto* tip = dynamic_cast<juce::SettableTooltipClient*> (&c);
+                    const auto name = c.getTitle().isNotEmpty() ? c.getTitle() : c.getName();
+                    expect (tip != nullptr && tip->getTooltip().isNotEmpty(), "tooltip on " + name);
+                    if (auto* b = dynamic_cast<juce::Button*> (&c); b != nullptr && b->getButtonText().isNotEmpty())
+                        expect (b->getTitle() == b->getButtonText() || b->getTitle().isNotEmpty(), "accessible name on " + b->getButtonText());
+                }
+                for (auto* child : c.getChildren())
+                    walk (*child);
+            };
+            walk (e);
+        }
+
         beginTest ("readable values and double-click defaults");
         {
             SongsmithAnalogCompressorProcessor p;

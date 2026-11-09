@@ -69,7 +69,8 @@ public:
     bool isAllButtonsOn() const noexcept { return allButtonsParam->load() >= 0.5f; }
 
     // Editor state saved with the session (not automatable): interface size and meter mode.
-    std::atomic<float> uiScale { 1.0f };
+    std::atomic<float> uiScale { 1.0f };   // the nearest interface size option (menu); old sessions only had this
+    std::atomic<int> editorWidth { 0 };    // the dragged window width; 0 = not set, use uiScale (SUI-10)
 
     // Optional timing of processBlock for the editor's Processing Load readout (off unless the editor switches it on).
     Songsmith::Diagnostics::LoadMeter loadMeter;
