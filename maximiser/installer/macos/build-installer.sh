@@ -99,6 +99,9 @@ component() {
             /usr/libexec/PlistBuddy -c "Add :$i:BundleIsRelocatable bool false" "$plist"
         /usr/libexec/PlistBuddy -c "Set :$i:BundleOverwriteAction upgrade" "$plist" 2>/dev/null ||
             /usr/libexec/PlistBuddy -c "Add :$i:BundleOverwriteAction string upgrade" "$plist"
+        # A release numbered below an installed build must still replace it: do not skip bundles by version.
+        /usr/libexec/PlistBuddy -c "Set :$i:BundleIsVersionChecked false" "$plist" 2>/dev/null ||
+            /usr/libexec/PlistBuddy -c "Add :$i:BundleIsVersionChecked bool false" "$plist"
         i=$((i + 1))
     done
 

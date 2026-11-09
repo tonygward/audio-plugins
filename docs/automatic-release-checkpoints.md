@@ -86,3 +86,13 @@ With `MATRIX_AUTOMERGE_ENABLED=true`, two workflows close the loop after the Mat
 - **Matrix archive merged prompt** (`matrix-archive-prompt.yml`) runs on `main` after such a merge and moves the prompt into its `done/` folder with `status: done`. A prompt is therefore only "done" once its work is in `main`, and prompts that depend on it become available.
 
 Logic and tests: `scripts/matrix/automerge.mjs`, `test/matrix-automerge.test.mjs`. Set `MATRIX_AUTOMERGE_ENABLED=false` to stop both. Not covered: a person did not see the interface before the merge, and nothing was checked in a DAW; check the beta build.
+
+## Version 0.5.0 reset (SUI-15)
+
+The suite version was deliberately reset from 1.3.x to **0.5.0**. Ordinary builds must not change it, so set the repository variable
+`AUTO_BETA_VERSION_ENABLED=false` before this merges; the automatic patch bump would otherwise move 0.5.0 to 0.5.1 once v0.5.0 is tagged.
+Later releases are then checkpoints chosen by hand (a new `VERSION` plus a matching `## X.Y.Z` changelog section). Per-build identity stays
+in the CI run number and commit SHA, never in `VERSION`.
+
+Installers: the Windows installer replaces any installed version, so 0.5.0 installs over 1.3.x. The macOS component packages are built with
+`BundleIsVersionChecked` off for the same reason; without it Installer keeps a newer 1.x bundle. Existing 1.x releases and tags stay as published.
