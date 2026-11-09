@@ -18,6 +18,10 @@ namespace Songsmith::UI::Wording
         return banned;
     }
 
+    // SUI-10: "All" is the Analog Compressor's ratio-panel button (it presses all four ratio buttons at
+    // once). It is a whole word, so it passes the rules below; its tooltip explains it. The older
+    // SUI-03 wish for "All Buttons" is superseded for this one label.
+
     // Short forms that are allowed: units, key names, format names, the Q control, and the
     // product name "EQ" (Songsmith EQ; generic text says "equaliser" or "band").
     inline bool isAllowedShortForm (const juce::String& word)

@@ -175,7 +175,8 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
         content.addAndMakeVisible (*b);
         ratioButtons[(size_t) i] = std::move (b);
     }
-    allButton.setTooltip ("All: presses every ratio button at once, for a more aggressive, harder and more distorted sound. Press a single ratio to go back.");
+    allButton.setTooltip ("All: presses all four ratio buttons in at once, for a harder, more aggressive and more distorted sound. "
+                          "Press any single ratio to go back to it.");
     allButton.onClick = [this] { allButtonsAttachment.setValueAsCompleteGesture (allButtonsOn ? 0.0f : 1.0f); };
     content.addAndMakeVisible (allButton);
 
@@ -200,18 +201,27 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
 
     for (int i = 0; i < oversamplingNames().size(); ++i)
         oversampling.addItem (oversamplingText (i), i + 1);
-    oversampling.setTooltip ("Oversampling: runs the compressor at a higher sample rate, so its distortion stays clean "
-                             "instead of folding back as harsh tones. Higher settings use more processing power.");
+    oversampling.setTooltip ("Runs the compressor at a higher rate inside the plugin, for a cleaner top end when compressing hard. "
+                             "Uses more processing power and adds a little delay.");
     content.addAndMakeVisible (oversampling);
     oversampling.setSelectedItemIndex ((int) p.apvts.getRawParameterValue (ID::oversampling)->load(), juce::dontSendNotification);
 
     for (int i = 0; i < (int) std::size (uiScales); ++i)
         sizeBox.addItem ("Interface size: " + juce::String (juce::roundToInt (uiScales[i] * 100.0f)) + " %", i + 1);
-    sizeBox.setTooltip ("Interface size: makes the whole window larger or smaller");
+    sizeBox.setTooltip ("Interface size: makes the whole window larger or smaller. You can also drag the bottom-right corner of the window.");
+    sizeBox.setTitle ("Interface size");
     sizeBox.onChange = [this] { setUiScale (uiScales[(size_t) juce::jmax (0, sizeBox.getSelectedId() - 1)]); };
     content.addAndMakeVisible (sizeBox);
 
-    presetBox.setTooltip ("Starting points and your own presets");
+    presetBox.setTooltip ("Preset: choose a starting point or one of your own, or save the current settings. Loading a preset keeps the window size.");
+    presetBox.setTitle ("Preset");
+    oversampling.setTitle ("Oversampling");
+    for (auto* b : { &allButton, &grOffButton, &bypassButton })
+        b->setTitle (b->getButtonText());
+    for (size_t m = 0; m < meterButtons.size(); ++m)
+        meterButtons[m].setTitle (meterButtons[m].getButtonText());
+    for (size_t i = 0; i < ratioButtons.size(); ++i)
+        ratioButtons[i]->setTitle ("Ratio " + ratioNames()[(int) i]);
     presetBox.onChange = [this] { presetChosen(); };
     content.addAndMakeVisible (presetBox);
     rebuildPresetMenu();
@@ -231,7 +241,20 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     content.addAndMakeVisible (*diagnostics);
 
     layoutContent();
-    setUiScale (proc.uiScale.load());
+
+    // Drag-resizing keeps the design proportions. The saved width (or, for older sessions, the saved
+    // interface size) is read first: setting the limits resizes the window.
+    const int savedWidth = proc.editorWidth.load() > 0
+                               ? proc.editorWidth.load()
+                               : juce::roundToInt ((float) designWidth * snapUiScale (proc.uiScale.load()));
+    setResizable (true, true);
+    setResizeLimits (minEditorWidth, editorHeightFor (minEditorWidth), maxEditorWidth, editorHeightFor (maxEditorWidth));
+    if (auto* c = getConstrainer())
+        c->setFixedAspectRatio ((double) designWidth / (double) designHeight);
+    const int width = constrainEditorWidth (savedWidth);
+    setSize (width, editorHeightFor (width));
+    constructed = true;
+    syncSizeFromWidth();
     startTimerHz (30);
 }
 
@@ -244,12 +267,22 @@ SongsmithAnalogCompressorEditor::~SongsmithAnalogCompressorEditor()
 
 void SongsmithAnalogCompressorEditor::setUiScale (float scale)
 {
-    uiScale = snapUiScale (scale);
+    const int width = constrainEditorWidth (juce::roundToInt ((float) designWidth * snapUiScale (scale)));
+    setSize (width, editorHeightFor (width));   // resized() saves the width and updates the menu
+    syncSizeFromWidth();
+}
+
+// The window width is the truth; the menu shows the nearest interface size and old sessions keep one.
+void SongsmithAnalogCompressorEditor::syncSizeFromWidth()
+{
+    if (! constructed)
+        return;
+    proc.editorWidth.store (getWidth());
+    uiScale = snapUiScale ((float) getWidth() / (float) designWidth);
     proc.uiScale.store (uiScale);
     for (int i = 0; i < (int) std::size (uiScales); ++i)
         if (uiScales[i] == uiScale)
             sizeBox.setSelectedId (i + 1, juce::dontSendNotification);
-    setSize (juce::roundToInt ((float) designWidth * uiScale), juce::roundToInt ((float) designHeight * uiScale));
 }
 
 void SongsmithAnalogCompressorEditor::resized()
@@ -257,6 +290,7 @@ void SongsmithAnalogCompressorEditor::resized()
     content.setBounds (0, 0, designWidth, designHeight);
     content.setTransform (juce::AffineTransform::scale ((float) getWidth() / (float) designWidth,
                                                         (float) getHeight() / (float) designHeight));
+    syncSizeFromWidth();
 }
 
 void SongsmithAnalogCompressorEditor::layoutContent()
@@ -475,19 +509,49 @@ void SongsmithAnalogCompressorEditor::presetChosen()
 void SongsmithAnalogCompressorEditor::savePresetAsync()
 {
     saveDialog = std::make_unique<juce::AlertWindow> ("Save preset", "Name for the preset:", juce::MessageBoxIconType::NoIcon, this);
-    saveDialog->addTextEditor ("name", proc.presets.currentName, {});
+    // Starting points are read-only, so don't suggest saving over one's name.
+    const auto suggested = Presets::isFactoryName (proc.presets.currentName) ? juce::String() : proc.presets.currentName;
+    saveDialog->addTextEditor ("name", suggested, {});
     saveDialog->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
     saveDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-    saveDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this] (int result)
+    saveDialog->enterModalState (true, juce::ModalCallbackFunction::create ([safe = juce::Component::SafePointer<SongsmithAnalogCompressorEditor> (this)] (int result)
     {
-        if (result == 1 && saveDialog != nullptr)
+        if (safe == nullptr)
+            return;
+
+        const auto name = safe->saveDialog != nullptr ? safe->saveDialog->getTextEditorContents ("name") : juce::String();
+        safe->saveDialog.reset();
+
+        if (result == 1)
         {
+            if (safe->proc.presets.userPresetExists (name))
+            {
+                // Overwriting is allowed, but only on purpose.
+                juce::AlertWindow::showAsync (juce::MessageBoxOptions()
+                                                  .withIconType (juce::MessageBoxIconType::QuestionIcon)
+                                                  .withTitle ("Replace preset")
+                                                  .withMessage ("A preset called \"" + name.trim() + "\" already exists. Replace it with the current settings?")
+                                                  .withButton ("Replace", 1)
+                                                  .withButton ("Cancel", 0)
+                                                  .withAssociatedComponent (safe.getComponent()),
+                                              [safe, name] (int choice)
+                                              {
+                                                  if (safe == nullptr || choice != 1)
+                                                      return;
+                                                  juce::String error;
+                                                  if (! safe->proc.presets.saveAs (name, error))
+                                                      juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Preset", error);
+                                                  safe->rebuildPresetMenu();
+                                                  safe->content.repaint();
+                                              });
+                return;
+            }
+
             juce::String error;
-            if (! proc.presets.saveAs (saveDialog->getTextEditorContents ("name"), error))
+            if (! safe->proc.presets.saveAs (name, error))
                 juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Preset", error);
         }
-        saveDialog.reset();
-        rebuildPresetMenu();
-        content.repaint();
+        safe->rebuildPresetMenu();
+        safe->content.repaint();
     }), false);
 }

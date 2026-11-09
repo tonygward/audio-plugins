@@ -3411,7 +3411,7 @@ public:
             const char* names[] = { "Flat", nullptr, nullptr, nullptr, nullptr, nullptr, "Bright acoustic", nullptr,
                                     nullptr, nullptr, nullptr, "Acoustic guitar", nullptr, nullptr, nullptr, nullptr,
                                     nullptr, nullptr, nullptr, "Acoustic guitar in a full mix", "Acoustic guitar pickup",
-                                    "Abbey Road reverb", "Rack tom", "Floor tom", "Toms bus", "Mid tom", "High tom" };
+                                    "Reverb send clean-up", "Rack tom", "Floor tom", "Toms bus", "Mid tom", "High tom" };
             expectGreaterOrEqual (PresetManager::getNumFactoryPresets(), 27);
             for (int i = 0; i < (int) std::size (names); ++i)
                 if (names[i] != nullptr)
@@ -3434,7 +3434,7 @@ public:
                 { "Guitars - Electric Guitar", "Guitars" }, { "Guitars - Electric Guitar Bus", "Guitars" },
                 { "Guitars - Bass Guitar", "Guitars" }, { "Vocals - Lead Vocal", "Vocals" },
                 { "Vocals - Backing Vocals", "Vocals" }, { "Vocals - Spoken Word", "Vocals" },
-                { "Effects - Reverb Return", "Effects" }, { "Effects - Abbey Road Reverb", "Effects" } };
+                { "Effects - Reverb Return", "Effects" }, { "Effects - Reverb Send Clean-up", "Effects" } };
 
             SongsmithEQAudioProcessor p;
             const auto all = p.presets.getAllPresets();
@@ -3586,10 +3586,27 @@ public:
             expectEquals ((int) p.presets.getUserPresets().size(), 0);
         }
 
-        beginTest ("Abbey Road reverb: Tony's Pro-Q 4 preset, band for band");
+        beginTest ("SUI-09: a duplicate name is detected before it is replaced, and replacing adds no second file");
+        {
+            SongsmithEQAudioProcessor p;
+            PresetTests::TempFolder folder;
+            p.presets.setUserFolder (folder.dir);
+            juce::String error;
+
+            expect (! p.presets.userPresetExists ("Guitar Warmth"), "nothing saved yet");
+            expect (! p.presets.userPresetExists ("   "), "an empty name never exists");
+            expect (p.presets.saveAs ("Guitar Warmth", error), error);
+            expect (p.presets.userPresetExists ("Guitar Warmth"));
+            expect (p.presets.userPresetExists ("  Guitar Warmth "), "the check cleans the name like a save does");
+
+            expect (p.presets.saveAs ("Guitar Warmth", error), error);   // deliberate replace, after the confirmation
+            expectEquals ((int) p.presets.getUserPresets().size(), 1);
+        }
+
+        beginTest ("Reverb send clean-up: Tony's Pro-Q 4 preset, band for band");
         {
             const int index = 21;
-            expectEquals (PresetManager::getFactoryName (index), juce::String ("Abbey Road reverb"));
+            expectEquals (PresetManager::getFactoryName (index), juce::String ("Reverb send clean-up"));
             expect (PresetManager::isStartingPoint (index));
             expectEquals (PresetManager::getFactoryUsedBands (index), 5);
             const auto d = PresetManager::getFactoryPreset (index);
@@ -5475,6 +5492,43 @@ public:
                 expect (text.contains (juce::String (r.label)) && text.contains (inst.name), where + ": names the word and the instrument");
                 expect (text.contains ("around") || text.contains ("under") || text.contains ("above"), where + ": the range is only approximate");
                 expect (text.contains ("Hz"), where + ": says where it is");
+            }
+        }
+
+        beginTest ("On-screen guide text names no educator or person; provenance stays in the source field");
+        for (const auto& inst : all)
+        {
+            juce::StringArray texts { inst.name, inst.note };
+            for (const auto& r : inst.regions)
+            {
+                texts.add (r.label);
+                texts.add (Guide::tooltipFor (inst, r));
+                expect (juce::String (r.source).isNotEmpty(), juce::String (inst.name) + "/" + r.label + ": provenance kept");
+            }
+            for (const auto& t : texts)
+            {
+                expect (! t.containsIgnoreCase ("gilder"), "\"" + t.substring (0, 40) + "\" names an educator");
+                expect (! t.containsWholeWord ("Joe") && ! t.containsWholeWord ("Joe's"), "\"" + t.substring (0, 40) + "\" names Joe");
+                expect (! t.containsWholeWord ("Tony") && ! t.contains ("Tony's"), "\"" + t.substring (0, 40) + "\" names a person");
+                expect (! t.containsIgnoreCase ("video") && ! t.containsIgnoreCase ("tutorial"), "\"" + t.substring (0, 40) + "\" cites a tutorial");
+            }
+        }
+
+        beginTest ("Plastic and Cheap are kept, explained in hedged listening terms, with a note that no change may be needed");
+        {
+            for (const auto* label : { "Plastic", "Cheap" })
+            {
+                const Guide::Region* found = nullptr;
+                for (const auto& r : named ("Acoustic Guitar").regions)
+                    if (juce::String (r.label) == label)
+                        found = &r;
+                expect (found != nullptr, juce::String (label) + " is still there");
+                if (found == nullptr) continue;
+                const juce::String tip (found->tip);
+                expect (tip.containsIgnoreCase ("if this band is strong"), juce::String (label) + ": conditional, not a diagnosis");
+                expect (tip.containsIgnoreCase ("may need no adjustment"), juce::String (label) + ": says nothing may be needed");
+                expect (tip.containsIgnoreCase ("listen"), juce::String (label) + ": says what to do: listen");
+                expect (! tip.containsIgnoreCase ("always") && ! tip.containsIgnoreCase ("electronic"), juce::String (label) + ": no absolute or genre claim");
             }
         }
 

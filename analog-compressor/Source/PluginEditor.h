@@ -55,6 +55,7 @@ public:
     static juce::String oversamplingText (int index);    // "Oversampling: off", "Oversampling: 2x" ...
 
 private:
+    void syncSizeFromWidth();
     void timerCallback() override { advanceMeter (1.0f / 30.0f); }
     void refreshButtons();
     void setMeterMode (int mode);
@@ -76,6 +77,7 @@ private:
     FET::UI::LookAndFeel lnf;
     Content content { *this };
     float uiScale = 1.0f;
+    bool constructed = false;   // until then, resizing does not overwrite the saved window width
 
     FETKnob input, output, attack, release;
     std::array<std::unique_ptr<juce::TextButton>, 4> ratioButtons;

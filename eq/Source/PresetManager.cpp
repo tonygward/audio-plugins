@@ -148,7 +148,9 @@ namespace EQ
                 // Tony's Pro-Q 4 preset "Abbey Road Reverb Trick" (Jul 2026), band for band, as decoded in
                 // music-recording/fx-chains/saved-chains.md ("Vocals Reverb (Dual)": Pro-Q 4 -> Pure Plate ->
                 // ValhallaRoom -> Pro-C 2). Cuts at Pro-Q's default slope (12 dB/oct here) and neutral Q.
-                { "Abbey Road reverb", { { T::LowCut,  377.28f,   0.0f,  defaultQ, 1 },
+                // SUI-09: renamed from "Abbey Road reverb". The preset title names the job, and the technique
+                // is credited in eq/docs/starting-points.md. The index (21) is the identity, so sessions still recall it.
+                { "Reverb send clean-up", { { T::LowCut,  377.28f,   0.0f,  defaultQ, 1 },
                                          { T::Bell,    594.40f,   0.54f, 1.923f },
                                          { T::HighCut, 17056.0f,  0.0f,  defaultQ, 1 },
                                          { T::Bell,    10094.0f,  0.41f, 2.158f },
@@ -322,7 +324,7 @@ namespace EQ
                 { 1,  "Vocals",  "Vocals - Quick Clean-up" },               // was "Vocal clean-up"
 
                 { 17, "Effects", "Effects - Reverb Return" },
-                { 21, "Effects", "Effects - Abbey Road Reverb" },
+                { 21, "Effects", "Effects - Reverb Send Clean-up" },        // was "Abbey Road reverb"
                 { 4,  "Effects", "Effects - Telephone" },
 
                 { 2,  "General", "General - Low-End Tidy" },                // was "Low-end tidy"
@@ -563,6 +565,16 @@ namespace EQ
         setCurrent ({ name, -1, file }, processor.edits.getPresetData());
         processor.notifyNonParameterStateChanged();
         return true;
+    }
+
+    bool PresetManager::userPresetExists (const juce::String& rawName) const
+    {
+        const auto name = juce::File::createLegalFileName (rawName.trim());
+        if (name.isEmpty())
+            return false;
+        const auto folder = getUserFolder();
+        return folder.getChildFile (name + fileExtension).existsAsFile()
+            || folder.getChildFile (name + legacyFileExtension).existsAsFile();
     }
 
     bool PresetManager::canSaveInPlace() const

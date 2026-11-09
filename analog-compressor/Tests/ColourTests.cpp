@@ -253,6 +253,34 @@ struct OversamplingTests final : juce::UnitTest
             juce::AudioProcessor::copyXmlToBinary (v1, mb);
             p.setStateInformation (mb.getData(), (int) mb.getSize());
             expectEquals ((int) p.apvts.getRawParameterValue (ID::oversampling)->load(), oversamplingDefault);
+            expectEquals ((int) p.apvts.getRawParameterValue (ID::oversampling)->load(), 0, "version 1 sessions load as Off");
+        }
+
+        beginTest ("a fresh instance has oversampling Off and reports 0 samples of latency");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            expectEquals ((int) p.apvts.getRawParameterValue (ID::oversampling)->load(), 0);
+            p.setBusesLayout (monoLayout());
+            p.prepareToPlay (48000.0, 512);
+            p.updateLatencyNow();
+            expectEquals (p.getLatencySamples(), 0);
+        }
+
+        beginTest ("a state version 2 session saved with 4x loads as 4x and reports its latency");
+        {
+            SongsmithAnalogCompressorProcessor a;
+            ColourMeasure::set (a, ID::oversampling, 2.0f);
+            juce::MemoryBlock mb;
+            a.getStateInformation (mb);
+
+            SongsmithAnalogCompressorProcessor b;
+            b.setStateInformation (mb.getData(), (int) mb.getSize());
+            expectEquals ((int) b.apvts.getRawParameterValue (ID::oversampling)->load(), 2);
+            b.setBusesLayout (monoLayout());
+            b.prepareToPlay (48000.0, 512);
+            b.updateLatencyNow();
+            expectGreaterThan (b.getLatencySamples(), 0);
+            expectEquals (b.getLatencySamples(), b.getOversamplingLatency (2));
         }
     }
 };

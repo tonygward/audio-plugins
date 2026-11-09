@@ -59,7 +59,7 @@ namespace FET
         static const juce::StringArray names { "Off", "2x", "4x" };
         return names;
     }
-    inline constexpr int oversamplingDefault = 2;   // 4x: see docs/colour.md "Oversampling"
+    inline constexpr int oversamplingDefault = 0;   // Off: no delay, least processing power. See docs/colour.md "Oversampling"
 }
 
 namespace FET
@@ -74,6 +74,19 @@ namespace FET
     inline constexpr int lowCutX = 786, lowCutY = 314, lowCutWidth = 150, lowCutHeight = 32;
     inline constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
     inline constexpr int designHeight = contentHeight + footerHeight;
+
+    // Drag-resizing (SUI-10): the window keeps the design proportions. Smallest = the design size, so
+    // text stays at least 12 px (11 px grid labels); largest = 200 %.
+    inline constexpr int minEditorWidth = designWidth, maxEditorWidth = designWidth * 2;
+
+    inline int constrainEditorWidth (int width) noexcept
+    {
+        return width < minEditorWidth ? minEditorWidth : width > maxEditorWidth ? maxEditorWidth : width;
+    }
+    inline int editorHeightFor (int width) noexcept
+    {
+        return (int) ((double) width * designHeight / designWidth + 0.5);
+    }
 
     inline float snapUiScale (float s)
     {

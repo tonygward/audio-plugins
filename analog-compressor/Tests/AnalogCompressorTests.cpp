@@ -73,7 +73,7 @@ struct IdentityTests final : juce::UnitTest
             { "allButtons",   0.0f,  1.0f, 0.0f },
             { "grOff",        0.0f,  1.0f, 0.0f },
             { "bypass",       0.0f,  1.0f, 0.0f },
-            { "oversampling", 0.0f,  2.0f, 2.0f, 2 },
+            { "oversampling", 0.0f,  2.0f, 0.0f, 2 },
         };
 
         expectEquals (p.getParameters().size(), (int) std::size (expected), "no parameters added or removed silently");
@@ -472,7 +472,7 @@ struct EditorRefinementTests final : juce::UnitTest
             }
             auto& all = dynamic_cast<juce::TextButton&> (ed->getAllButton());
             expectEquals (all.getButtonText(), juce::String ("All"));
-            expect (all.getTooltip().contains ("every ratio button") && all.getTooltip().contains ("aggressive"), "the tooltip explains what All does");
+            expect (all.getTooltip().contains ("all four ratio buttons") && all.getTooltip().contains ("aggressive"), "the tooltip explains what All does");
             for (const auto& text : { all.getTooltip(), dynamic_cast<juce::TextButton&> (ed->getRatioButton (3)).getTooltip() })
                 expect (Songsmith::UI::Wording::findBanned (text).isEmpty(), "plain words: " + Songsmith::UI::Wording::findBanned (text));
         }

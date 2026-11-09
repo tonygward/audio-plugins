@@ -49,7 +49,13 @@ Everything is laid out in design units (960 x 400) inside one component, and tha
 
 These are saved in the session (a `UI` child of the state, alongside the parameters):
 
-- the interface size;
+- the window width (`editorWidth`, SUI-10) and the nearest interface size (`uiScale`; older sessions only have this, and reopen at that size);
 - the meter mode.
+
+Loading a preset never changes the window size.
+
+## Resizing (SUI-10)
+
+Drag the window corner where the host allows it. The window keeps the design proportions (960 × 428) between 100 % (the minimum, so text stays at least 12 px) and 200 %. The whole editor is drawn in design units and scaled as one, so it stays sharp. The Interface size menu jumps to 100, 125, 150, 175 or 200 % and shows the nearest step after a drag.
 
 Out-of-range values are snapped or clamped (tested). Every control's value is a host parameter and is recalled with it.

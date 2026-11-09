@@ -2,6 +2,38 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
 
+## 1.3.7
+
+### Songsmith Analog Compressor
+- **Drag to resize:** you can now drag the corner of the compressor window to make it larger, from its normal size up to double. The window keeps its proportions, and the Interface size menu still works. The size you choose is remembered when you reopen the window and with your session. Loading a preset never changes the window size, and older sessions open at the size they were saved with, so you don't need to do anything.
+- **Clearer help:** every button and menu now has a short tooltip, including Preset, Interface size and the meter buttons. The **All** button explains that it presses all four ratio buttons at once.
+
+## 1.3.6
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
+## 1.3.5
+
+### Songsmith EQ
+- **Asks before replacing a saved preset:** if you use Save As with a name you have already used, the EQ now asks whether to replace that preset. Nothing is replaced unless you choose Replace, so you don't need to do anything.
+- **Clearer reverb preset name:** the Starting Points entry for putting an EQ before a reverb is now called Reverb Send Clean-up. It sounds exactly the same, and sessions that used it still load it.
+
+### Songsmith Analog Compressor
+- **Safer preset saving:** the compressor now asks before replacing one of your saved presets, and keeps its built-in starting points protected, so a name such as Lead vocal can't be saved over. If you try one, choose a different name.
+- **Oversampling now starts Off:** a new Analog Compressor adds no delay and uses the least processing power, which suits many tracks at once and recording. If you compress hard and want a cleaner top end, choose 2x or 4x from the Oversampling menu. Saved sessions keep the setting they were saved with, so you don't need to do anything.
+
+### Songsmith Maximiser
+- **True peak is now the default:** a new Maximiser starts in True peak mode, so the peaks between samples stay under the Output Ceiling, which is what streaming and broadcast checks measure. It uses a little more processing power than Sample peak. Sessions you have already saved keep the peak mode they were saved with and sound the same, so you don't need to do anything. If you prefer the lighter Sample peak mode, you can still choose it.
+
+## 1.3.4
+
+### Songsmith EQ
+- **Clearer Frequency Guide hints:** the hover text now speaks directly to you: what a region might sound like, when to listen for it in your mix, and whether a small adjustment may help. The Plastic and Cheap regions on Acoustic Guitar say that the band may need no adjustment. Nothing about your sound, presets or saved sessions changes, and you don't need to do anything.
+
+## 1.3.3
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
 ## 1.3.2
 
 ### Songsmith EQ

@@ -110,7 +110,7 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     content.addAndMakeVisible (bypassButton);
 
     peakModeBox.addItemList (Max::getPeakModeNames(), 1);
-    peakModeBox.setTooltip ("Sample peak limits the samples; True peak also limits the peaks between them (no extra latency)");
+    peakModeBox.setTooltip ("True peak (the default) also limits the peaks between samples, which is what streaming and broadcast checks measure. Sample peak limits only the samples and uses less processing power. Neither adds latency");
     peakModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, Max::peakModeId, peakModeBox);
     content.addAndMakeVisible (peakModeBox);
 
