@@ -1,5 +1,16 @@
 # Suite prompts
 
+## Canonical backlog links — 9 November 2026
+
+Each new Songsmith implementation item must have a GitHub issue **and** one bidirectionally linked canonical Claude prompt before execution. Follow [the issue/prompt contract](BACKLOG-ISSUE-PROMPT-CONTRACT.md); an issue or `RUN NOW` annotation does not demonstrate Matrix pickup.
+
+| ID | Canonical prompt | GitHub issue | Status |
+|---|---|---|---|
+| VER-01 | [0.5.0 suite version](VER-01-standardise-suite-version-0.5.0.md) | [songsmithstudio #2](https://github.com/tonygward/songsmithstudio/issues/2) | Prompt drafted; coordinated execution pending |
+| SUI-15 | [Footer version label](SUI-15-footer-version-before-processing-load.md) | [songsmithstudio #3](https://github.com/tonygward/songsmithstudio/issues/3) | Prompt drafted; depends on VER-01 |
+| WEB-03 | [Beta plugin Features section](WEB-03-beta-plugin-features-section.md) | [songsmith-website #19](https://github.com/tonygward/songsmith-website/issues/19) | Prompt drafted; website execution pending |
+
+
 ## Overnight selection policy — functional changes only (9 November 2026)
 
 **Matrix's scheduled overnight and `build-now` development queues are reserved for functional Songsmith product work.** Eligible canonical prompt scopes are plugin tasks `EQ-`, `ACOMP-`, `MAX-`, and functional shared/plug-in work `SUI-`, `OPT-`, `PEQ-`, `BUS-`, `CLN-`, `ADV-`, `REC-` (subject to normal done/future/status, Sonnet/effort, dependency, allowance, security and CI gates). Infrastructure `AUTO-`, web/portal operations `WEB-`, and unknown scopes are **never selected** by the unattended functional worker, even when a file mistakenly says `execution: scheduled` or `build-now`. The code enforces this allowlist in `tools/matrix/backlog.mjs` for both daily and notification selection; changing Markdown metadata cannot override it.
