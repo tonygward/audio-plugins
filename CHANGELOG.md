@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
 
-## Unreleased
+## 1.3.7
 
 ### Songsmith Analog Compressor
 - **Drag to resize:** you can now drag the corner of the compressor window to make it larger, from its normal size up to double. The window keeps its proportions, and the Interface size menu still works. The size you choose is remembered when you reopen the window and with your session. Loading a preset never changes the window size, and older sessions open at the size they were saved with, so you don't need to do anything.
