@@ -188,7 +188,7 @@ test('paused, disabled and non-isolated runs do nothing', async t => {
 
 test('usage at or above the limit starts no agent', async t => {
   const f = fixture(t), a = adapter();
-  await runLinuxWorker(f.config, options(f, a, { loadUsage: () => ({ allowed: false, reason: 'Weekly usage at or above 70%', snapshot: null }) }));
+  await runLinuxWorker(f.config, options(f, a, { loadUsage: () => ({ allowed: false, reason: 'Weekly usage at or above 60%', snapshot: null }) }));
   assert.equal(a.seen.claude.length, 0);
 });
 
