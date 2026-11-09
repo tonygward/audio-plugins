@@ -36,7 +36,7 @@ function ensureField(project, existing, name, type, options) {
 }
 function set(project, item, field, value) {
   if (!value) return;
-  gh(['project', 'item-edit', String(project), '--owner', owner, '--url', item, '--field', field, '--value', value]);
+  gh(['project', 'item-edit', String(project), '--owner', owner, '--url', item, '--field', field, ...(field === 'Release Version' || field === 'Matrix Job' ? ['--text', value] : ['--value', value])]);
 }
 
 try {
