@@ -336,6 +336,8 @@ void SongsmithAnalogCompressorProcessor::getStateInformation (juce::MemoryBlock&
 
     juce::ValueTree ui (uiId);
     ui.setProperty ("uiScale", uiScale.load(), nullptr);
+    if (editorWidth.load() > 0)
+        ui.setProperty ("editorWidth", editorWidth.load(), nullptr);
     ui.setProperty ("meterMode", meterMode.load(), nullptr);
     ui.setProperty ("preset", presets.currentName, nullptr);
     ui.setProperty ("presetHint", presets.currentHint, nullptr);
@@ -378,6 +380,9 @@ void SongsmithAnalogCompressorProcessor::restoreFromValueTree (const juce::Value
 
     const auto ui = saved.getChildWithName (uiId);
     uiScale.store (FET::snapUiScale ((float) ui.getProperty ("uiScale", 1.0f)));
+    // Sessions saved before drag-resizing have no width: they reopen at their saved interface size.
+    editorWidth.store (ui.hasProperty ("editorWidth") ? FET::constrainEditorWidth ((int) ui.getProperty ("editorWidth"))
+                                                      : 0);
     meterMode.store (juce::jlimit (0, 2, (int) ui.getProperty ("meterMode", 0)));
     presets.currentName = ui.getProperty ("preset", juce::String()).toString();
     presets.currentHint = ui.getProperty ("presetHint", juce::String()).toString();

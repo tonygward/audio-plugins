@@ -175,7 +175,8 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
         content.addAndMakeVisible (*b);
         ratioButtons[(size_t) i] = std::move (b);
     }
-    allButton.setTooltip ("All: presses every ratio button at once, for a more aggressive, harder and more distorted sound. Press a single ratio to go back.");
+    allButton.setTooltip ("All: presses all four ratio buttons in at once, for a harder, more aggressive and more distorted sound. "
+                          "Press any single ratio to go back to it.");
     allButton.onClick = [this] { allButtonsAttachment.setValueAsCompleteGesture (allButtonsOn ? 0.0f : 1.0f); };
     content.addAndMakeVisible (allButton);
 
@@ -207,11 +208,20 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
 
     for (int i = 0; i < (int) std::size (uiScales); ++i)
         sizeBox.addItem ("Interface size: " + juce::String (juce::roundToInt (uiScales[i] * 100.0f)) + " %", i + 1);
-    sizeBox.setTooltip ("Interface size: makes the whole window larger or smaller");
+    sizeBox.setTooltip ("Interface size: makes the whole window larger or smaller. You can also drag the bottom-right corner of the window.");
+    sizeBox.setTitle ("Interface size");
     sizeBox.onChange = [this] { setUiScale (uiScales[(size_t) juce::jmax (0, sizeBox.getSelectedId() - 1)]); };
     content.addAndMakeVisible (sizeBox);
 
-    presetBox.setTooltip ("Starting points and your own presets");
+    presetBox.setTooltip ("Preset: choose a starting point or one of your own, or save the current settings. Loading a preset keeps the window size.");
+    presetBox.setTitle ("Preset");
+    oversampling.setTitle ("Oversampling");
+    for (auto* b : { &allButton, &grOffButton, &bypassButton })
+        b->setTitle (b->getButtonText());
+    for (size_t m = 0; m < meterButtons.size(); ++m)
+        meterButtons[m].setTitle (meterButtons[m].getButtonText());
+    for (size_t i = 0; i < ratioButtons.size(); ++i)
+        ratioButtons[i]->setTitle ("Ratio " + ratioNames()[(int) i]);
     presetBox.onChange = [this] { presetChosen(); };
     content.addAndMakeVisible (presetBox);
     rebuildPresetMenu();
@@ -231,7 +241,20 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     content.addAndMakeVisible (*diagnostics);
 
     layoutContent();
-    setUiScale (proc.uiScale.load());
+
+    // Drag-resizing keeps the design proportions. The saved width (or, for older sessions, the saved
+    // interface size) is read first: setting the limits resizes the window.
+    const int savedWidth = proc.editorWidth.load() > 0
+                               ? proc.editorWidth.load()
+                               : juce::roundToInt ((float) designWidth * snapUiScale (proc.uiScale.load()));
+    setResizable (true, true);
+    setResizeLimits (minEditorWidth, editorHeightFor (minEditorWidth), maxEditorWidth, editorHeightFor (maxEditorWidth));
+    if (auto* c = getConstrainer())
+        c->setFixedAspectRatio ((double) designWidth / (double) designHeight);
+    const int width = constrainEditorWidth (savedWidth);
+    setSize (width, editorHeightFor (width));
+    constructed = true;
+    syncSizeFromWidth();
     startTimerHz (30);
 }
 
@@ -244,12 +267,22 @@ SongsmithAnalogCompressorEditor::~SongsmithAnalogCompressorEditor()
 
 void SongsmithAnalogCompressorEditor::setUiScale (float scale)
 {
-    uiScale = snapUiScale (scale);
+    const int width = constrainEditorWidth (juce::roundToInt ((float) designWidth * snapUiScale (scale)));
+    setSize (width, editorHeightFor (width));   // resized() saves the width and updates the menu
+    syncSizeFromWidth();
+}
+
+// The window width is the truth; the menu shows the nearest interface size and old sessions keep one.
+void SongsmithAnalogCompressorEditor::syncSizeFromWidth()
+{
+    if (! constructed)
+        return;
+    proc.editorWidth.store (getWidth());
+    uiScale = snapUiScale ((float) getWidth() / (float) designWidth);
     proc.uiScale.store (uiScale);
     for (int i = 0; i < (int) std::size (uiScales); ++i)
         if (uiScales[i] == uiScale)
             sizeBox.setSelectedId (i + 1, juce::dontSendNotification);
-    setSize (juce::roundToInt ((float) designWidth * uiScale), juce::roundToInt ((float) designHeight * uiScale));
 }
 
 void SongsmithAnalogCompressorEditor::resized()
@@ -257,6 +290,7 @@ void SongsmithAnalogCompressorEditor::resized()
     content.setBounds (0, 0, designWidth, designHeight);
     content.setTransform (juce::AffineTransform::scale ((float) getWidth() / (float) designWidth,
                                                         (float) getHeight() / (float) designHeight));
+    syncSizeFromWidth();
 }
 
 void SongsmithAnalogCompressorEditor::layoutContent()

@@ -75,6 +75,19 @@ namespace FET
     inline constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
     inline constexpr int designHeight = contentHeight + footerHeight;
 
+    // Drag-resizing (SUI-10): the window keeps the design proportions. Smallest = the design size, so
+    // text stays at least 12 px (11 px grid labels); largest = 200 %.
+    inline constexpr int minEditorWidth = designWidth, maxEditorWidth = designWidth * 2;
+
+    inline int constrainEditorWidth (int width) noexcept
+    {
+        return width < minEditorWidth ? minEditorWidth : width > maxEditorWidth ? maxEditorWidth : width;
+    }
+    inline int editorHeightFor (int width) noexcept
+    {
+        return (int) ((double) width * designHeight / designWidth + 0.5);
+    }
+
     inline float snapUiScale (float s)
     {
         if (! std::isfinite (s))
