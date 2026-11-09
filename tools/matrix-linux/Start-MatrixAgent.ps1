@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('Build', 'Verify', 'Login', 'Run', 'Logs', 'Pause', 'Resume', 'Stop', 'Down')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('Build', 'Verify', 'Login', 'Run', 'Ensure', 'Logs', 'Pause', 'Resume', 'Stop', 'Down')][string]$Action,
     # Exact Claude Code version you have vetted (required for Build).
     [string]$ClaudeCodeVersion,
     # Folder OUTSIDE the repository holding agent_github_token (a fine-grained token, one value in one file).
@@ -70,6 +70,16 @@ switch ($Action) {
         $arguments = Get-AgentArguments -Secrets
         Invoke-Wslc run -d --name $agent @arguments $image worker | Out-Null
         Write-Output "Worker started. Follow it with: ./Start-MatrixAgent.ps1 -Action Logs"
+    }
+    'Ensure' {
+        # Safe to run at every logon: start the proxy, and start the worker only if it is not already running.
+        # A stopped worker (for example after a reboot) is recreated; its state lives in the matrix-work and matrix-home volumes.
+        Start-Egress
+        if (@(& wslc list 2>$null | Select-String -SimpleMatch $agent).Count -gt 0) { Write-Output "$agent is already running."; break }
+        if (Test-Wslc inspect $agent) { Invoke-Wslc remove --force $agent }
+        $arguments = Get-AgentArguments -Secrets
+        Invoke-Wslc run -d --name $agent @arguments $image worker | Out-Null
+        Write-Output "$agent started."
     }
     'Logs' { & wslc logs $agent }
     'Pause' { Invoke-Wslc exec $agent touch /work/state/PAUSED; Write-Output 'Paused: no new work starts; work in progress finishes.' }
