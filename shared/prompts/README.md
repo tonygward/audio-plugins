@@ -2,7 +2,7 @@
 
 ## Canonical backlog links — 9 November 2026
 
-Each new Songsmith implementation item must have a GitHub issue **and** one bidirectionally linked canonical Claude prompt before execution. Follow [the issue/prompt contract](BACKLOG-ISSUE-PROMPT-CONTRACT.md); an issue or `RUN NOW` annotation does not demonstrate Matrix pickup.
+Each new Songsmith implementation item must have a GitHub issue **and** one bidirectionally linked canonical Claude prompt before execution. Follow [the issue/prompt contract](../../docs/backlog-issue-prompt-contract.md); an issue or `RUN NOW` annotation does not demonstrate Matrix pickup.
 
 | ID | Canonical prompt | GitHub issue | Status |
 |---|---|---|---|
