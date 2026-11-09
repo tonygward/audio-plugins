@@ -147,12 +147,12 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
         let usedTurns = 0, spentUsd = 0, feedback = '', files = [];
         const implement = async attempt => {
           if (attempt) { const next = loadUsage(config.claudeUsage); if (!next.allowed || !usageGate(next.snapshot, clock()).allowed || next.extraUsageEnabled !== false) return 'Repair stopped by usage policy'; }
-          if (usedTurns >= w.maximumTurns || spentUsd >= w.maximumBudgetUsd) return 'Repair stopped by per-prompt turn/cost bounds';
+          if (spentUsd >= w.maximumBudgetUsd) return 'Repair stopped by per-prompt turn/cost bounds';
           log(p.id, 'agent-started', { attempt: attempt + 1 });
           // The agent never sees the GitHub token; its environment is the base environment only.
           let response;
           try {
-            response = await command(config.claudeUsage.executable, agentArguments(w, w.maximumTurns - usedTurns, w.maximumBudgetUsd - spentUsd), plan.directory,
+            response = await command(config.claudeUsage.executable, agentArguments(w, w.maximumTurns, w.maximumBudgetUsd - spentUsd), plan.directory,
               { env: { ...env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: '8192' }, input: basePrompt + feedback, timeoutMs: w.timeoutSeconds * 1000 });
           } catch (error) {
             // Say why Claude stopped (result fields only; never the model's text), so an interruption can be explained.
@@ -161,7 +161,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
             log(p.id, 'agent-failed', why); throw error;
           }
           const metrics = parseAgent(response.stdout); usedTurns += metrics.turns; spentUsd += metrics.estimatedCostUsd;
-          if (usedTurns > w.maximumTurns * TURN_RUNAWAY_FACTOR || spentUsd > w.maximumBudgetUsd) throw Error(`Agent exceeded configured bounds (turns ${usedTurns}/${w.maximumTurns}, cost ${spentUsd.toFixed(2)}/${w.maximumBudgetUsd} USD)`);
+          if (metrics.turns > w.maximumTurns * TURN_RUNAWAY_FACTOR || spentUsd > w.maximumBudgetUsd) throw Error(`Agent exceeded configured bounds (turns ${metrics.turns}/${w.maximumTurns}, cost ${spentUsd.toFixed(2)}/${w.maximumBudgetUsd} USD)`);
           log(p.id, 'agent-finished', metrics);
           files = await changes(plan.directory); validateChanges(files);
           return null;
