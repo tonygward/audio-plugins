@@ -17,16 +17,20 @@ plugins and never holds publishing credentials.
 | Secrets are read-only files outside the repository; only the Claude key and a fine-grained, repository-scoped GitHub token are given. Release, Cloudflare, R2 and website tokens are never mounted | `Start-MatrixAgent.ps1`, `verify-isolation.sh` |
 | Trusted code is baked into the image rather than mounted from the host | `Dockerfile` |
 
-## Run it (PowerShell, no administrator needed)
+## Run it (PowerShell)
+
+Use the **same elevation** every time. wslc keeps separate images and containers for an elevated and a non-elevated session, so a container
+built in an administrator window is invisible from a normal one. These notes were written and tested in an elevated PowerShell.
 
 wslc is part of WSL (`wsl --update`). Compose is not available in wslc, so `Start-MatrixAgent.ps1` does the same job.
 
 ```powershell
-cd toolsmatrix-linux
+cd tools\matrix-linux
 ./Start-MatrixAgent.ps1 -Action Build -ClaudeCodeVersion <exact version you have vetted>
 ./Start-MatrixAgent.ps1 -Action Verify     # isolation self-test; must print ALL CHECKS PASSED
 ./Start-MatrixAgent.ps1 -Action Login      # one time: sign in with the Claude subscription (opens a URL; paste the code back)
-./Start-MatrixAgent.ps1 -Action Run -SecretsDirectory C:pathoutsideepo   # the owner's go-ahead: starts the worker
+./Start-MatrixAgent.ps1 -Action Run -SecretsDirectory C:\MatrixSecrets   # the owner's go-ahead: starts the worker (any folder outside the repo works)
+./Start-MatrixAgent.ps1 -Action Ensure -SecretsDirectory C:\MatrixSecrets   # start the proxy and worker only if not already running
 ./Start-MatrixAgent.ps1 -Action Logs       # follow it
 ./Start-MatrixAgent.ps1 -Action Pause      # no new work starts (Resume to allow it again)
 ./Start-MatrixAgent.ps1 -Action Stop       # stop the worker;  -Action Down also removes the proxy and network
@@ -35,6 +39,21 @@ cd toolsmatrix-linux
 The secrets folder holds one file, `agent_github_token`: a fine-grained GitHub token for `tonygward/audio-plugins` only (Contents and
 Pull requests: read and write; nothing else). It is mounted read-only. **No Anthropic API key is used**: the usage gate requires a Claude
 subscription login and refuses API keys, and the login is kept in the `matrix-home` volume. Do not put release, Cloudflare, R2 or website tokens anywhere near it.
+
+## Start at logon
+
+wslc has no restart policy, so a scheduled task runs `-Action Ensure` one minute after the owner logs on. It must be set to **run with
+highest privileges** (to match the elevated wslc session above), as the owner's own account, and it only starts containers. Recreate it with:
+
+```powershell
+$action = New-ScheduledTaskAction -Execute 'C:\Program Files\PowerShell\7\pwsh.exe' -Argument '-NoProfile -NonInteractive -WindowStyle Hidden -File "C:\dev\audio-plugins\tools\matrix-linux\Start-MatrixAgent.ps1" -Action Ensure -SecretsDirectory C:\MatrixSecrets'
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"; $trigger.Delay = 'PT1M'
+Register-ScheduledTask -TaskName 'Songsmith Matrix Agent (start containers)' -Action $action -Trigger $trigger `
+  -Principal (New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest)
+```
+
+It starts only when the owner logs in; nothing starts after a reboot with nobody logged in unless Windows auto-logon is configured.
+Remove it with `Unregister-ScheduledTask 'Songsmith Matrix Agent (start containers)'`.
 
 ## What the Linux worker does
 
