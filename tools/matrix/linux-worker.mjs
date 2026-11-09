@@ -31,7 +31,7 @@ export function validateLinuxConfig(config) {
   for (const key of ['gitExecutable', 'ghExecutable', 'worktreeRoot', 'tokenFile']) if (typeof w[key] !== 'string' || !path.isAbsolute(w[key])) throw Error(`Absolute ${key} required`);
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(w.repositorySlug)) throw Error('Invalid GitHub repository');
   const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
-  if (!int(w.maximumPrompts, 1, 6) || !int(w.maximumTurns, 1, 30) || !Number.isFinite(w.maximumBudgetUsd) || w.maximumBudgetUsd <= 0 || w.maximumBudgetUsd > 20) throw Error('Invalid worker budget');
+  if (!int(w.maximumPrompts, 1, 6) || !int(w.maximumTurns, 1, 60) || !Number.isFinite(w.maximumBudgetUsd) || w.maximumBudgetUsd <= 0 || w.maximumBudgetUsd > 20) throw Error('Invalid worker budget');
   if (!int(w.timeoutSeconds, 60, 1800) || !int(w.ciTimeoutSeconds, 300, 7200) || !int(w.maximumRepairs, 0, 2) || !int(w.pollSeconds, 5, 300)) throw Error('Invalid worker timing');
   if (!int(config.batchLimit, 1, 6)) throw Error('batchLimit must be 1-6');
   if (typeof config.enabled !== 'boolean') throw Error('enabled must be a boolean');

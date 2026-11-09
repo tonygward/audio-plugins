@@ -17,7 +17,7 @@
     "ghExecutable": "/usr/bin/gh",
     "tokenFile": "/run/secrets/agent_github_token",
     "maximumPrompts": 3,
-    "maximumTurns": 30,
+    "maximumTurns": 60,
     "maximumBudgetUsd": 5,
     "timeoutSeconds": 1800,
     "ciTimeoutSeconds": 5400,
