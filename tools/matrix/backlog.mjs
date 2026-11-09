@@ -7,6 +7,19 @@ const idPattern = /^[A-Z][A-Z0-9]*-\d{2,}$/;
 const scopes = { eq: 'EQ', 'analog-compressor': 'ACOMP', maximiser: 'MAX' };
 export const digest = text => createHash('sha256').update(text).digest('hex');
 
+// Overnight/notification agent selection is for functional audio-product changes only.
+// Infrastructure (AUTO), portal operations (WEB), and any unknown shared scope are
+// always routed to a separate explicitly authorised maintenance workflow.
+const functionalTopLevel = { eq: 'EQ', 'analog-compressor': 'ACOMP', maximiser: 'MAX' };
+const functionalShared = new Set(['SUI', 'OPT', 'PEQ', 'BUS', 'CLN', 'ADV', 'REC']);
+export function isFunctionalPrompt(prompt) {
+  const parts = prompt.file.split('/');
+  if (parts[1] !== 'prompts') return false;
+  if (parts[0] === 'shared') return parts.length >= 3 && functionalShared.has(prompt.id.split('-')[0]);
+  return functionalTopLevel[parts[0]] === prompt.id.split('-')[0];
+}
+
+
 // Deliberately a small, documented YAML subset; never evaluate YAML tags/aliases.
 export function parsePrompt(file, text) {
   const normal = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
@@ -103,7 +116,7 @@ export function select(prompts, tasks, trigger, limit = 6) {
   const selected = [], decisions = [];
   for (const p of [...prompts].sort((a, b) => (a.execution !== 'build-now') - (b.execution !== 'build-now') || a.priority - b.priority || a.id.localeCompare(b.id))) {
     const task = tasks[p.id];
-    let reason = p.complete ? 'merged archive' : p.excluded ? 'excluded folder' : p.deferred ? 'deferred policy' : p.blocked ? 'blocked status' : null;
+    let reason = !isFunctionalPrompt(p) ? 'infrastructure excluded from overnight work' : p.complete ? 'merged archive' : p.excluded ? 'excluded folder' : p.deferred ? 'deferred policy' : p.blocked ? 'blocked status' : null;
     if (!reason && task && ['claimed', 'interrupted', 'awaiting-review', 'complete', 'dead-letter'].includes(task.state)) reason = `durable state: ${task.state}`;
     if (!reason && p.dependencies.some(id => !complete.has(id))) reason = 'dependency not merged or unknown';
     if (!reason && p.dependencies.includes(p.id)) reason = 'self dependency';

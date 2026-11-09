@@ -1,13 +1,16 @@
 ---
 id: AUTO-10
 status: planned
-execution: scheduled
+execution: deferred
 priority: medium
 model: sonnet
 effort: medium
 dependencies: ["AUTO-09"]
 conflicts: []
 ---
+
+**Execution policy (9 November 2026):** Infrastructure/automation maintenance is **excluded from all overnight scheduled and build-now functional runs**. This story remains open for deliberate, separately authorised infrastructure work; the functional Matrix worker must never select it. Do not auto-activate any worker merely because this backlog file changes.
+
 
 # AUTO-10 — Verify automatic beta release and private portal distribution end to end
 
