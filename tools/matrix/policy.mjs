@@ -1,4 +1,4 @@
-export const WEEKLY_LIMIT_PERCENT = 70;
+export const WEEKLY_LIMIT_PERCENT = 60;
 export const TELEMETRY_SOURCE = 'claude-code-usage-report-weekly-all';
 
 export function usageGate(snapshot, now = Date.now()) {
