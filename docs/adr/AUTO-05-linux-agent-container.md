@@ -73,4 +73,4 @@ Rollback at any point: `./Start-MatrixAgent.ps1 -Action Down`, then `Enable-Sche
 
 ## Cost
 
-Hosted runners: roughly 10 minutes of Windows and 8 minutes of macOS per Matrix PR attempt (SUI-14: 9m56s and 7m41s), times up to three attempts. Check current GitHub plan limits before raising throughput. Claude usage is the existing 85 % weekly gate.
+Hosted runners: roughly 10 minutes of Windows and 8 minutes of macOS per Matrix PR attempt (SUI-14: 9m56s and 7m41s), times up to three attempts. Check current GitHub plan limits before raising throughput. Claude usage is a 70 % weekly gate (lowered from 85 % on 9 November 2026 by the owner).

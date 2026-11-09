@@ -128,7 +128,7 @@ test('Effective build isolation failure stops without repair or publication', as
   assert.equal(a.counts.agent, 1); assert.equal(a.counts.pr, 0);
 });
 test('Unknown/high usage or enabled paid continuation prevents claims and agent invocation', async t => {
-  for (const usage of [{ allowed: false, reason: '85%' }, { ...goodUsage(), extraUsageEnabled: true }, { ...goodUsage(), snapshot: { ...goodUsage().snapshot, percentage: 85 } }]) {
+  for (const usage of [{ allowed: false, reason: '70%' }, { ...goodUsage(), extraUsageEnabled: true }, { ...goodUsage(), snapshot: { ...goodUsage().snapshot, percentage: 85 } }]) {
     const f = fixture(t), a = adapter(f, { loadUsage: () => usage }); await work(f.config, a);
     assert.equal(a.counts.agent, 0); assert.equal(readState(f.config.stateDirectory).tasks['EQ-41'].attempts, 0);
   }
@@ -147,7 +147,7 @@ test('Failed tests remain a blocked draft PR after at most one repair', async t 
 });
 test('Usage crossed between attempts stops repair and preserves a blocked draft', async t => {
   const f = fixture(t); let checks = 0;
-  const a = adapter(f, { failedBuilds: 1, loadUsage: () => ++checks === 1 ? goodUsage() : { allowed: false, reason: '85%' } });
+  const a = adapter(f, { failedBuilds: 1, loadUsage: () => ++checks === 1 ? goodUsage() : { allowed: false, reason: '70%' } });
   const result = await work(f.config, a); assert.equal(a.counts.agent, 1); assert.equal(result.outcomes[0].blocked, true);
 });
 test('Protected workflow edits are retained locally without build, push or PR', async t => {
