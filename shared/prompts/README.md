@@ -6,7 +6,7 @@ Each new Songsmith implementation item must have a GitHub issue **and** one bidi
 
 | ID | Canonical prompt | GitHub issue | Status |
 |---|---|---|---|
-| VER-01 | [0.5.0 suite version](VER-01-standardise-suite-version-0.5.0.md) | [songsmithstudio #2](https://github.com/tonygward/songsmithstudio/issues/2) | Prompt drafted; coordinated execution pending |
+| VER-01 | [0.5.0 suite version](done/VER-01-standardise-suite-version-0.5.0.md) | [songsmithstudio #2](https://github.com/tonygward/songsmithstudio/issues/2) | Prompt drafted; coordinated execution pending |
 | SUI-15 | [Footer version label](SUI-15-footer-version-before-processing-load.md) | [songsmithstudio #3](https://github.com/tonygward/songsmithstudio/issues/3) | Prompt drafted; depends on VER-01 |
 | WEB-03 | [Beta plugin Features section](WEB-03-beta-plugin-features-section.md) | [songsmith-website #19](https://github.com/tonygward/songsmith-website/issues/19) | Prompt drafted; website execution pending |
 

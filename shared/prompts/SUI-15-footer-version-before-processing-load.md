@@ -1,35 +1,29 @@
-# SUI-15 — Show version before Processing Load
+---
+id: SUI-15
+status: ready
+execution: build-now
+priority: 2
+model: sonnet
+effort: low
+dependencies: ["VER-01"]
+conflicts: []
+---
 
-- Issue: https://github.com/tonygward/songsmithstudio/issues/3
-- Status: ready, pending VER-01 authoritative version decision
-- Execution: owner requested RUN NOW; only a real Matrix record can prove pickup
-- Model: Claude Sonnet
-- Implementation repository: `tonygward/audio-plugins`
-- Dependency: VER-01
+# SUI-15 — Version label immediately before Processing Load
 
-## Objective and user value
-Make the Songsmith version visible and easy to find in every plugin without cluttering the interface.
+**Source request:** [SUI-15 GitHub issue](https://github.com/tonygward/songsmithstudio/issues/3). **Execute now**, after VER-01.
 
-## Current and desired behaviour
-The shared bottom bar shows the Processing Load control but not a clearly consistent suite version immediately before it. Display compact text such as `v0.5.0` **to its left** on EQ, Analog Compressor and Maximiser, drawing the value from the one authoritative version source established in VER-01.
+## Goal
+Display the live product version **bottom left**, directly **before the Processing Load button** in the shared footer of every existing Songsmith plugin.
 
-## Implementation guidance
-1. Inspect shared JUCE footer layout and the actual version-definition/build generation code before editing.
-2. Add a reusable, read-only suite-version label; derive the displayed value at build time from root version metadata instead of copying a literal into editors.
-3. Arrange **version → Processing Load button → existing load diagnostics** at the bottom-left. Preserve spacing, click targets, on/off states, keyboard/accessibility and scaling, including small supported editors.
-4. Keep version unambiguous across all available plugins; no per-plugin version drift or release-policy changes.
-5. Do not touch DSP, parameter IDs, preset state or latency calculations.
-6. Update appropriate shared UI documentation and include real before/after editor screenshots.
+## Work
+1. Reuse the authoritative version established by VER-01; never introduce a second hardcoded version.
+2. Display discreet `v0.5.0` in the footer in this exact order: **version → Processing Load button**. Preserve all existing Processing Load, CPU/latency and bypass functionality.
+3. Implement across EQ, Analog Compressor and Maximiser; use existing shared UI conventions and correct rendering with editor size, DPI, accessibility and supported platforms.
+4. Add automated layout/version binding checks and capture screenshots where feasible. No DSP, parameter, preset or session-breaking changes.
 
 ## Acceptance criteria
-- Every shipped plugin editor displays the same correct suite version before Processing Load.
-- Version text updates automatically after the intentional release-version change without modifying UI source.
-- No overlap or clipping at supported DPI and interface scales; Processing Load still works exactly as before.
-- No changes to audio or session compatibility.
-- Existing UI tests and full relevant builds pass.
-
-## Automated tests, dependencies and risks
-- Extend editor layout tests for ordering, bounds at minimum/maximum supported scaling, and version-source matching.
-- Run EQTests, AnalogCompressorTests, MaximiserTests and hosted platform CI required by repository policy; attach screenshots.
-- Depends on VER-01; if the release version is disputed, build label integration with the current authoritative source but do not present 0.5.0 as published.
-- Delivery: implementation PR, test evidence, changelog entry, and release/publish status verified separately; issue creation alone is not a queued or completed Matrix job.
+- Each plugin shows the correct product version at the bottom left immediately before Processing Load.
+- Version follows future intentional changes to the authoritative version.
+- Footer works without overlap/cutoff at minimum and high-DPI editor sizes.
+- Applicable tests and native builds pass; report PR and release status.
