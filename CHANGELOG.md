@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
 
+## Unreleased
+
+- The version number at the bottom left of each plugin is now fully visible instead of being cut off with dots, and it stays readable at every interface size. There is nothing you need to do.
+
 ## 0.5.2
 
 - Every plugin now shows its version (for example "v0.5.1") at the bottom left, just before the Processing Load button, so you can tell which release you are running. There is nothing you need to do.

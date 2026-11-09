@@ -286,6 +286,13 @@ namespace Songsmith::Diagnostics
         juce::Component& getReadout()       { return readout; }
         juce::Label& getVersionLabel()      { return versionLabel; }
 
+        // Lets the tests check longer versions than today's; the footer lays itself out again.
+        void setVersionTextForTesting (const juce::String& text)
+        {
+            versionLabel.setText (text, juce::dontSendNotification);
+            resized();
+        }
+
         // A plugin's own control for the right end of the strip. The bar lays it out right-aligned at
         // the component's current size and does not own it.
         void setTrailingControl (juce::Component* c)
@@ -336,7 +343,11 @@ namespace Songsmith::Diagnostics
         {
             juce::GlyphArrangement glyphs;
             glyphs.addLineOfText (versionLabel.getFont(), versionLabel.getText(), 0.0f, 0.0f);
-            return (int) std::ceil (glyphs.getBoundingBox (0, -1, false).getWidth()) + 4;
+            // A juce::Label keeps its own border around the text and truncates with dots when the text
+            // area (width minus border) is narrower than the text, so add the border plus a safety margin.
+            const auto border = versionLabel.getBorderSize();
+            return (int) std::ceil (glyphs.getBoundingBox (0, -1, false).getWidth())
+                   + border.getLeftAndRight() + 6;
         }
 
         void setupLabel (juce::Label& l, const juce::String& text, UI::Weight weight, juce::Colour colour)
