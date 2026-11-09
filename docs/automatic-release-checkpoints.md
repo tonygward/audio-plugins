@@ -89,10 +89,10 @@ Logic and tests: `scripts/matrix/automerge.mjs`, `test/matrix-automerge.test.mjs
 
 ## Version 0.5.0 reset (SUI-15)
 
-The suite version was deliberately reset from 1.3.x to **0.5.0**. Ordinary builds must not change it, so set the repository variable
-`AUTO_BETA_VERSION_ENABLED=false` before this merges; the automatic patch bump would otherwise move 0.5.0 to 0.5.1 once v0.5.0 is tagged.
-Later releases are then checkpoints chosen by hand (a new `VERSION` plus a matching `## X.Y.Z` changelog section). Per-build identity stays
-in the CI run number and commit SHA, never in `VERSION`.
+The suite version was deliberately lowered from 1.3.x to **0.5.0** because the product is not finished. Nothing else about versioning changed:
+each later source merge still bumps the patch number automatically (0.5.1, 0.5.2 and so on, `AUTO_BETA_VERSION_ENABLED=true`). A bigger
+step (for example 0.6.0 or 1.0.0) is made only when a ticket asks for it, by changing `VERSION` and adding the matching `## X.Y.Z` changelog
+section. Per-build identity stays in the CI run number and commit SHA.
 
 Installers: the Windows installer replaces any installed version, so 0.5.0 installs over 1.3.x. The macOS component packages are built with
 `BundleIsVersionChecked` off for the same reason; without it Installer keeps a newer 1.x bundle. Existing 1.x releases and tags stay as published.
