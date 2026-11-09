@@ -1,0 +1,14 @@
+# Songsmith backlog: issue ↔ canonical Claude prompt contract
+
+**Applies to every new Songsmith implementation backlog item**, irrespective of repository. A GitHub issue without its linked canonical Markdown implementation prompt is an **incomplete backlog entry**, not an executable task. Historical entries may be reconciled incrementally; do not create duplicates.
+
+1. **Search before creation.** Look across `audio-plugins`, `songsmithstudio` and `songsmith-website` for the stable ID, matching issues, prompt files and completed work. Update the existing item instead of duplicating.
+2. **One stable issue ID, one canonical prompt.** Keep plugin prompts in `eq/prompts/`, `analog-compressor/prompts/`, `maximiser/prompts/` and cross-suite / portal / infrastructure prompts in `audio-plugins/shared/prompts/`, following `shared/prompts/README.md`. Implementation may live in another repository; document which repository owns the code.
+3. **Link both ways.** Put the exact issue URL near the top of the prompt. Put the exact canonical prompt path + permalink in the issue body. Record links to implementing PRs and validated release/deployment after completion. Avoid just repeating instructions inside issues without the file.
+4. **Ready-for-execution gate.** A newly created issue is not ready for Matrix until its prompt is merged into `main`, appears in the appropriate README index, has valid metadata/eligibility and dependencies, and an actual queue/dispatch can be verified. A `RUN NOW` label/issue-body request is *not* proof of queued, started or finished execution.
+5. **Prompt minimum contract:** ID/title; objective and user value; actual vs desired behaviour; scope/repo; implementation guidance; acceptance criteria; tests; dependencies/risks; platform builds; version/release expectations; model; execution/status. Distinguish requested, queued, running, tested, merged, released and deployed. Do not invent evidence.
+6. **Execution isolation.** Matrix's unattended functional queue is governed by `tools/matrix/backlog.mjs` and its allowlist; `WEB-`, `AUTO-`, version/release infrastructure and unknown scopes require separate explicit orchestration. Documentation does not activate a worker or override its safety gates.
+7. **Lifecycle.** Prompt file and issue remain linked when implementation PR is merged. Move completed prompt to the correct `done/` folder and update index/issue links; only mark done after evidence. Verify CI/release/website separately.
+
+## Implementation workflow
+Create or update the GitHub issue and canonical prompt in a documentation PR; merge that PR before submitting an eligible execution task. For cross-repository work, link the issue in the other repo to the canonical prompt in audio-plugins and open an implementation PR in its owning repository. Where the prompt cannot yet be merged, describe it as **prompt drafted / PR pending**, never as ready or running.
