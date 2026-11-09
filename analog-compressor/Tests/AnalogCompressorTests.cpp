@@ -73,7 +73,7 @@ struct IdentityTests final : juce::UnitTest
             { "allButtons",   0.0f,  1.0f, 0.0f },
             { "grOff",        0.0f,  1.0f, 0.0f },
             { "bypass",       0.0f,  1.0f, 0.0f },
-            { "oversampling", 0.0f,  2.0f, 2.0f, 2 },
+            { "oversampling", 0.0f,  2.0f, 0.0f, 0 },
         };
 
         expectEquals (p.getParameters().size(), (int) std::size (expected), "no parameters added or removed silently");

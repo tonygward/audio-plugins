@@ -13,7 +13,8 @@ class SongsmithAnalogCompressorProcessor : public juce::AudioProcessor, private 
 {
 public:
     // 1 = first release (input, output, attack, release, ratio, allButtons, grOff, bypass).
-    // 2 = adds oversampling (sessions from 1 load with the default).
+    // 2 = adds oversampling (sessions from 1 load with the default, which is Off, as version 1 sounded;
+    // version 2 sessions keep the oversampling they saved, including 4x).
     static constexpr int stateVersion = 2;
 
     SongsmithAnalogCompressorProcessor();

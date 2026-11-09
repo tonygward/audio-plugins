@@ -59,7 +59,7 @@ namespace FET
         static const juce::StringArray names { "Off", "2x", "4x" };
         return names;
     }
-    inline constexpr int oversamplingDefault = 2;   // 4x: see docs/colour.md "Oversampling"
+    inline constexpr int oversamplingDefault = 0;   // Off: no delay, least processing power. See docs/colour.md "Oversampling"
 }
 
 namespace FET
