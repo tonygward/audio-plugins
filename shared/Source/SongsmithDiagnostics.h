@@ -230,6 +230,7 @@ namespace Songsmith::Diagnostics
             readout.setInterceptsMouseClicks (true, false);
 
             loadSwitch.setButtonText ("Processing Load");
+            loadSwitch.setTitle ("Processing Load");
             loadSwitch.setClickingTogglesState (true);
             loadSwitch.setTooltip (loadTooltip());
             loadSwitch.setToggleState (Settings::loadEnabled (name), juce::dontSendNotification);
