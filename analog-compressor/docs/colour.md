@@ -94,9 +94,11 @@ The new `oversampling` parameter (state version 2, version hint 2) has three set
 |---|---|---|---|
 | Off | 0 samples | 0.6 % | 0.5 % |
 | 2x | **4 samples** | 1.3 % | 1.1 % |
-| 4x (default) | **6 samples** | 2.3-2.6 % | 2.0 % |
+| 4x | **6 samples** | 2.3-2.6 % | 2.0 % |
 
 CPU is the percentage of one core (`AnalogCompressorTests --bench`, Windows Release).
+
+**Default: Off.** Step 3 first chose 4x because it cuts compression aliasing by 8-38 dB. The default is now Off, because a compressor often runs on many tracks at once and on tracks being recorded, where zero latency and low processing power matter more than aliasing, which is hard to hear at normal settings. Turn on 2x or 4x for a cleaner top end when compressing hard. The measurements above are unchanged. Sessions saved with version 2 keep the setting they saved (including 4x). Version 1 sessions load as Off, which is how they sounded. Factory presets never store oversampling.
 
 **Default: 4x** (a decision made without a human). It's the only setting that reliably reduces the compression aliasing, by 8-38 dB in every measured case. The cost is about 2.4 % of a core per stereo instance and 6 samples of latency (0.13 ms at 48 kHz). 2x halves the CPU, but gains only 2-4 dB on some material. Off has zero latency, for tracking or for lots of instances.
 

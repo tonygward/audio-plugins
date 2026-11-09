@@ -200,8 +200,8 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
 
     for (int i = 0; i < oversamplingNames().size(); ++i)
         oversampling.addItem (oversamplingText (i), i + 1);
-    oversampling.setTooltip ("Oversampling: runs the compressor at a higher sample rate, so its distortion stays clean "
-                             "instead of folding back as harsh tones. Higher settings use more processing power.");
+    oversampling.setTooltip ("Runs the compressor at a higher rate inside the plugin, for a cleaner top end when compressing hard. "
+                             "Uses more processing power and adds a little delay.");
     content.addAndMakeVisible (oversampling);
     oversampling.setSelectedItemIndex ((int) p.apvts.getRawParameterValue (ID::oversampling)->load(), juce::dontSendNotification);
 
