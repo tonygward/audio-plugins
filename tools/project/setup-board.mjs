@@ -14,7 +14,6 @@ const seed = [
   { url: 'https://github.com/tonygward/audio-plugins/issues/155', stage: 'Backlog', priority: 'Medium', product: 'Matrix', execution: 'Deferred', release: '' },
   { url: 'https://github.com/tonygward/audio-plugins/issues/156', stage: 'Backlog', priority: 'Medium', product: 'Matrix', execution: 'Deferred', release: '' },
   { url: 'https://github.com/tonygward/audio-plugins/issues/157', stage: 'Backlog', priority: 'Medium', product: 'Release', execution: 'Deferred', release: '' },
-  { url: 'https://github.com/tonygward/audio-plugins/pull/152', stage: 'Done', priority: 'High', product: 'Suite', execution: 'Completed', release: '0.5.0' },
 ];
 
 function gh(args) {
@@ -92,6 +91,19 @@ for (const item of seed) {
     warn('Could not add or update ' + item.url, error);
   }
 }
+// An implementation PR is evidence linked from its issue, not another backlog card.
+// Remove only the known duplicate PR #152; leave all other project cards untouched.
+try {
+  const items = json(['project', 'item-list', String(number), '--owner', owner, '--limit', '200']).items || [];
+  const redundant = items.find(item => item.content?.url === 'https://github.com/tonygward/audio-plugins/pull/152');
+  if (redundant?.id) {
+    gh(['project', 'item-delete', String(number), '--owner', owner, '--id', redundant.id]);
+    console.log('Removed redundant implementation PR card #152 (retained VER-01 ticket).');
+  }
+} catch (error) {
+  warn('Could not reconcile redundant PR card #152', error);
+}
+
 console.log('\nProject: https://github.com/users/' + owner + '/projects/' + number);
 console.log('In the GitHub UI select Board layout and group by Stage (Backlog / Ready / Running / Done).');
 console.log('Re-run this script safely after adding more seed records. No Matrix job has been started.');
