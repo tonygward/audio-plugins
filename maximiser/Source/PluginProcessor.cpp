@@ -57,7 +57,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithMaximiserAudioProce
 
     // Version 2 (step 03). Defaults keep version-1 sessions sounding the same.
     layout.add (std::make_unique<juce::AudioParameterChoice> (
-        juce::ParameterID { Max::peakModeId, 2 }, "Peak Mode", Max::getPeakModeNames(), 0));
+        juce::ParameterID { Max::peakModeId, 2 }, "Peak Mode", Max::getPeakModeNames(), 1));
 
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { Max::autoReleaseId, 2 }, "Auto Release", false));
@@ -237,8 +237,9 @@ void SongsmithMaximiserAudioProcessor::setStateInformation (const void* data, in
 
 void SongsmithMaximiserAudioProcessor::restoreFromValueTree (const juce::ValueTree& saved)
 {
-    // Version 1 (step 01-02) had no peak_mode / auto_release: they restore to their defaults (sample
-    // peak, manual release), which is exactly how version 1 sounded. A state from a newer version
+    // Version 1 (step 01-02) had no peak_mode / auto_release. auto_release restores to its default
+    // (manual release) and peak_mode is set to Sample peak explicitly (see the migration below,
+    // because the default is now True peak), which is exactly how version 1 sounded. A state from a newer version
     // keeps the parameters this version knows (by ID) and ignores the rest.
     // Rebuild a complete parameter tree: saved values where present, defaults otherwise.
     // (APVTS would otherwise leave missing parameters at their *current* values.)
@@ -252,6 +253,11 @@ void SongsmithMaximiserAudioProcessor::restoreFromValueTree (const juce::ValueTr
 
         float value = rp->convertFrom0to1 (rp->getDefaultValue());
         const auto child = saved.getChildWithProperty ("id", rp->paramID);
+
+        // Migration: sessions saved before peak_mode existed (version 1) sounded as sample peak,
+        // while a new instance now defaults to true peak. Keep them sounding the same.
+        if (rp->paramID == Max::peakModeId && ! (child.isValid() && child.hasProperty ("value")))
+            value = 0.0f;
 
         if (child.isValid() && child.hasProperty ("value"))
         {

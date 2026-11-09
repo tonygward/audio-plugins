@@ -17,7 +17,7 @@ namespace Max
     inline constexpr const char* bypassId    = "bypass";      // the host's native bypass
 
     // --- Added in version 2 (step 03) -----------------------------------------------------
-    inline constexpr const char* peakModeId    = "peak_mode";      // 0 sample peak (default), 1 true peak
+    inline constexpr const char* peakModeId    = "peak_mode";      // 0 sample peak, 1 true peak (default)
     inline constexpr const char* autoReleaseId = "auto_release";   // off by default: manual release
 
     inline const juce::StringArray& getPeakModeNames()

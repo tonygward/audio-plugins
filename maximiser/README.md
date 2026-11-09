@@ -33,7 +33,7 @@ maximiser/build/MaximiserTests_artefacts/Release/MaximiserTests.exe
 
 ## True peak and auto release (step 03)
 
-New parameters (ID version 2; state version 2): `peak_mode` (Sample peak / True peak, default Sample peak) and `auto_release` (default off). A version-1 session loads with both at their defaults, so it sounds exactly as before. Tested in "Version-1 sessions load…".
+New parameters (ID version 2; state version 2): `peak_mode` (Sample peak / True peak, default True peak for new instances) and `auto_release` (default off). A version-1 session loads as Sample peak with manual release, so it sounds exactly as before. Version 2 and 3 sessions keep the peak mode they saved. Tested in "Version-1 sessions load…".
 
 - **True-peak detector (design choice):** `Max::TruePeakDetector` uses 8x oversampling with a Kaiser-windowed sinc (24 taps per phase, β 8). For each sample it reports the largest reconstructed magnitude on both sides of that sample, across all channels, and the limiter uses this in place of the sample peak. I chose 8x over 4x because 4x under-read full-band noise by about 0.4 dB here, and the output then overshot by 0.94 dB.
 - **Latency:** the detector needs 12 samples. The audio waits for it in **both** modes, so the latency is look-ahead + 12 in either mode: 79 samples at 44.1 kHz, 84 at 48 kHz and 156 at 96 kHz. Switching peak mode never changes the latency the DAW compensates, and never moves the audio. Sample-peak mode skips the filter, so it costs nothing extra.

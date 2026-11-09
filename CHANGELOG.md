@@ -7,6 +7,9 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 ### Songsmith Analog Compressor
 - **Oversampling now starts Off:** a new Analog Compressor adds no delay and uses the least processing power, which suits many tracks at once and recording. If you compress hard and want a cleaner top end, choose 2x or 4x from the Oversampling menu. Saved sessions keep the setting they were saved with, so you don't need to do anything.
 
+### Songsmith Maximiser
+- **True peak is now the default:** a new Maximiser starts in True peak mode, so the peaks between samples stay under the Output Ceiling, which is what streaming and broadcast checks measure. It uses a little more processing power than Sample peak. Sessions you have already saved keep the peak mode they were saved with and sound the same, so you don't need to do anything. If you prefer the lighter Sample peak mode, you can still choose it.
+
 ## 1.3.4
 
 ### Songsmith EQ
