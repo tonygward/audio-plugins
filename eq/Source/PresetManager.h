@@ -87,6 +87,9 @@ namespace EQ
 
         // Saves the current EQ as a user preset (overwrites a file of the same name).
         bool saveAs (const juce::String& name, juce::String& error);
+        // True when saving under this name would replace an existing user preset (same cleaning as saveAs).
+        // Save As asks the musician before replacing; "Save" on a loaded user preset is deliberate already.
+        bool userPresetExists (const juce::String& name) const;
         bool canSaveInPlace() const;   // current preset is a user preset whose file exists
         bool deleteCurrent (juce::String& error);
 

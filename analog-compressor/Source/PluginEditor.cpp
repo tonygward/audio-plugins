@@ -475,19 +475,49 @@ void SongsmithAnalogCompressorEditor::presetChosen()
 void SongsmithAnalogCompressorEditor::savePresetAsync()
 {
     saveDialog = std::make_unique<juce::AlertWindow> ("Save preset", "Name for the preset:", juce::MessageBoxIconType::NoIcon, this);
-    saveDialog->addTextEditor ("name", proc.presets.currentName, {});
+    // Starting points are read-only, so don't suggest saving over one's name.
+    const auto suggested = Presets::isFactoryName (proc.presets.currentName) ? juce::String() : proc.presets.currentName;
+    saveDialog->addTextEditor ("name", suggested, {});
     saveDialog->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
     saveDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-    saveDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this] (int result)
+    saveDialog->enterModalState (true, juce::ModalCallbackFunction::create ([safe = juce::Component::SafePointer<SongsmithAnalogCompressorEditor> (this)] (int result)
     {
-        if (result == 1 && saveDialog != nullptr)
+        if (safe == nullptr)
+            return;
+
+        const auto name = safe->saveDialog != nullptr ? safe->saveDialog->getTextEditorContents ("name") : juce::String();
+        safe->saveDialog.reset();
+
+        if (result == 1)
         {
+            if (safe->proc.presets.userPresetExists (name))
+            {
+                // Overwriting is allowed, but only on purpose.
+                juce::AlertWindow::showAsync (juce::MessageBoxOptions()
+                                                  .withIconType (juce::MessageBoxIconType::QuestionIcon)
+                                                  .withTitle ("Replace preset")
+                                                  .withMessage ("A preset called \"" + name.trim() + "\" already exists. Replace it with the current settings?")
+                                                  .withButton ("Replace")
+                                                  .withButton ("Cancel")
+                                                  .withAssociatedComponent (safe.getComponent()),
+                                              [safe, name] (int choice)
+                                              {
+                                                  if (safe == nullptr || choice != 1)
+                                                      return;
+                                                  juce::String error;
+                                                  if (! safe->proc.presets.saveAs (name, error))
+                                                      juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Preset", error);
+                                                  safe->rebuildPresetMenu();
+                                                  safe->content.repaint();
+                                              });
+                return;
+            }
+
             juce::String error;
-            if (! proc.presets.saveAs (saveDialog->getTextEditorContents ("name"), error))
+            if (! safe->proc.presets.saveAs (name, error))
                 juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Preset", error);
         }
-        saveDialog.reset();
-        rebuildPresetMenu();
-        content.repaint();
+        safe->rebuildPresetMenu();
+        safe->content.repaint();
     }), false);
 }

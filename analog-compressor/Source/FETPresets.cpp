@@ -86,6 +86,11 @@ namespace FET
 
     bool Presets::loadFile (const juce::File& file, juce::String& error)
     {
+        if (! file.existsAsFile() || file.getSize() > 1024 * 1024)
+        {
+            error = "\"" + file.getFileName() + "\" isn't a " + JucePlugin_Name + " preset.";
+            return false;
+        }
         auto xml = juce::XmlDocument::parse (file);
         if (xml == nullptr || ! xml->hasTagName (rootTag))
         {
@@ -105,12 +110,32 @@ namespace FET
         return true;
     }
 
+    bool Presets::isFactoryName (const juce::String& name)
+    {
+        const auto clean = juce::File::createLegalFileName (name.trim());
+        for (const auto& f : factory())
+            if (clean.equalsIgnoreCase (f.name))
+                return true;
+        return false;
+    }
+
+    bool Presets::userPresetExists (const juce::String& name) const
+    {
+        const auto clean = juce::File::createLegalFileName (name.trim());
+        return clean.isNotEmpty() && userFolder.getChildFile (clean + fileExtension).existsAsFile();
+    }
+
     bool Presets::saveAs (const juce::String& name, juce::String& error)
     {
         const auto clean = juce::File::createLegalFileName (name.trim());
         if (clean.isEmpty())
         {
             error = "Please type a name for the preset.";
+            return false;
+        }
+        if (isFactoryName (clean))
+        {
+            error = "\"" + clean + "\" is a starting point, and starting points can't be changed. Please choose a different name.";
             return false;
         }
         if (! userFolder.createDirectory())

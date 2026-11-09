@@ -33,6 +33,7 @@ The listening cue for the loaded starting point appears at the bottom of the edi
   - macOS: `~/Library/Songsmith Studio/Songsmith Analog Compressor/Presets`
 
   The workflow is the same as Songsmith EQ's, but in a folder of its own.
+- **Replacing a preset is always your choice.** If the name is already used by one of your presets, the plugin asks before replacing it. Starting points are read-only: a name such as "Lead vocal" is refused, so choose your own name.
 - **Preset → Open presets folder** shows the folder.
 - **What a preset stores:** Input, Output, Attack, Release, Ratio, All Buttons and GR Off. It never stores bypass, oversampling or the editor size.
 - **Loading** a preset is one automation gesture per control it changes. A preset file with missing values loads them as defaults, and out-of-range values are clamped.

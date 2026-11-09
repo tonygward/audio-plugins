@@ -112,7 +112,9 @@ Unchanged: Low Cut 200 Hz, 18 dB/oct · Bell 4.8 kHz −3 dB (off). *2021-09-09,
 
 Unchanged: five flat bells at 50 Hz, 160 Hz, 550 Hz, 2.6 kHz and 10 kHz. It's a teaching layout from task 20 (*2026-09-06, Frequency Fluency*). There's nothing to audit because every gain is 0 dB.
 
-### Abbey Road reverb (index 21, task 30)
+### Reverb send clean-up (index 21, task 30; was "Abbey Road reverb")
+
+SUI-09 renamed this preset for its job. The title no longer names a technique, and the credit stays here. The menu label is now **Effects - Reverb Send Clean-up**. The index, bands and settings are unchanged, so older sessions and host program numbers recall the same sound.
 
 This template is Tony's own Pro-Q 4 preset, *Abbey Road Reverb Trick* (`Documents/FabFilter/Presets/Pro-Q 4/Tony/Abbey Road Reverb Trick.ffp`, saved 26 Jul 2026), copied band for band. It is not based on Joe's videos. The values come from the decode in `fx-chains/saved-chains.md`, line 307 (*Vocals Reverb (Dual)*: Pro-Q 4 → UADx Pure Plate → ValhallaRoom → Pro-C 2), which shows this is the EQ in front of Tony's vocal reverbs. The `.ffp` itself couldn't be opened when this was written (a OneDrive cloud-only file), so the catalogue decode is the source.
 
@@ -217,7 +219,7 @@ The preset menu has one **Starting Points** section, with a submenu for each ins
 | Drums | Kick, Snare, Mid Tom, High Tom, Floor Tom, Toms Bus, Drum Bus |
 | Guitars | Acoustic Guitar, Acoustic Guitar (Full Mix), Acoustic Guitar (Pickup), Acoustic Guitar (Bright), Electric Guitar, Electric Guitar Bus, Bass Guitar |
 | Vocals | Lead Vocal, Backing Vocals, Spoken Word, Quick Clean-up |
-| Effects | Reverb Return, Abbey Road Reverb, Telephone |
+| Effects | Reverb Return, Reverb Send Clean-up, Telephone |
 | General | Low-End Tidy, Reduce Mud, Add Air |
 
 ### What happened to each older preset
