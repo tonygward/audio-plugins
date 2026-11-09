@@ -57,7 +57,7 @@ Remove it with `Unregister-ScheduledTask 'Songsmith Matrix Agent (start containe
 
 ## What the Linux worker does
 
-`tools/matrix/linux-worker.mjs` reuses the Windows worker's backlog selection, 85 % usage gate (unknown fails closed), task states, turn/cost bounds and
+`tools/matrix/linux-worker.mjs` reuses the Windows worker's backlog selection, 60 % usage gate (unknown fails closed), task states, turn/cost bounds and
 change-scope rules. It differs in validation: there is no local build.
 
 1. Pick up `build-now` prompts within about five minutes; `scheduled` prompts at the daily run after 02:00 London time.
