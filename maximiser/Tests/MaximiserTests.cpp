@@ -216,7 +216,7 @@ public:
 
                     std::vector<std::vector<float>> in;
                     for (int c = 0; c < channels; ++c)
-                        in.push_back (noise ((int) fs / 2, 0.9f, 7u + (unsigned) c));
+                        in.push_back (noise ((int) fs / 2, 0.5f, 7u + (unsigned) c)); // True peak is the default: keep intersample peaks under 0 dBFS
 
                     const auto out = run (p, in, { 512, 1, 37, 1024, 300 });
                     const int latency = p.getLatencySamples();
@@ -477,6 +477,7 @@ public:
                 SongsmithMaximiserAudioProcessor p;
                 setParam (p, Max::thresholdId, -6.0f);
                 setParam (p, Max::ceilingId, -1.0f);
+                setParam (p, Max::peakModeId, 0.0f); // this test checks the sample ceiling; true peak sits lower
                 prepare (p, fs, 256);
                 const auto out = run (p, { in, in }, { 256 });
                 const float pk = peakOf (out[0]);
