@@ -10,6 +10,8 @@ JUCE + CMake audio plugins (VST3, AU on macOS, Standalone) by **Songsmith Studio
 
 Prompt tracking: use stable, scope-qualified references (for example `EQ-32`, `ACOMP-06`, `MAX-07`, `SUI-11`, `OPT-01`, `CLN-01`, `ADV-01`). The ID stays unchanged when moving a task to `done/`. Record a canonical prompt link, implementation PR when known, and release checkpoint; never confuse a prompt number with a PR number. See `shared/prompts/README.md#prompt-identity-and-traceability`.
 
+**Mandatory backlog creation:** Every new Songsmith implementation GitHub issue must have a corresponding canonical Markdown Claude Code prompt in the established prompt folders, linked in both directions, before being marked execution-ready. Search for existing issues/prompts first to prevent duplicates. Include objective, current/desired behaviour, scope, implementation, acceptance criteria, tests, dependencies/risks and build/release expectations. Follow [the issue–prompt contract](shared/prompts/BACKLOG-ISSUE-PROMPT-CONTRACT.md). Creating an issue or prompt does **not** mean Matrix queued, started, merged or deployed it.
+
 Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the EQ roadmap); work across every plugin is in `shared/prompts/`. Prompts still to run sit directly in a `prompts/` folder, with a `README.md` status table; finished ones move to its `done/` subfolder in the PR that completes them. Update each local status table, related roadmap and root changelog at the relevant release checkpoint; preserve relative links and original IDs. Do not mark unmerged work done. The overnight runner is `shared/prompts/overnight-prompt.md`. The UI style guide is `docs/style-guide.md` (created by suite task SUI-01).
 
 ## Design principles
