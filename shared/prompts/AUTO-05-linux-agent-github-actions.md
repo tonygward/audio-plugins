@@ -1,4 +1,13 @@
 ---
+id: AUTO-05
+status: planned
+execution: scheduled
+priority: high
+model: sonnet
+effort: medium
+dependencies: ["AUTO-01"]
+conflicts: []
+---
 
 ## Adopted direction and implementation checkpoint — 9 November 2026
 
@@ -7,16 +16,6 @@
 **Still verify:** actual container image/config and volume mounts, least-privilege secret delivery, authentic first-party subscription usage within container, GitHub scoped PR token and egress, polling/scheduling and restart, integration with CI repair and auto-merge policies, native Windows/macOS CI gates, isolation negative tests, durable state/recovery and the remotely observable heartbeat. Neither the file's existence nor this architecture decision proves that the production container is running or fully validated.
 
 **Scope discipline:** Container migration is the chosen direction, but *live unattended execution remains a separate operational activation decision* after these checks. Preserve Matrix's unrelated Docker workloads and existing release credentials boundary. Keep the story in the backlog until deployed evidence and end-to-end tests are recorded.
-
-id: AUTO-05
-status: planned
-execution: deferred
-priority: high
-model: sonnet
-effort: medium
-dependencies: ["AUTO-01"]
-conflicts: []
----
 
 # AUTO-05 — Isolated Linux development agent with GitHub Actions native builds
 
