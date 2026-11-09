@@ -101,6 +101,8 @@ if(FET_BUILD_TESTS)
         ${FET_DEFINITIONS}
         "JucePlugin_Name=\"${FET_PRODUCT_NAME}\""
         "JucePlugin_Manufacturer=\"${FET_COMPANY_NAME}\""
+        # The footer shows the one product version (the console app has no JucePlugin_VersionString of its own).
+        "JucePlugin_VersionString=\"${PROJECT_VERSION}\""
         "FET_MANUFACTURER_CODE=\"${FET_MANUFACTURER_CODE}\""
         "FET_PLUGIN_CODE=\"${FET_PLUGIN_CODE}\"")
 

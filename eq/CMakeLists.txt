@@ -113,6 +113,8 @@ if(EQ_BUILD_TESTS)
         ${EQ_DEFINITIONS}
         "JucePlugin_Name=\"${EQ_PRODUCT_NAME}\""
         "JucePlugin_Manufacturer=\"${EQ_COMPANY_NAME}\""
+        # The footer shows the one product version (the console app has no JucePlugin_VersionString of its own).
+        "JucePlugin_VersionString=\"${PROJECT_VERSION}\""
         # Pinned by the identity test (the console app has no JucePlugin_*Code).
         "EQ_MANUFACTURER_CODE=\"${EQ_MANUFACTURER_CODE}\""
         "EQ_PLUGIN_CODE=\"${EQ_PLUGIN_CODE}\""

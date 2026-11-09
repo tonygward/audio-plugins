@@ -68,6 +68,8 @@ namespace Songsmith::Diagnostics::Testing
 
     // SUI-12 / EQ-35 footer layout: the switch is at the far left, the readout appears directly to its
     // right only while the switch is on, and a plugin's own control stays right-aligned either way.
+    inline void checkVersionBinding (juce::UnitTest& t, juce::AudioProcessor& processor, const juce::String& context);
+
     inline void checkFooterLayout (juce::UnitTest& t, juce::AudioProcessor& processor, const juce::String& context)
     {
         TemporarySettings settings;
@@ -88,7 +90,17 @@ namespace Songsmith::Diagnostics::Testing
                 const auto where = context + " at " + juce::String (width) + (on ? " px, Processing Load on" : " px, Processing Load off");
                 auto& sw = bar.getLoadSwitch();
 
-                t.expect (sw.getX() <= 20 && sw.getX() < bar.getWidth() / 10, where + ": the switch is at the far left");
+                auto& version = bar.getVersionLabel();
+                t.expect (version.getX() <= 20 && version.getX() < bar.getWidth() / 10, where + ": the version is at the far left");
+                t.expect (sw.getX() >= version.getRight() && sw.getX() - version.getRight() <= 16, where + ": the switch follows the version directly");
+                t.expect (sw.getX() < bar.getWidth() / 5, where + ": the switch is still at the left");
+                t.expect (version.getY() >= 0 && version.getBottom() <= bar.getHeight() && version.getWidth() > 0, where + ": the version is inside the strip");
+                t.expect (version.getText() == versionLabelText() && version.getText().startsWith ("v"), where + ": the version reads \"" + version.getText() + "\"");
+                {
+                    juce::GlyphArrangement vg;
+                    vg.addLineOfText (version.getFont(), version.getText(), 0.0f, 0.0f);
+                    t.expect (vg.getBoundingBox (0, -1, false).getWidth() <= (float) version.getWidth(), where + ": the version is not clipped");
+                }
                 t.expect (sw.getButtonText() == "Processing Load", where + ": the switch is named Processing Load");
                 t.expectEquals (probe.getRight(), bar.getWidth() - 16, where + ": the plugin's own control stays at the far right");
                 t.expect (! sw.getBounds().intersects (probe.getBounds()), where + ": no overlap");
@@ -111,6 +123,28 @@ namespace Songsmith::Diagnostics::Testing
                     t.expect (bar.getReadoutText().isEmpty(), where + ": no stale numbers left behind");
             }
         }
+        checkVersionBinding (t, processor, context);
+    }
+
+    // SUI-15: the label shows the version in the root VERSION file (read independently of the build), so a
+    // second hardcoded number or a stale label fails here. `thisFile` is the caller's __FILE__.
+    inline void checkVersionBinding (juce::UnitTest& t, juce::AudioProcessor& processor, const juce::String& context)
+    {
+        TemporarySettings settings;
+        LoadMeter meter;
+        Bar bar (processor, meter, "Test");
+
+        const auto versionFile = juce::File (juce::String (__FILE__)).getParentDirectory().getParentDirectory().getParentDirectory().getChildFile ("VERSION");
+        if (versionFile.existsAsFile())
+        {
+            const auto expected = versionFile.loadFileAsString().trim();
+            t.expect (expected.isNotEmpty(), context + ": the VERSION file holds a version");
+            t.expectEquals (productVersionString(), expected, context + ": the build's version is the root VERSION");
+            t.expectEquals (bar.getVersionLabel().getText(), "v" + expected, context + ": the footer shows the root VERSION");
+        }
+        else
+            t.expect (productVersionString().isNotEmpty(), context + ": the build supplies a version");
+        t.expectEquals (bar.getVersionLabel().getText(), versionLabelText(), context + ": the footer shows the build's version");
     }
 
     // Runs a few blocks of silence at different sizes with timing on and checks a load is published; with

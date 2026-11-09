@@ -217,6 +217,21 @@ namespace Songsmith::Diagnostics
     // CPU and latency readout directly to its right. The right end is left free for a plugin's own
     // control that belongs beside what it affects (setTrailingControl: the EQ's Piano button).
     // Laid out at a fixed design size, so it scales with the editor like everything else.
+    // SUI-15: the product version, as "v0.5.0". It comes from the build's one version (the root VERSION
+    // file, via CMake), never from a second hardcoded number.
+    inline juce::String productVersionString()
+    {
+       #if defined (JucePlugin_VersionString)
+        return juce::String (JucePlugin_VersionString);
+       #elif defined (JUCE_APPLICATION_VERSION_STRING)
+        return juce::String (JUCE_APPLICATION_VERSION_STRING);   // the test executables
+       #else
+        return {};
+       #endif
+    }
+
+    inline juce::String versionLabelText() { return "v" + productVersionString(); }
+
     class Bar : public juce::Component, private juce::Timer
     {
     public:
@@ -228,6 +243,12 @@ namespace Songsmith::Diagnostics
             setupLabel (readout, {}, UI::Weight::Regular, Colours::text);
             readout.setTooltip (latencyTooltip());
             readout.setInterceptsMouseClicks (true, false);
+
+            setupLabel (versionLabel, versionLabelText(), UI::Weight::Regular, Colours::textDim);
+            versionLabel.setTitle ("Version " + productVersionString());
+            versionLabel.setTooltip ("The Songsmith Plugins version you are running.");
+            versionLabel.setInterceptsMouseClicks (true, false);
+            addAndMakeVisible (versionLabel);
 
             loadSwitch.setButtonText ("Processing Load");
             loadSwitch.setTitle ("Processing Load");
@@ -263,6 +284,7 @@ namespace Songsmith::Diagnostics
         bool isReadoutShown() const         { return readout.isVisible(); }
         juce::TextButton& getLoadSwitch()   { return loadSwitch; }
         juce::Component& getReadout()       { return readout; }
+        juce::Label& getVersionLabel()      { return versionLabel; }
 
         // A plugin's own control for the right end of the strip. The bar lays it out right-aligned at
         // the component's current size and does not own it.
@@ -291,6 +313,10 @@ namespace Songsmith::Diagnostics
         void resized() override
         {
             auto r = getLocalBounds().reduced (16, 2).withTrimmedTop (1);
+            // version -> Processing Load switch -> readout, in that order from the left
+            const int versionWidth = getVersionWidth();
+            versionLabel.setBounds (r.removeFromLeft (versionWidth));
+            r.removeFromLeft (8);
             loadSwitch.setBounds (r.removeFromLeft (130).withSizeKeepingCentre (130, 22));
             r.removeFromLeft (10);
 
@@ -305,6 +331,13 @@ namespace Songsmith::Diagnostics
 
     private:
         void timerCallback() override { refresh(); }
+
+        int getVersionWidth() const
+        {
+            juce::GlyphArrangement glyphs;
+            glyphs.addLineOfText (versionLabel.getFont(), versionLabel.getText(), 0.0f, 0.0f);
+            return (int) std::ceil (glyphs.getBoundingBox (0, -1, false).getWidth()) + 4;
+        }
 
         void setupLabel (juce::Label& l, const juce::String& text, UI::Weight weight, juce::Colour colour)
         {
@@ -327,6 +360,7 @@ namespace Songsmith::Diagnostics
         LoadMeter& meter;
         juce::String name;
         juce::Label readout;
+        juce::Label versionLabel;
         juce::Component* trailing = nullptr;
         juce::TextButton loadSwitch;
     };
