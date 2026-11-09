@@ -777,6 +777,9 @@ public:
         beginTest ("Same latency in both modes; quiet audio passes unchanged in true-peak mode");
         {
             SongsmithMaximiserAudioProcessor p;
+            expect (p.isTruePeak(), "a fresh instance starts in true peak mode");
+            setParam (p, Max::peakModeId, 0.0f);
+            expect (! p.isTruePeak());
             prepare (p, fs, 256);
             const int sampleLatency = p.getLatencySamples();
             setParam (p, Max::peakModeId, 1.0f);
@@ -978,7 +981,7 @@ public:
             v1.setProperty ("version", 1, nullptr);
             v1.appendChild (juce::ValueTree ("PARAM", { { "id", "threshold" }, { "value", -4.0f } }), nullptr);
             p.restoreFromValueTree (v1);
-            expect (! p.isTruePeak() && ! p.isAutoRelease(), "new parameters fall back to their defaults");
+            expect (! p.isTruePeak() && ! p.isAutoRelease(), "version 1 has no peak mode: the migration sets sample peak, and release stays manual");
             expectWithinAbsoluteError (p.getThresholdDb(), -4.0f, 1.0e-4f);
 
             setParam (p, Max::peakModeId, 1.0f);
@@ -988,6 +991,28 @@ public:
             SongsmithMaximiserAudioProcessor q;
             q.setStateInformation (mb.getData(), (int) mb.getSize());
             expect (q.isTruePeak() && q.isAutoRelease(), "round trip");
+        }
+
+        beginTest ("Fresh instance is true peak and holds the ceiling on intersample peaks; version 3 sample peak is kept");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            expect (p.isTruePeak(), "default is true peak");
+            prepare (p, fs, 256);
+            setParam (p, Max::thresholdId, -6.0f);
+            setParam (p, Max::ceilingId, -1.0f);
+            prepare (p, fs, 256);
+            // Full-scale tone at fs/4 with a 45 degree phase: samples reach only -3 dBFS, true peak is 0 dBFS.
+            const auto in = sine ((int) fs / 2, fs, fs / 4.0, 1.0, pi / 4.0);
+            const auto out = run (p, { in, in }, { 256 });
+            expectLessOrEqual (truePeakDb (out, 2048), -1.0f + truePeakToleranceDb, "true-peak meter stays at the ceiling");
+
+            setParam (p, Max::peakModeId, 0.0f);
+            juce::MemoryBlock mb;
+            p.getStateInformation (mb);
+            SongsmithMaximiserAudioProcessor q;
+            expect (q.isTruePeak());
+            q.setStateInformation (mb.getData(), (int) mb.getSize());
+            expect (! q.isTruePeak(), "a saved sample-peak state loads as sample peak");
         }
     }
 };
