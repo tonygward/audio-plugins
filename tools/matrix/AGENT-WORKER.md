@@ -1,3 +1,5 @@
+**Current owner policy (9 November 2026):** [Board order, one task, 60% usage, automatic beta build numbers and verified delivery](../../docs/songsmith-execution-policy.md). Historical setup examples below do not override it. AUTO-11 must implement the board reader; never infer live board selection from documentation. A merged prompt archive does not close its issue: beta deployment/download verification and the final issue comment precede issue close and board Done.
+
 # AUTO-01: separate SongsmithAgent worker
 
 Canonical prompt: [AUTO-01](../../shared/prompts/AUTO-01-matrix-autonomous-development.md).
@@ -104,7 +106,7 @@ warning-free EQ build must verify the correction.
    and warning fix. The worker reads canonical main, not arbitrary PR branches.
 3. Verify Agent's own first-party Claude subscription and GitHub branch/draft-PR
    credentials, network boundaries and file-tool confinement. Fresh authoritative
-   usage must be below 85%, session allowance available and paid extra usage off.
+   usage must be below 60%, session allowance available and paid extra usage off.
 4. Arrange retained before/after EQ screenshots and visual review for all ten
    instruments, opened/collapsed selector, widths and 75/100/200% scaling. Screenshot
    automation is not added by this deployment work.

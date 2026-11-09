@@ -2,7 +2,7 @@
 
 - Issue: https://github.com/tonygward/songsmith-website/issues/19
 - Status: ready for separately assigned website implementation
-- Execution: RUN NOW requested; website scope is **not eligible** for Matrix's unattended functional plugin queue
+- Execution: RUN NOW requested; route to the scoped website execution path. Never reject because the issue or prompt is in another repository.
 - Model: Claude Sonnet
 - Implementation repository: `tonygward/songsmith-website`
 
@@ -35,3 +35,5 @@ The site currently presents latest release, What's New, then Getting Started. Ad
 - Check regression around authenticated release/download flows; do not weaken protection for testing.
 - Dependency: factual shipped-feature list; current private website process requires normal PR review for design/content work.
 - PR and merge are distinct from deploy. Record actual deployed commit and access test; no invented release or Matrix status.
+
+**Current execution and delivery:** Follow [the owner policy](../../docs/songsmith-execution-policy.md). Board order decides selection regardless of issue/prompt location or prefix, with one task and a 60% weekly usage stop threshold. Use the actual implementation repository's scoped execution path. Automatically approve/merge after current-head required checks; verify beta deployment and downloads, post the final issue comment, then close and finally mark board Done. Major/minor increments are deferred; beta build/patch increments are automatic.

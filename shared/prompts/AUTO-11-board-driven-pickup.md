@@ -9,41 +9,40 @@ dependencies: ["AUTO-08", "AUTO-09"]
 conflicts: []
 ---
 
-# AUTO-11 — Matrix selects from the Songsmith board in manual card order
+# AUTO-11 — Board-ordered Matrix pickup and verified delivery lifecycle
 
 **Tracking issue:** [audio-plugins #175](https://github.com/tonygward/audio-plugins/issues/175)
 **Board:** [Songsmith Development](https://github.com/users/tonygward/projects/2)
-**Status:** Design and implementation prompt drafted; **deferred infrastructure work**. Do not run automatically as functional overnight work. No live execution is authorised by this file.
+**Status:** Implementation specification; not yet verified as a live board reader. Infrastructure implementation remains separately assigned.
+**Model:** Sonnet; escalate to Opus only for unresolved API ordering or isolation architecture, document why and return to Sonnet.
+**Policy:** [Current execution and delivery policy](../../docs/songsmith-execution-policy.md).
 
-## Objective
-Give the owner direct control of Matrix priorities by **dragging cards up and down in the GitHub Project's Todo column**. On an eligible overnight run, Matrix selects the first eligible Todo card **in the manually displayed top-to-bottom order**, reads its existing canonical Markdown implementation prompt and executes **at most one task**.
+## Objective and existing behaviour
+Let the owner choose the next task by dragging cards into order on the board. The existing worker reads Markdown via tools/matrix/backlog.mjs; do not claim this feature is operational before implementing and testing the board integration.
 
-## Existing behaviour
-Matrix selects prompt files using `tools/matrix/backlog.mjs`, ordered by `build-now`, priority, and task ID; the project board is currently a dashboard and not a worker input. The Linux worker config sets `batchLimit: 1` and `maximumPrompts: 1`.
+## Required behaviour
+1. Read the specific board view's visible manual top-to-bottom order. Todo supplies overnight work; Doing requests immediate execution after any active task. Backlog/Done are excluded. Select the topmost eligible card; ordering never comes from prompt priority, task ID, issue number or repository.
+2. Verify API ordering with real A/B drag-and-drop tests. Generic GraphQL pagination order is not proof. If manual view rank cannot be read reliably, stop board selection and report the limitation. No fallback ordering; propose a numeric Queue Order field only for an explicit owner decision.
+3. Resolve each card to exactly one canonical merged prompt, stable task ID, tracking issue and actual implementation repository. Never refuse a card because of issue repository, prompt location or prefix (AUTO-, WEB-, EQ-, etc.). Ignore implementation PR cards as separate jobs. Scope execution to the actual task, not the issue's location.
+4. Check dependencies, merged prompt, existing claims/PRs, status and execution permissions. Infrastructure and website work use the appropriate isolated execution path with scoped credentials. The functional worker must not gain orchestration, secret or release privileges. If a prerequisite fails, record the real reason and consider the next eligible card; never cite location as the reason.
+5. Enforce batchLimit: 1, maximumPrompts: 1 and one active job globally. Stop new pickup at weekly Claude usage >=60%, including scoped meters, or unknown/stale usage. A global usage gate stops the invocation; do not walk down the queue to bypass it.
+6. Atomically persist the claim. On actual pickup comment on the issue and record Matrix Job, prompt revision and repository. Publish meaningful progress, PR, CI, failure and release-blocker updates on that same issue.
+7. Automatically approve and merge only after exact-head required tests and hosted Windows/macOS CI pass through the trusted merge workflow. No routine manual approval for authorised beta work. Retain the independent credential and integrity boundaries.
+8. Trusted automation increments the beta build/patch counter, publishes the two suite installers, verifies private R2, and deploys matching metadata/changelog and downloads to beta.songsmith.uk. Major/minor changes are deferred.
+9. Keep merged work open in Doing/release-pending until beta delivery is verified. Then post the final issue comment with PR, SHA, build/version, release, deployment and authenticated installer verification evidence; close the issue as completed and finally set the card Done. A failed final comment blocks Done. Never recode merged work while waiting for publication.
+10. Poll the personal project with bounded retries, stale-snapshot detection and durable recovery. Reconcile all existing Doing cards against merged/open PRs and releases before enabling; do not rely on stale prose in older issues. Failed/refused work gets an issue comment and recoverable state without retry loops.
 
-## Proposed behaviour and implementation
-1. Discover the private Songsmith Project #2 and read board cards, status and **manual ranking as displayed in the specific Board view**, using GitHub Projects v2's authorised API. **First test if this visible per-column order is actually exposed**; a generic GraphQL `items` result is not automatically equivalent. Verify by moving two Todo cards and inspecting the order.
-2. **Todo:** ordered overnight queue. Select the highest visible, *eligible* card. **Doing:** owner-requested immediate task; serialise behind a currently active task. **Backlog/Done:** excluded. A Doing card without a Matrix Job means requested but not proof of execution.
-3. Map each card to exactly one canonical prompt ID and path; do not treat implementation PR cards as independent jobs. Identify the correct implementation repository and canonical prompt for each board card, **including AUTO-, WEB- and other prefixes**; never refuse a valid board card solely by its task prefix or the repository where its issue is tracked. Scope credentials and execution authority to the actual repository and work type.
-4. **Replace the existing ID-prefix allowlist for board-driven pickup:** membership and top-to-bottom order in the project Todo column determine selection, whether the ID is `EQ-`, `AUTO-`, `WEB-` or another valid type. Require a unique issue-to-prompt mapping and a valid canonical merged prompt, `done/` status, dependencies, model suitability, verified worker state, the **60% weekly Claude usage gate** (stop at or above 60%, including scoped weekly meters), non-root isolation, CI/exact-head gates, and least-privilege credentials. Infrastructure/orchestration and website tasks may enter the queue but **must only run in a separately authorised and isolated execution path with the required permissions**; board placement alone cannot grant release or secret access. Skip ineligible/unauthorised cards with clear reasons, then check the next eligible card. Never select two in one invocation or run concurrent agents.
-5. Atomically claim work in durable state. Add the actual Matrix Job identifier and a pickup comment once started. Reflect verified Doing on genuine worker pickup. **Done requires both** (a) verified PR merge and (b) successful beta release publication with the matching Windows and macOS setup/installer downloads accessible and verified on beta.songsmith.uk. Do not mark Done on merge alone. Keep Doing or explicitly release-pending when publication has not passed verification. On refused/failed work leave actionable diagnostics on the issue and move to Backlog as the owner specified, avoiding retry loops.
-6. Poll the personal-account board on an independently configured interval, respecting GitHub rate limits, permissions and recoverability. Do not activate an unvalidated worker or give it release/Cloudflare secrets.
-7. **Fail closed if manual order cannot be demonstrated through the API**. Do not claim drag order works or silently substitute API pagination order. Propose a numeric `Queue Order` project field for explicit owner approval; only then implement a deterministic alternative.
-8. Before enabling, reconcile existing Doing cards and PRs (e.g. VER-01, SUI-15 from the issue history) to avoid duplicate execution.
+## Acceptance and tests
+- Moving A above B selects A; reversing their visible order selects B, verified against the actual board view.
+- Cards tracked in audio-plugins, songsmithstudio and songsmith-website are considered in board order. Prefix or location never excludes them; tests independently check actual execution permissions.
+- At most one task is claimed; concurrent invocations/restarts/duplicate cards cannot create a second job.
+- Blocked top card records its actual reason before considering the next eligible card. Missing ordering, API errors or stale/partial snapshots trigger no work.
+- Verified weekly usage 59.9% permits pickup; 60.0% and higher, including scoped meters, and unknown usage block it.
+- Issue comments cover genuine pickup, progress, failure, merge, deployment blockers and completion.
+- Current-head green CI permits automatic approval/merge. Missing, failed or stale checks prevent it.
+- A merged PR with absent, stale, inaccessible or mismatched beta installers cannot close its issue or mark the board Done.
+- Successful release/R2/site deployment and authenticated Windows/macOS downloads are recorded; final issue comment precedes close and board Done.
+- Publication failure preserves the merged implementation and release-pending state without duplicate coding.
 
-## Acceptance criteria and automated tests
-- Dragging A above B in Todo selects A first; reversing them selects B first, both in a verified live board snapshot.
-- A blocked/ineligible top card is skipped with a clear reason and the next eligible card selected; one task maximum.
-- Existing worker claim prevents duplicate execution even if a card remains Doing.
-- Board access errors, uncertain manual ranks and stale/partial snapshots do not trigger work.
-- Automatic issue comments and board status transitions happen only with verifiable states; failures return to Backlog with reasons, while merged work awaiting release remains Doing/release-pending.
-- A merged implementation PR without updated installers on the beta website **must not** mark its card Done. After successful Windows and macOS builds, GitHub Release publication, private R2 transfer and Access-protected website update, verify the site presents the expected release and installer links resolve to the matching artifacts. Record PR, commit SHA, release/tag, installer artifact identities and verification evidence before Done.
-- Failed, delayed, inaccessible or mismatched beta downloads block Done even if PR/CI succeeded; never create a second implementation job for work awaiting publication.
-- Tests cover metadata mapping, manual ordering across functional, AUTO- and WEB-prefixed tasks, authorised execution scope, the 59.9%/60.0% weekly usage boundary (including scoped meters), API failures, duplicate cards and cross-repo issue links.
-- CI and review pass. The end-to-end release gate has verified installers and website links; no release or deployment claims without separate verification.
-
-## Dependencies and risk
-AUTO-08 (deployed and validated Linux runtime), AUTO-09 (real end-to-end worker/CI pilot); GitHub Projects view ordering API capability and scoped credentials. The board is a remote code-execution control that may now include infrastructure and website work, so per-task execution authorisation, isolated credentials, authentication, auditability, one-at-a-time claims and fail-closed behaviour are mandatory.
-
-## Build, version and release
-Infrastructure change only; do not perform the AUTO-11 scheduling implementation during existing scheduled functional runs. Once independently authorised and deployed, board-selected work of any type may be considered, subject to its specific execution permissions and safety gates. Implement on a branch with tests and PR, with human approval of any new trigger/credential scope. Preserve the current product version and existing automated release rules.
+## Dependencies, risks and delivery
+AUTO-08 validates the runtime; AUTO-09 validates development/CI/merge. Validate scoped board read/write access, actual API ordering and recovery before rollout. Keep board updates and release credentials in trusted components. Implement on a branch with tests and PR; retain the product VERSION for this infrastructure specification change. Documentation is not activation.

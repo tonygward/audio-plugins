@@ -9,9 +9,11 @@ dependencies: ["AUTO-08"]
 conflicts: []
 ---
 
+**Current policy:** [Board ordering, one task, 60% usage gate, automatic beta builds and verified issue completion](../../docs/songsmith-execution-policy.md). This policy supersedes historical batches, folder/ID ordering and merge-only completion in older design notes. Automatic approval/merge requires exact-head green CI; issue Done requires beta deployment/download verification and a final issue comment.
+
 **GitHub tracking issue:** [#156](https://github.com/tonygward/audio-plugins/issues/156).
 
-**Execution policy (9 November 2026):** Infrastructure/automation maintenance is **excluded from all overnight scheduled and build-now functional runs**. This story remains open for deliberate, separately authorised infrastructure work; the functional Matrix worker must never select it. Do not auto-activate any worker merely because this backlog file changes.
+**Execution policy:** Follow [current selection and delivery rules](../../docs/songsmith-execution-policy.md). Board order decides selection regardless of prefix or issue/prompt location. This deferred task needs its appropriate scoped infrastructure execution path; board placement does not grant new privileges. One task only; 60% weekly usage stop threshold. Documentation does not activate a worker.
 
 
 # AUTO-09 — One Linux-container task through PR, native CI and verified merge
@@ -22,7 +24,7 @@ conflicts: []
 Show one eligible canonical backlog item is developed by the isolated Linux agent, tested on **hosted Windows and macOS GitHub Actions at the current PR head SHA**, repaired in a bounded way if needed, and merged through the independently gated workflow.
 
 ## Work
-1. Only after AUTO-08 passes, intentionally enable a **single-task supervised pilot** in the container with confirmed first-party Claude usage **strictly below 85%**, extra paid usage off, scoped credentials and explicit owner activation. Preserve a no-run mode while blocked/unknown.
+1. Only after AUTO-08 passes, intentionally enable a **single-task supervised pilot** in the container with confirmed first-party Claude usage **strictly below 60%**, extra paid usage off, scoped credentials and explicit owner activation. Preserve a no-run mode while blocked/unknown.
 2. From a pinned prompt ID and main commit, create isolated worktree/branch, launch bounded Claude CLI, capture provenance, changed-file allowlist and test results, and open draft PR. Do not let the agent edit protected workflows, approval rules or publishing secrets.
 3. Verify the hosted Windows VST3/EXE suite build and macOS AU/PKG suite build/test jobs run against **exactly the latest PR head SHA**. Never treat stale or missing checks as green. Collect redacted failures and perform at most the configured repair attempts.
 4. Verify an independent trusted `matrix-auto-merge.yml` run can merge only a passing, policy-compliant current-head PR and archive/mark the corresponding stable prompt ID done **after** merge. Validate failure/timeout, interruption/restart, duplicate notification, pause and missing-allowance paths.

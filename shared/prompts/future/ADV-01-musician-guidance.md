@@ -1,3 +1,5 @@
+**Tracking issue:** https://github.com/tonygward/audio-plugins/issues/171
+
 # ADV-01 — Musician-friendly guidance across Songsmith plugins
 
 **Status:** Future candidate, not queued for automatic execution. **Model:** Sonnet for implementation; Opus only if a cross-plugin architecture decision requires it.
@@ -30,3 +32,5 @@ Follow the standing design rule in `CLAUDE.md`, existing UI style guide, and sou
 **Boundary:** Live plugins generally cannot know the original WAV file's sample depth from a DAW float buffer. Recording-format explanations belong in the standalone whole-file adviser (REC-01).
 
 Open a draft PR once implemented; do not release merely because this prompt was written.
+
+**Current execution and delivery:** Follow [the owner policy](../../../docs/songsmith-execution-policy.md). Board order decides selection regardless of issue/prompt location or prefix, with one task and a 60% weekly usage stop threshold. Use the actual implementation repository's scoped execution path. Automatically approve/merge after current-head required checks; verify beta deployment and downloads, post the final issue comment, then close and finally mark board Done. Major/minor increments are deferred; beta build/patch increments are automatic.

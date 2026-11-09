@@ -1,77 +1,23 @@
-Work through every prompt directly in the prompts folder named when this run
-was started, in order: a plugin's folder (eq/prompts/, analog-compressor/prompts/,
-maximiser/prompts/; numeric order) or shared/prompts/ for work across every plugin
-(SUI-01, SUI-02, ...). If no folder was named, use eq/prompts/. Only the numbered prompt
-files are tasks: skip README.md, this file, and the done/ subfolder (those tasks
-are already merged). Ignore that folder's README.md wave table; it describes
-parallel waves, which don't apply here. Do read its notes on order and conflicts.
+# Matrix overnight execution
 
-Overnight runs merge straight into main and release. Every change still goes through a PR,
-and Tony has agreed that the AI approves and merges its own PRs. (GitHub doesn't
-let an account formally approve its own PR, so "approve" means: check
-everything below, then merge.) Never push commits directly to main.
+Follow [the execution and delivery policy](../../docs/songsmith-execution-policy.md), [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) and the selected canonical prompt.
 
-For each prompt, follow it exactly, with these overrides:
-- Branch from an up-to-date main (git checkout main && git pull) for every
-  task, so each task builds on the ones merged before it.
-- Open the PR against main as the prompt says. A draft is fine while you work.
-- CI runs on every PR, including the macOS jobs. Before merging, wait for it
-  with `gh pr checks --watch` and fix failures. For tasks that can only be
-  tested on CI (the macOS installers), CI passing is the test.
-- Approve and merge only when all of these are true: the build passes with no
-  new warnings, every test executable the prompt names passes (old and new
-  tests), CI is green, and you have reread the diff against the prompt and
-  CLAUDE.md's design principles. Then mark the PR ready (gh pr ready), add a
-  PR comment headed "Approved by the overnight run" that lists what you
-  checked, and merge (gh pr merge --merge --delete-branch).
-- In the same PR, before merging, move the task's prompt into the folder's
-  done/ subfolder and update that folder's README status table, if it has one.
-  Keep the original scope-qualified ID (EQ-32, ACOMP-06, MAX-07, SUI-11, OPT-01, CLN-01, ADV-01),
-  record its PR number and canonical relative link, and update any related roadmap
-  references. If a release checkpoint is delivered, also cross-link the prompt IDs
-  in CHANGELOG.md. Check that all new Markdown links resolve; never infer completion
-  from a draft PR. See shared/prompts/README.md#prompt-identity-and-traceability.
-- Align versions to the agreed delivery checkpoints in `shared/prompts/README.md`, following `CLAUDE.md`. Do not automatically bump VERSION for every completed implementation prompt. Intermediate PRs can merge without a version change. At a planned release checkpoint, after its agreed scope passes validation, bump the shared VERSION once and update CHANGELOG.md. If no release checkpoint is agreed, leave VERSION unchanged and record that a release decision is pending. Docs-only changes never bump VERSION.
+## Select one task
+The Songsmith Development board's Todo column is the manually ordered overnight queue. Select the topmost eligible card in the specific view's visible order. Doing requests immediate work, serialised behind the current job. Never choose by folder, task ID, issue number, priority or repository; never reject because of issue or prompt location/prefix. Resolve the actual implementation repo and its permitted execution path.
 
-Releasing is automatic too. Tony has agreed that every merged PR that bumps
-the version is released straight away, without asking:
-1. Wait for main's Build run of the merge commit (gh run list --branch main
-   --event push --commit <merge sha>, then gh run watch). If it fails, fix it
-   with a new PR as the next task; don't release a red build.
-2. Download **only** the two suite-installer CI artifacts:
-   `gh run download <run id> -n Songsmith-Plugins-Windows-setup -D release-assets/windows`
-   and `gh run download <run id> -n Songsmith-Plugins-macOS-pkg -D release-assets/macos`.
-   Check there is **exactly one** correctly versioned `Songsmith-Plugins-X.Y.Z-win64-setup.exe`
-   and **exactly one** `Songsmith-Plugins-X.Y.Z-macOS.pkg`. Both must be built
-   from the tested CI run on the intended release commit. Fail the release on
-   unexpected files, missing packages or mismatched versions.
-3. Publish: `gh release create vX.Y.Z --target <merge sha> --title
-   "Songsmith Plugins vX.Y.Z" release-assets/windows/Songsmith-Plugins-X.Y.Z-win64-setup.exe
-   release-assets/macos/Songsmith-Plugins-X.Y.Z-macOS.pkg`, with plain-language
-   notes on what's new, the **one installer per platform / one tick box per plugin**
-   installation, the unsigned-installer warnings, uninstalling and known limits.
-   **Public GitHub releases contain exactly these two installers.** NEVER attach
-   any individual plugin installers, ZIP files, raw VST3/AU packages or CI
-   screenshots to the public release. Those may be retained as internal
-   Actions artifacts for building, testing, diagnosing and PR/README screenshots.
-   If editing an existing release, first remove superseded individual release
-   assets; leave its two suite installers intact and do not republish/rebuild
-   old assets from a different commit.
-Follow the Releasing section of TECHNICAL.md. There is one version for every
-plugin and installer (the VERSION file), so there is one tag, vX.Y.Z, and one
-release per version.
+AUTO-11 must implement and verify this board reader before claiming board-driven execution. Until then report the existing selector's actual behaviour; do not invent board support. If visible order cannot be read, fail closed with a diagnostic, not a fallback ordering.
 
-If a task is blocked, or its tests can't be made to pass within reason:
-leave its PR as a draft with a "Blocked" section, don't merge it, check out
-main again and carry on with the next prompt. Later tasks may depend on a
-skipped one; adapt and note it in their PRs.
+Run one task only (batchLimit: 1, maximumPrompts: 1), with no concurrent jobs. Require verified weekly Claude usage below 60%, including scoped meters; unknown/stale usage blocks pickup. Respect dependencies, claims and least-privilege execution permissions.
 
-Don't stop until all of them have been attempted. Then:
-1. On main, do a clean Release build of every plugin, run every test
-   executable, and run EQTests --bench.
-2. Open one issue (gh issue create) titled "Overnight run YYYY-MM-DD" with: a
-   table of each task (merged / blocked, PR link, one-line summary, release
-   link if one was published), the final
-   test counts, before/after benchmark numbers, every design decision made
-   without a human, and a short "what to check by hand" list (DAW tests,
-   screenshots to look at, anything only verified on CI).
+## Implement, approve and merge
+- Branch from current main in an isolated worktree. Comment on the tracking issue with actual pickup, Matrix Job and prompt revision.
+- Follow the canonical scope and tests. Keep useful current screenshots, update READMEs and add musician-facing Unreleased notes for visible changes.
+- Native Windows/macOS builds and required tests must pass at the exact PR head. Automatically record approval and merge through the trusted workflow when eligible; no routine manual approval for authorised beta work. Do not bypass CI.
+- Comment on progress, CI/PR outcomes, failures and blockers. Archive the prompt after merge and repair index/issue links; archiving prevents repeat implementation and does not mean the issue is delivered.
+
+## Publish, verify and finish
+Trusted workflows automatically increment the beta third-component build/patch counter on each qualifying successful development build/merge on main. Major/minor increments are deferred. Avoid bumps/releases for PR-only builds, retries and documentation-only changes.
+
+Publish exactly two suite installers (Windows EXE and macOS PKG), verify private R2 bytes, then deploy the matching beta.songsmith.uk version/changelog/download links. Verify both authenticated downloads match the release.
+
+Keep the issue open and board Doing/release-pending until delivery passes. Post the final completion comment with PR, SHA, build/version, release, deployment and download evidence; only then close the issue as completed and finally mark the board Done. A publication or comment failure blocks Done and must not trigger duplicate implementation. The coding agent never holds release/R2/website credentials.

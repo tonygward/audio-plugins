@@ -9,7 +9,9 @@ dependencies: []
 conflicts: []
 ---
 
-**Execution policy (9 November 2026):** Infrastructure/automation maintenance is **excluded from all overnight scheduled and build-now functional runs**. This story remains open for deliberate, separately authorised infrastructure work; the functional Matrix worker must never select it. Do not auto-activate any worker merely because this backlog file changes.
+**Current policy:** [Board ordering, one task, 60% usage gate, automatic beta builds and verified issue completion](../../docs/songsmith-execution-policy.md). This policy supersedes historical batches, folder/ID ordering and merge-only completion in older design notes. Automatic approval/merge requires exact-head green CI; issue Done requires beta deployment/download verification and a final issue comment.
+
+**Execution policy:** Follow [current selection and delivery rules](../../docs/songsmith-execution-policy.md). Board order decides selection regardless of prefix or issue/prompt location. This deferred task needs its appropriate scoped infrastructure execution path; board placement does not grant new privileges. One task only; 60% weekly usage stop threshold. Documentation does not activate a worker.
 
 
 ## Current deployment target — Linux container (9 November 2026)
@@ -18,7 +20,7 @@ This heartbeat is produced by the **trusted Linux-container controller**, **not 
 
 Monitor the container's scheduled polling loop and actual successful canonical GitHub fetch separately. Publish sanitised container liveness, `linux-worker.mjs` execution mode, queue status, exact observed main SHA, latest PR-head CI validation, reason codes, last successful publication and staleness. Container paused/stopped/offline, missing credentials, failed egress and CI pending/failed must be distinguishable without exposing host names, mount paths, credentials or raw logs. Use least-privilege outbound-only GitHub publishing from an approved container-controlled component; never mount Docker socket or release credentials. Do not conflate a GitHub Actions CI run with proof the container itself is alive.
 
-Implement and test against the deployed Linux container's timer/process lifecycle. A Windows scheduled-task probe is relevant only when diagnosing the *legacy* scanner. Heartbeat must not spawn Claude, consume provider allowance or be blocked by the 85% development gate.
+Implement and test against the deployed Linux container's timer/process lifecycle. A Windows scheduled-task probe is relevant only when diagnosing the *legacy* scanner. Heartbeat must not spawn Claude, consume provider allowance or be blocked by the 60% development gate.
 
 # AUTO-03 — Matrix remote heartbeat and backlog observability
 
@@ -49,7 +51,7 @@ The previous Windows Task Scheduler prototype ran roughly every five minutes, bu
 
 The documented Claude workflow is a **JavaScript orchestration script for agents**, not a persistent Linux-container service, scheduler, durable inter-session task queue, or remote machine heartbeat. Its `/workflows` view shows progress **inside a Claude session**; a saved `.claude/workflows/` script and the session's workflow artifacts do **not** provide a GitHub-readable remote status endpoint. Do not implement AUTO-03 by launching Claude to report its own status.
 
-- Heartbeat must be emitted by **trusted Matrix Node.js code running in the Linux container** even if no Claude session exists, Claude is signed out, the 85% usage gate blocks new work, or live execution is disabled. Use no agent tokens to publish liveness.
+- Heartbeat must be emitted by **trusted Matrix Node.js code running in the Linux container** even if no Claude session exists, Claude is signed out, the 60% usage gate blocks new work, or live execution is disabled. Use no agent tokens to publish liveness.
 - When AUTO-04 or another explicit Claude workflow is eventually enabled, add a **sanitised optional workflow lifecycle** field (`not-started/running/paused/failed/completed/unknown`, task ID, count, last observation) derived from the trusted controller's observations; distinguish it from the actual scheduler/fetch heartbeat. Do not copy workflow transcripts, agent prompts, session-local paths, token/account details, or raw `/workflows` output to GitHub.
 - Anthropic documents that workflows can be resumed within a session, that results live in session directories, and that paused/restarted agents can rerun. Therefore remote status must be **observation-based and stale-aware**, never infer completion from a previously published `running` record.
 - Anthropic's usage-limit auto-resume is only for qualifying **interactive subscription** workflows and explicitly excludes non-interactive `claude -p` / Agent SDK and background sessions. Never advertise automatic resumption after a quota reset for Matrix's scheduled worker.

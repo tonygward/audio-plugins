@@ -1,3 +1,5 @@
+**Tracking issue:** https://github.com/tonygward/audio-plugins/issues/173
+
 # REC-01 — Standalone file Recording and Streaming Advisor
 
 **Status:** Future candidate, not queued for automatic execution. **Model:** Sonnet; Opus for detailed measurement design if necessary.
@@ -37,3 +39,5 @@ Do not imply 44.1 kHz is inferior for music, 16-bit is unusable, or changing an 
 5. Show screenshots in the PR and keep useful app screenshots in the README/documentation. Document what is a real measurement, what is an estimate, and what the tool cannot know.
 
 **Principle:** “What matters, why it matters, and whether I need to do anything.”
+
+**Current execution and delivery:** Follow [the owner policy](../../../docs/songsmith-execution-policy.md). Board order decides selection regardless of issue/prompt location or prefix, with one task and a 60% weekly usage stop threshold. Use the actual implementation repository's scoped execution path. Automatically approve/merge after current-head required checks; verify beta deployment and downloads, post the final issue comment, then close and finally mark board Done. Major/minor increments are deferred; beta build/patch increments are automatic.

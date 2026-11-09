@@ -1,3 +1,5 @@
+**Current owner policy (9 November 2026):** [Board order, one task, 60% usage, automatic beta build numbers and verified delivery](../../docs/songsmith-execution-policy.md). Historical setup examples below do not override it. AUTO-11 must implement the board reader; never infer live board selection from documentation. A merged prompt archive does not close its issue: beta deployment/download verification and the final issue comment precede issue close and board Done.
+
 # Matrix Linux agent container (AUTO-05, phase 1)
 
 An isolated, unprivileged container for the Claude developer agent, for **wslc (WSL containers)**. It replaces the Windows `SongsmithAgent` / `SongsmithBuild` account machinery in later phases.

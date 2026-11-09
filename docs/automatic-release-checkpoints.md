@@ -9,7 +9,7 @@ workflow examines the exact Build run.
 
 **A new canonical version in root `VERSION` and a nonempty, unique matching
 `## X.Y.Z` section in root `CHANGELOG.md` constitute the release checkpoint.**
-There is no new release for routine merges while VERSION is unchanged.
+Successful qualifying development builds automatically advance the beta build/patch number as described below. Major/minor increments are deferred. PR-only builds, retries and docs/prompt-only changes do not create extra releases.
 
 Only if `AUTO_RELEASE_ENABLED=true`, the Build run is successful from a first
 attempt on `main`, the run matches current main HEAD, and all Windows/macOS
@@ -45,12 +45,7 @@ the initial controlled test and token verification. Existing distribution
 switches `BETA_DISTRIBUTION_ENABLED` and
 `BETA_WEBSITE_RELEASE_ENABLED` govern the following two stages separately.
 
-**Required on each release checkpoint:** update root VERSION to a new
-semver X.Y.Z, add matching dated/reviewed CHANGELOG section, and merge
-the version bump together with code changes via PR. A docs-only VERSION
-change lacking full Build trigger will **not** publish; use a source-affecting
-change on that checkpoint, or deliberately run full Build with a new
-source merge. Never force/reuse existing tags or publish partial artifacts.
+**Automatic build-number checkpoint:** trusted beta automation increments the third VERSION component and moves musician-facing Unreleased notes into the matching changelog section after a qualifying successful main development build. The version commit receives a full native build before publication; prevent recursive bumps and duplicate events. No manual major/minor increment is currently scheduled.
 
 ## Failure and recovery
 
@@ -83,17 +78,18 @@ Notes on the website and the release page come from the `CHANGELOG.md` section f
 
 With `MATRIX_AUTOMERGE_ENABLED=true`, two workflows close the loop after the Matrix worker opens a draft pull request:
 
-- **Matrix auto-merge** (`matrix-auto-merge.yml`) runs after the hosted `Build` (Windows and macOS) succeeds for a `matrix/*` pull request from this repository. It checks, from `main`'s own scripts, that the build was for the exact head commit, that every changed file is inside the worker's permitted source, test, documentation, README or `CHANGELOG.md` scope, and that the worker recorded a clean local build and test run. The one block it accepts is the worker's "UI changes need screenshots and visual review" note, because the owner chose hands-off merging of UI work. It then comments with what it checked, marks the draft ready and squash-merges it. The usual beta bump and publish pipeline follows.
-- **Matrix archive merged prompt** (`matrix-archive-prompt.yml`) runs on `main` after such a merge and moves the prompt into its `done/` folder with `status: done`. A prompt is therefore only "done" once its work is in `main`, and prompts that depend on it become available.
+- **Matrix auto-merge** (`matrix-auto-merge.yml`) runs after the hosted `Build` (Windows and macOS) succeeds for a `matrix/*` pull request from this repository. It checks, from `main`'s own scripts, that the build was for the exact head commit, that every changed file is inside the worker's permitted source, test, documentation, README or `CHANGELOG.md` scope, and that the independently required tests and native CI have passed. The Linux worker may delegate native validation to hosted CI; never fabricate a local build. The one block it accepts is the worker's "UI changes need screenshots and visual review" note, because the owner chose hands-off merging of UI work. It then comments with what it checked, marks the draft ready and squash-merges it. The usual beta bump and publish pipeline follows.
+- **Matrix archive merged prompt** (`matrix-archive-prompt.yml`) runs on `main` after such a merge and moves the prompt into its `done/` folder with `status: done`. This archive records merged implementation and prevents repeat coding; it is not issue/board completion. Dependencies requiring release must verify delivery separately.
 
 Logic and tests: `scripts/matrix/automerge.mjs`, `test/matrix-automerge.test.mjs`. Set `MATRIX_AUTOMERGE_ENABLED=false` to stop both. Not covered: a person did not see the interface before the merge, and nothing was checked in a DAW; check the beta build.
 
-## Version 0.5.0 reset (SUI-15)
+## Historical version 0.5.0 reset (VER-01)
 
 The suite version was deliberately lowered from 1.3.x to **0.5.0** because the product is not finished. Nothing else about versioning changed:
-each later source merge still bumps the patch number automatically (0.5.1, 0.5.2 and so on, `AUTO_BETA_VERSION_ENABLED=true`). A bigger
-step (for example 0.6.0 or 1.0.0) is made only when a ticket asks for it, by changing `VERSION` and adding the matching `## X.Y.Z` changelog
-section. Per-build identity stays in the CI run number and commit SHA.
+each later source merge still bumps the patch number automatically (0.5.1, 0.5.2 and so on, `AUTO_BETA_VERSION_ENABLED=true`). Major and minor increments are deferred until an explicit new owner decision. Per-build identity stays in the CI run number and commit SHA.
 
 Installers: the Windows installer replaces any installed version, so 0.5.0 installs over 1.3.x. The macOS component packages are built with
 `BundleIsVersionChecked` off for the same reason; without it Installer keeps a newer 1.x bundle. The earlier 1.x GitHub releases and tags were removed as redundant (beta software), which also frees old tags so a version number is never blocked by one.
+
+## Issue and board completion
+Follow [the current delivery policy](songsmith-execution-policy.md). Comment on genuine pickup, progress, failure, PR/CI outcomes and merge. A merged PR remains open/Doing or release-pending until beta.songsmith.uk is deployed with the matching version and authenticated Windows/macOS installer downloads verified against the release/R2 bytes. Post the final completion comment with PR, SHA, version/build, release and deployment/download evidence; only then close the issue and finally set board Done. Any failure blocks completion and must not create a duplicate implementation job.
