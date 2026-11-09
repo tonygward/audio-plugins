@@ -9,11 +9,11 @@ const now = Date.parse('2026-11-06T20:00:00Z');
 const reset = new Date(now + 3600000).toISOString();
 const executable = path.resolve('trusted', process.platform === 'win32' ? 'claude.exe' : 'claude');
 const enabled = { enabled: true, executable };
-function rows(percent = 69.9) { return [
+function rows(percent = 59.9) { return [
   { kind: 'session', group: 'session', percent: 0, resets_at: null },
   { kind: 'weekly_all', group: 'weekly', percent, resets_at: reset, scope: null }
 ]; }
-function events(percent = 69.9) { return [
+function events(percent = 59.9) { return [
   { type: 'system', subtype: 'init' },
   { type: 'assistant', message: { content: [{ type: 'text', text: 'Current week (all models)' }] }, usage_report: {
     session: { total_cost_usd: 0, total_api_duration_ms: 0, model_usage: {} },
@@ -37,13 +37,13 @@ function fakeRun(options = {}) {
   };
   return { run, calls };
 }
-for (const [percent, allowed] of [[0, true], [69.9, true], [70, false], [70.1, false], [96, false], [100, false]]) test(`Structured weekly percentage ${percent}`, () => {
+for (const [percent, allowed] of [[0, true], [59.9, true], [60, false], [60.1, false], [96, false], [100, false]]) test(`Structured weekly percentage ${percent}`, () => {
   const result = parse(events(percent)); assert.equal(result.allowed, allowed); assert.equal(result.snapshot.percentage, percent);
 });
 test('Extra usage enabled, absent, null and malformed all block below threshold', () => {
   for (const extra of [undefined, null, {}, { is_enabled: true }, { is_enabled: 'false' }]) {
     const e = events(); e[1].usage_report.rate_limits.extra_usage = extra;
-    const result = parse(e); assert.equal(result.allowed, false); assert.equal(result.snapshot.percentage, 69.9);
+    const result = parse(e); assert.equal(result.allowed, false); assert.equal(result.snapshot.percentage, 59.9);
   }
 });
 test('Weekly and extra-usage reasons are reported together', () => {
@@ -91,7 +91,7 @@ test('Fresh request does not become reusable evidence after timeout or clock rev
   for (const startedAt of [now + 1, now - 60001, NaN]) assert.throws(() => parseUsage(stream(events()), { startedAt, now }));
 });
 test('Scoped weekly exhaustion and session exhaustion also stop work', () => {
-  const e = events(); e[1].usage_report.rate_limits.limits.push({ kind: 'weekly_scoped', group: 'weekly', percent: 70, resets_at: reset });
+  const e = events(); e[1].usage_report.rate_limits.limits.push({ kind: 'weekly_scoped', group: 'weekly', percent: 60, resets_at: reset });
   assert.equal(parse(e).allowed, false);
   const s = events(); s[1].usage_report.rate_limits.limits[0].percent = 100; assert.equal(parse(s).allowed, false);
 });
@@ -136,10 +136,10 @@ test('Dry-run reports show live usage and blockers without claiming work', t => 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'matrix-usage-report-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const config = { repository: dir, stateDirectory: path.join(dir, 'state'), enabled: true, batchLimit: 6, dailyTime: '02:00', liveExecution: false, autoMerge: false, releasePublication: false, claudeUsage: enabled };
-  for (const percent of [69.9, 96]) {
+  for (const percent of [59.9, 96]) {
     const report = tick(config, { loadSnapshot: () => ({ revision: 'a'.repeat(40), files: new Map() }), loadUsage: () => parse(events(percent)) });
-    assert.equal(report.usage.allowed, percent < 70); assert.equal(report.usage.snapshot.percentage, percent); assert.equal(report.liveExecution, false);
-    assert.equal(report.blockers.length, percent < 70 ? 1 : 2);
+    assert.equal(report.usage.allowed, percent < 60); assert.equal(report.usage.snapshot.percentage, percent); assert.equal(report.liveExecution, false);
+    assert.equal(report.blockers.length, percent < 60 ? 1 : 2);
   }
   const file = path.join(dir, 'config.json'); fs.writeFileSync(file, JSON.stringify(config)); assert.equal(readConfig(file).claudeUsage.enabled, true);
   config.claudeUsage = { ...enabled, executable: 'relative' }; fs.writeFileSync(file, JSON.stringify(config)); assert.throws(() => readConfig(file));
