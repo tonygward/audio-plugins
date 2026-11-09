@@ -1,13 +1,21 @@
 ---
 id: AUTO-05
-status: planned
-execution: scheduled
+status: blocked
+execution: deferred
 priority: high
 model: sonnet
 effort: medium
 dependencies: ["AUTO-01"]
 conflicts: []
 ---
+
+## Parent epic: Linux deployment work split (9 November 2026)
+
+**Tracking only — not an eligible autonomous prompt.** The Linux-container direction was selected and the code foundation was merged in [AUTO-07](done/AUTO-07-linux-ci-worker-code-foundation.md), [PR #139](https://github.com/tonygward/audio-plugins/pull/139). That completes the **architecture decision and implementation-code milestones**, *not* a verified running container.
+
+Remaining delivery is tracked separately: [AUTO-08 container security and deployment validation](AUTO-08-linux-container-deployment-validation.md) and [AUTO-09 real task/hosted-CI/merge pilot](AUTO-09-container-development-ci-and-merge-pilot.md). [AUTO-10](AUTO-10-verified-beta-distribution-e2e.md) verifies downstream releases. The legacy discussion below is retained for provenance; those subtask stories now own execution and acceptance evidence.
+
+Close this epic only after AUTO-08 and AUTO-09 are proven in the actual Linux container. Deferred status prevents Matrix selecting this umbrella story alongside its child tasks.
 
 ## Adopted direction and implementation checkpoint — 9 November 2026
 
