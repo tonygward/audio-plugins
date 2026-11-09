@@ -497,8 +497,8 @@ void SongsmithAnalogCompressorEditor::savePresetAsync()
                                                   .withIconType (juce::MessageBoxIconType::QuestionIcon)
                                                   .withTitle ("Replace preset")
                                                   .withMessage ("A preset called \"" + name.trim() + "\" already exists. Replace it with the current settings?")
-                                                  .withButton ("Replace")
-                                                  .withButton ("Cancel")
+                                                  .withButton ("Replace", 1)
+                                                  .withButton ("Cancel", 0)
                                                   .withAssociatedComponent (safe.getComponent()),
                                               [safe, name] (int choice)
                                               {
