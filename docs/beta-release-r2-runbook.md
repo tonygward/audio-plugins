@@ -22,11 +22,11 @@ immutable versioned objects only to the private R2 bucket
 After successful upload, the upstream workflow dispatches
 `songsmith-approved-release` (a legacy internal event identifier, not an
 approval guarantee) to the website. The website independently verifies the
-source release, successful upstream run and R2 objects, then creates a PR
-updating release.json + changelog.md together. It **never automatically
-merges or updates main**. Tony reviews and manually merges the website PR
-to deploy the release. GitHub Free does not enforce website PR review on the
-private repository; this is an operational owner-controlled check.
+source release, successful upstream run and R2 objects, then publishes
+release.json + changelog.md together straight to its `main` branch.
+Cloudflare Pages then deploys it. **No manual merge or review step: this is
+hands off.** Verification is automatic (source release, CI run, R2 objects and
+hashes); the safety stop is setting the activation variables to `false`.
 
 ## Required repository settings
 
@@ -61,8 +61,8 @@ before changing that pin. Never commit token contents to this repo.
    validation. Publishing a new release starts distribution automatically.
    Older release events won't automatically rerun just from changing vars.
 4. Verify source workflow upload, private R2 HEAD/readback, source release
-   identity and website dispatch. Observe website verification and its PR.
-5. Manually inspect website PR, CI and exact assets; merge the PR, verify
+   identity and website dispatch. Observe website verification and its commit.
+5. Check the website commit and CI, verify
    Cloudflare Pages deployment and download both files as a logged-in
    authorised beta tester. Signed-out or unapproved testers must be denied.
 6. On any issue, set activation variables to `false`, cancel already-running
@@ -72,4 +72,4 @@ before changing that pin. Never commit token contents to this repo.
 **Security limitation:** This is a deliberate single-owner release policy,
 not separation of duties. A repository writer can publish a release, and
 there is no second environment approval. Provenance, hashes, private
-storage, fail-closed authentication and manual website PR merge remain.
+storage and fail-closed authentication remain.
