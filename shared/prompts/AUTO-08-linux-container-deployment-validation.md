@@ -1,13 +1,16 @@
 ---
 id: AUTO-08
 status: planned
-execution: scheduled
+execution: deferred
 priority: high
 model: sonnet
 effort: medium
 dependencies: ["AUTO-07"]
 conflicts: []
 ---
+
+**Execution policy (9 November 2026):** Infrastructure/automation maintenance is **excluded from all overnight scheduled and build-now functional runs**. This story remains open for deliberate, separately authorised infrastructure work; the functional Matrix worker must never select it. Do not auto-activate any worker merely because this backlog file changes.
+
 
 # AUTO-08 — Validate isolated Linux container deployment on Matrix
 
