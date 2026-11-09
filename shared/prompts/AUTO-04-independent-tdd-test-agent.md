@@ -1,13 +1,4 @@
 ---
-
-## Current execution platform — Linux container and hosted CI (9 November 2026)
-
-The test author, implementer and independent reviewer use **separate restricted agent contexts inside the Linux development container on Matrix**, coordinated by the trusted container controller. Each agent receives only the least-privilege worktree and pinned task inputs; do not expose Docker socket, host mounts, host credentials, other containers or release/website secrets. Use a single durable queue claim across agents.
-
-**Red/green execution contract:** perform safe Linux-local unit/DSP checks if available and explicitly supported, but use **GitHub-hosted Windows/macOS Actions on pinned PR head SHAs** for native VST3/AU/installer builds and cross-platform regression tests. Test-writing agents must not receive GitHub workflow-editing or bypass rights. Passing Linux tests does not imply Windows/macOS success, and slow CI must be handled with durable checkpoints rather than unbounded agent polling.
-
-The older instructions below referring to the separate Windows build account, Windows Claude CLI and Windows job queue are **legacy context only**. For current implementation, adapt `tools/matrix/linux-worker.mjs` and compare external stage orchestration against saved Claude workflows under Linux. No new agent launches from this backlog edit.
-
 id: AUTO-04
 status: planned
 execution: scheduled
@@ -17,6 +8,14 @@ effort: medium
 dependencies: ["AUTO-01"]
 conflicts: []
 ---
+
+## Current execution platform — Linux container and hosted CI (9 November 2026)
+
+The test author, implementer and independent reviewer use **separate restricted agent contexts inside the Linux development container on Matrix**, coordinated by the trusted container controller. Each agent receives only the least-privilege worktree and pinned task inputs; do not expose Docker socket, host mounts, host credentials, other containers or release/website secrets. Use a single durable queue claim across agents.
+
+**Red/green execution contract:** perform safe Linux-local unit/DSP checks if available and explicitly supported, but use **GitHub-hosted Windows/macOS Actions on pinned PR head SHAs** for native VST3/AU/installer builds and cross-platform regression tests. Test-writing agents must not receive GitHub workflow-editing or bypass rights. Passing Linux tests does not imply Windows/macOS success, and slow CI must be handled with durable checkpoints rather than unbounded agent polling.
+
+The older instructions below referring to the separate Windows build account, Windows Claude CLI and Windows job queue are **legacy context only**. For current implementation, adapt `tools/matrix/linux-worker.mjs` and compare external stage orchestration against saved Claude workflows under Linux. No new agent launches from this backlog edit.
 
 # AUTO-04 — Independent test-writing agent and test-first (TDD) workflow
 
