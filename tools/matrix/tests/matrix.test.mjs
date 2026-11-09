@@ -70,6 +70,47 @@ test('Duplicate active stable IDs produce visible error', () => {
   const result = scan(new Map([['eq/prompts/41-x.md', prose], ['eq/prompts/41-y.md', prose]]));
   assert.equal(result.errors.length, 1);
 });
+test('Overnight and immediate runs select functional work, never infrastructure', () => {
+  const variants = [
+    ['shared/prompts/AUTO-03-heartbeat.md', 'AUTO-03'],
+    ['shared/prompts/AUTO-08-container.md', 'AUTO-08'],
+    ['shared/prompts/WEB-01-portal.md', 'WEB-01'],
+    ['shared/prompts/OPS-11-maintenance.md', 'OPS-11'],
+  ];
+  for (const [file, id] of variants) {
+    for (const mode of ['scheduled', 'build-now']) {
+      const p = parsePrompt(file, `---
+id: ${id}
+status: ready
+execution: ${mode}
+priority: high
+model: sonnet
+effort: low
+dependencies: []
+conflicts: []
+---
+
+# Infrastructure work
+`);
+      for (const trigger of ['daily', 'notify']) {
+        const result = select([p], {}, trigger);
+        assert.equal(result.selected.length, 0, `${id} / ${mode} / ${trigger}`);
+        assert.equal(result.decisions[0].reason, 'infrastructure excluded from overnight work');
+      }
+    }
+  }
+
+  const functional = [
+    prompt('scheduled', '', 'analog-compressor/prompts/11-something.md'),
+    prompt('scheduled', '', 'maximiser/prompts/09-something.md'),
+    prompt('build-now', '', 'eq/prompts/42-something.md'),
+  ];
+  assert.deepEqual(select(functional, {}, 'daily').selected.map(p => p.id).sort(), ['ACOMP-11', 'EQ-42', 'MAX-09']);
+  assert.deepEqual(select(functional, {}, 'notify').selected.map(p => p.id), ['EQ-42']);
+  const ui = prompt('scheduled', '', 'shared/prompts/SUI-15-ui.md');
+  assert.equal(select([ui], {}, 'daily').selected[0].id, 'SUI-15');
+});
+
 test('Immediate backlog precedes ordinary scheduled work', () => {
   const scheduled = prompt(undefined);
   const immediate = prompt('build-now', '', 'eq/prompts/42-now.md');
