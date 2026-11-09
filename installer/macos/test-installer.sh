@@ -46,7 +46,7 @@ if [ -z "$pkg" ]; then
     pkg=$("$here/build-installer.sh" "${build_args[@]}" | tail -n 1) || { echo "build-installer.sh failed" >&2; exit 1; }
 fi
 pkg="$(cd "$(dirname "$pkg")" && pwd)/$(basename "$pkg")"
-# An "older" suite version derived from VERSION: 0.<major>.<minor> is always lower (major is at least 1).
+# An "older" suite version derived from VERSION: 0.0.<minor> is lower than any 0.x release and every 1.x release.
 shared_version=$(tr -d '[:space:]' < "$here/../../VERSION")
 older_version="0.${shared_version%%.*}.$(echo "$shared_version" | cut -d. -f2)"
 older=$("$here/build-installer.sh" "${build_args[@]}" --suite-version "$older_version" --out-dir "$work/older" | tail -n 1) ||

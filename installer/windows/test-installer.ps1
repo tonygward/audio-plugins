@@ -38,7 +38,7 @@ if ($MaxDir) { $builds.MaxDir = $MaxDir }
 if (-not $Installer) {
     $Installer = (& (Join-Path $PSScriptRoot "build-installer.ps1") @builds | Select-Object -Last 1)
 }
-# An "older" suite version derived from VERSION: 0.<major>.<minor> is always lower (major is at least 1).
+# An "older" suite version derived from VERSION: 0.0.<minor> is lower than any 0.x release and every 1.x release.
 $sharedVersion = (Get-Content (Join-Path $repo "VERSION") -Raw).Trim()
 $olderVersion  = "0.$($sharedVersion.Split('.')[0]).$($sharedVersion.Split('.')[1])"
 if (-not $OlderInstaller) {
