@@ -1,6 +1,6 @@
 ---
 id: SUI-10
-status: ready
+status: done
 execution: build-now
 priority: 3
 model: sonnet
