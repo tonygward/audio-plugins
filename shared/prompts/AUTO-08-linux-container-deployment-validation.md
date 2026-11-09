@@ -9,6 +9,8 @@ dependencies: ["AUTO-07"]
 conflicts: []
 ---
 
+**GitHub tracking issue:** [#155](https://github.com/tonygward/audio-plugins/issues/155).
+
 **Execution policy (9 November 2026):** Infrastructure/automation maintenance is **excluded from all overnight scheduled and build-now functional runs**. This story remains open for deliberate, separately authorised infrastructure work; the functional Matrix worker must never select it. Do not auto-activate any worker merely because this backlog file changes.
 
 
