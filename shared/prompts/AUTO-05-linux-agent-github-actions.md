@@ -1,7 +1,7 @@
 ---
 id: AUTO-05
 status: planned
-execution: deferred
+execution: scheduled
 priority: high
 model: sonnet
 effort: medium
@@ -9,17 +9,25 @@ dependencies: ["AUTO-01"]
 conflicts: []
 ---
 
+## Adopted direction and implementation checkpoint — 9 November 2026
+
+**Architecture decision supplied by the owner:** Songsmith development now targets an **isolated Linux container on Matrix**, not the retired Windows multi-account autonomous worker. The source contains `tools/matrix/linux-worker.mjs` labelled AUTO-05 phase 2, with non-root/no-Docker-socket/capability/egress preflight, durable queue/usage handling and hosted GitHub Windows/macOS CI validation at pinned PR head SHA. This story is now the **container implementation, deployment validation and rollback backlog**, rather than a request to choose Windows vs Linux. The Windows worker remains historical/rollback context; don't reactivate it while migrating.
+
+**Still verify:** actual container image/config and volume mounts, least-privilege secret delivery, authentic first-party subscription usage within container, GitHub scoped PR token and egress, polling/scheduling and restart, integration with CI repair and auto-merge policies, native Windows/macOS CI gates, isolation negative tests, durable state/recovery and the remotely observable heartbeat. Neither the file's existence nor this architecture decision proves that the production container is running or fully validated.
+
+**Scope discipline:** Container migration is the chosen direction, but *live unattended execution remains a separate operational activation decision* after these checks. Preserve Matrix's unrelated Docker workloads and existing release credentials boundary. Keep the story in the backlog until deployed evidence and end-to-end tests are recorded.
+
 # AUTO-05 — Isolated Linux development agent with GitHub Actions native builds
 
-**Status:** Architecture/design backlog only; not authorised for autonomous execution.
+**Status:** Linux-container architecture selected; implementation/validation backlog open. Not authorisation to enable unattended execution.
 **Priority:** High infrastructure evaluation, after or alongside the supervised AUTO-01 pilot.
 **Recommended model:** Sonnet for repository audit, implementation plan, CI integration and tests. **Escalate to Opus:** Only for unresolved security/trust-boundary or deployment architecture decisions; document the decision, then return to Sonnet. **Relative effort/usage:** Medium for design; implementation effort to be estimated after audit.
 
 ## Goal
 
-Evaluate and, after separate owner approval, migrate the Songsmith autonomous development controller to an isolated **Linux VM or non-privileged container on MATRIX**, using **GitHub-hosted Actions runners** to compile and test native Windows/macOS plugin targets. Reuse the existing backlog/usage logic and GitHub CI/release pipeline instead of maintaining a complex local Windows cross-account build environment.
+Implement and validate the owner-selected migration of the Songsmith autonomous development controller to an isolated **non-root Linux container on MATRIX**, using **GitHub-hosted Actions runners** to compile and test native Windows/macOS plugin targets. Reuse the existing backlog/usage logic and GitHub CI/release pipeline instead of maintaining a complex local Windows cross-account build environment.
 
-**This prompt requests an architecture decision and phased implementation plan only. Do not activate the migration or live worker.** Maintain the existing scheduled dry-run scanner and current AUTO-01 state while investigating.
+**The container is the selected direction. Complete its deployment validation without automatically activating the live worker.** Maintain the existing scheduled dry-run scanner and current AUTO-01 state while investigating.
 
 ## Context and hypothesis
 
@@ -28,7 +36,7 @@ Evaluate and, after separate owner approval, migrate the Songsmith autonomous de
 - The current Windows approach has substantial NTFS ACL, identity, build-credential and worktree-isolation complexity. These safeguards must not be weakened merely to make the pilot work.
 - The existing GitHub Actions workflows, particularly `.github/workflows/build.yml` and `.github/workflows/matrix-tests.yml`, reportedly already cover native Windows and macOS builds and tests. Verify actual triggers, targets, prerequisites, installer outputs, required checks and whether they execute on PRs before relying on them.
 - A standard Linux container cannot use the host's Windows Visual Studio installation to produce native Windows JUCE/VST3 binaries. Use hosted Windows/macOS jobs for those targets; Linux builds/tests only where supported.
-- A Linux VM and a Docker container are alternatives, not equivalent security boundaries. A hardened VM may offer stronger separation from the host and existing Docker workloads; compare operational cost and security explicitly.
+- The Linux container is the selected design; a VM is a documented fallback if isolation tests reveal unacceptable shared-kernel risk.
 
 ## Proposed workflow (subject to audit)
 
@@ -41,7 +49,7 @@ Evaluate and, after separate owner approval, migrate the Songsmith autonomous de
 ## Requirements and investigation
 
 - Read `AGENTS.md`, `CLAUDE.md`, AUTO-01 prompt, `tools/matrix/WORKER.md`, relevant ADRs, `.github/workflows/build.yml`, `.github/workflows/matrix-tests.yml`, and release workflows. Document the actual current capabilities and gaps; do not assume green CI implies DAW compatibility.
-- Compare (A) Linux VM, (B) rootless/non-privileged Docker container, and (C) existing Windows accounts against isolation, maintainability, recovery, resource consumption, licensing, Claude/GitHub authentication, secret handling, attack surface, screenshot validation and CI costs/latency.
+- Validate the selected non-root Linux container against isolation, maintainability, recovery, resource consumption, Claude/GitHub authentication, secret handling, screenshot validation and CI costs/latency; retain VM/Windows options as rollback comparisons only.
 - Keep Docker socket inaccessible to the agent; no privileged mode, host networking, arbitrary host mounts, Home Assistant secrets, unrelated containers, host filesystem/LAN discovery or publish credentials. Prefer disposable workspaces and read-only trusted configuration.
 - Consider that untrusted source code, package scripts and build/test processes run with the permissions of CI runners; minimise GitHub token permissions and follow GitHub's fork/PR workflow security model. Do not execute unreviewed workflow changes with privileged credentials.
 - Reuse the existing dry-run queue, missed-event reconciliation, prompt IDs, model choices, usage gate, timeout/repair budgets and task-state telemetry. Address idempotence and reconciling PRs, retries and CI after reboot/offline periods.
@@ -66,4 +74,4 @@ Evaluate and, after separate owner approval, migrate the Songsmith autonomous de
 - No auto-merges, releases, scheduled worker activation, secrets rotation or infrastructure changes caused by this backlog addition.
 - Open a **draft PR** for the design/implementation proposal; await separate owner authorisation to change runtime architecture.
 
-**Execution policy:** `deferred` until Tony explicitly promotes it. An architectural evaluation alone is not approval for autonomous runtime migration.
+**Execution policy:** `scheduled` for implementation planning and validation; this does **not** enable live container execution or authorise unattended agent work. Operational activation requires validated isolation and independent approval.

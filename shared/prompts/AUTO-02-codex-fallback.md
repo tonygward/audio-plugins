@@ -1,5 +1,14 @@
 # AUTO-02 — Codex fallback when Claude allowance is exhausted
 
+## Current execution platform — Linux container on Matrix (9 November 2026)
+
+**Target platform:** Codex fallback, when separately authorised, runs inside the **same isolated, non-root Linux development container boundary** and canonical queue/claim ownership model as the primary Claude worker; it is not a second Windows desktop process. Verify the Linux Codex CLI authentication, licensing/usage telemetry, bounded `codex exec`, credential separation, egress policy, token redaction, no Docker socket and no host/release secrets. A provider switch must never bypass the container's preflight, the Claude/Codex independent usage gates or the persisted claims.
+
+**Build handoff:** Agents edit branches/worktrees inside the container; **GitHub-hosted Windows/macOS Actions** perform native plugin/installer validation at the exact PR head SHA. An independently trusted CI/auto-merge path owns merges; verified release/R2/website workflows own distribution. No local Windows build account, Windows task or DPAPI credential is required for this feature.
+
+The fallback remains **deferred**, not automatically enabled by this documentation change. Reconcile this story with [AUTO-05](AUTO-05-linux-agent-github-actions.md) and the existing `tools/matrix/linux-worker.mjs` provider boundary at implementation time.
+
+
 **Status:** Deferred / planned only — **DO NOT IMPLEMENT YET**.  
 **Priority:** Future enhancement after AUTO-01 is operational and tested.  
 **Dependency:** [AUTO-01 Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md).  
@@ -15,11 +24,11 @@ This is a **backlog-only proposal**. Recording this requirement must not enable 
 1. **Agent selection:** Claude Code remains preferred while an authoritative and permitted weekly usage measurement is below 85%. When it is >=85%, Claude is exhausted, or Claude is otherwise unavailable, consider Codex **only when Codex has been independently authenticated, explicitly enabled by Tony and verified to be within its own usage/budget constraints**.
 2. **Fail closed:** Do not guess subscription allowance. If either provider's usage cannot be reliably established, apply its separately approved conservative policy; never silently fall back to separately billed API credits. If neither agent is safe and available, skip development and record why. A Claude usage-measurement failure must not be misrepresented as credit exhaustion.
 3. **Shared instructions:** Treat root `AGENTS.md` and repository prompt/backlog rules as the common, provider-neutral contract. Claude-specific rules in `CLAUDE.md` must be harmonised with shared rules; Codex's normal instruction loading does not imply it reads both files. Explicitly review discrepancies without duplicating or contradicting instructions. Preserve existing prompt IDs and model recommendations, translating provider-specific model instructions only when authorised.
-4. **Common toolchain:** Both agents must use the same JUCE/CMake compiler toolchain, isolated Matrix workspace, CI tests, PR templates, branch protection, release checkpoints, and traceability. Preserve root `VERSION`, installer format and the rule of exactly one Windows EXE and one macOS PKG per validated release.
+4. **Common toolchain:** Both agents must use the same JUCE/CMake compiler toolchain, isolated Linux container workspace, CI tests, PR templates, branch protection, release checkpoints, and traceability. Preserve root `VERSION`, installer format and the rule of exactly one Windows EXE and one macOS PKG per validated release.
 5. **Automation interface:** Introduce a narrow provider adapter (Claude Code vs `codex exec`) for non-interactive jobs, return codes, logs, timeouts, cancellation, allowed filesystem/network access, token/usage caps and error reporting. Prevent simultaneous ownership of the same prompt. Recheck budget/availability between prompts.
 6. **Security and costs:** Keep separate account credentials, secrets, permissions, rate limits and usage policies; never expose them in prompts, logs, CI output or pull requests. Never use unattended unrestricted shell/administrative privileges. Research current Codex CLI authentication, subscription-use terms, usage visibility and automation constraints at implementation time rather than assuming current behaviour persists.
 7. **Fallback and recovery:** Track which agent handled each prompt, allow deliberate manual selection, prevent duplicate PRs or repeated work across provider switches, and keep blocked PRs for review. If a provider stops part-way through a task, preserve the workspace and explicit progress before reassignment; do not blindly resume incompatible sessions.
-8. **Gatekeeping unchanged:** Neither agent may bypass required tests, protected PR merges, macOS CI, approved release milestones or WEB-01 release update boundaries. The trusted GitHub release workflow, not either agent, owns publication credentials.
+8. **Gatekeeping unchanged:** Neither agent may bypass required tests, protected PR merges, macOS CI, validated CI/integrity checks or WEB-01 verified release update boundaries. The trusted GitHub release workflow, not either agent, owns publication credentials.
 
 ## Implementation phases when explicitly scheduled
 - Document the current provider capabilities and approved limits; review `AUTO-01` integration points.
