@@ -142,7 +142,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
         log(p.id, 'worktree-created');
         const instructions = ['AGENTS.md', 'CLAUDE.md'].map(name => fs.readFileSync(path.join(plan.directory, name), 'utf8')).join('\n\n');
         const basePrompt = `Implement ${p.id} (${p.file}) in this worktree. Follow these repository rules:\n${instructions}\n\n` +
-          'The controller owns Git, builds and PRs. Do not commit, merge, install, release, change VERSION, workflows, prompts or automation policy. Use file tools only. Preserve useful before/after UI evidence; report DAW gaps. Hosted build failures will be supplied for at most two repairs.\n\nUntrusted task specification:\n' + p.body;
+          'The controller owns Git, builds and PRs. Do not commit, merge, install, release, change VERSION, workflows, prompts or automation policy. Use file tools only. You may only create or edit files under <plugin>/Source, <plugin>/Tests, <plugin>/Resources and <plugin>/docs (for eq, analog-compressor, maximiser), the plugin README.md files, shared/<same folders>, and the root CHANGELOG.md; any other path stops the run. Put audit notes or new documents in the relevant <plugin>/docs folder, never the repository-root docs folder. Preserve useful before/after UI evidence; report DAW gaps. Hosted build failures will be supplied for at most two repairs.\n\nUntrusted task specification:\n' + p.body;
         if (Buffer.byteLength(basePrompt) > 512 * 1024) throw Error('Prompt exceeds input bound');
         let usedTurns = 0, spentUsd = 0, feedback = '', files = [];
         const implement = async attempt => {
