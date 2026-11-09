@@ -9,9 +9,11 @@ dependencies: ["AUTO-07"]
 conflicts: []
 ---
 
+**Current policy:** [Board ordering, one task, 60% usage gate, automatic beta builds and verified issue completion](../../docs/songsmith-execution-policy.md). This policy supersedes historical batches, folder/ID ordering and merge-only completion in older design notes. Automatic approval/merge requires exact-head green CI; issue Done requires beta deployment/download verification and a final issue comment.
+
 **GitHub tracking issue:** [#155](https://github.com/tonygward/audio-plugins/issues/155).
 
-**Execution policy (9 November 2026):** Infrastructure/automation maintenance is **excluded from all overnight scheduled and build-now functional runs**. This story remains open for deliberate, separately authorised infrastructure work; the functional Matrix worker must never select it. Do not auto-activate any worker merely because this backlog file changes.
+**Execution policy:** Follow [current selection and delivery rules](../../docs/songsmith-execution-policy.md). Board order decides selection regardless of prefix or issue/prompt location. This deferred task needs its appropriate scoped infrastructure execution path; board placement does not grant new privileges. One task only; 60% weekly usage stop threshold. Documentation does not activate a worker.
 
 
 # AUTO-08 — Validate isolated Linux container deployment on Matrix

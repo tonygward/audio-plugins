@@ -1,3 +1,5 @@
+**Current owner policy (9 November 2026):** [Board order, one task, 60% usage, automatic beta build numbers and verified delivery](../../docs/songsmith-execution-policy.md). Historical setup examples below do not override it. AUTO-11 must implement the board reader; never infer live board selection from documentation. A merged prompt archive does not close its issue: beta deployment/download verification and the final issue comment precede issue close and board Done.
+
 # Matrix development orchestrator
 
 Implementation for [AUTO-01](../../shared/prompts/AUTO-01-matrix-autonomous-development.md).
@@ -201,7 +203,7 @@ stderr, identity, payment details or credentials are written to Matrix logs.
 Only a successful zero-turn/zero-cost response with one structured report is accepted.
 The adapter reads the server's `weekly_all` meter, not session-dollar estimates or
 local activity percentages. It requires valid percentage/reset data, checks all
-reported scoped weekly meters conservatively, and blocks at **>=85%**. An exhausted
+reported scoped weekly meters conservatively, and blocks at **>=60%**. An exhausted
 session also blocks. Paid extra usage must explicitly report `is_enabled: false`;
 enabled or unknown status blocks eligibility. This checker never changes account
 settings. Disable extra usage yourself before any future unattended development.

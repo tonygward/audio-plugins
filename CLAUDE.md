@@ -8,11 +8,13 @@ JUCE + CMake audio plugins (VST3, AU on macOS, Standalone) by **Songsmith Studio
 | Songsmith Analog Compressor | `analog-compressor/` | `AnalogCompressorTests` |
 | Songsmith Maximiser | `maximiser/` | `MaximiserTests` |
 
+**Current execution policy:** Board order decides pickup regardless of issue/prompt repository or ID prefix; one task per run and one active job, 60% weekly Claude stop threshold. [Full selection, release and issue lifecycle](docs/songsmith-execution-policy.md). AUTO-11's board reader still requires implementation and verification.
+
 Prompt tracking: use stable, scope-qualified references (for example `EQ-32`, `ACOMP-06`, `MAX-07`, `SUI-11`, `OPT-01`, `CLN-01`, `ADV-01`). The ID stays unchanged when moving a task to `done/`. Record a canonical prompt link, implementation PR when known, and release checkpoint; never confuse a prompt number with a PR number. See `shared/prompts/README.md#prompt-identity-and-traceability`.
 
 **Mandatory backlog creation:** Every new Songsmith implementation GitHub issue must have a corresponding canonical Markdown Claude Code prompt in the established prompt folders, linked in both directions, before being marked execution-ready. Search for existing issues/prompts first to prevent duplicates. Include objective, current/desired behaviour, scope, implementation, acceptance criteria, tests, dependencies/risks and build/release expectations. Follow [the issue–prompt contract](docs/backlog-issue-prompt-contract.md). Creating an issue or prompt does **not** mean Matrix queued, started, merged or deployed it.
 
-Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the EQ roadmap); work across every plugin is in `shared/prompts/`. Prompts still to run sit directly in a `prompts/` folder, with a `README.md` status table; finished ones move to its `done/` subfolder in the PR that completes them. Update each local status table, related roadmap and root changelog at the relevant release checkpoint; preserve relative links and original IDs. Do not mark unmerged work done. The overnight runner is `shared/prompts/overnight-prompt.md`. The UI style guide is `docs/style-guide.md` (created by suite task SUI-01).
+Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the EQ roadmap); work across every plugin is in `shared/prompts/`. Prompts still to run sit directly in a `prompts/` folder, with a `README.md` status table; merged implementation prompts move to its `done/` subfolder after merge to prevent repeat coding. This archive is not proof of delivery: keep the issue open until verified beta deployment and its final completion comment, then close it and set the board Done. Update each local status table, related roadmap and root changelog at the relevant release checkpoint; preserve relative links and original IDs. Do not mark unmerged work done. The overnight runner is `shared/prompts/overnight-prompt.md`. The UI style guide is `docs/style-guide.md` (created by suite task SUI-01).
 
 ## Design principles
 
@@ -61,16 +63,17 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 - **Recording guidance:** 44.1 kHz/16-bit is legitimate CD quality, not ruined or unsuitable for streaming. 24-bit capture offers more recording headroom and flexibility, not retroactive recovery of detail. 48 kHz is a useful optional workflow choice, not an automatic audible upgrade. Don't recommend converting 16-bit to 24-bit to improve the original recording.
 - Make advice accurate, testable, accessible and consistent throughout every current and future Songsmith plugin and the separate Loudness Analyser. Use British English and the existing plain-language terminology.
 
-### 8. Align releases with roadmap milestones
-- The root `VERSION` is the single version for every plugin and installer. Roadmap phases are milestones, **not** software versions; the historical EQ v0.3–v1.0 headings must not be treated as the current suite version.
-- Before implementing a planned release, document its agreed feature scope and intended version in `shared/prompts/README.md`. Do not assign versions to exploratory features. Keep existing published versions and tags unchanged, and only increase versions.
-- Intermediate feature PRs can merge without changing `VERSION`. Increment `VERSION` **once at a validated release checkpoint**, not automatically per prompt. Update `CHANGELOG.md` and the roadmap together.
-- Follow semantic versioning: patch for backwards-compatible corrections, minor for backwards-compatible feature releases, major only after review for meaningful compatibility or major product changes. A bumped version explicitly signals a suite release and triggers the existing release automation.
+### 8. Automatic beta build numbers
+- Follow [the current execution and delivery policy](docs/songsmith-execution-policy.md). Root VERSION is shared by all plugins and installers.
+- Automatically increment the third beta version component for each successful qualifying development build/merge on main, through the trusted beta pipeline (for example 0.5.2 → 0.5.3). Retain CI run ID and commit SHA as provenance; prevent recursive bumps, retries and PR-only/docs-only releases.
+- Major and minor increments are deferred until a new owner decision. Do not assign feature milestones new major/minor versions or reset VERSION.
+- User-visible changes add musician-facing notes under CHANGELOG.md's Unreleased section; trusted automation moves them into the incremented release.
+- Automatic PR approval/merge follows passing current-head required checks. Delivery is complete only after verified beta deployment, installer downloads and the final tracking-issue comment, then issue close and board Done.
 
 ## Working rules
 
 - Branch from an up-to-date `main`; never push commits straight to `main`, never force-push. Every change goes through a PR.
-- **Overnight / unattended runs may merge straight into `main`** through their own PR: once the build has no new warnings, every test passes and CI (including macOS) is green, the agent approves the PR (a comment listing what it checked) and merges it. If the PR bumped the version, the agent then publishes the release straight away from `main`'s CI build (see `shared/prompts/overnight-prompt.md`). Blocked work stays as a draft PR with a "Blocked" section.
+- **Automatically approve and merge authorised beta PRs** through the trusted workflow after all current-head required tests and hosted Windows/macOS CI pass; record approval checks in a comment if self-approval is unavailable. Blocked PRs remain pending with issue updates. Trusted workflows increment the beta build/patch number, publish installers and deploy the beta website. Keep the tracking issue open until verified delivery and its final completion comment; finally close it and set the board Done. See [execution policy](docs/songsmith-execution-policy.md).
 - Docs- and prompt-only changes (`*.md`, prompt folders, screenshots) skip CI and can merge without waiting for it.
 - Each plugin builds on its own from its own folder:
   ```powershell

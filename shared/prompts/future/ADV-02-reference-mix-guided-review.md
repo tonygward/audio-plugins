@@ -1,3 +1,5 @@
+**Tracking issue:** https://github.com/tonygward/audio-plugins/issues/172
+
 # ADV-02 — Reference-mix guided review
 
 **Status:** Future product candidate; discovery/design only, **not queued** for automatic development or release.
@@ -21,3 +23,5 @@ A musician supplies a **reference mix** and their **own mix**. Songsmith helps t
 
 ## Decision gate
 Produce a short technical spike and UX prototype, with feasibility, privacy, computational cost, confidence limits and integration strategy **before** assigning an implementation phase, timeline or version. Coordinate with ADV-01, REC-01 and the planned Channel Strip.
+
+**Current execution and delivery:** Follow [the owner policy](../../../docs/songsmith-execution-policy.md). Board order decides selection regardless of issue/prompt location or prefix, with one task and a 60% weekly usage stop threshold. Use the actual implementation repository's scoped execution path. Automatically approve/merge after current-head required checks; verify beta deployment and downloads, post the final issue comment, then close and finally mark board Done. Major/minor increments are deferred; beta build/patch increments are automatic.

@@ -13,7 +13,7 @@ conflicts: []
 
 **Priority:** 2 — early EQ UI polish, next suitable UI batch after v1.3.0.
 **Status:** To do. **Recommended model:** Sonnet. **Estimated effort / usage:** Low. **Escalation:** Opus not expected; document any unavoidable architecture blocker before switching. **Branch:** `roadmap/38-frequency-guide-instrument-icons`.
-**Depends on:** Shipped [EQ-32](done/32-frequency-guide.md), Instrument Frequency Guide.
+**Depends on:** Shipped [EQ-32](32-frequency-guide.md), Instrument Frequency Guide.
 
 ## Goal
 In Songsmith EQ's Frequency Guide, put a small, recognisable **instrument icon beside the instrument name** — for example, a guitar silhouette beside **Acoustic Guitar**. Make the ten-item instrument selector easier and faster to scan, without sacrificing the existing plain-language names.

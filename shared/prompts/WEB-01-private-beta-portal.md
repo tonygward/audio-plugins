@@ -1,6 +1,6 @@
 # WEB-01 — Songsmith Private Beta Developer Portal
 
-**Status:** Planned; not implemented. **Priority:** Early commercial/beta readiness; independent of plugin DSP priorities.
+**Status:** Reconciliation required: portal and distribution source exist. Verify current deployment and remaining acceptance criteria before implementing missing work. **Priority:** Early commercial/beta readiness; independent of plugin DSP priorities.
 **Recommended model:** Sonnet (implementation, integration and tests). **Relative effort/usage:** Medium. **Escalate to Opus:** Only for unresolved private asset-delivery/authentication architecture or security review; document the decision then return to Sonnet.
 
 ## Objective
@@ -55,3 +55,5 @@ Build a deliberately simple, functional, invite-only Songsmith beta developer po
 
 ## Not part of WEB-01
 Commercial payments, trials or software licence enforcement; public marketing website; automatic release promotion without approval; building a DAW; broadly public release distribution.
+
+**Current execution and delivery:** Follow [the owner policy](../../docs/songsmith-execution-policy.md). Board order decides selection regardless of issue/prompt location or prefix, with one task and a 60% weekly usage stop threshold. Use the actual implementation repository's scoped execution path. Automatically approve/merge after current-head required checks; verify beta deployment and downloads, post the final issue comment, then close and finally mark board Done. Major/minor increments are deferred; beta build/patch increments are automatic.

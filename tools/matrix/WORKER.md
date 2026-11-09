@@ -1,3 +1,5 @@
+**Current owner policy (9 November 2026):** [Board order, one task, 60% usage, automatic beta build numbers and verified delivery](../../docs/songsmith-execution-policy.md). Historical setup examples below do not override it. AUTO-11 must implement the board reader; never infer live board selection from documentation. A merged prompt archive does not close its issue: beta deployment/download verification and the final issue comment precede issue close and board Done.
+
 # Controlled development worker
 
 AUTO-01 Phase C adds actual orchestration from the canonical queue to **draft PRs**.
@@ -30,7 +32,7 @@ For each selected prompt, the worker:
    Fetches canonical main with the configured absolute Git executable; rejects backlog
    metadata errors and stale main before claims. Uses the existing dependency/model/
    effort/conflict selection rules; only Sonnet low/medium work is eligible.
-2. Checks fresh subscription usage, the 85% threshold, session allowance and disabled
+2. Checks fresh subscription usage, the 60% threshold, session allowance and disabled
    paid extra usage. An unknown result stops work. Claims and pins the prompt/hash/base
    to flushed state before making any worktree or provider side effect.
 3. Creates an isolated named branch/worktree. Existing retained worktrees are never
@@ -171,6 +173,6 @@ uncertain PR creation, approval and real process timeout/output/cancellation.
 Still to validate before activation: actual restricted Claude file edits, separate
 build-account credential/ACL/network behaviour, real JUCE/toolchain builds, genuine
 GitHub draft creation with least-privilege credentials, reboot/scheduler behaviour,
-UI screenshot capture, and a supervised pilot with usage below 85% and paid extra
+UI screenshot capture, and a supervised pilot with usage below 60% and paid extra
 usage disabled. Automatic merging and Phase D publication are separate unfinished
 features. Not yet verified in a DAW.

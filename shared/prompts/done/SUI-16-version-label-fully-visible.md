@@ -18,7 +18,7 @@ conflicts: []
 SUI-15 added the product version to the footer, but a musician cannot read it. Make the whole version readable so they can tell which build they are running and report it.
 
 ## Actual vs desired behaviour
-**Actual (seen in a DAW, Songsmith EQ at 100 % scale):** the bottom-left of the footer shows `v0....`, cut off with dots, before the Processing Load button. See [the screenshot](../../docs/screenshots/sui-16-version-label-cut-off.png) (a real capture from a DAW).
+**Original bug (seen in a DAW, Songsmith EQ at 100 % scale):** the bottom-left of the footer shows `v0....`, cut off with dots, before the Processing Load button. See [the screenshot](../../../docs/screenshots/sui-16-version-label-cut-off.png) (a real capture from a DAW).
 
 **Desired:** the full text, for example `v0.5.2`, is visible without dots. It also stays fully visible when the version grows (`v0.5.10`, `v1.12.3`) and at every interface size from 75 % to 200 %. It stays directly before Processing Load, unobtrusive, in the same dim text.
 
@@ -48,4 +48,7 @@ A patch release follows automatically from the merge. No manual version change.
 Changing footer widths could squeeze the readout at the smallest size. Check it explicitly.
 
 ## Status
-Prompt drafted; merged prompts are queued by the Matrix worker (`build-now`). Requested, not yet running.
+Distinct restored truncation bug, not a duplicate of SUI-15. Implementation merged in [PR #177](https://github.com/tonygward/audio-plugins/pull/177). This archive prevents repeat coding. Beta publication and authenticated installer verification must be recorded on the tracking issue before completion; do not infer delivery from merge.
+
+## Current delivery policy
+Follow [automatic beta builds and issue completion](../../../docs/songsmith-execution-policy.md). Automatic approval/merge requires exact-head green checks. Keep the tracking issue open until matching beta website deployment and both installer downloads are verified; post the final completion comment, then close the issue and finally set board Done. Automatic third-component build increments apply; major/minor increments are deferred.

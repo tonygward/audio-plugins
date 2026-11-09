@@ -1,221 +1,141 @@
-# Suite prompts
+# Songsmith suite prompts
 
-## Canonical backlog links — 9 November 2026
+## Current rules — 9 November 2026
+[Execution and delivery policy](../../docs/songsmith-execution-policy.md) is authoritative.
 
-Each new Songsmith implementation item must have a GitHub issue **and** one bidirectionally linked canonical Claude prompt before execution. Follow [the issue/prompt contract](../../docs/backlog-issue-prompt-contract.md); an issue or `RUN NOW` annotation does not demonstrate Matrix pickup.
+- Board Todo order decides overnight pickup; Doing requests immediate work behind the active job. Never reject due to issue repository, prompt location or ID prefix. Validate the actual view order; no priority/ID fallback.
+- One task per invocation and one active job. Stop new work at >=60% verified weekly Claude usage, including scoped meters; unknown usage blocks pickup.
+- Automatically approve/merge only after current-head required CI/tests pass. Trusted workflows automatically increment the beta third-component build/patch number; major/minor increments are deferred.
+- Comment on actual pickup, progress, failure, merge and deployment. Verify matching beta website deployment and both installer downloads, post the final completion comment, then close the issue and finally set its board card Done.
+- Archived prompts mean merged implementation, not verified delivery. No duplicate implementation while a release is pending.
+- AUTO-11 is the implementation specification for board pickup; it is not yet evidence of a working board reader. Infrastructure/website tasks require their scoped execution path and credentials, not a location-based rejection.
 
-| ID | Canonical prompt | GitHub issue | Status |
+## Canonical issue and prompt links
+Every implementation item needs a unique stable ID, issue and canonical prompt linked both ways. Follow [the issue/prompt contract](../../docs/backlog-issue-prompt-contract.md). RUN NOW means requested, not proof of pickup.
+
+| ID | Canonical prompt | Tracking issue | Evidence / status |
 |---|---|---|---|
-| VER-01 | [0.5.0 suite version](done/VER-01-standardise-suite-version-0.5.0.md) | [songsmithstudio #2](https://github.com/tonygward/songsmithstudio/issues/2) | Merged (#152) and released in 0.5.2 |
-| SUI-15 | [Footer version label](done/SUI-15-footer-version-before-processing-load.md) | [songsmithstudio #3](https://github.com/tonygward/songsmithstudio/issues/3) | Merged (#174) and released in 0.5.2 |
-| SUI-16 | [Version label fully visible](SUI-16-version-label-fully-visible.md) | [songsmithstudio #4](https://github.com/tonygward/songsmithstudio/issues/4) | Prompt drafted; queued once merged |
-| WEB-03 | [Beta plugin Features section](WEB-03-beta-plugin-features-section.md) | [songsmith-website #19](https://github.com/tonygward/songsmith-website/issues/19) | Prompt drafted; website execution pending |
+| VER-01 | [Version baseline](done/VER-01-standardise-suite-version-0.5.0.md) | [songsmithstudio #2](https://github.com/tonygward/songsmithstudio/issues/2) | Implementation #152 merged; later beta build numbers advance automatically. Verify delivery before issue Done. |
+| SUI-15 | [Footer version label](done/SUI-15-footer-version-before-processing-load.md) | [songsmithstudio #3](https://github.com/tonygward/songsmithstudio/issues/3) | #174 merged; v0.5.2 release and website source manifest exist. Authenticated live delivery still needs recorded verification. |
+| SUI-16 | [Fix truncated version text](done/SUI-16-version-label-fully-visible.md) | [songsmithstudio #4](https://github.com/tonygward/songsmithstudio/issues/4) | Restored as a distinct truncation bug, not a duplicate of SUI-15. #177 merged; beta publication/download verification pending at reconciliation. |
+| WEB-01 | [Private beta portal](WEB-01-private-beta-portal.md) | [website #21](https://github.com/tonygward/songsmith-website/issues/21) | Reconcile implemented portal against remaining acceptance criteria; do not rebuild it blindly. |
+| WEB-02 | [Distribution hardening](https://github.com/tonygward/songsmith-website/blob/main/prompts/WEB-02-release-distribution-hardening.md) | [website #22](https://github.com/tonygward/songsmith-website/issues/22) | Website-owned implementation and end-to-end acceptance. |
+| WEB-03 | [Plugin Features section](WEB-03-beta-plugin-features-section.md) | [website #19](https://github.com/tonygward/songsmith-website/issues/19) | Requested website work; verify actual pickup and deployment separately. |
 
+## Open implementation / validation prompts
+Order below is an index, not the execution queue. The board decides order.
 
-## Overnight selection policy — functional changes only (9 November 2026)
-
-**Matrix's scheduled overnight and `build-now` development queues are reserved for functional Songsmith product work.** Eligible canonical prompt scopes are plugin tasks `EQ-`, `ACOMP-`, `MAX-`, and functional shared/plug-in work `SUI-`, `OPT-`, `PEQ-`, `BUS-`, `CLN-`, `ADV-`, `REC-` (subject to normal done/future/status, Sonnet/effort, dependency, allowance, security and CI gates). Infrastructure `AUTO-`, web/portal operations `WEB-`, and unknown scopes are **never selected** by the unattended functional worker, even when a file mistakenly says `execution: scheduled` or `build-now`. The code enforces this allowlist in `tools/matrix/backlog.mjs` for both daily and notification selection; changing Markdown metadata cannot override it.
-
-**AUTO-01–AUTO-10 are infrastructure tracking/implementation stories** and remain available for intentionally assigned, separate maintenance sessions, with human-controlled activation and applicable security gates. Open AUTO stories have `execution: deferred`; completed AUTO-06/07 stay archived. An optional infrastructure maintenance dispatcher must have an independent opt-in and audit trail; it is not implemented or authorised here. The overnight worker must not use product build/merge authority to modify its own orchestration, credentials or release policies.
-
-Do not treat this policy as proof a particular functional item will run tonight: normal runtime deployment and allowance checks still apply.
-
-## Current AUTO-series platform — Linux container (9 November 2026)
-
-**Canonical target for AUTO-01–AUTO-05:** The autonomous Songsmith development worker runs inside an **isolated, non-root Linux container on Matrix**, using `tools/matrix/linux-worker.mjs`. The Linux worker handles canonical GitHub backlog discovery, subscription-usage safety, branches/worktrees, Claude editing, PRs, bounded CI repairs and durable task state. **GitHub-hosted Windows/macOS Actions build and validate native plugins/installers**; trusted CI owns permitted auto-merge and the existing release → private R2 → beta website sequence. The worker must not hold publishing credentials.
-
-The older Windows Task Scheduler, SongsmithAgent/SongsmithBuild, DPAPI and local PowerShell build-broker instructions describe previous experiments or rollback — **not the target for new AUTO work**. AUTO-02 (Codex fallback) and AUTO-04 (independent TDD agents) use the same Linux container trust boundary if separately activated. AUTO-03 heartbeat is a container-side health/status publisher independent of Claude allowance. AUTO-05 tracks Linux deployment validation rather than choosing between Windows and Linux.
-
-**Deployment evidence remains distinct from code:** `linux-worker.mjs` exists, but check actual container deployment, isolation, usage telemetry, hosted CI, heartbeat and autonomous execution evidence before claiming the entire pipeline is operational. No flags or agents are activated by these documentation changes.
-
-## AUTO-01 / AUTO-05 delivery breakdown — 9 November 2026
-
-The broad [AUTO-01](AUTO-01-matrix-autonomous-development.md) and [AUTO-05](AUTO-05-linux-agent-github-actions.md) entries are **blocked/deferred tracking epics**, not executable duplicate jobs. Completed *implementation milestones* have their own done files, while unverified operational work remains open:
-
-| ID | Independently verifiable delivery | Status |
+| ID | Canonical prompt | Tracking issue |
 |---|---|---|
-| [AUTO-06](done/AUTO-06-matrix-queue-and-usage-foundation.md) | Canonical backlog queue and first-party Claude usage gate (#101, #102; EQ-38 dry-run evidence) | **Done — scoped code foundation** |
-| [AUTO-07](done/AUTO-07-linux-ci-worker-code-foundation.md) | Linux worker and tests merged (#139), PR/hosted-CI handoff code | **Done — scoped implementation only** |
-| [AUTO-08](AUTO-08-linux-container-deployment-validation.md) | Verify actual non-root Linux container, secrets, restrictions, scheduler, recovery | **Planned — operational evidence missing** |
-| [AUTO-09](AUTO-09-container-development-ci-and-merge-pilot.md) | One real task through Claude, PR, exact-head Windows/macOS CI, bounded repairs and independent merge | **Planned — end-to-end pilot missing** |
-| [AUTO-10](AUTO-10-verified-beta-distribution-e2e.md) | Demonstrate verified beta version → GitHub Release → 2 installers → private R2 → live beta portal | **Planned — end-to-end release evidence missing** |
+| REC-01 | [Standalone file Recording and Streaming Advisor](future/REC-01-file-recording-advisor.md) | [#173](https://github.com/tonygward/audio-plugins/issues/173) |
+| ADV-02 | [Reference-mix guided review](future/ADV-02-reference-mix-guided-review.md) | [#172](https://github.com/tonygward/audio-plugins/issues/172) |
+| ADV-01 | [Musician-friendly guidance across Songsmith plugins](future/ADV-01-musician-guidance.md) | [#171](https://github.com/tonygward/audio-plugins/issues/171) |
+| PEQ-01 | [Pultec-style EQ](classics/PEQ-01-pultec-eq.md) | [#170](https://github.com/tonygward/audio-plugins/issues/170) |
+| OPT-01 | [Optical Leveller](classics/OPT-01-optical-leveller.md) | [#169](https://github.com/tonygward/audio-plugins/issues/169) |
+| CLN-01 | [Clean Compressor](classics/CLN-01-clean-compressor.md) | [#168](https://github.com/tonygward/audio-plugins/issues/168) |
+| BUS-01 | [SSL-style bus compressor](classics/BUS-01-ssl.md) | [#167](https://github.com/tonygward/audio-plugins/issues/167) |
+| AUTO-05 | [Isolated Linux development agent with GitHub Actions native builds](AUTO-05-linux-agent-github-actions.md) | [#166](https://github.com/tonygward/audio-plugins/issues/166) |
+| AUTO-04 | [Independent test-writing agent and TDD workflow](AUTO-04-independent-tdd-test-agent.md) | [#165](https://github.com/tonygward/audio-plugins/issues/165) |
+| AUTO-03 | [Matrix remote heartbeat and backlog observability](AUTO-03-matrix-remote-heartbeat.md) | [#164](https://github.com/tonygward/audio-plugins/issues/164) |
+| AUTO-02 | [Codex fallback when Claude allowance is exhausted](AUTO-02-codex-fallback.md) | [#163](https://github.com/tonygward/audio-plugins/issues/163) |
+| AUTO-01 | [Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) | [#162](https://github.com/tonygward/audio-plugins/issues/162) |
+| MAX-07 | [Loudness meter (LUFS)](../../maximiser/prompts/07-loudness-meter.md) | [#161](https://github.com/tonygward/audio-plugins/issues/161) |
+| ACOMP-07 | [Low Cut for the compressor detector](../../analog-compressor/prompts/07-detector-low-cut.md) | [#160](https://github.com/tonygward/audio-plugins/issues/160) |
+| AUTO-10 | [Verify beta release distribution end to end](AUTO-10-verified-beta-distribution-e2e.md) | [#157](https://github.com/tonygward/audio-plugins/issues/157) |
+| AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
+| AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
+| AUTO-11 | [Board-ordered pickup and delivery lifecycle](AUTO-11-board-driven-pickup.md) | [#175](https://github.com/tonygward/audio-plugins/issues/175) |
 
-The independent [AUTO-03 heartbeat](AUTO-03-matrix-remote-heartbeat.md), [AUTO-04 optional TDD agents](AUTO-04-independent-tdd-test-agent.md), and deferred [AUTO-02 Codex fallback](AUTO-02-codex-fallback.md) are **not** implied complete. Child dependencies are AUTO-08 ← AUTO-07, AUTO-09 ← AUTO-08 and AUTO-10 ← AUTO-09; the parent epics themselves are not prerequisites for selection. No runtime activation or releases result from this backlog split.
+AUTO-01 and AUTO-05 are parent tracking epics. AUTO-06/07 are archived code foundations. AUTO-08/09/10 retain runtime, development/CI and distribution evidence respectively. Real Matrix PRs #174/#177 show execution has occurred; they do not prove every isolation/recovery/distribution acceptance criterion.
 
-## AUTO-01 implementation checkpoint
+AUTO-02 provider fallback and future/classic plugin designs remain deferred until intentionally promoted. A board card cannot bypass unmet dependencies or execution permissions.
 
-## Beta maintenance release checkpoint — 1.3.1
+## Merged implementation archive
+These links prevent completed features being selected again. Verify each ticket's delivery separately; the archive is not board Done.
 
-Authorised on 7 November 2026: PR #113 delivers the EQ/Maximiser obsolete JUCE
-splash-definition correction and restricted manual build infrastructure. Release
-only after green PR checks and the exact main commit's full Windows/universal
-macOS plugin and suite-installer build. Publish through the existing Actions
-pipeline with exactly two installers, then verify R2 and website distribution.
-The supervised Agent fixture registration needs the existing Windows credential
-and remains a documented follow-up, not a beta blocker. Interruption recovery is
-not certified; autonomous execution remains disabled. AUTO-01 as a whole and
-EQ-38 remain unfinished. No new audio/UI feature is claimed in this patch.
+### shared
+- [AUTO-06-matrix-queue-and-usage-foundation](done/AUTO-06-matrix-queue-and-usage-foundation.md)
+- [AUTO-07-linux-ci-worker-code-foundation](done/AUTO-07-linux-ci-worker-code-foundation.md)
+- [S7-one-version-number](done/S7-one-version-number.md)
+- [SUI-01-shared-fonts-and-type](done/SUI-01-shared-fonts-and-type.md)
+- [SUI-02-bevelled-controls](done/SUI-02-bevelled-controls.md)
+- [SUI-03-plain-words-everywhere](done/SUI-03-plain-words-everywhere.md)
+- [SUI-04-windows-suite-installer](done/SUI-04-windows-suite-installer.md)
+- [SUI-05-macos-suite-installer](done/SUI-05-macos-suite-installer.md)
+- [SUI-06-one-entry-per-plugin](done/SUI-06-one-entry-per-plugin.md)
+- [SUI-07-one-version-number](done/SUI-07-one-version-number.md)
+- [SUI-08-songsmith-plugins-brand](done/SUI-08-songsmith-plugins-brand.md)
+- [SUI-09-preset-library](done/SUI-09-preset-library.md)
+- [SUI-10-resize-and-plain-language](done/SUI-10-resize-and-plain-language.md)
+- [SUI-11-latency-and-processing-load](done/SUI-11-latency-and-processing-load.md)
+- [SUI-12-processing-load-footer](done/SUI-12-processing-load-footer.md)
+- [SUI-13-consistent-bypass](done/SUI-13-consistent-bypass.md)
+- [SUI-14-neutral-tooltips-and-tonal-language](done/SUI-14-neutral-tooltips-and-tonal-language.md)
+- [SUI-15-footer-version-before-processing-load](done/SUI-15-footer-version-before-processing-load.md)
+- [SUI-16-version-label-fully-visible](done/SUI-16-version-label-fully-visible.md)
+- [VER-01-standardise-suite-version-0.5.0](done/VER-01-standardise-suite-version-0.5.0.md)
 
-### Earlier implementation checkpoints
+### eq
+- [01-three-band-eq](../../eq/prompts/done/01-three-band-eq.md)
+- [02-interactive-eq-curve](../../eq/prompts/done/02-interactive-eq-curve.md)
+- [03-24-band-eq](../../eq/prompts/done/03-24-band-eq.md)
+- [05-output-gain-bypass](../../eq/prompts/done/05-output-gain-bypass.md)
+- [06-cut-slopes](../../eq/prompts/done/06-cut-slopes.md)
+- [07-band-solo](../../eq/prompts/done/07-band-solo.md)
+- [08-presets](../../eq/prompts/done/08-presets.md)
+- [09-ci](../../eq/prompts/done/09-ci.md)
+- [10-au-macos](../../eq/prompts/done/10-au-macos.md)
+- [11-stereo-modes](../../eq/prompts/done/11-stereo-modes.md)
+- [12-sidechain-analyser](../../eq/prompts/done/12-sidechain-analyser.md)
+- [13-analyser-controls](../../eq/prompts/done/13-analyser-controls.md)
+- [14-auto-gain](../../eq/prompts/done/14-auto-gain.md)
+- [15-scale-curve](../../eq/prompts/done/15-scale-curve.md)
+- [16-note-labels](../../eq/prompts/done/16-note-labels.md)
+- [17-dynamic-eq](../../eq/prompts/done/17-dynamic-eq.md)
+- [18-linear-phase](../../eq/prompts/done/18-linear-phase.md)
+- [19-oversampling](../../eq/prompts/done/19-oversampling.md)
+- [20-starting-point-templates](../../eq/prompts/done/20-starting-point-templates.md)
+- [21-rename-songsmith](../../eq/prompts/done/21-rename-songsmith.md)
+- [22-windows-installer](../../eq/prompts/done/22-windows-installer.md)
+- [23-macos-installer](../../eq/prompts/done/23-macos-installer.md)
+- [24-ui-wording-fonts](../../eq/prompts/done/24-ui-wording-fonts.md)
+- [25-ui-resolution](../../eq/prompts/done/25-ui-resolution.md)
+- [26-starting-points-review](../../eq/prompts/done/26-starting-points-review.md)
+- [27-vertical-output-meter](../../eq/prompts/done/27-vertical-output-meter.md)
+- [28-piano-strip-toggle](../../eq/prompts/done/28-piano-strip-toggle.md)
+- [29-edge-click-cuts](../../eq/prompts/done/29-edge-click-cuts.md)
+- [30-abbey-road-reverb-template](../../eq/prompts/done/30-abbey-road-reverb-template.md)
+- [31-tom-presets](../../eq/prompts/done/31-tom-presets.md)
+- [32-frequency-guide](../../eq/prompts/done/32-frequency-guide.md)
+- [33-filter-shape-icons](../../eq/prompts/done/33-filter-shape-icons.md)
+- [34-linear-phase-tooltip](../../eq/prompts/done/34-linear-phase-tooltip.md)
+- [35-piano-footer](../../eq/prompts/done/35-piano-footer.md)
+- [36-dynamic-disabled-tooltip](../../eq/prompts/done/36-dynamic-disabled-tooltip.md)
+- [37-draggable-band-panel](../../eq/prompts/done/37-draggable-band-panel.md)
+- [38-frequency-guide-instrument-icons](../../eq/prompts/done/38-frequency-guide-instrument-icons.md)
+- [39-stereo-meter-clip-latch](../../eq/prompts/done/39-stereo-meter-clip-latch.md)
+- [40-organise-starting-points](../../eq/prompts/done/40-organise-starting-points.md)
 
-[AUTO-01](AUTO-01-matrix-autonomous-development.md) has a **merged dry-run foundation**
-in [#101](https://github.com/tonygward/audio-plugins/pull/101); see the [Matrix runbook](../../tools/matrix/README.md)
-and [architecture decision](../../docs/adr/AUTO-01-matrix-orchestration.md). Sprint 0
-and Phase B implement/test execution modes, canonical Git reconciliation, durable
-state, notification signalling and Windows scheduling setup. The usage check merged
-in #102. A new [controlled worker](../../tools/matrix/WORKER.md) implements Phase C
-through draft PRs in [#104](https://github.com/tonygward/audio-plugins/pull/104). Phase D still has
-validation contracts only. Live Claude, merges, releases and runner/task
-activation remain blocked pending Matrix account validation, isolation, permissions and
-owner authorisation. A follow-up on `auto-01-claude-usage-check` adds an optional
-read-only `/usage` adapter in [#102](https://github.com/tonygward/audio-plugins/pull/102). AUTO-02 remains deferred. No release checkpoint/version is
-assigned; no prompt is marked done before merge. Implementation PR: [#101](https://github.com/tonygward/audio-plugins/pull/101).
+### analog-compressor
+- [01-plugin-shell](../../analog-compressor/prompts/done/01-plugin-shell.md)
+- [02-feedback-compressor](../../analog-compressor/prompts/done/02-feedback-compressor.md)
+- [03-analogue-colour](../../analog-compressor/prompts/done/03-analogue-colour.md)
+- [04-all-buttons-and-editor](../../analog-compressor/prompts/done/04-all-buttons-and-editor.md)
+- [05-presets-validation-packaging](../../analog-compressor/prompts/done/05-presets-validation-packaging.md)
+- [06-oversampling-off-by-default](../../analog-compressor/prompts/done/06-oversampling-off-by-default.md)
+- [08-1176-editor](../../analog-compressor/prompts/done/08-1176-editor.md)
+
+### maximiser
+- [01-maximiser-shell](../../maximiser/prompts/done/01-maximiser-shell.md)
+- [02-brickwall-limiter](../../maximiser/prompts/done/02-brickwall-limiter.md)
+- [03-true-peak-and-auto-release](../../maximiser/prompts/done/03-true-peak-and-auto-release.md)
+- [04-editor-and-dither](../../maximiser/prompts/done/04-editor-and-dither.md)
+- [05-validation-and-packaging](../../maximiser/prompts/done/05-validation-and-packaging.md)
+- [06-true-peak-by-default](../../maximiser/prompts/done/06-true-peak-by-default.md)
+- [overnight-prompt](../../maximiser/prompts/done/overnight-prompt.md)
+
+## Product direction
+The current suite comprises EQ, Analog Compressor and Maximiser. Planned classics, guidance tools and Channel Strip remain future work until implemented and released. Keep [the EQ roadmap](../../eq/ROADMAP.md) for product direction, not current queue order or software versions.
 
 ## Prompt identity and traceability
-
-Every task has a **stable, unique, scope-qualified ID**: `EQ-32` (file `eq/prompts/32-...`), `ACOMP-06` (`analog-compressor/prompts/06-...`), `MAX-07` (`maximiser/prompts/07-...`), `SUI-11` (shared suite), `OPT-01`/`CLN-01` (specific classic plugins) or `ADV-01` (future candidate). The ID **never changes** when a prompt moves to `done/`; historical numbers, names and GitHub PR numbers are not task IDs.
-
-For each completed prompt, keep a single canonical Markdown file in its own folder's `done/`, link it from the local prompt README (or this shared README), and record the delivery PR and release checkpoint when verified. **Done means merged**, not merely code written or a plan approved. If a prompt is archived retrospectively, label it as such and do not invent PR or test evidence. Update the release changelog with references to the IDs delivered at each checkpoint. Links must be relative to their source Markdown file. Do not mark an unmerged task done.
-
-| Scope prefix | Canonical location | Completed location |
-|---|---|---|
-| `EQ-` | `eq/prompts/` | `eq/prompts/done/` |
-| `ACOMP-` | `analog-compressor/prompts/` | `analog-compressor/prompts/done/` |
-| `MAX-` | `maximiser/prompts/` | `maximiser/prompts/done/` |
-| `SUI-` | `shared/prompts/` | `shared/prompts/done/` |
-| `WEB-` | `shared/prompts/` (portal roadmap; implementation in separate private repo) | `shared/prompts/done/` |
-| `AUTO-` | `shared/prompts/` (automation/infrastructure) | `shared/prompts/done/` |
-| `OPT-` / `PEQ-` / `BUS-` / `CLN-` | `shared/prompts/classics/` | `shared/prompts/classics/done/` when delivered |
-| `ADV-` / `REC-` | `shared/prompts/future/` | `shared/prompts/future/done/` only after implemented |
-
-## Backlog at a glance
-
-**Matrix remote observability — planned:** [AUTO-03 Matrix remote heartbeat](AUTO-03-matrix-remote-heartbeat.md) (**Sonnet; Medium; high-priority infrastructure**). Publish a minimal, sanitised, GitHub-readable heartbeat reporting last scheduler tick vs successful GitHub fetch, observed revision, queue/usage blockers and staleness. Prefer restricted/private storage and least-privilege credentials. Does not activate live execution.
-
-**Linux-container worker deployment — split milestones, parent tracking only:** [AUTO-05 Isolated Linux container agent with GitHub Actions builds](AUTO-05-linux-agent-github-actions.md) (**Sonnet; Medium; high-priority container validation; depends on AUTO-01**). Linux container is the selected architecture and `tools/matrix/linux-worker.mjs` is present. Validate isolation, credentials, polling, hosted Windows/macOS checks, bounded repairs, rollout/rollback and live execution before declaring it operational. Preserve other Matrix Docker workloads.
-
-**Independent test authoring — planned:** [AUTO-04 separate test-writing agent / TDD](AUTO-04-independent-tdd-test-agent.md) (**Sonnet; Medium; depends on validated AUTO-01 live worker**). Optional test-first independent role: red tests against baseline, production implementation to green, independent test review and full CI; skip within subscription/budget limits rather than bypassing gates. No second agent is activated by this prompt.
-
-**Codex fallback — deferred, not authorised to run:** [AUTO-02 Codex fallback when Claude credits are low](AUTO-02-codex-fallback.md) (**Sonnet; Medium; dependent on AUTO-01**). Future multi-agent provider selection when Claude reaches its 85% threshold or is exhausted; use shared `AGENTS.md` standards, independent Codex allowance checks and identical CI/release gates. **Explicitly exclude from automated prompt selection until manually activated.** No implementation or configuration changes now.
-
-**Matrix automation — Linux-container target, split parent epic:** [AUTO-01 autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) (**Opus architecture, Sonnet implementation; High effort; early infrastructure**). **Sprint 0 prompt execution modes** (`scheduled` by default when omitted, `build-now` on GitHub notification, `deferred` excluded), daily reconciliation of missed immediate prompts, conservative 85% weekly Claude usage gate (**fail closed when usage cannot be authoritatively checked**), compatible batches of up to 3–6 prompts, bounded Claude Code execution, traceable PRs, and releases *only* at validated approved checkpoints with exactly two installer assets. Preserve fail-closed safety gates and validate the container runtime; this backlog entry itself does not enable unattended automation.
-
-
-**Private beta portal — planned:** [WEB-01 functional developer portal](WEB-01-private-beta-portal.md) (**Sonnet; Medium; early beta/commercial readiness, independent of audio DSP backlog**). Cloudflare Pages + Access, exact-email one-time PIN allowlist, a **separate static Cloudflare Pages website repository** updated by a plugin-release `repository_dispatch` event and verified `release.json` commit (optional daily reconciliation), with **immutable versioned Windows/macOS installers mirrored to private Cloudflare R2 after approved GitHub Releases**, and **release.json plus version-matched What's New/changelog updated together** in the website repo only after both uploads are verified; plus guides and tester feedback. Start with an architecture/security check; do not turn the audio-plugins repository private until a verified private download route is ready. This is not an implemented website or an approved release checkpoint.
-
-
-**Release packaging rule:** publish **one Songsmith Plugins installer for Windows** and **one for macOS**, each with one tick box per plugin. The public release must have **exactly two assets**; individual plugin installer/ZIP artifacts stay internal to CI. See [release instructions](../../TECHNICAL.md#releasing).
-
-**Three product goals:** **6–12 standalone plugins**, a **Channel Strip reusing proven processing engines**, and a **separate whole-track Loudness Analyser**. The foundation is Songsmith EQ, Analog Compressor and Maximiser. [Full product direction](../../eq/ROADMAP.md).
-
-| Priority | Area | Next outcome |
-|---|---|---|
-| 1 | **Suite UI and validation** | Implement [SUI-12 shared footer](done/SUI-12-processing-load-footer.md) (done, #81), [SUI-13 standard Bypass position and red](done/SUI-13-consistent-bypass.md) (done, #82), [EQ-37 draggable band panel and Dynamic visibility](../../eq/prompts/done/37-draggable-band-panel.md) (done, #87), **[EQ-36 Dynamic disabled tooltip](../../eq/prompts/done/36-dynamic-disabled-tooltip.md)** (done, #78) and **[ACOMP-08 Analog Compressor editor refinements](../../analog-compressor/prompts/done/08-1176-editor.md)** (done, #88), then verify installation, session recall, reported latency, processing load, Studio One and Cakewalk workflows. |
-| 2 | **EQ** | Shipped EQ UI fixes and **instrument-specific frequency guide** ([EQ-32](../../eq/prompts/done/32-frequency-guide.md)); **next: [EQ-38 instrument icons beside Frequency Guide labels](../../eq/prompts/38-frequency-guide-instrument-icons.md)** (small, early UI polish; Sonnet). **Also [EQ-39 automatic mono/stereo meter and sticky CLIP warning](../../eq/prompts/39-stereo-meter-clip-latch.md)** (early meter UI work; Sonnet). **Plus [EQ-40 grouped Starting Points and Factory de-duplication](../../eq/prompts/40-organise-starting-points.md)** (early preset clean-up; Sonnet; preserve old sessions). |
-| 3 | **Analog Compressor DSP** | Oversampling default ([ACOMP-06](../../analog-compressor/prompts/06-oversampling-off-by-default.md)) and detector Low Cut ([ACOMP-07](../../analog-compressor/prompts/07-detector-low-cut.md)); editor polish is already in Priority 1. |
-| 4 | **Maximiser** | True-peak checks on exports, suitable defaults, LUFS measurement. |
-| 5 | **FET models** | Blue Stripe, Anniversary, Lindell-inspired, with clearly named acoustic-guitar presets. |
-| 6 | **Compressor workflow** | Optional guided **Set Levels** adjustment. |
-| 7 | **Optical Leveller** | LA-2A-inspired standalone plugin. |
-| 8 | **Clean Compressor** | Transparent digital compressor. |
-| 9 | **More analogue classics** | Pultec-style EQ and SSL-style Bus Compressor. |
-| 10 | **Standalone Loudness Analyser** | Whole-file LUFS, true peak, sample rate/bit depth and **streaming guidance**, without false pass/fail claims. |
-| 11 | **Channel Strip** | Combine validated processors in musician-ready chains, including the proposed internal Abbey Road-style reverb path. |
-
-**Additional unscheduled plugin candidates:** Reverb, Delay, De-Esser, Saturator, Gate / Expander, Transient Shaper and Guitar Amp / Cabinet. They are not assigned implementation prompts or release dates yet.
-
-**Early UI/content improvement:** [SUI-14 neutral tooltips and clearer tonal language](SUI-14-neutral-tooltips-and-tonal-language.md) (Sonnet; Low–Medium). Keep Joe Gilder's researched terms for now, but remove named-educator citations from operational UI and make the descriptions understandable to guitarists.
-
-**Future, not queued:** [ADV-01 musician-friendly guidance for each plugin](future/ADV-01-musician-guidance.md), [ADV-02 reference-mix guided review](future/ADV-02-reference-mix-guided-review.md), and [REC-01 whole-file Recording and Streaming Advisor](future/REC-01-file-recording-advisor.md). The rule for both is **“What matters? Why does it matter? Do I need to do anything?”**
-
-**Release discipline:** shared suite version **1.3.0** is the current documented baseline; future versions are set against agreed, validated roadmap milestones (not individual prompts). Preserve useful screenshots in PRs and READMEs, and distinguish mockups from shipped features. Details and execution order follow below.
-
-Prompts for work that spans **every** Songsmith Studio plugin: Songsmith EQ (`eq/`), Songsmith Analog Compressor (`analog-compressor/`) and Songsmith Maximiser (`maximiser/`), plus any plugin added later. Each file can be handed to an agent as it is. They use the same working rules as the [EQ roadmap prompts](../../eq/prompts/README.md): branch from `main`, keep parameter IDs and plugin codes stable, keep the audio thread real-time safe, build and test every plugin, don't install system-wide, and finish with a **draft PR**. Finished prompts move to `done/` once merged.
-
-| Prompt | What it does |
-|---|---|
-| ✅ [SUI-01 shared look: fonts and type](done/SUI-01-shared-fonts-and-type.md) | One shared UI library and one copy of the Inter font for all plugins, one type scale, and a written style guide |
-| ✅ [SUI-02 bevelled controls everywhere](done/SUI-02-bevelled-controls.md) | The slightly bevelled, raised look from the compressor, applied to buttons, knobs, menus and toggles in every plugin |
-| ✅ [SUI-03 plain words everywhere](done/SUI-03-plain-words-everywhere.md) | No abbreviations and plain language in every plugin, enforced by one shared test |
-| ✅ [SUI-04 Windows suite installer](done/SUI-04-windows-suite-installer.md) | One Windows installer for all plugins, with a tick box per plugin |
-| ✅ [SUI-05 macOS suite installer](done/SUI-05-macos-suite-installer.md) | One macOS `.pkg` for all plugins, with a choice per plugin and format |
-| ✅ [SUI-06 one installer entry per plugin](done/SUI-06-one-entry-per-plugin.md) | One tick box per plugin in the Windows installers and the macOS suite installer: no separate standalone app or format choices |
-| ✅ [SUI-07 one version number](done/SUI-07-one-version-number.md) | One version for every plugin, installer and release, from a root `VERSION` file, starting at 1.1.0 |
-| ✅ [SUI-08 Songsmith Plugins branding](done/SUI-08-songsmith-plugins-brand.md) | Consistent suite naming without changing plugin identities |
-| ✅ [SUI-11 latency and processing load](done/SUI-11-latency-and-processing-load.md) | Diagnostics strip in each editor; shipped in 1.1.0 |
-| ✅ [SUI-12 left-side Processing Load](done/SUI-12-processing-load-footer.md) | Done in #81: toggle at the far left of every plugin; when on, CPU and latency show immediately to its right; EQ Piano moved via EQ-35. Shipped in 1.2.0 |
-| ✅ [SUI-13 standard Bypass position and red](done/SUI-13-consistent-bypass.md) | Done in #82: global Bypass top-right on every plugin, engaged in the shared #C9563C red (`Songsmith::UI::Colours::bypass`). Shipped in 1.2.0 |
-
-## Future candidate — Recording and Mixing Advisor
-
-- **Not queued for unattended execution:** [ADV-01 musician-friendly advice across plugins](future/ADV-01-musician-guidance.md) — clear, optional recommendations grounded in actual measurements and listening guidance (**Sonnet; Opus only if architecture requires it**).
-- **Not queued for unattended execution:** [REC-01 whole-file recording and streaming advisor](future/REC-01-file-recording-advisor.md) — standalone file metadata, LUFS and true-peak advice without false pass/fail claims (**Sonnet; Opus for measurement validation if needed**).
-- **Not queued:** [ADV-02 reference-mix guided review](future/ADV-02-reference-mix-guided-review.md) — side-by-side reference and user mix, measured comparisons, and instrument/group advice only with stems or valid track routing (**Opus design spike; Sonnet implementation after approval; High effort**).
-- Both existing advisors and ADV-02 follow the standing rule in `CLAUDE.md`; promote to active prompts only after existing work is prioritised.
-
-## Songsmith Plugins backlog
-
-**Model guide:** Every active prompt must state its **recommended model**, **relative effort / usage** (Low, Medium or High), and **Opus escalation conditions**. Default to **Sonnet** for implementation and tests. If **Opus for design** is specified, use it only for the difficult design/validation step, document the decision, then return to Sonnet. Never escalate silently. Effort estimates are not token guarantees.
-
-Finish the existing suite work and develop the classic standalone plugins on two tracks. **The Channel Strip follows the standalone classics.**
-
-| Track | Sequence |
-|---|---|
-| Analog emulation | Existing 1176-inspired FET compressor: **[ACOMP-08 editor polish](../../analog-compressor/prompts/done/08-1176-editor.md) (done, #88) first (Sonnet; Priority 1)**, then [ACOMP-06 oversampling default](../../analog-compressor/prompts/06-oversampling-off-by-default.md) **(Sonnet)** and [ACOMP-07 detector Low Cut](../../analog-compressor/prompts/07-detector-low-cut.md) **(Sonnet)**. Next [OPT-01 Optical Leveller](classics/OPT-01-optical-leveller.md) **(Opus for design, Sonnet for implementation)**, [PEQ-01 Pultec-style EQ](classics/PEQ-01-pultec-eq.md) **(Opus for design, Sonnet for implementation)**, then [BUS-01 SSL-style compressor](classics/BUS-01-ssl.md) **(Opus for design, Sonnet for implementation)**. |
-| Digital | Existing EQ: [filter icons](../../eq/prompts/done/33-filter-shape-icons.md) **(Sonnet)**. Existing Maximiser: [defaults and loudness meter](../../maximiser/prompts/README.md). Next [CLN-01 Clean Compressor](classics/CLN-01-clean-compressor.md) **(Opus for design, Sonnet for implementation)**. |
-
-The [SUI-08 suite branding](done/SUI-08-songsmith-plugins-brand.md) is done. Apply [SUI-09 curated and custom presets](SUI-09-preset-library.md) **(Sonnet)** and [SUI-10 resizable editors and control help](SUI-10-resize-and-plain-language.md) **(Sonnet)** across both tracks. Before starting Channel Strip work, release and validate the standalone classics in both tracks, including their presets and host recall.
-
-### Version alignment with delivery milestones
-
-**Current suite baseline: 1.3.0.** The EQ roadmap's earlier v0.3–v1.0 labels describe historical EQ work, not the shared suite version.
-
-Agree and record a **release checkpoint with a named, testable feature scope** before choosing the next semantic version. Intermediate prompt PRs need not bump `VERSION`; increment it once the whole checkpoint passes validation, and update `CHANGELOG.md`. Future research and proposed ideas have no target version until they are scheduled.
-
-| Release checkpoint | Version | Scope / decision |
-|---|---|---|
-| Current shared suite baseline | 1.3.0 | **Interface and Frequency Guide:** EQ-37 movable band panel, ACOMP-08 Analog Compressor editor refinements and EQ-32 Instrument Frequency Guide (see [changelog](../../CHANGELOG.md)) |
-| Previous release | 1.2.0 | **UI refinements:** EQ-33 filter shape icons, EQ-34 Linear Phase tooltip, EQ-35 Piano placement, EQ-36 Dynamic tooltip, SUI-12 Processing Load footer and SUI-13 consistent Bypass (see [changelog](../../CHANGELOG.md)) |
-| Previous release | 1.1.0 | Existing shipped suite work (see changelog) |
-| Next release milestone | To agree | Choose and validate a coherent subset of priorities below |
-| Later milestones | Unscheduled | Further classic plugins, Channel Strip, Loudness Analyser and musical guidance |
-
-### Delivery priority
-
-| Priority | Batch | Order and release checks |
-|---|---|---|
-| 1 | Suite release and **early EQ/compressor UI** | Run SUI-12, **SUI-13 top-right red Bypass**, **EQ-37 draggable band panel and Dynamic visibility**, **EQ-36 disabled Dynamic tooltip**, and **ACOMP-08 editor polish now**, ahead of ACOMP-06/07: enlarge the analogue meter, refine the scalable textured faceplate, improve layout/ratio wording and prepare the future Low Cut position without adding its DSP control yet. Coordinate with SUI-10; preserve screenshots and verify responsiveness, meter behaviour and old session recall. Also validate existing SUI-06–SUI-08/SUI-11 packaging, versioning, reported latency and load, upgrade/scanning and Studio One/Cakewalk recall. |
-| 2 | EQ improvements | EQ-33 filter shape icons, EQ-34 Linear Phase tooltip and EQ-32 Instrument Frequency Guide are shipped (EQ-32 in #89). **Next small UI task: [EQ-38 instrument icons beside Frequency Guide names](../../eq/prompts/38-frequency-guide-instrument-icons.md)** (Sonnet; keep names and layout, drawing only). **Then [EQ-39 mono/stereo output meter with latched red CLIP warning](../../eq/prompts/39-stereo-meter-clip-latch.md)** (Sonnet; independent per-channel metering, clear on sustained silence). **Also [EQ-40 instrument-grouped Starting Points, tom variations and Factory clean-up](../../eq/prompts/40-organise-starting-points.md)** (Sonnet; preserve legacy factory indices). |
-| 3 | Blackface DSP and workflow | **ACOMP-06 → ACOMP-07**: oversampling default followed by detector Low Cut. Integrate Low Cut into the space reserved by already-prioritised **ACOMP-08**; do not redo editor polish. Apply SUI-09 preset rules and ensure SUI-10 wording/resize consistency. |
-| 4 | Digital polish | Verify the Maximiser true-peak ceiling on exported files, then run Maximiser 06 → 07 for the default and LUFS meter. |
-| 5 | FET compressor models | Deliver compressor 10 in checkpoints: model selector and texture switching with Blue Stripe first, then Anniversary Edition (2:1 and Slow Attack), then Lindell and Acoustic Guitar Smoothing once the exact Lindell reference is confirmed. Preserve legacy Blackface recall and validate each model independently. |
-| 6 | Set Levels | Deliver compressor 09 against the selected model. Validate on Blackface and each new model as it becomes available. |
-| 7 | Optical Leveller | Deliver OPT-01 as the first new standalone analog classic. Validate vocal and bass presets and host recall. |
-| 8 | Clean Compressor | Deliver CLN-01 as its own digital release. It can proceed independently of Phase 7. |
-| 9 | Complete the classics | PEQ-01 Pultec-style EQ → BUS-01 SSL-style Bus Compressor. Finish SUI-09 and SUI-10 across the suite as each plugin is released. |
-| 10 | Standalone Loudness Analyser | Can start once the Maximiser measurement engine is validated and reusable. |
-| 11 | Channel Strip | Start after the standalone classics are released and validated in both tracks. Include the internal Abbey Road reverb bus. |
-
-The priorities describe release order. Independent work can proceed alongside the current batch. Use the model recommendations on each prompt.
-
-### ✅ SUI-11 · Latency and Processing Load
-
-**Done — [archived prompt SUI-11](done/SUI-11-latency-and-processing-load.md)**. Implemented behaviour is described in the [style guide](../../docs/style-guide.md#latency-and-processing-load-strip) and included in the [1.1.0 changelog](../../CHANGELOG.md#110). The original requirements have been preserved in the archive, rather than embedded here as an active instruction.
-
-## Overnight runs merge into `main`
-
-When these prompts are run unattended (for example overnight with [`overnight-prompt.md`](overnight-prompt.md)), each task can go **straight into `main`**: the agent opens a PR, waits for CI, approves it and merges it itself once the build, tests and CI all pass. Nothing is ever pushed to `main` without a PR. Blocked tasks stay as draft PRs for Tony. (GitHub doesn't let an account formally approve its own PR, so the agent records its approval as a PR comment listing what it checked, then merges.)
-
-## Run in waves, merging between waves
-
-| Wave | Prompts | Notes |
-|---|---|---|
-| 1 | SUI-01 shared look · SUI-04 Windows suite installer | Independent: SUI-01 is editor code and CMake, SUI-04 is installer and CI. |
-| 2 | SUI-02 bevelled controls · SUI-03 plain words · SUI-05 macOS suite installer | SUI-02 and SUI-03 both build on SUI-01's shared library and both touch every editor; expect small conflicts in the editors and the style guide. SUI-05 reuses SUI-04's CI job and naming. |
-
-## Conflict hotspots
-
-- Each plugin's `CMakeLists.txt` (SUI-01 links the shared library; SUI-04/SUI-05 only read versions from it).
-- `.github/workflows/build.yml`: SUI-04 and SUI-05 both add the suite installer job.
-- `docs/style-guide.md`: SUI-01 creates it, SUI-02 and SUI-03 add sections.
-- The three look-and-feel files (`eq/Source/EQLookAndFeel.h`, `analog-compressor/Source/FETLookAndFeel.h`, `maximiser/Source/MaxLookAndFeel.h`).
+Keep IDs stable when archiving. Repair relative links and issue links at the same time; record implementation PRs and verified release/deployment evidence. Preserve historical acceptance requirements but clearly label superseded policy and merged implementation status. Use Sonnet by default and explicitly scope any Opus design escalation.

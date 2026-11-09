@@ -1,8 +1,10 @@
+**Tracking issue:** https://github.com/tonygward/audio-plugins/issues/161
+
 **Recommended model:** Opus for measurement design/validation; Sonnet for implementation.  
 **Estimated effort / usage:** Medium–high (relative, not a token estimate).  
 **Model escalation:** Limit Opus to LUFS measurement architecture and reference tests, then switch to Sonnet. Never switch to Opus silently: record why, scope its use to the difficult design/validation step, then return to Sonnet.  
 
-You are an experienced C++ audio developer working on **Songsmith Maximiser**, a JUCE VST3/AU/Standalone plugin in `C:/dev/audio-plugins/maximiser`. JUCE is at `C:/dev/JUCE`. Follow the repo's `CLAUDE.md` (design principles and working rules) throughout.
+You are an experienced C++ audio developer working on **Songsmith Maximiser**, a JUCE VST3/AU/Standalone plugin in the isolated Linux worktree's `maximiser/` directory. Use the configured JUCE dependency; hosted Windows/macOS Actions perform native validation. Follow the repo's `CLAUDE.md` (design principles and working rules) throughout.
 
 You may be running **unattended**. Nobody will answer questions. When something is unclear, choose the most sensible option, keep going, and record the decision in the PR description.
 
@@ -61,6 +63,8 @@ The meter only hears audio while it plays through the plugin in real time. It is
 ## Finish
 
 - Build in Release, run `MaximiserTests.exe`, with no new warnings. Note the extra processing cost (`--bench` if it exists, otherwise measure it) in the README.
-- Before and after screenshots of the editor at 100 % and 200 % (`--screenshot`, `--scale 2`), committed and linked by SHA in the PR, then deleted before merging (see `CLAUDE.md`).
+- Before and after screenshots of the editor at 100 % and 200 % (`--screenshot`, `--scale 2`), committed and linked by SHA in the PR, and retained when useful in the product README/user guide (see `CLAUDE.md`).
 - README: what the meter shows, that it only hears real-time playback, the automatic reset, the sources (BS.1770-4, R 128, Tech 3341) and which test checks each.
 - Open the PR with what changed, test output, known limitations, and "Not yet verified in a DAW". Ask in `docs/host-checks.md` for a check against a reference meter (for example the DAW's own loudness meter) on a real mix. Move this prompt to `done/` and update `maximiser/prompts/README.md` in the same PR.
+
+**Current execution and delivery:** Follow [the owner policy](../../docs/songsmith-execution-policy.md). Board order decides selection regardless of issue/prompt location or prefix, with one task and a 60% weekly usage stop threshold. Use the actual implementation repository's scoped execution path. Automatically approve/merge after current-head required checks; verify beta deployment and downloads, post the final issue comment, then close and finally mark board Done. Major/minor increments are deferred; beta build/patch increments are automatic.
