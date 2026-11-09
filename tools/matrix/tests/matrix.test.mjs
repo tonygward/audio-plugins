@@ -175,11 +175,11 @@ test('Cross-process concurrency lock rejects a second worker', t => {
 });
 const now = Date.parse('2026-11-06T10:00:00Z');
 function usage(percentage) { return { source: TELEMETRY_SOURCE, percentage, observedAt: new Date(now).toISOString(), resetsAt: new Date(now + 3600000).toISOString() }; }
-for (const [value, allowed] of [[69.9, true], [70, false], [70.1, false], [0, true], [100, false]]) test(`Weekly usage boundary ${value}`, () => assert.equal(usageGate(usage(value), now).allowed, allowed));
+for (const [value, allowed] of [[59.9, true], [60, false], [60.1, false], [0, true], [100, false]]) test(`Weekly usage boundary ${value}`, () => assert.equal(usageGate(usage(value), now).allowed, allowed));
 test('Usage missing, stale, future, bad source, expired or contradictory fails closed', () => {
   for (const snapshot of [null, {}, usage('84'), usage(NaN), usage(-1), { ...usage(10), source: 'estimate' }, { ...usage(10), observedAt: new Date(now - 61000).toISOString() }, { ...usage(10), observedAt: new Date(now + 1000).toISOString() }, { ...usage(10), resetsAt: new Date(now).toISOString() }]) assert.equal(usageGate(snapshot, now).allowed, false);
-  assert.equal(usageGate(usage(69.9), now).allowed, true);
-  assert.equal(usageGate(usage(70), now).allowed, false); // Recheck between prompts.
+  assert.equal(usageGate(usage(59.9), now).allowed, true);
+  assert.equal(usageGate(usage(60), now).allowed, false); // Recheck between prompts.
 });
 test('London scheduler catches missed run, handles spring/fall DST once per day', () => {
   assert.equal(dailyDue(null, '02:00', new Date('2026-03-29T01:01:00Z')), true);
