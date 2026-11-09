@@ -30,3 +30,7 @@ Add new cards for each new issue, maintaining one canonical prompt per backlog I
 ## Scope
 
 This setup is a manually invoked project-configuration utility. It requires personal project permissions and intentionally does not run inside unattended Matrix functional jobs.
+
+## One ticket per feature
+
+Track a requested change as **one GitHub Issue card**. Link its implementation PR(s) inside that issue; do not add those PRs as separate board cards. The setup script removes the previously seeded duplicate version-alignment PR #152 card while retaining the canonical VER-01 issue. A merged PR is not necessarily a released or deployed change.
