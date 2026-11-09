@@ -2,6 +2,11 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
 
+## Unreleased
+
+### Songsmith Maximiser
+- **True peak is now the default:** a new Maximiser starts in True peak mode, so the peaks between samples stay under the Output Ceiling, which is what streaming and broadcast checks measure. It uses a little more processing power than Sample peak. Sessions you have already saved keep the peak mode they were saved with and sound the same, so you don't need to do anything. If you prefer the lighter Sample peak mode, you can still choose it.
+
 ## 1.3.4
 
 ### Songsmith EQ
