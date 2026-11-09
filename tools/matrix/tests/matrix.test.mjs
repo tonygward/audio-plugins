@@ -70,6 +70,12 @@ test('Duplicate active stable IDs produce visible error', () => {
   const result = scan(new Map([['eq/prompts/41-x.md', prose], ['eq/prompts/41-y.md', prose]]));
   assert.equal(result.errors.length, 1);
 });
+test('Overnight runs skip infrastructure (AUTO) unless it is build-now', () => {
+  const auto = prompt('scheduled', '', 'shared/prompts/AUTO-03-x.md').id;
+  assert.equal(auto, 'AUTO-03');
+  assert.equal(select([prompt('scheduled', '', 'shared/prompts/AUTO-03-x.md')], {}, 'daily').selected.length, 0);
+  assert.equal(select([prompt('build-now', '', 'shared/prompts/AUTO-03-x.md')], {}, 'daily').selected.length, 1);
+});
 test('Immediate backlog precedes ordinary scheduled work', () => {
   const scheduled = prompt(undefined);
   const immediate = prompt('build-now', '', 'eq/prompts/42-now.md');

@@ -108,6 +108,8 @@ export function select(prompts, tasks, trigger, limit = 6) {
     if (!reason && p.dependencies.some(id => !complete.has(id))) reason = 'dependency not merged or unknown';
     if (!reason && p.dependencies.includes(p.id)) reason = 'self dependency';
     if (!reason && trigger === 'notify' && p.execution !== 'build-now') reason = 'waiting for daily schedule';
+    // Overnight runs are for product work; infrastructure (AUTO-*) runs only when the owner asks with build-now.
+    if (!reason && trigger === 'daily' && p.execution !== 'build-now' && /^AUTO-/.test(p.id)) reason = 'infrastructure is not run overnight';
     if (!reason && !p.model) reason = 'model recommendation requires review';
     if (!reason && !['low', 'medium'].includes(p.effort)) reason = 'large or unknown effort requires review';
     // A shared/unknown footprint takes a batch of one. Plugin-local work never overlaps.
