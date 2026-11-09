@@ -26,9 +26,10 @@ many workflow events caused by it.
 
 The R2 distributor independently verifies complete GitHub release, full main
 CI, source asset bytes, immutable private R2 objects and SHA-256, then
-dispatches to the website. The website checks again and creates one
-`release.json` + `changelog.md` PR. **Tony still merges the website PR
-manually** on GitHub Free: no automatic website deployment before that merge.
+dispatches to the website. The website checks again and publishes
+`release.json` + `changelog.md` straight to its `main` branch (the commit
+is titled "Publish verified beta X.Y.Z"), and Cloudflare Pages deploys it.
+**No manual merge is needed: the whole path is hands off.**
 
 ## Required one-time GitHub configuration
 
@@ -95,4 +96,4 @@ step (for example 0.6.0 or 1.0.0) is made only when a ticket asks for it, by cha
 section. Per-build identity stays in the CI run number and commit SHA.
 
 Installers: the Windows installer replaces any installed version, so 0.5.0 installs over 1.3.x. The macOS component packages are built with
-`BundleIsVersionChecked` off for the same reason; without it Installer keeps a newer 1.x bundle. Existing 1.x releases and tags stay as published.
+`BundleIsVersionChecked` off for the same reason; without it Installer keeps a newer 1.x bundle. The earlier 1.x GitHub releases and tags were removed as redundant (beta software), which also frees old tags so a version number is never blocked by one.
