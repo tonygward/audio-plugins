@@ -42,7 +42,12 @@ namespace FET
         // Each changed parameter is set as one complete gesture (automation-friendly).
         void loadFactory (int index);
         bool loadFile (const juce::File&, juce::String& error);
+        // Refuses an empty name and any starting point's name (those stay read-only). Overwrites a
+        // file of the same name, so the editor asks first (see userPresetExists).
         bool saveAs (const juce::String& name, juce::String& error);
+        // True when a user preset with this name (after the same cleaning saveAs applies) is already saved.
+        bool userPresetExists (const juce::String& name) const;
+        static bool isFactoryName (const juce::String& name);
 
         static const char* const presetParameterIds[];
         static const int numPresetParameters;

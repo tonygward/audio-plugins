@@ -4,7 +4,12 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 ## 1.3.5
 
+### Songsmith EQ
+- **Asks before replacing a saved preset:** if you use Save As with a name you have already used, the EQ now asks whether to replace that preset. Nothing is replaced unless you choose Replace, so you don't need to do anything.
+- **Clearer reverb preset name:** the Starting Points entry for putting an EQ before a reverb is now called Reverb Send Clean-up. It sounds exactly the same, and sessions that used it still load it.
+
 ### Songsmith Analog Compressor
+- **Safer preset saving:** the compressor now asks before replacing one of your saved presets, and keeps its built-in starting points protected, so a name such as Lead vocal can't be saved over. If you try one, choose a different name.
 - **Oversampling now starts Off:** a new Analog Compressor adds no delay and uses the least processing power, which suits many tracks at once and recording. If you compress hard and want a cleaner top end, choose 2x or 4x from the Oversampling menu. Saved sessions keep the setting they were saved with, so you don't need to do anything.
 
 ### Songsmith Maximiser

@@ -131,6 +131,44 @@ struct PresetTests final : juce::UnitTest
             folder.deleteRecursively();
         }
 
+        beginTest ("duplicate names, starting-point protection and oversized files");
+        {
+            const auto folder = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                                    .getNonexistentChildFile ("fet-preset-dup-test", {}, false);
+            SongsmithAnalogCompressorProcessor a;
+            a.presets.setUserFolder (folder);
+            juce::String error;
+
+            expect (! a.presets.userPresetExists ("Warm"), "nothing saved yet");
+            ColourMeasure::set (a, ID::input, 5.0f);
+            expect (a.presets.saveAs ("Warm", error), error);
+            expect (a.presets.userPresetExists ("Warm"));
+            expect (a.presets.userPresetExists ("  Warm "), "the check cleans the name like a save does");
+
+            ColourMeasure::set (a, ID::input, 9.0f);
+            expect (a.presets.saveAs ("Warm", error), error);   // deliberate overwrite, after the editor's confirmation
+            expectEquals (a.presets.getUserPresetFiles().size(), 1, "overwriting never adds a second file");
+            SongsmithAnalogCompressorProcessor b;
+            b.presets.setUserFolder (folder);
+            expect (b.presets.loadFile (a.presets.getUserPresetFiles()[0], error), error);
+            expectWithinAbsoluteError (b.apvts.getRawParameterValue (ID::input)->load(), 9.0f, 0.01f);
+
+            for (const auto& f : Presets::factory())
+            {
+                expect (Presets::isFactoryName (f.name));
+                expect (! a.presets.saveAs (f.name, error), juce::String (f.name) + " is read-only");
+                expect (error.isNotEmpty());
+            }
+            expect (! a.presets.saveAs ("lead vocal", error), "factory names are matched ignoring case");
+            expectEquals (a.presets.getUserPresetFiles().size(), 1, "no file was written for a factory name");
+
+            const auto huge = folder.getChildFile ("Huge.sspreset");
+            huge.replaceWithText (juce::String::repeatedString ("x", 2 * 1024 * 1024));
+            expect (! b.presets.loadFile (huge, error), "an oversized file is refused");
+            expect (! b.presets.loadFile (folder.getChildFile ("Missing.sspreset"), error), "a missing file is refused");
+            folder.deleteRecursively();
+        }
+
         beginTest ("user presets have their own folder, apart from Songsmith EQ's");
         {
             const auto folder = Presets::getDefaultUserFolder().getFullPathName();

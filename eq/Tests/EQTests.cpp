@@ -3411,7 +3411,7 @@ public:
             const char* names[] = { "Flat", nullptr, nullptr, nullptr, nullptr, nullptr, "Bright acoustic", nullptr,
                                     nullptr, nullptr, nullptr, "Acoustic guitar", nullptr, nullptr, nullptr, nullptr,
                                     nullptr, nullptr, nullptr, "Acoustic guitar in a full mix", "Acoustic guitar pickup",
-                                    "Abbey Road reverb", "Rack tom", "Floor tom", "Toms bus", "Mid tom", "High tom" };
+                                    "Reverb send clean-up", "Rack tom", "Floor tom", "Toms bus", "Mid tom", "High tom" };
             expectGreaterOrEqual (PresetManager::getNumFactoryPresets(), 27);
             for (int i = 0; i < (int) std::size (names); ++i)
                 if (names[i] != nullptr)
@@ -3434,7 +3434,7 @@ public:
                 { "Guitars - Electric Guitar", "Guitars" }, { "Guitars - Electric Guitar Bus", "Guitars" },
                 { "Guitars - Bass Guitar", "Guitars" }, { "Vocals - Lead Vocal", "Vocals" },
                 { "Vocals - Backing Vocals", "Vocals" }, { "Vocals - Spoken Word", "Vocals" },
-                { "Effects - Reverb Return", "Effects" }, { "Effects - Abbey Road Reverb", "Effects" } };
+                { "Effects - Reverb Return", "Effects" }, { "Effects - Reverb Send Clean-up", "Effects" } };
 
             SongsmithEQAudioProcessor p;
             const auto all = p.presets.getAllPresets();
@@ -3586,10 +3586,27 @@ public:
             expectEquals ((int) p.presets.getUserPresets().size(), 0);
         }
 
-        beginTest ("Abbey Road reverb: Tony's Pro-Q 4 preset, band for band");
+        beginTest ("SUI-09: a duplicate name is detected before it is replaced, and replacing adds no second file");
+        {
+            SongsmithEQAudioProcessor p;
+            PresetTests::TempFolder folder;
+            p.presets.setUserFolder (folder.dir);
+            juce::String error;
+
+            expect (! p.presets.userPresetExists ("Guitar Warmth"), "nothing saved yet");
+            expect (! p.presets.userPresetExists ("   "), "an empty name never exists");
+            expect (p.presets.saveAs ("Guitar Warmth", error), error);
+            expect (p.presets.userPresetExists ("Guitar Warmth"));
+            expect (p.presets.userPresetExists ("  Guitar Warmth "), "the check cleans the name like a save does");
+
+            expect (p.presets.saveAs ("Guitar Warmth", error), error);   // deliberate replace, after the confirmation
+            expectEquals ((int) p.presets.getUserPresets().size(), 1);
+        }
+
+        beginTest ("Reverb send clean-up: Tony's Pro-Q 4 preset, band for band");
         {
             const int index = 21;
-            expectEquals (PresetManager::getFactoryName (index), juce::String ("Abbey Road reverb"));
+            expectEquals (PresetManager::getFactoryName (index), juce::String ("Reverb send clean-up"));
             expect (PresetManager::isStartingPoint (index));
             expectEquals (PresetManager::getFactoryUsedBands (index), 5);
             const auto d = PresetManager::getFactoryPreset (index);

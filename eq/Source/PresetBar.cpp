@@ -151,11 +151,31 @@ void PresetBar::saveAsDialog()
         const auto name = safe->dialog->getTextEditorContents ("name");
         safe->dialog.reset();
 
-        if (result == 1)
+        if (result != 1)
+            return;
+
+        if (safe->processor.presets.userPresetExists (name))
         {
-            juce::String error;
-            safe->report (safe->processor.presets.saveAs (name, error), error);
+            // Replacing a preset is allowed, but only on purpose.
+            const auto options = juce::MessageBoxOptions{}
+                                     .withIconType (juce::MessageBoxIconType::QuestionIcon)
+                                     .withTitle ("Replace preset")
+                                     .withMessage ("A user preset called \"" + name.trim() + "\" already exists. Replace it with the current settings?")
+                                     .withButton ("Replace", 1)
+                                     .withButton ("Cancel", 0)
+                                     .withAssociatedComponent (safe.getComponent());
+            safe->messageBox = juce::AlertWindow::showScopedAsync (options, [safe, name] (int choice)
+            {
+                if (safe == nullptr || choice != 1)
+                    return;
+                juce::String error;
+                safe->report (safe->processor.presets.saveAs (name, error), error);
+            });
+            return;
         }
+
+        juce::String error;
+        safe->report (safe->processor.presets.saveAs (name, error), error);
     }), false);
 }
 
