@@ -8,6 +8,10 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 - **Drag to resize:** you can now drag the corner of the compressor window to make it larger, from its normal size up to double. The window keeps its proportions, and the Interface size menu still works. The size you choose is remembered when you reopen the window and with your session. Loading a preset never changes the window size, and older sessions open at the size they were saved with, so you don't need to do anything.
 - **Clearer help:** every button and menu now has a short tooltip, including Preset, Interface size and the meter buttons. The **All** button explains that it presses all four ratio buttons at once.
 
+## 1.3.6
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
 ## 1.3.5
 
 ### Songsmith EQ
