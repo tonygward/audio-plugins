@@ -21,14 +21,18 @@ namespace FET
     {
     public:
         static constexpr int maxChannels = 2;
-        static constexpr int numRatios = 4;
+        static constexpr int numHardwareRatios = 4;   // the four 1176 buttons: indexes 0..3
+        static constexpr int gentleRatioIndex = 4;    // ACOMP-11 Songsmith 2:1, appended so 0..3 keep their meaning
+        static constexpr int numRatios = 5;
 
-        // Gain computer constants per ratio button (4, 8, 12, 20). Modelling choices, see
+        // Gain computer constants per ratio (4, 8, 12, 20, then Songsmith 2:1). Modelling choices, see
         // docs/engine.md: thresholds rise with ratio (UM p. 9, p. 21), soft knee (UM p. 21),
-        // 20:1 calibrated like the Q-bias procedure (UG p. 5).
-        static constexpr std::array<float, numRatios> ratios       { 4.0f, 8.0f, 12.0f, 20.0f };
-        static constexpr std::array<float, numRatios> thresholdsDb { -19.5f, -17.0f, -15.5f, -13.8f };   // peak dBFS
-        static constexpr std::array<float, numRatios> kneeWidthsDb { 10.0f, 8.0f, 7.0f, 6.0f };
+        // 20:1 calibrated like the Q-bias procedure (UG p. 5). 2:1 is a Songsmith design choice: the lowest
+        // threshold and a wide soft knee, so it eases in gently. Above about -14.5 dBFS it takes off less gain
+        // than 4:1 (docs/two-to-one-ratio.md).
+        static constexpr std::array<float, numRatios> ratios       { 4.0f, 8.0f, 12.0f, 20.0f, 2.0f };
+        static constexpr std::array<float, numRatios> thresholdsDb { -19.5f, -17.0f, -15.5f, -13.8f, -22.0f };   // peak dBFS
+        static constexpr std::array<float, numRatios> kneeWidthsDb { 10.0f, 8.0f, 7.0f, 6.0f, 10.0f };
 
         // Published ranges (UG p. 1, UM p. 38), clockwise = faster (UM p. 8).
         static constexpr double attackSlowest = 800.0e-6, attackFastest = 20.0e-6;

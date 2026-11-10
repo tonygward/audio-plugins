@@ -23,6 +23,7 @@ SongsmithAnalogCompressorProcessor::SongsmithAnalogCompressorProcessor()
     attackKnob = apvts.getRawParameterValue (ID::attack);
     releaseKnob = apvts.getRawParameterValue (ID::release);
     ratioIndex = apvts.getRawParameterValue (ID::ratio);
+    gentleRatioParam = apvts.getRawParameterValue (ID::ratioTwoToOne);
     grOffParam = apvts.getRawParameterValue (ID::grOff);
     oversamplingParam = apvts.getRawParameterValue (ID::oversampling);
     allButtonsParam = apvts.getRawParameterValue (ID::allButtons);
@@ -67,6 +68,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithAnalogCompressorPro
     // Added in state version 3. Off by default, so older sessions sound exactly as they did.
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ID::detectorLowCut, 3 }, "Low Cut",
                                                         lowCutNames(), lowCutDefault));
+
+    // Added in state version 4 (ACOMP-11). Off by default, so older sessions keep their saved ratio.
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ID::ratioTwoToOne, 4 }, "Ratio 2:1", false));
 
     return layout;
 }
@@ -168,7 +172,9 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
     outputGain.setTargetValue (dbToGain (outputDb->load()));
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
-    engine.setRatioIndex ((int) ratioIndex->load());
+    // The Songsmith 2:1 switch takes over from the four hardware ratios while it is on.
+    engine.setRatioIndex (isGentleRatioOn() ? FET::Engine::gentleRatioIndex
+                                            : juce::jlimit (0, FET::numRatios - 1, (int) ratioIndex->load()));
     engine.setAttackKnob (attackKnob->load());
     engine.setReleaseKnob (releaseKnob->load());
     engine.setGainReductionEnabled (grOffParam->load() < 0.5f);

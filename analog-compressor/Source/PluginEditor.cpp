@@ -46,11 +46,15 @@ namespace
     juce::String ratioTip (int index)
     {
         static const char* const what[] = {
-            "the gentlest. For every 4 dB the sound rises above the point where compression starts, it comes out 1 dB louder. A good starting point for steady control of vocals and bass.",
+            "the gentlest of the original four. For every 4 dB the sound rises above the point where compression starts, it comes out 1 dB louder. A good starting point for steady control of vocals and bass.",
             "firmer. 8 dB in, 1 dB out above that point. Often used to keep drums and lively vocals punchy.",
             "strong. 12 dB in, 1 dB out above that point. For heavier control of drums and vocals.",
-            "the strongest, close to a limiter. 20 dB in, 1 dB out above that point. For hard peak control or a deliberately squashed sound." };
-        return "Ratio " + ratioNames()[index] + ": " + what[index];
+            "the strongest, close to a limiter. 20 dB in, 1 dB out above that point. For hard peak control or a deliberately squashed sound.",
+            "gentle compression that evens out louder parts without squashing the sound. For every 2 dB the sound rises above the point where compression starts, it comes out 1 dB louder. "
+            "A Songsmith addition: the original hardware has no 2:1 button." };
+        // Index 4 is the Songsmith 2:1, which is not part of the four-item `ratio` choice.
+        const juce::String name = index == 4 ? juce::String ("2:1") : ratioNames()[index];
+        return "Ratio " + name + ": " + what[index];
     }
 
     // A fine brushed-metal grain for the faceplate, drawn as vectors so it scales with the editor and
@@ -149,6 +153,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
                [] (float v) { return juce::String (v, 1) + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 ")) + timeText (Engine::releaseSeconds (v)); }),
       ratioAttachment (*p.apvts.getParameter (ID::ratio), [this] (float v) { ratioIndex = juce::roundToInt (v); refreshButtons(); }),
       allButtonsAttachment (*p.apvts.getParameter (ID::allButtons), [this] (float v) { allButtonsOn = v >= 0.5f; refreshButtons(); }),
+      gentleAttachment (*p.apvts.getParameter (ID::ratioTwoToOne), [this] (float v) { gentleOn = v >= 0.5f; refreshButtons(); }),
       grOffAttachment (p.apvts, ID::grOff, grOffButton),
       bypassAttachment (p.apvts, ID::bypass, bypassButton),
       oversamplingAttachment (p.apvts, ID::oversampling, oversampling),
@@ -162,8 +167,10 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
 
     // Ratio buttons: one press selects that ratio (and leaves All Buttons); "All Buttons" presses all
     // four at once (UM p. 9). Each press is one automation gesture.
-    const juce::StringArray ratioText { "4:1", "8:1", "12:1", "20:1" };
-    for (int i = 0; i < 4; ++i)
+    // The fifth button is the Songsmith 2:1 (ACOMP-11): its own switch, so the four hardware choices keep
+    // their saved and automated values. Pressing any button leaves the other mode.
+    const juce::StringArray ratioText { "4:1", "8:1", "12:1", "20:1", "2:1" };
+    for (int i = 0; i < 5; ++i)
     {
         auto b = std::make_unique<juce::TextButton> (ratioText[i]);
         b->setTooltip (ratioTip (i));
@@ -171,6 +178,13 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
         {
             if (allButtonsOn)
                 allButtonsAttachment.setValueAsCompleteGesture (0.0f);
+            if (i == 4)
+            {
+                gentleAttachment.setValueAsCompleteGesture (1.0f);
+                return;
+            }
+            if (gentleOn)
+                gentleAttachment.setValueAsCompleteGesture (0.0f);
             ratioAttachment.setValueAsCompleteGesture ((float) i);
         };
         content.addAndMakeVisible (*b);
@@ -231,7 +245,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     for (size_t m = 0; m < meterButtons.size(); ++m)
         meterButtons[m].setTitle (meterButtons[m].getButtonText());
     for (size_t i = 0; i < ratioButtons.size(); ++i)
-        ratioButtons[i]->setTitle ("Ratio " + ratioNames()[(int) i]);
+        ratioButtons[i]->setTitle (i == 4 ? juce::String ("Ratio 2:1") : "Ratio " + ratioNames()[(int) i]);
     presetBox.onChange = [this] { presetChosen(); };
     content.addAndMakeVisible (presetBox);
     rebuildPresetMenu();
@@ -244,6 +258,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
 
     ratioAttachment.sendInitialUpdate();
     allButtonsAttachment.sendInitialUpdate();
+    gentleAttachment.sendInitialUpdate();
     setMeterMode (proc.meterMode.load());
     meter.ballistics.reset (needleFraction (0.0f));
 
@@ -313,10 +328,10 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     attack.setBounds (attackArea);
     release.setBounds (releaseArea);
 
-    // Hardware order, top to bottom: 20, 12, 8, 4 (then All).
+    // Hardware order, top to bottom: 20, 12, 8, 4, then the Songsmith 2:1 below them (then All).
     auto col = ratioArea;
-    const int h = 40, gap = 7;
-    for (int i = 3; i >= 0; --i)
+    const int h = 34, gap = 6;   // six buttons fit the 236-unit column
+    for (int i : { 3, 2, 1, 0, 4 })
     {
         ratioButtons[(size_t) i]->setBounds (col.removeFromTop (h));
         col.removeFromTop (gap);
@@ -441,7 +456,8 @@ juce::String SongsmithAnalogCompressorEditor::lowCutText (int index)
 void SongsmithAnalogCompressorEditor::refreshButtons()
 {
     for (int i = 0; i < 4; ++i)
-        ratioButtons[(size_t) i]->setToggleState (allButtonsOn || i == ratioIndex, juce::dontSendNotification);
+        ratioButtons[(size_t) i]->setToggleState (allButtonsOn || (! gentleOn && i == ratioIndex), juce::dontSendNotification);
+    ratioButtons[4]->setToggleState (gentleOn && ! allButtonsOn, juce::dontSendNotification);
     allButton.setToggleState (allButtonsOn, juce::dontSendNotification);
     content.repaint();
 }
@@ -477,7 +493,7 @@ Songsmith::Guidance::Message SongsmithAnalogCompressorEditor::currentGuidance() 
     Songsmith::Guidance::CompressorInput in;
     in.hasSignal = (juce::Time::getMillisecondCounterHiRes() * 0.001 - lastSignalSeconds) < 3.0;   // audio in the last three seconds
     in.gainReductionDb = recentReductionDb;
-    in.ratio = FET::ratioValues[juce::jlimit (0, FET::numRatios - 1, ratioIndex)];
+    in.ratio = gentleOn ? FET::gentleRatioValue : FET::ratioValues[juce::jlimit (0, FET::numRatios - 1, ratioIndex)];
     in.allButtons = allButtonsOn;
     in.bypassed = proc.apvts.getRawParameterValue (ID::bypass)->load() > 0.5f;
     return Songsmith::Guidance::compressorMessage (in);

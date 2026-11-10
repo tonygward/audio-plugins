@@ -43,7 +43,7 @@ public:
     // For tests and screenshots.
     FET::UI::NeedleMeter& getMeter() noexcept { return meter; }
     FETKnob& getKnob (const juce::String& id);
-    juce::Button& getRatioButton (int index) { return *ratioButtons[(size_t) index]; }   // 0..3 = 4, 8, 12, 20
+    juce::Button& getRatioButton (int index) { return *ratioButtons[(size_t) index]; }   // 0..3 = 4, 8, 12, 20; 4 = 2:1
     juce::Button& getAllButton() { return allButton; }
     juce::Rectangle<int> getGrOffBounds() const { return grOffButton.getBounds(); }
     juce::ComboBox& getLowCutBox() noexcept { return lowCutBox; }
@@ -83,9 +83,9 @@ private:
     bool constructed = false;   // until then, resizing does not overwrite the saved window width
 
     FETKnob input, output, attack, release;
-    std::array<std::unique_ptr<juce::TextButton>, 4> ratioButtons;
+    std::array<std::unique_ptr<juce::TextButton>, 5> ratioButtons;   // 0..3 = 4, 8, 12, 20; 4 = Songsmith 2:1
     juce::TextButton allButton { "All" };
-    juce::ParameterAttachment ratioAttachment, allButtonsAttachment;
+    juce::ParameterAttachment ratioAttachment, allButtonsAttachment, gentleAttachment;
 
     juce::TextButton grOffButton { "Gain Reduction Off" }, bypassButton { "Bypass" };
     juce::AudioProcessorValueTreeState::ButtonAttachment grOffAttachment, bypassAttachment;
@@ -119,6 +119,7 @@ private:
 
     int ratioIndex = 0;
     bool allButtonsOn = false;
+    bool gentleOn = false;   // the Songsmith 2:1 switch
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SongsmithAnalogCompressorEditor)
 };
