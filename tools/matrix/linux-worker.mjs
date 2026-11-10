@@ -15,6 +15,11 @@ import { usageGate, dailyDue, londonDay } from './policy.mjs';
 import { worktreePlan } from './validation.mjs';
 import { runProcess } from './process.mjs';
 import { agentArguments, validateChanges, parseAgent } from './worker.mjs';
+import { githubIo } from './github-io.mjs';
+import { betaVerifiers } from './verifiers.mjs';
+import { boardTick, ghGraphql, promptLoader } from './board-run.mjs';
+import { readHandoff, adoptHandoff, boardFields, clearHandoff } from './handoff.mjs';
+import { postPickupComment } from './pickup.mjs';
 
 export const CI_VALIDATION = 'Hosted Windows and macOS builds and tests decide; this worker ran no local build.';
 const TURN_RUNAWAY_FACTOR = 3;
@@ -35,6 +40,43 @@ export function validateLinuxConfig(config) {
   if (!int(w.timeoutSeconds, 60, 1800) || !int(w.ciTimeoutSeconds, 300, 7200) || !int(w.maximumRepairs, 0, 2) || !int(w.pollSeconds, 5, 300)) throw Error('Invalid worker timing');
   if (!int(config.batchLimit, 1, 6)) throw Error('batchLimit must be 1-6');
   if (typeof config.enabled !== 'boolean') throw Error('enabled must be a boolean');
+  validateBoardConfig(config);
+}
+
+// Board pickup is off unless boardPickup.enabled is true. When on, the owner policy limits apply: one task, one job.
+export function validateBoardConfig(config) {
+  const b = config.boardPickup;
+  if (b === undefined || b.enabled !== true) return;
+  const slug = v => typeof v === 'string' && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(v);
+  const list = v => Array.isArray(v) && v.length > 0 && v.every(slug);
+  if (config.batchLimit !== 1 || config.worker.maximumPrompts !== 1) throw Error('Board pickup requires batchLimit 1 and maximumPrompts 1');
+  if (typeof b.projectId !== 'string' || !b.projectId || !list(b.repositories) || !list(b.executionRepositories) || !slug(b.promptRepository)) throw Error('Invalid boardPickup configuration');
+  if (typeof b.statusFieldId !== 'string' || typeof b.doneOptionId !== 'string' || !b.statusFieldId || !b.doneOptionId) throw Error('boardPickup needs statusFieldId and doneOptionId');
+  if (b.tokenFile !== undefined && !path.isAbsolute(b.tokenFile)) throw Error('boardPickup.tokenFile must be absolute');
+  if (b.downloadEvidence !== undefined && b.downloadEvidence !== 'worker-checked') throw Error('Unknown downloadEvidence');
+  if (b.dryRun !== undefined && typeof b.dryRun !== 'boolean') throw Error('dryRun must be a boolean');
+}
+
+// Run the board tick, then the worker. The tick holds no Claude access: it decides, delivers and hands off.
+export async function runBoardWorker(config, options = {}) {
+  validateLinuxConfig(config);
+  const { run = runProcess, loadUsage = checkClaudeUsage, clock = Date.now, check = preflight, readToken = file => fs.readFileSync(file, 'utf8').trim(), environment = process.env, trigger = 'timer' } = options;
+  if (config.boardPickup?.enabled !== true) return runLinuxWorker(config, { ...options, trigger });
+  if (!config.enabled || config.liveExecution !== true || !config.worker.enabled) return { liveExecution: false, reason: 'Controlled worker is disabled' };
+  if (fs.existsSync(path.join(config.stateDirectory, 'PAUSED'))) return { liveExecution: false, reason: 'Worker paused' };
+  check({ env: environment });
+  const w = config.worker, b = config.boardPickup, base = baseEnvironment(environment);
+  const hooks = ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgSign=false'];
+  const token = () => readToken(b.tokenFile ?? w.tokenFile);
+  const git = async args => (await run(w.gitExecutable, [...hooks, '-c', 'credential.helper=', '-c', `credential.helper=!${w.ghExecutable} auth git-credential`, ...args],
+    { cwd: config.repository, env: { ...base, GH_TOKEN: token() }, timeoutMs: 120000 })).stdout.trimEnd();
+  const gh = async args => (await run(w.ghExecutable, args, { cwd: config.repository, env: { ...base, GH_TOKEN: token() }, timeoutMs: 120000 })).stdout;
+  const verifiers = betaVerifiers(gh, b.downloadEvidence === 'worker-checked' ? { workerChecked: true } : {});
+  const io = githubIo(gh, { projectId: b.projectId, statusFieldId: b.statusFieldId, doneOptionId: b.doneOptionId, verifiers });
+  const jobId = `matrix-${new Date(clock()).toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`;
+  const tick = await boardTick(config, { graphql: ghGraphql(gh), io, loadUsage, loadPrompts: promptLoader(git), jobId, clock, handoff: true });
+  if (!tick.selected) return { liveExecution: true, idle: true, board: { blocker: tick.blocker ?? null } };
+  return runLinuxWorker(config, { ...options, trigger: 'board' });
 }
 
 // Fails closed when the container is not configured as designed. Facts come from the running process.
@@ -114,14 +156,25 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
     const initial = await snapshot(), backlog = scan(initial.files);
     if (backlog.errors.length) throw Error('Backlog validation failed');
     reconcile(state, backlog.prompts, initial.revision); save();
-    // Pick up build-now work promptly; scheduled work waits for the daily run.
-    if (trigger === 'timer') {
-      if (dailyDue(state.lastWorkerDaily, config.dailyTime, new Date(clock()))) trigger = 'daily';
-      else if (select(backlog.prompts, state.tasks, 'notify', 1).selected.length) trigger = 'notify';
-      else return { liveExecution: true, idle: true };
+    // Board pickup (AUTO-11): the board tick chose the task and left a hand-off. There is no fallback to the
+    // Markdown selector; without a fresh, still-valid hand-off the worker idles.
+    const boardMode = config.boardPickup?.enabled === true;
+    let handoff = null, selected;
+    if (boardMode) {
+      const found = readHandoff(dir, { now: clock() });
+      const adopted = found ? adoptHandoff(state, backlog.prompts, found) : { reason: 'No fresh board selection' };
+      if (!adopted.prompt) return { liveExecution: true, idle: true, reason: adopted.reason };
+      handoff = found; selected = [adopted.prompt]; trigger = 'board';
+    } else {
+      // Pick up build-now work promptly; scheduled work waits for the daily run.
+      if (trigger === 'timer') {
+        if (dailyDue(state.lastWorkerDaily, config.dailyTime, new Date(clock()))) trigger = 'daily';
+        else if (select(backlog.prompts, state.tasks, 'notify', 1).selected.length) trigger = 'notify';
+        else return { liveExecution: true, idle: true };
+      }
+      if (!['daily', 'notify'].includes(trigger)) throw Error('Invalid worker trigger');
+      selected = select(backlog.prompts, state.tasks, trigger, Math.min(config.batchLimit, w.maximumPrompts)).selected;
     }
-    if (!['daily', 'notify'].includes(trigger)) throw Error('Invalid worker trigger');
-    const selected = select(backlog.prompts, state.tasks, trigger, Math.min(config.batchLimit, w.maximumPrompts)).selected;
     const outcomes = [];
     for (const p of selected) {
       if (cancelled()) break;
@@ -131,6 +184,12 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
       if (!usage.allowed || !usageGate(usage.snapshot, clock()).allowed || usage.extraUsageEnabled !== false) { log(p.id, 'usage-blocked', { reason: usage.reason }); break; }
       const task = state.tasks[p.id];
       if (!claim(state, p, initial.revision)) { save(); continue; }
+      if (handoff) {
+        // Durable claim first, then the pickup comment. A failed comment keeps the claim and is retried by the next tick.
+        Object.assign(task, boardFields(handoff, new Date(clock()).toISOString())); clearHandoff(dir); save();
+        const posted = await postPickupComment(dir, state, p.id, { revision: initial.revision, io: githubIo(gh) });
+        log(p.id, 'board-pickup', { job: handoff.job, commented: posted.posted === true });
+      }
       const plan = worktreePlan(w.worktreeRoot, p.id, initial.revision);
       Object.assign(task, { branch: plan.branch, worktree: plan.directory, phase: 'claimed' }); save();
       let blocked = null;
@@ -241,7 +300,8 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
         log(p.id, 'interrupted', { error: String(error?.message ?? error).slice(0, 300) }); outcomes.push({ id: p.id, interrupted: true }); break;
       }
     }
-    if (trigger === 'daily') state.lastWorkerDaily = londonDay(new Date(clock()));
+    // Todo is the overnight queue: one overnight task per London day. Doing is immediate and does not use it up.
+    if (trigger === 'daily' || (handoff && handoff.status === 'Todo')) state.lastWorkerDaily = londonDay(new Date(clock()));
     save();
     const report = { time: new Date(clock()).toISOString(), liveExecution: true, outcomes, merged: false, released: false };
     atomic(path.join(dir, 'latest-worker-report.json'), report);
@@ -253,6 +313,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     const [configFile, trigger] = process.argv.slice(2);
     const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
-    console.log(JSON.stringify(await runLinuxWorker(config, { trigger: trigger ?? 'timer' }), null, 2));
+    console.log(JSON.stringify(await runBoardWorker(config, { trigger: trigger ?? 'timer' }), null, 2));
   } catch (error) { console.error(JSON.stringify({ error: error.message, liveExecution: false })); process.exitCode = 1; }
 }

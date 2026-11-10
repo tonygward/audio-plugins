@@ -12,9 +12,9 @@ export function githubIo(gh, { projectId, statusFieldId, doneOptionId, maxReleas
     },
     // Earliest release that contains the merge commit. The beta release is built from the
     // automatic version-bump commit that follows the merge, so containment is the test.
-    release: async (mergeSha, repository) => {
+    release: async (mergeSha, repository, onlyTag = null) => {
       const list = await json(['release', 'list', '--repo', repository, '--limit', String(maxReleases), '--json', 'tagName,publishedAt']);
-      for (const { tagName } of [...list].sort((a, b) => Date.parse(a.publishedAt) - Date.parse(b.publishedAt))) {
+      for (const { tagName } of [...list].filter(r => !onlyTag || r.tagName === onlyTag).sort((a, b) => Date.parse(a.publishedAt) - Date.parse(b.publishedAt))) {
         const release = await json(['release', 'view', tagName, '--repo', repository, '--json', 'tagName,url,targetCommitish,assets']);
         const status = (await gh(['api', `repos/${repository}/compare/${mergeSha}...${release.targetCommitish}`, '--jq', '.status'])).trim();
         if (['ahead', 'identical'].includes(status)) {

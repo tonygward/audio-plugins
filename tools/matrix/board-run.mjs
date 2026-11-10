@@ -8,6 +8,9 @@ import { fetchBoard, fetchPulls, selectFromBoard, pullTaskState, matrixBranchTas
 import { reconcileDoing } from './doing.mjs';
 import { pickUp, recoverPickupComments } from './pickup.mjs';
 import { advanceDelivery, recordMerge } from './delivery.mjs';
+import { writeHandoff, clearHandoff } from './handoff.mjs';
+import { dailyDue } from './policy.mjs';
+import { scan } from './backlog.mjs';
 
 // Unlike state.reconcile (a worker restart marks claimed tasks interrupted), a board tick must keep an
 // active claim intact: it only adds or refreshes tasks that are still unclaimed.
@@ -34,10 +37,11 @@ export function syncMerges(state, pulls) {
 export async function boardTick(config, deps) {
   const settings = config.boardPickup;
   if (settings?.enabled !== true) return { ran: false, reason: 'Board pickup is not enabled' };
-  const { graphql, io, loadUsage, loadPrompts, jobId, clock = Date.now } = deps;
+  const { graphql, io, loadUsage, loadPrompts, jobId, clock = Date.now, handoff = false } = deps;
   const dir = config.stateDirectory, dryRun = settings.dryRun !== false;
   const stop = (reason, extra = {}) => ({ ran: true, dryRun, selected: null, blocker: reason, ...extra });
 
+  if (handoff) clearHandoff(dir); // a hand-off is only ever from this tick
   const board = await fetchBoard(graphql, settings.projectId, { clock });
   if (!board.ok) return stop(board.reason);
   const pulled = await fetchPulls(graphql, settings.repositories);
@@ -70,9 +74,40 @@ export async function boardTick(config, deps) {
   const active = Object.values(state.tasks).find(task => task.state === 'claimed');
   const result = selectFromBoard(board, prompts, { now: clock(), usage: usage.snapshot, scopedUsagePercent: usage.scopedPercent ?? [],
     tasks: state.tasks, activeJob: active ? active.job ?? active.id : null, mergedTaskIds: merged, openPullTaskIds: open,
-    executionPaths: new Set(settings.executionRepositories), promptRepository: settings.promptRepository });
+    executionPaths: new Set(settings.executionRepositories), promptRepository: settings.promptRepository,
+    // Doing is immediate work; Todo is the overnight queue, once per London day after dailyTime.
+    statuses: dailyDue(state.lastWorkerDaily, config.dailyTime ?? '02:00', new Date(clock())) ? ['Doing', 'Todo'] : ['Doing'] });
   if (!result.selected) return stop(result.blocker, { decisions: result.decisions, doing, delivery, recordedMerges });
   if (dryRun) return { ran: true, dryRun, selected: result.selected, decisions: result.decisions, doing, delivery, recordedMerges };
+  if (handoff) { writeHandoff(dir, { selected: result.selected, job: jobId, revision, now: clock() }); return { ran: true, dryRun, handoff: true, selected: result.selected, decisions: result.decisions, doing, delivery, recordedMerges }; }
   const claimed = await pickUp(dir, result.selected, { job: jobId, revision, io });
   return { ran: true, dryRun, selected: claimed.claimed ? result.selected : null, claim: claimed, decisions: result.decisions, doing, delivery, recordedMerges };
+}
+
+// Adapters for a real run. `gh` returns stdout; `git` returns stdout from the source checkout.
+export function ghGraphql(gh) {
+  return async (query, variables) => {
+    const args = ['api', 'graphql', '-f', `query=${query}`];
+    for (const [key, value] of Object.entries(variables)) {
+      if (value === null || value === undefined) continue;
+      if (Array.isArray(value)) for (const item of value) args.push('-f', `${key}[]=${item}`);
+      else args.push(typeof value === 'string' ? '-f' : '-F', `${key}=${value}`);
+    }
+    return JSON.parse(await gh(args));
+  };
+}
+
+export function promptLoader(git) {
+  return async () => {
+    await git(['fetch', '--no-tags', 'origin', 'main']);
+    const revision = await git(['rev-parse', '--verify', 'refs/remotes/origin/main']);
+    if (!/^[a-f0-9]{40,64}$/.test(revision)) throw new Error('Invalid main revision');
+    const files = new Map();
+    for (const file of (await git(['ls-tree', '-r', '--name-only', revision])).split(String.fromCharCode(10))) {
+      if (/^(eq|analog-compressor|maximiser|shared)\/prompts\/.+\.md$/.test(file)) files.set(file, await git(['show', `${revision}:${file}`]));
+    }
+    const backlog = scan(files);
+    if (backlog.errors.length) throw new Error('Backlog validation failed');
+    return { prompts: backlog.prompts, revision };
+  };
 }

@@ -25,13 +25,13 @@ export async function verifyDelivery(delivery, io) {
     const pull = await io.pull(delivery.repository, delivery.pull);
     if (pull?.state !== 'MERGED' || !pull.mergeSha) return { verified: false, missing: ['Pull request is not merged'], evidence };
     evidence.pull = { number: delivery.pull, url: pull.url, mergeSha: pull.mergeSha };
-    const release = await io.release(pull.mergeSha, delivery.repository);
+    const release = await io.release(pull.mergeSha, delivery.repository, delivery.releaseTag);
     if (!release) return { verified: false, missing: ['No beta release containing the merge commit yet'], evidence };
     if (release.includesMerge !== true) missing.push('Release does not include the merge commit');
     let names;
     try { names = releaseAssets(release.version, release.assets.map(a => a.name)); }
     catch (error) { names = null; missing.push(`Release assets: ${error.message}`); }
-    evidence.release = { tag: release.tag, url: release.url, version: release.version, assets: release.assets.map(a => a.name) };
+    evidence.release = { tag: release.tag, url: release.url, version: release.version, assets: release.assets.map(a => a.name), firstShipped: delivery.firstShipped ?? null };
     if (names) {
       const sizes = new Map(release.assets.map(a => [a.name, a.size]));
       // Each check runs on its own, so one unavailable verifier cannot hide the others' findings.
@@ -61,7 +61,7 @@ export function finalComment({ taskId, job, evidence }) {
   return [finalMarker(taskId), `**${taskId} is delivered to the beta.**`, '',
     `- Pull request: ${pull.url ?? `#${pull.number}`} (merge commit \`${pull.mergeSha.slice(0, 12)}\`)`,
     `- Matrix job: \`${job}\``,
-    `- Beta version: ${release.version} (${release.url ?? release.tag})`,
+    `- Beta version: ${release.version} (${release.url ?? release.tag})${release.firstShipped ? `; this change first shipped in ${release.firstShipped} and is included in the live beta` : ''}`,
     `- Installers: ${release.assets.join(' and ')}`,
     `- Private storage matches the release; beta website shows ${deployment.websiteVersion} with this version in its changelog`,
     deployment.downloads.exercised ? `- Authenticated downloads checked: Windows ${deployment.downloads.windows ? 'passed' : 'failed'}, macOS ${deployment.downloads.macos ? 'passed' : 'failed'}`
@@ -120,10 +120,10 @@ export async function advanceDelivery(stateDirectory, taskId, io, now = () => ne
 }
 
 // Called when a pull request for a claimed task merges. Idempotent.
-export function recordMerge(state, taskId, { repository, pull }) {
+export function recordMerge(state, taskId, { repository, pull, releaseTag = null, firstShipped = null }) {
   const task = state.tasks[taskId];
   if (!task?.job || !task.issue || !task.itemId) throw new Error('Task has no pickup record');
   state.deliveries ??= {};
-  state.deliveries[taskId] ??= { stage: 'pending', repository, pull, issue: task.issue, issueRepository: task.issueRepository ?? task.repository, itemId: task.itemId, job: task.job, mergedRecordedAt: new Date().toISOString() };
+  state.deliveries[taskId] ??= { stage: 'pending', repository, pull, issue: task.issue, issueRepository: task.issueRepository ?? task.repository, itemId: task.itemId, job: task.job, releaseTag, firstShipped, mergedRecordedAt: new Date().toISOString() };
   return state.deliveries[taskId];
 }

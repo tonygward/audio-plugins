@@ -106,3 +106,59 @@ test('refreshTasks never disturbs a claimed task or reopens finished ones', () =
   assert.equal(state.tasks['B-01'].state, 'interrupted');
   assert.equal(state.tasks['C-01'].state, 'pending');
 });
+
+// ---- hand-off mode and overnight window ----
+import { readHandoff, adoptHandoff, writeHandoff, clearHandoff } from '../handoff.mjs';
+import { londonDay } from '../policy.mjs';
+
+test('hand-off mode writes the choice for the worker and claims nothing', async () => {
+  const h = harness({ cards: todo, dryRun: false });
+  const result = await boardTick(h.config, { ...h.deps, handoff: true });
+  assert.equal(result.handoff, true); assert.equal(result.selected.taskId, 'A-01');
+  const file = readHandoff(h.dir, { now: h.deps.clock() });
+  assert.deepEqual([file.taskId, file.job, file.status, file.issue], ['A-01', 'job-9', 'Todo', 1]);
+  assert.equal(Object.values(readState(h.dir).tasks).some(task => task.state === 'claimed'), false);
+  assert.equal(h.comments.length, 0);
+});
+
+test('a tick clears any earlier hand-off, even when it then selects nothing', async () => {
+  const h = harness({ cards: todo, dryRun: false });
+  await boardTick(h.config, { ...h.deps, handoff: true });
+  const blocked = { ...h.deps, handoff: true, loadUsage: () => ({ allowed: false, reason: 'Weekly usage at or above 60%' }) };
+  assert.equal((await boardTick(h.config, blocked)).selected, null);
+  assert.equal(readHandoff(h.dir, { now: h.deps.clock() }), null);
+});
+
+test('Todo is only offered once per London day', async () => {
+  const noon = () => Date.now(); // dailyTime 00:00 makes the slot due whenever today has not been used
+  const fresh = harness({ cards: [node(1, 'Todo', 'A-01 — first')], dryRun: false }); fresh.config.dailyTime = '00:00';
+  assert.equal((await boardTick(fresh.config, { ...fresh.deps, clock: noon, handoff: true })).selected?.taskId, 'A-01');
+  const used = harness({ cards: [node(1, 'Todo', 'A-01 — first')], dryRun: false }); used.config.dailyTime = '00:00';
+  fs.writeFileSync(path.join(used.dir, 'state.json'), JSON.stringify({ schema: 1, tasks: {}, events: [], history: [], lastWorkerDaily: londonDay(new Date(noon())) }));
+  const result = await boardTick(used.config, { ...used.deps, clock: noon, handoff: true });
+  assert.equal(result.selected, null); assert.equal(result.blocker, 'No eligible card');
+  const doing = harness({ cards: [node(1, 'Doing', 'A-01 — first')], dryRun: false }); doing.config.dailyTime = '00:00';
+  fs.writeFileSync(path.join(doing.dir, 'state.json'), JSON.stringify({ schema: 1, tasks: {}, events: [], history: [], lastWorkerDaily: londonDay(new Date(noon())) }));
+  assert.equal((await boardTick(doing.config, { ...doing.deps, clock: noon, handoff: true })).selected?.taskId, 'A-01');
+});
+
+test('hand-off validation: fresh, complete and unchanged only', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'handoff-'));
+  const sel = { taskId: 'A-01', promptHash: 'h1', status: 'Todo', issue: 1, itemId: 'i', repository: repo, issueRepository: repo };
+  const t0 = Date.now();
+  writeHandoff(dir, { selected: sel, job: 'j', revision, now: t0 });
+  assert.equal(readHandoff(dir, { now: t0 + 1000 }).taskId, 'A-01');
+  assert.equal(readHandoff(dir, { now: t0 + 16 * 60000 }), null, 'stale');
+  assert.equal(readHandoff(dir, { now: t0 - 60000 }), null, 'from the future');
+  fs.writeFileSync(path.join(dir, 'board-handoff.json'), '{"schema":1}');
+  assert.equal(readHandoff(dir, { now: t0 }), null, 'incomplete');
+  fs.writeFileSync(path.join(dir, 'board-handoff.json'), 'not json');
+  assert.equal(readHandoff(dir, { now: t0 }), null, 'corrupt');
+  clearHandoff(dir); clearHandoff(dir);
+  const state = { tasks: { 'A-01': { id: 'A-01', state: 'pending' } } };
+  const handoff = { taskId: 'A-01', promptHash: 'h1' };
+  assert.ok(adoptHandoff(state, [{ id: 'A-01', hash: 'h1' }], handoff).prompt);
+  assert.match(adoptHandoff(state, [{ id: 'A-01', hash: 'h2' }], handoff).reason, /changed/);
+  assert.match(adoptHandoff(state, [], handoff).reason, /no longer exists/);
+  assert.match(adoptHandoff({ tasks: { 'A-01': { state: 'claimed' } } }, [{ id: 'A-01', hash: 'h1' }], handoff).reason, /not pending \(claimed\)/);
+});
