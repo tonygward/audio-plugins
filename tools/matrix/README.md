@@ -290,6 +290,11 @@ plugin source always need a person. The worker's own scope is unchanged, so it c
   At the limit no further agent call starts and the run stops with the reason. `maximumRepairs` is 3 (up to 3 allowed). Per-attempt limits (turns, cost,
   minutes) still apply. There is no separate token budget: the Claude CLI's turn and cost limits are the finite budget.
 
+- **Restart during CI is recovered (`recover.mjs`).** A restart marks a claimed task interrupted, but if its branch is pushed and its pull request is open, the tick looks the
+  work up again by branch and exact head commit. Passing or still-running checks hand it back to the hosted Build and merge gate (`awaiting-review`); the existing merge hook then
+  carries it through delivery. A failed Build, a head commit Matrix did not push, or no result within 90 minutes of recovery leaves it interrupted, so it is reported and parked in
+  Blocked. Merged work is never parked: it goes to delivery. Recovery never starts the agent and never pushes.
+
 ## Board pickup (AUTO-11)
 
 Board order decides what the Linux worker builds. It is **off** unless `boardPickup.enabled` is `true` in the worker config, and

@@ -28,6 +28,11 @@ export function githubIo(gh, { projectId, statusFieldId, doneOptionId, doingOpti
       }
       return null;
     },
+    // Head commit and check roll-up of an open pull request, for recovery after a restart.
+    prChecks: async (repository, number) => {
+      const pull = await json(['pr', 'view', String(number), '--repo', repository, '--json', 'headRefOid,statusCheckRollup']);
+      return { headSha: pull.headRefOid, checks: pull.statusCheckRollup ?? [] };
+    },
     hasComment: async (repository, issue, marker) => {
       const data = await json(['issue', 'view', String(issue), '--repo', repository, '--json', 'comments']);
       return data.comments.some(comment => comment.body.includes(marker));

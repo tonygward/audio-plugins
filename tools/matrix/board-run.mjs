@@ -10,6 +10,7 @@ import { pickUp, recoverPickupComments } from './pickup.mjs';
 import { advanceDelivery, recordMerge } from './delivery.mjs';
 import { writeHandoff, clearHandoff } from './handoff.mjs';
 import { blockStopped, resumeBlocked } from './blocked.mjs';
+import { recoverInFlight } from './recover.mjs';
 import { scan } from './backlog.mjs';
 import { dailyDue, londonDay } from './policy.mjs';
 
@@ -66,6 +67,8 @@ export async function boardTick(config, deps) {
   const delivery = {};
   if (!dryRun) {
     if (!promptError) await recoverPickupComments(dir, { revision, io, limits });
+    // A restart must not lose work whose branch is pushed and whose pull request is open: hand it back to the hosted Build and merge gate.
+    if (io.prChecks) await recoverInFlight(dir, pulled.pulls, io, { now: clock });
     for (const [id, d] of Object.entries(readState(dir).deliveries ?? {})) if (d.stage !== 'done') delivery[id] = await advanceDelivery(dir, id, io);
     // Stopped work is reported once and parked in Blocked; an owner moving a card back to Todo or Doing is the explicit resume.
     await resumeBlocked(dir, board, io);
