@@ -8,7 +8,7 @@ JUCE + CMake audio plugins (VST3, AU on macOS, Standalone) by **Songsmith Studio
 | Songsmith Analog Compressor | `analog-compressor/` | `AnalogCompressorTests` |
 | Songsmith Maximiser | `maximiser/` | `MaximiserTests` |
 
-**Current execution policy:** Board order decides pickup regardless of issue/prompt repository or ID prefix; one task per run and one active job, 60% weekly Claude stop threshold. [Full selection, release and issue lifecycle](docs/songsmith-execution-policy.md). AUTO-11's board reader still requires implementation and verification.
+**Current execution policy:** Board order decides pickup (a Doing card is a run-now request and goes ahead of Todo unless its prompt is deferred) regardless of issue/prompt repository or ID prefix; one task per run and one active job, 60% weekly Claude stop threshold. [Full selection, release and issue lifecycle](docs/songsmith-execution-policy.md). AUTO-11's board reader still requires implementation and verification.
 
 Prompt tracking: use stable, scope-qualified references (for example `EQ-32`, `ACOMP-06`, `MAX-07`, `SUI-11`, `OPT-01`, `CLN-01`, `ADV-01`). The ID stays unchanged when moving a task to `done/`. Record a canonical prompt link, implementation PR when known, and release checkpoint; never confuse a prompt number with a PR number. See `shared/prompts/README.md#prompt-identity-and-traceability`.
 

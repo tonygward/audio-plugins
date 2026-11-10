@@ -1,16 +1,16 @@
 # Songsmith execution and delivery policy
 
-Owner decisions: 10 November 2026. Applies to issues, prompts, Matrix and release documentation. Supersedes older Doing-as-run-now and merge-only completion instructions.
+Owner decisions: 10 November 2026; Doing amended the same day. Applies to issues, prompts, Matrix and release documentation. Supersedes older merge-only completion instructions.
 
 ## Board and selection
 - Backlog: uncommitted/prioritised work. Todo: ready queue, in the board view's visible manual order. Retain the existing Todo name; Ready is its meaning, not a second queue.
-- Doing: genuinely claimed work with a durable Matrix job and starting issue comment. Never use Doing alone as an immediate-run command. RUN NOW is an explicit scheduling request, serialised behind the active job and subject to the same gates.
-- Needs attention: limit reached, blocked, failed checks after bounded repairs, or delivery stalled. Issue stays open. No automatic requeue on each poll; explicit return to Todo or authorised run-now resumes saved work.
+- Doing: work to run now, and work Matrix is running. A Doing card with no claim is a run-now request: Matrix picks it up ahead of Todo, in board order, once no job is active and every gate (usage, dependencies, scoped path) passes. Pickup creates the durable job and the starting issue comment. A card whose prompt is **deferred** (`status: deferred` or `execution: deferred`) is never picked up, stays where it is and does not block other work. A Doing card with an open or merged pull request resumes from that evidence and is never recoded.
+- Needs attention: limit reached, blocked, failed checks after bounded repairs, or delivery stalled. Issue stays open. No automatic requeue on each poll; an explicit move back to Todo or Doing resumes saved work.
 - Done: all task-specific acceptance and delivery verified, final evidence comment posted, issue closed, then card marked Done.
 - Board order decides selection regardless of prefix, issue repository or prompt location. Resolve the unique issue, merged canonical prompt and actual implementation repository. Parent epics/historical batch trackers are not separate execution jobs.
 - Verify actual view order through API and real A/B reordering; fail closed on unavailable rank, partial/stale snapshots or API errors. No priority/ID/pagination fallback. A numeric queue-order alternative requires owner decision.
 - AUTO-11 owns board configuration, selection and atomic claims; AUTO-12 owns the bounded task loop; AUTO-10 owns verified delivery and finalisation. Documentation is not evidence these integrations run.
-- Before rollout, reconcile all existing Doing cards with job/PR/release evidence; unclaimed intent returns to Todo, interrupted/blocked work goes to Needs attention with reason. Preserve board ordering and never recode merged work.
+- Before rollout, reconcile all existing Doing cards with job/PR/release evidence; an unclaimed Doing card is a run-now request and stays, a deferred one is left alone, interrupted/blocked work goes to Needs attention with reason. Preserve board ordering and never recode merged work.
 
 ## Execution and limits
 - Matrix schedules/claims one task; standard Claude agentic loop owns implementation, tests, review, merge orchestration and delivery verification through trusted workflows. Reuse the existing worker, not another orchestrator.

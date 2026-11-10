@@ -24,11 +24,13 @@ test('ordering ignores task ID, issue number and prompt priority', () => {
   assert.equal(result.selected.taskId, 'Z-99');
 });
 
-test('only Todo is queued; Doing is claimed work and is never picked', () => {
+test('Doing is a run-now request and is picked before Todo; a deferred Doing card is skipped', () => {
   const result = selectFromBoard(snapshot(card('Todo', 1, 'A-01'), card('Doing', 2, 'B-01'), card('Backlog', 3, 'C-01')), prompts, base());
-  assert.equal(result.selected.taskId, 'A-01');
-  assert.deepEqual(result.decisions.map(d => d.taskId), ['A-01'], 'Doing and Backlog are not candidates');
-  assert.equal(selectFromBoard(snapshot(card('Doing', 2, 'B-01')), prompts, base()).selected, null);
+  assert.equal(result.selected.taskId, 'B-01');
+  assert.deepEqual(result.decisions.map(d => d.taskId), ['B-01', 'A-01'], 'Backlog is not a candidate');
+  const deferred = selectFromBoard(snapshot(card('Todo', 1, 'A-01'), card('Doing', 2, 'B-01')), prompts.map(p => p.id === 'B-01' ? { ...p, deferred: true } : p), base());
+  assert.equal(deferred.selected.taskId, 'A-01');
+  assert.equal(deferred.decisions[0].reason, 'prompt is marked deferred');
 });
 
 test('cards from other repositories and prefixes are considered, never refused by location', () => {

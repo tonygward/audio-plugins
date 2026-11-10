@@ -129,12 +129,10 @@ test('a tick clears any earlier hand-off, even when it then selects nothing', as
   assert.equal(readHandoff(h.dir, { now: h.deps.clock() }), null);
 });
 
-test('Doing is claimed work: a Doing card with no claim blocks pickup, and only Todo cards are picked', async () => {
-  const stray = harness({ cards: [node(1, 'Doing', 'A-01 — first'), node(2, 'Todo', 'B-01 — second')], dryRun: false });
-  const blocked = await boardTick(stray.config, { ...stray.deps, handoff: true });
-  assert.equal(blocked.selected, null); assert.match(blocked.blocker, /Doing cards disagree/);
-  const clean = harness({ cards: [node(2, 'Todo', 'B-01 — second')], dryRun: false });
-  assert.equal((await boardTick(clean.config, { ...clean.deps, handoff: true })).selected.taskId, 'B-01');
+test('a Doing card with no claim is a run-now request: picked ahead of Todo', async () => {
+  const stray = harness({ cards: [node(2, 'Todo', 'B-01 — second'), node(1, 'Doing', 'A-01 — first')], dryRun: false });
+  const result = await boardTick(stray.config, { ...stray.deps, handoff: true });
+  assert.equal(result.selected.taskId, 'A-01');
 });
 
 test('hand-off validation: fresh, complete and unchanged only', () => {
