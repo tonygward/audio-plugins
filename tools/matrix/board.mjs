@@ -82,10 +82,14 @@ export async function fetchPulls(graphql, repositories) {
 
 // Only Matrix implementation branches (matrix/<task-id>-<hash>) count as merged implementation.
 // Prompt-only, fix and documentation pull requests that merely mention a task ID do not.
+export function matrixBranchTask(pull) {
+  return /^matrix\/([a-z][a-z0-9]*-\d{2,})-[0-9a-f]+$/.exec(pull.headRefName)?.[1]?.toUpperCase() ?? null;
+}
+
 export function pullTaskState(pulls) {
   const merged = new Set(), open = new Set();
   for (const pull of pulls) {
-    const branch = /^matrix\/([a-z][a-z0-9]*-\d{2,})-[0-9a-f]+$/.exec(pull.headRefName)?.[1]?.toUpperCase();
+    const branch = matrixBranchTask(pull);
     if (pull.state === 'MERGED' && branch) merged.add(branch);
     if (pull.state === 'OPEN') { const id = branch ?? taskPattern.exec(pull.title)?.[1]; if (id) open.add(id); }
   }
