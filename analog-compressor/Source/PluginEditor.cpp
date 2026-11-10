@@ -151,7 +151,8 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
       allButtonsAttachment (*p.apvts.getParameter (ID::allButtons), [this] (float v) { allButtonsOn = v >= 0.5f; refreshButtons(); }),
       grOffAttachment (p.apvts, ID::grOff, grOffButton),
       bypassAttachment (p.apvts, ID::bypass, bypassButton),
-      oversamplingAttachment (p.apvts, ID::oversampling, oversampling)
+      oversamplingAttachment (p.apvts, ID::oversampling, oversampling),
+      lowCutAttachment (p.apvts, ID::detectorLowCut, lowCutBox)
 {
     setLookAndFeel (&lnf);
     addAndMakeVisible (content);
@@ -205,6 +206,15 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
                              "Uses more processing power and adds a little delay.");
     content.addAndMakeVisible (oversampling);
     oversampling.setSelectedItemIndex ((int) p.apvts.getRawParameterValue (ID::oversampling)->load(), juce::dontSendNotification);
+
+    for (int i = 0; i < lowCutNames().size(); ++i)
+        lowCutBox.addItem (lowCutText (i), i + 1);
+    lowCutBox.setTooltip ("Low Cut: stops deep bass from making the compressor turn the whole sound down. "
+                          "Only the part of the sound the compressor listens to is filtered; the bass you hear stays as it is. "
+                          "Off is the usual setting.");
+    lowCutBox.setTitle ("Low Cut");
+    content.addAndMakeVisible (lowCutBox);
+    lowCutBox.setSelectedItemIndex ((int) p.apvts.getRawParameterValue (ID::detectorLowCut)->load(), juce::dontSendNotification);
 
     for (int i = 0; i < (int) std::size (uiScales); ++i)
         sizeBox.addItem ("Interface size: " + juce::String (juce::roundToInt (uiScales[i] * 100.0f)) + " %", i + 1);
@@ -324,9 +334,12 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     meterButtons[2].setBounds (modes);
 
     // Beside the Gain Reduction readout it talks about, at its left. The centred readout text never reaches
-    // this far left, and the Low Cut slot reserved at FET::lowCutX stays free.
+    // this far left.
     guidanceButton->setBounds (meterArea.getX(), meterModes.getBottom() + 4, 88, 26);
-    grOffButton.setBounds (grOffArea);   // the Low Cut control will sit to its right (FET::lowCutX), when ACOMP-07 adds it
+    grOffButton.setBounds (grOffArea);
+    // Low Cut sits in the place ACOMP-08 kept free, right of Gain Reduction Off: both are about what the
+    // compressor reacts to, directly under the Gain Reduction meter.
+    lowCutBox.setBounds (lowCutX, lowCutY, lowCutWidth, 32);
 
     // Top bar: global Bypass at the top-right, in the same place and size as in the other plugins (SUI-13).
     bypassButton.setBounds (designWidth - 16 - 84, 14, 84, 26);
@@ -418,6 +431,11 @@ juce::String SongsmithAnalogCompressorEditor::oversamplingText (int index)
 {
     const auto times = juce::String::charToString (0x00d7);   // multiplication sign
     return index <= 0 ? juce::String ("Oversampling: off") : "Oversampling: " + juce::String (1 << index) + times;
+}
+
+juce::String SongsmithAnalogCompressorEditor::lowCutText (int index)
+{
+    return "Low Cut: " + lowCutNames()[juce::jlimit (0, lowCutNames().size() - 1, index)];
 }
 
 void SongsmithAnalogCompressorEditor::refreshButtons()

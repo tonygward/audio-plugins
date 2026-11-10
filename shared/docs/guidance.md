@@ -19,7 +19,7 @@ The card opens only when the button is pressed. It never appears by itself, neve
 | Plugin | Position | Reason |
 |---|---|---|
 | EQ | Third row, directly after the Frequency Guide instrument menu | The advice builds on the Frequency Guide's regions and the selected band. |
-| Analog Compressor | Left of the numeric Gain Reduction readout, under the meter mode buttons (the reserved Low Cut slot stays free) | The advice is about that reading. |
+| Analog Compressor | Left of the numeric Gain Reduction readout, under the meter mode buttons (Low Cut sits lower down, beside Gain Reduction Off) | The advice is about that reading. |
 | Maximiser | Top right of the Loudness band, above Reset | The advice talks about reduction and the loudness readings beside it. |
 
 ## What each plugin measures, and what it does not claim

@@ -46,6 +46,8 @@ public:
     juce::Button& getRatioButton (int index) { return *ratioButtons[(size_t) index]; }   // 0..3 = 4, 8, 12, 20
     juce::Button& getAllButton() { return allButton; }
     juce::Rectangle<int> getGrOffBounds() const { return grOffButton.getBounds(); }
+    juce::ComboBox& getLowCutBox() noexcept { return lowCutBox; }
+    static juce::String lowCutText (int index);          // "Low Cut: Off", "Low Cut: 80 Hz" ...
     juce::Rectangle<int> getDiagnosticsBounds() const { return diagnostics->getBounds(); }
     juce::ComboBox& getPresetBox() { return presetBox; }
     void advanceMeter (float seconds);
@@ -93,6 +95,7 @@ private:
     float grDisplayDb = 0.0f;
 
     juce::ComboBox oversampling, sizeBox;
+    juce::ComboBox lowCutBox;   // detector Low Cut, beside Gain Reduction Off, under the Gain Reduction meter it affects
     juce::ComboBox presetBox;
     juce::TooltipWindow tooltips { this, 600 };
 
@@ -112,6 +115,7 @@ private:
     static constexpr int savePresetId = 1000, openFolderId = 1001, firstUserId = 100;
     juce::Array<juce::File> userPresetFiles;
     juce::AudioProcessorValueTreeState::ComboBoxAttachment oversamplingAttachment;
+    juce::AudioProcessorValueTreeState::ComboBoxAttachment lowCutAttachment;
 
     int ratioIndex = 0;
     bool allButtonsOn = false;

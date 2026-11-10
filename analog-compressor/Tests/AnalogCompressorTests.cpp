@@ -74,6 +74,7 @@ struct IdentityTests final : juce::UnitTest
             { "grOff",        0.0f,  1.0f, 0.0f },
             { "bypass",       0.0f,  1.0f, 0.0f },
             { "oversampling", 0.0f,  2.0f, 0.0f, 2 },
+            { "detectorLowCut", 0.0f, 5.0f, 0.0f, 3 },
         };
 
         expectEquals (p.getParameters().size(), (int) std::size (expected), "no parameters added or removed silently");
@@ -227,6 +228,7 @@ struct StateTests final : juce::UnitTest
             setParam (a, ID::allButtons, 1.0f);
             setParam (a, ID::grOff, 1.0f);
             setParam (a, ID::bypass, 1.0f);
+            setParam (a, ID::detectorLowCut, 3.0f);
             a.getStateInformation (saved);
         }
 
@@ -240,6 +242,42 @@ struct StateTests final : juce::UnitTest
         expectEquals ((int) getParam (b, ID::allButtons), 1);
         expectEquals ((int) getParam (b, ID::grOff), 1);
         expectEquals ((int) getParam (b, ID::bypass), 1);
+        expectEquals ((int) getParam (b, ID::detectorLowCut), 3, "Low Cut is recalled");
+
+        beginTest ("a fresh instance has Low Cut Off");
+        {
+            SongsmithAnalogCompressorProcessor fresh;
+            expectEquals ((int) getParam (fresh, ID::detectorLowCut), 0);
+            expectEquals (FET::lowCutHz[(int) getParam (fresh, ID::detectorLowCut)], 0.0f);
+        }
+
+        beginTest ("sessions saved before Low Cut existed (state versions 1 and 2) load it Off, not at its current value");
+        for (int version : { 1, 2 })
+        {
+            SongsmithAnalogCompressorProcessor c;
+            setParam (c, ID::detectorLowCut, 4.0f);
+            setParam (c, ID::input, 30.0f);
+
+            juce::XmlElement old ("SongsmithAnalogCompressor");
+            old.setAttribute ("stateVersion", version);
+            auto* child = old.createNewChildElement ("PARAM");
+            child->setAttribute ("id", "input");
+            child->setAttribute ("value", 12.0);
+            if (version == 2)
+            {
+                auto* os = old.createNewChildElement ("PARAM");
+                os->setAttribute ("id", "oversampling");
+                os->setAttribute ("value", 2.0);
+            }
+            juce::MemoryBlock mb;
+            juce::AudioProcessor::copyXmlToBinary (old, mb);
+            c.setStateInformation (mb.getData(), (int) mb.getSize());
+
+            expectEquals ((int) getParam (c, ID::detectorLowCut), 0, "Low Cut is Off for a version " + juce::String (version) + " session");
+            expectWithinAbsoluteError (getParam (c, ID::input), 12.0f, 0.01f, "the rest of the session still loads");
+            if (version == 2)
+                expectEquals ((int) getParam (c, ID::oversampling), 2, "version 2 oversampling is kept");
+        }
 
         beginTest ("state carries a version");
         auto xml = juce::AudioProcessor::getXmlFromBinary (saved.getData(), (int) saved.getSize());
@@ -444,19 +482,37 @@ struct EditorRefinementTests final : juce::UnitTest
             }
         }
 
-        beginTest ("A place is kept free for the future Low Cut control, with no dummy control and no new parameter");
+        beginTest ("Low Cut sits in the place kept for it, beside Gain Reduction Off and under the Gain Reduction meter, with a plain label and tooltip");
         {
-            const juce::Rectangle<int> reserved (lowCutX, lowCutY, lowCutWidth, lowCutHeight);
-            expect (juce::Rectangle<int> (0, 0, designWidth, contentHeight).contains (reserved), "inside the controls area");
-            expectGreaterOrEqual (reserved.getWidth(), 130);
-            expectGreaterOrEqual (reserved.getHeight(), 28);
-            for (auto* c : content->getChildren())
-                if (c->isVisible())
-                    expect (! c->getBounds().intersects (reserved), "a component sits in the reserved Low Cut place: " + c->getBounds().toString());
-            expect (ed->getGrOffBounds().getRight() < reserved.getX(), "Gain Reduction Off ends before the reserved place");
-            for (auto* prm : p.getParameters())
-                if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*> (prm))
-                    expect (! withId->paramID.containsIgnoreCase ("low") && ! withId->paramID.containsIgnoreCase ("cut"), "no Low Cut parameter yet: " + withId->paramID);
+            auto& box = ed->getLowCutBox();
+            const juce::Rectangle<int> slot (lowCutX, lowCutY, lowCutWidth, lowCutHeight);
+            expect (box.isVisible());
+            expect (slot.contains (box.getBounds()), "inside the place ACOMP-08 kept free");
+            expect (juce::Rectangle<int> (0, 0, designWidth, contentHeight).contains (box.getBounds()), "inside the controls area");
+            expectGreaterOrEqual (box.getHeight(), 28);
+            expectGreaterOrEqual (box.getWidth(), 130);
+            expect (ed->getGrOffBounds().getRight() < box.getX(), "to the right of Gain Reduction Off");
+            expectEquals (ed->getGrOffBounds().getY(), box.getY(), "on the same row");
+            expectEquals (box.getTitle(), juce::String ("Low Cut"));
+            expectEquals (box.getNumItems(), numLowCutSteps);
+            for (int i = 0; i < box.getNumItems(); ++i)
+            {
+                expectEquals (box.getItemText (i), SongsmithAnalogCompressorEditor::lowCutText (i));
+                expect (Songsmith::UI::Wording::findBanned (box.getItemText (i)).isEmpty(), "plain words: " + box.getItemText (i));
+            }
+            expectEquals (box.getItemText (0), juce::String ("Low Cut: Off"));
+            expectEquals (box.getText(), juce::String ("Low Cut: Off"), "starts Off");
+
+            const auto tip = box.getTooltip();
+            expect (tip.contains ("stops deep bass from making the compressor turn the whole sound down"), "the tooltip says what it does");
+            expect (tip.contains ("bass you hear stays as it is"), "and that the audio is not filtered");
+            expect (Songsmith::UI::Wording::findBanned (tip).isEmpty(), "plain words: " + Songsmith::UI::Wording::findBanned (tip));
+            expect (tip.length() < 260, "short enough to read");
+
+            box.setSelectedItemIndex (3, juce::sendNotificationSync);
+            expectEquals ((int) getParam (p, ID::detectorLowCut), 3, "choosing a setting changes the parameter");
+            setParam (p, ID::detectorLowCut, 0.0f);
+            expectEquals (box.getSelectedItemIndex(), 0, "and the parameter changes the box (automation)");
         }
 
         beginTest ("The ratio buttons say what they are, and All is called All");
