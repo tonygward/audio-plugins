@@ -6,7 +6,7 @@ import { TELEMETRY_SOURCE } from '../policy.mjs';
 const now = Date.parse('2026-11-10T02:00:00Z');
 const repoA = 'tonygward/audio-plugins';
 const usage = percentage => ({ source: TELEMETRY_SOURCE, percentage, observedAt: new Date(now - 1000).toISOString(), resetsAt: new Date(now + 3600000).toISOString() });
-const prompt = (id, extra = {}) => ({ id, file: `shared/prompts/${id}.md`, hash: `h-${id}`, complete: false, deferred: false, blocked: false, execution: 'scheduled', dependencies: [], ...extra });
+const prompt = (id, extra = {}) => ({ id, repository: repoA, file: `shared/prompts/${id}.md`, hash: `h-${id}`, complete: false, deferred: false, blocked: false, execution: 'scheduled', dependencies: [], ...extra });
 const card = (status, number, taskId, extra = {}) => ({ position: 0, itemId: `i${number}`, status, issue: number, state: 'OPEN', repository: repoA, taskId, title: `${taskId} — x`, ...extra });
 const snapshot = (...cards) => ({ ok: true, fetchedAt: new Date(now - 1000).toISOString(), cards: cards.map((c, position) => ({ ...c, position })) });
 const base = (extra = {}) => ({ now, usage: usage(10), executionPaths: new Set([repoA, 'tonygward/songsmith-website']), ...extra });
@@ -32,9 +32,10 @@ test('Doing is picked before Todo, each in board order', () => {
 
 test('cards from other repositories and prefixes are considered, never refused by location', () => {
   const web = card('Todo', 19, 'WEB-03', { repository: 'tonygward/songsmith-website' });
-  const result = selectFromBoard(snapshot(web, card('Todo', 2, 'A-01')), [prompt('WEB-03'), prompt('A-01')], base());
+  const webPrompt = prompt('WEB-03', { repository: 'tonygward/songsmith-website' });
+  const result = selectFromBoard(snapshot(web, card('Todo', 2, 'A-01')), [webPrompt, prompt('A-01')], base());
   assert.equal(result.selected.taskId, 'WEB-03');
-  const noPath = selectFromBoard(snapshot(web, card('Todo', 2, 'A-01')), [prompt('WEB-03'), prompt('A-01')], base({ executionPaths: new Set([repoA]) }));
+  const noPath = selectFromBoard(snapshot(web, card('Todo', 2, 'A-01')), [webPrompt, prompt('A-01')], base({ executionPaths: new Set([repoA]) }));
   assert.match(noPath.decisions[0].reason, /no scoped execution path for tonygward\/songsmith-website/);
   assert.equal(noPath.selected.taskId, 'A-01');
 });
@@ -150,4 +151,10 @@ test('fetchPulls reads open and merged pulls per repository and fails closed', a
   assert.equal(ok.pulls.length, 4);
   assert.equal((await fetchPulls(async () => ({ data: { repository: null } }), ['o/a'])).ok, false);
   assert.match((await fetchPulls(async () => { throw new Error('boom'); }, ['o/a'])).reason, /read failed: boom/);
+});
+
+test('work lands in the prompt repository, not the repository holding the tracking issue', () => {
+  const result = selectFromBoard(snapshot(card('Todo', 4, 'A-01', { repository: 'tonygward/songsmithstudio' })), [prompt('A-01')], base());
+  assert.equal(result.selected.repository, repoA);
+  assert.equal(result.selected.issueRepository, 'tonygward/songsmithstudio');
 });

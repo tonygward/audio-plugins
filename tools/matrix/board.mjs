@@ -105,7 +105,7 @@ export function normaliseCard(node, index) {
  * context: { now, usage, scopedUsagePercent[], tasks, activeJob, mergedTaskIds, openPullTaskIds, executionPaths }
  */
 export function selectFromBoard(snapshot, prompts, context) {
-  const { now = Date.now(), usage, scopedUsagePercent = [], tasks = {}, activeJob = null, mergedTaskIds = new Set(), openPullTaskIds = new Set(), executionPaths = new Set() } = context;
+  const { now = Date.now(), usage, scopedUsagePercent = [], tasks = {}, activeJob = null, mergedTaskIds = new Set(), openPullTaskIds = new Set(), executionPaths = new Set(), promptRepository = null } = context;
   const stop = reason => ({ selected: null, decisions: [], blocker: reason });
   if (!snapshot?.ok) return stop(snapshot?.reason ?? 'No board snapshot');
   const age = now - Date.parse(snapshot.fetchedAt);
@@ -125,6 +125,8 @@ export function selectFromBoard(snapshot, prompts, context) {
   for (const card of queue) {
     const prompt = card.taskId ? byId.get(card.taskId) : null;
     const task = card.taskId ? tasks[card.taskId] : null;
+    // Work lands where its canonical prompt lives, not necessarily where the tracking issue is filed.
+    const repository = prompt?.repository ?? promptRepository ?? card.repository;
     let reason = !card.issue ? 'not an issue card (implementation PR or draft)' : !card.taskId ? 'no task ID in issue title'
       : seen.has(card.taskId) ? 'duplicate card for task' : card.state !== 'OPEN' ? 'issue is closed'
       : mergedTaskIds.has(card.taskId) || complete.has(card.taskId) ? 'implementation merged; release pending, do not recode'
@@ -133,14 +135,14 @@ export function selectFromBoard(snapshot, prompts, context) {
       : prompt.deferred || prompt.execution === 'deferred' ? 'prompt is marked deferred'
       : prompt.blocked ? 'prompt is blocked'
       : task && ['claimed', 'interrupted', 'awaiting-review', 'complete', 'dead-letter'].includes(task.state) ? `durable state: ${task.state}`
-      : !executionPaths.has(card.repository) ? `no scoped execution path for ${card.repository}` : null;
+      : !executionPaths.has(repository) ? `no scoped execution path for ${repository}` : null;
     if (!reason && prompt) {
       const missing = prompt.dependencies.filter(id => !complete.has(id));
       if (missing.length) reason = `unmet dependencies: ${missing.join(', ')}`;
     }
     if (card.taskId) seen.add(card.taskId);
-    decisions.push({ position: card.position, status: card.status, issue: card.issue, taskId: card.taskId, repository: card.repository, reason: reason ?? (selected ? 'eligible; one task per run' : 'selected') });
-    if (!reason && !selected) selected = { ...card, prompt: prompt.file, promptHash: prompt.hash };
+    decisions.push({ position: card.position, status: card.status, issue: card.issue, taskId: card.taskId, repository, issueRepository: card.repository, reason: reason ?? (selected ? 'eligible; one task per run' : 'selected') });
+    if (!reason && !selected) selected = { ...card, repository, issueRepository: card.repository, prompt: prompt.file, promptHash: prompt.hash };
   }
   return { selected, decisions, blocker: selected ? null : 'No eligible card' };
 }
