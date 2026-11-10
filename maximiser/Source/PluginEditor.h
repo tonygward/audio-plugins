@@ -27,6 +27,15 @@ public:
     juce::ComboBox& getStartingPointBox() noexcept { return startingPointBox; }
     VerticalMeter& getReductionMeter() noexcept { return reductionMeter; }
     juce::Component& getContent() noexcept      { return content; }
+    juce::Button& getLoudnessResetButton() noexcept { return loudnessResetButton; }
+    juce::Label& getIntegratedLabel() noexcept  { return integratedValue; }
+    juce::Label& getShortTermLabel() noexcept   { return shortTermValue; }
+    juce::Label& getMomentaryLabel() noexcept   { return momentaryValue; }
+
+    void clickIntegratedReadout() { if (integratedValue.onClick) integratedValue.onClick(); }
+
+    // Starts the loudness measurement again (the Reset button and a click on the Integrated number).
+    void resetLoudness();
     float getContentScale() const noexcept      { return contentScale; }
 
     // What the timer does: pull parameter changes made by the host into the faders, and feed the
@@ -71,6 +80,18 @@ private:
 
     VerticalMeter inputMeter { VerticalMeter::Kind::level }, reductionMeter { VerticalMeter::Kind::reduction },
                   outputMeter { VerticalMeter::Kind::level };
+
+    // Loudness section below the controls: readings in LUFS (kept by the processor, shown here).
+    struct ReadoutLabel final : juce::Label
+    {
+        std::function<void()> onClick;
+        void mouseDown (const juce::MouseEvent&) override { if (onClick) onClick(); }
+    };
+    juce::Label loudnessTitle, loudnessHint, integratedCaption, shortTermCaption, momentaryCaption,
+                integratedUnit, shortTermUnit, momentaryUnit;
+    ReadoutLabel integratedValue, shortTermValue, momentaryValue;
+    juce::TextButton loudnessResetButton { "Reset" };
+    void showLoudness();
 
     // Latency and the optional Processing Load readout, in the strip below the controls.
     std::unique_ptr<Songsmith::Diagnostics::Bar> diagnostics;

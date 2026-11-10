@@ -42,6 +42,11 @@ Before you start:
 - **Level-matched A/B:** Threshold sets the gain, so match levels before you judge the sound. With Link on, move Threshold and Out Ceiling down together until bypass and active are equally loud, then compare.
 - **Pumping and distortion:** on a dense mix, compare manual Release 1 ms, manual 10 ms and Auto Release. Listen for pumping, and for bass distortion on sustained notes.
 - **True-peak reading:** in True peak mode with Out Ceiling at −1 dB, a true-peak meter on the output (Studio One's, Logic's Loudness Meter, or Youlean) should read at most −1.0 dBTP. The worst case measured in the tests is +0.28 dB, on full-band white noise. Real mixes should stay within 0.1 dB.
+- **Loudness meter (needs a person with a DAW; not yet verified in any host):** play a finished mix through the maximiser from the start, in real time, and compare its **Integrated** reading at the end with a reference meter on the same output (the DAW's own loudness meter, or a separate meter such as Youlean). The two should agree within about 0.5 LUFS; note the host, its meter and both readings. Also check that:
+  - pressing play from a stop starts a new measurement, and pausing then resuming does not;
+  - **Reset** and a click on the Integrated number start again;
+  - the readings keep counting with the editor closed, and are not saved with the session;
+  - an offline bounce does not need the meter (it only measures real-time playback, so its reading after a fast offline render is not a file analysis).
 - **Dither:** with Dither 16-bit and a fade-out exported to 16 bits, the fade should decay into steady, hiss-like noise, with no grainy truncation distortion.
 
 ## Comparison with a Waves L1 (not done: no L1 available)

@@ -75,6 +75,28 @@ New parameters (ID version 2; state version 2): `peak_mode` (Sample peak / True 
   - Tested in "TPDF noise": the noise power is q²/4, the spectrum stays within 0.1 dB across 8 bands, and the L/R and lag-1 correlations are < 0.02.
   - Tested in "Bypass skips dither…": state recall, and version-2 sessions load with dither off.
 
+## Loudness meter (MAX-07)
+
+A Songsmith addition: the Waves L1 had no loudness meter. A section below the controls shows **Integrated** (large), **Short Term** and **Momentary** in LUFS, for the output of the plugin: after the limiter and dither, and, when bypassed, what passes through. The window is 720 × 552 at 100 % (it was 720 × 448, including the bottom strip); it still scales from 75 % to 300 %.
+
+- **It only hears real-time playback.** It measures what plays through the plugin, as it plays, so it is not an offline analysis of a whole file like a DAW's export analysis. Play the song through from the start and the Integrated reading at the end is the song's loudness. A fast offline bounce is not a measurement. Readings are measurements of the audio that reached the plugin, not a pass or fail against any streaming service.
+- **Readings:** Momentary is the last 400 ms, Short Term the last 3 s, Integrated everything since the last reset. A dash means there is not yet enough sound (or only silence); no invented number is shown. Loudness range is not shown ("LU" is not an allowed short form); it can come later. A short-term history strip was left out to keep the layout uncluttered.
+- **Reset:** the **Reset** button and a click on the Integrated number start again. The meter also starts again by itself when the host starts playback from a stop (design choice; read from the host's play head, so the standalone app, which has none, only resets by hand). It is not a parameter, is not automatable and is not saved: the state version is unchanged (still 3).
+- **Counting continues with the editor closed.** The readings are kept by the processor and a 10 Hz message-thread timer drains the audio thread's queue, so Integrated carries on while the editor is closed. If the host stalls the message thread for more than about 6.8 minutes the newest 100 ms steps are dropped rather than blocking the audio thread.
+- **Layouts:** mono and stereo (the only layouts the plugin supports). Left, right and mono have weight 1.0 as in BS.1770-4, so the same signal reads 3 dB lower in mono than in both stereo channels.
+- **Real-time safety:** the audio thread only K-weights and adds up the mean square of each 100 ms step and writes it to a lock-free single-producer, single-consumer queue (`juce::AbstractFifo`). The queue is allocated once when the plugin is created (not in `prepareToPlay`, so a sample-rate change can never race the editor reading it). Gating, windows and the histogram (0.01 LU bins, so Integrated costs the same after an hour as after a minute) run on the message thread.
+- **Cost:** two biquad stages per channel per sample, about 10 multiply-adds, plus a few additions per 100 ms. Not yet measured on hardware: use the Processing Load readout to see it on your machine.
+
+| Source | Where it is used | Checked by |
+|---|---|---|
+| ITU-R BS.1770-4: K-weighting. The standard publishes 48 kHz coefficients only; they are derived here for every rate from the analogue prototype (`kWeightingCoefficients`) | `Source/Loudness.h` | "K-weighting: BS.1770-4 coefficients at 48 kHz" (published coefficients; response at 1 kHz, 10 kHz and 38 Hz; 44.1, 96 and 192 kHz) and "Readings agree at 44.1, 48, 96 and 192 kHz" |
+| BS.1770-4: channel weights, −0.691 offset, 400 ms gating blocks every 100 ms, −70 LUFS absolute gate and −10 LU relative gate | `StepMeter`, `LoudnessReadings` | "Mono reads 3 dB lower…", "Gating: …" |
+| EBU R 128: Momentary 400 ms, Short Term 3 s, Integrated | `LoudnessReadings` | "Momentary (400 ms) and Short Term (3 s) rise and fall…" |
+| EBU Tech 3341: 1 kHz tone at −23 and −33 dBFS (±0.1 LU); gated sequences | `Tests/MaximiserTests.cpp` | "Tech 3341: 1 kHz tone…" and "Gating…". The gated sequences are modelled on cases 3 to 5 from their descriptions, with expected values worked out by hand; they are not the standard's own files |
+| Design choices: reset on play from a stop, the queue, nothing saved | `PluginProcessor` | "Integrated counts only audio after a reset", "The processor measures its output…", "The meter is not saved…", "No allocation in processBlock with the meter running" |
+
+**Not yet verified in a DAW** against a reference meter; see `docs/host-checks.md`.
+
 ## Starting points, validation and packaging (step 05)
 
 - **Starting points** (`Source/StartingPoints.h`, the editor's "Starting point" menu): all conservative, all with a ceiling at or below −1 dB, and Dither always off. Loading one leaves Bypass and Link alone.

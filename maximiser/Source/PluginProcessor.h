@@ -4,6 +4,7 @@
 #include "MaxParams.h"
 #include "BrickwallLimiter.h"
 #include "Dither.h"
+#include "Loudness.h"
 #include "EditorLogic.h"
 #include "StartingPoints.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
@@ -17,7 +18,7 @@ public:
     static constexpr int stateVersion = 3;
 
     SongsmithMaximiserAudioProcessor();
-    ~SongsmithMaximiserAudioProcessor() override = default;
+    ~SongsmithMaximiserAudioProcessor() override { loudnessTimer.stopTimer(); }
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -85,6 +86,31 @@ public:
 
     const Max::BrickwallLimiter& getLimiter() const noexcept { return limiter; }
 
+    // Loudness (LUFS) of the output, measured as it plays. The audio thread feeds 100 ms steps into
+    // loudnessMeter's FIFO; the editor (the only consumer) turns them into readings. Not a parameter,
+    // not saved, and it never touches the audio.
+    Max::Loudness::StepMeter loudnessMeter;
+
+    // Message thread only. The readings are kept here, not in the editor, so Integrated keeps counting
+    // while the editor is closed. A message-thread timer drains the FIFO; the editor also calls this.
+    // Returns true if anything changed.
+    bool updateLoudness() { return loudnessReadings.update (loudnessMeter); }
+    void resetLoudness()
+    {
+        for (double v; loudnessMeter.pop (v);) {}   // drop what is already queued, then start again
+        loudnessReadings.reset();
+    }
+    const Max::Loudness::LoudnessReadings& getLoudnessReadings() const noexcept { return loudnessReadings; }
+
+    // Audio thread: tells the meter whether the host is playing. Starting from a stop begins a new
+    // measurement; carrying on playing does not. (processBlock reads the host's play head and calls this.)
+    void notePlayState (bool playing) noexcept
+    {
+        if (playing && ! wasPlaying)
+            loudnessMeter.requestReset();
+        wasPlaying = playing;
+    }
+
     // Optional timing of processBlock for the editor's Processing Load readout (off unless the editor switches it on).
     Songsmith::Diagnostics::LoadMeter loadMeter;
 
@@ -98,6 +124,15 @@ private:
     juce::AudioParameterChoice* ditherParam = nullptr;
 
     Max::Dither dither;
+    bool wasPlaying = false;   // audio thread only
+
+    Max::Loudness::LoudnessReadings loudnessReadings;
+    struct LoudnessTimer final : juce::Timer
+    {
+        explicit LoudnessTimer (SongsmithMaximiserAudioProcessor& o) : owner (o) {}
+        void timerCallback() override { owner.updateLoudness(); }
+        SongsmithMaximiserAudioProcessor& owner;
+    } loudnessTimer { *this };
 
     // Bypass: a short linear cross-fade between the processed and the dry signal.
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix { 0.0f };   // 1 = fully bypassed

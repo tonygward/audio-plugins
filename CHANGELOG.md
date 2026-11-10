@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
 
+## Unreleased
+
+- Songsmith Maximiser now has a loudness meter below the controls. It shows **Integrated**, **Short Term** and **Momentary** loudness in LUFS, the unit streaming services use. It measures what plays through the plugin, as it plays, so play your song through from the start and read Integrated at the end. It is not an analysis of a whole file. It starts again by itself each time the host starts playing from a stop; **Reset**, or a click on the Integrated number, starts again whenever you like. A dash means there is not yet enough sound to measure. The window is taller to make room, and nothing in your saved sessions changes. There is nothing you need to do.
+
 ## 0.5.3
 
 - The version number at the bottom left of each plugin is now fully visible instead of being cut off with dots, and it stays readable at every interface size. There is nothing you need to do.
