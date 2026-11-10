@@ -212,3 +212,15 @@ test('an invalid prompt file does not stop a merged task being delivered, but no
   assert.deepEqual(merged.calls, ['close', 'done']);
   assert.equal(result.selected, null); assert.match(result.blocker, /Prompt backlog is invalid/);
 });
+
+test('the tick recovers a restart-interrupted task with an open pull request instead of parking it in Blocked', async () => {
+  const sha = 'a'.repeat(40);
+  const h = harness({ cards: [node(1, 'Doing', 'A-01 — first')], dryRun: false, pulls: [{ number: 9, state: 'OPEN', title: 'A-01: Matrix implementation', headRefName: 'matrix/a-01-abc123' }] });
+  h.deps.io.prChecks = async () => ({ headSha: sha, checks: [{ status: 'IN_PROGRESS' }] });
+  const state = readState(h.dir);
+  state.tasks['A-01'] = { id: 'A-01', state: 'interrupted', reason: 'Worker restarted; inspect retained work before retry', attempts: 1, job: 'old', issue: 1, itemId: 'item-1', repository: repo, issueRepository: repo, branch: 'matrix/a-01-abc123', commit: sha, phase: 'pushed' };
+  atomic(path.join(h.dir, 'state.json'), state);
+  await boardTick(h.config, h.deps);
+  assert.equal(readState(h.dir).tasks['A-01'].state, 'awaiting-review');
+  assert.ok(!h.calls.includes('blocked:item-1'));
+});

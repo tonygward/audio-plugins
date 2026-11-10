@@ -9,6 +9,7 @@ export const blockedMarker = (id, job) => `<!-- matrix-blocked:${id}:${job ?? 'u
 export const heldMarker = (id, job) => `<!-- matrix-resume-held:${id}:${job ?? 'unknown'} -->`;
 const STOPPED = ['interrupted', 'dead-letter'];
 const stopped = task => STOPPED.includes(task.state) && task.issue;
+// (Work that merged is in delivery, not blocked: see the guard in blockStopped.)
 // Committed work has a branch and probably a pull request. Starting again would duplicate it, so it is held for the owner.
 const hasWork = task => Boolean(task.commit || task.pr);
 
@@ -35,7 +36,7 @@ export async function blockStopped(stateDirectory, io, { now = () => new Date().
   return lockedAsync(stateDirectory, async () => {
     const state = readState(stateDirectory), moved = [];
     for (const task of Object.values(state.tasks)) {
-      if (!stopped(task) || task.blockedCommentAt) continue;
+      if (!stopped(task) || task.blockedCommentAt || state.deliveries?.[task.id]) continue;
       try {
         if (!task.movedBlockedAt && task.itemId && io.moveToBlocked) { await io.moveToBlocked(task.itemId); task.movedBlockedAt = now(); moved.push(task.itemId); }
         const slug = task.issueRepository ?? task.repository;
