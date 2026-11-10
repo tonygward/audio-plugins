@@ -10,6 +10,7 @@ import { pickUp, recoverPickupComments } from './pickup.mjs';
 import { advanceDelivery, recordMerge } from './delivery.mjs';
 import { writeHandoff, clearHandoff } from './handoff.mjs';
 import { scan } from './backlog.mjs';
+import { dailyDue, londonDay } from './policy.mjs';
 
 // Unlike state.reconcile (a worker restart marks claimed tasks interrupted), a board tick must keep an
 // active claim intact: it only adds or refreshes tasks that are still unclaimed.
@@ -71,13 +72,16 @@ export async function boardTick(config, deps) {
   if (!usage.allowed || usage.extraUsageEnabled !== false) return stop(usage.reason ?? 'Usage not verified', { doing, delivery, recordedMerges });
   const { merged, open } = pullTaskState(pulled.pulls);
   const active = Object.values(state.tasks).find(task => task.state === 'claimed');
-  const result = selectFromBoard(board, prompts, { now: clock(), usage: usage.snapshot, scopedUsagePercent: usage.scopedPercent ?? [],
+  // Doing is a run-now request: offered at every run. Todo is the overnight queue: one task per London day, after dailyTime.
+  const todoDue = dailyDue(state.lastWorkerDaily, config.dailyTime ?? '02:00', new Date(clock()));
+  const result = selectFromBoard(board, prompts, { now: clock(), statuses: todoDue ? ['Doing', 'Todo'] : ['Doing'], usage: usage.snapshot, scopedUsagePercent: usage.scopedPercent ?? [],
     tasks: state.tasks, activeJob: active ? active.job ?? active.id : null, mergedTaskIds: merged, openPullTaskIds: open,
     executionPaths: new Set(settings.executionRepositories), promptRepository: settings.promptRepository });
   if (!result.selected) return stop(result.blocker, { decisions: result.decisions, doing, delivery, recordedMerges });
   if (dryRun) return { ran: true, dryRun, selected: result.selected, decisions: result.decisions, doing, delivery, recordedMerges };
   if (handoff) { writeHandoff(dir, { selected: result.selected, job: jobId, revision, now: clock() }); return { ran: true, dryRun, handoff: true, selected: result.selected, decisions: result.decisions, doing, delivery, recordedMerges }; }
   const claimed = await pickUp(dir, result.selected, { job: jobId, revision, io, limits });
+  if (claimed.claimed && result.selected.status === 'Todo') await lockedAsync(dir, async () => { const s = readState(dir); s.lastWorkerDaily = londonDay(new Date(clock())); atomic(path.join(dir, 'state.json'), s); });
   return { ran: true, dryRun, selected: claimed.claimed ? result.selected : null, claim: claimed, decisions: result.decisions, doing, delivery, recordedMerges };
 }
 
