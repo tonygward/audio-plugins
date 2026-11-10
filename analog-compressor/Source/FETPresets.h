@@ -8,7 +8,7 @@
 //   %APPDATA%\Songsmith Studio\Songsmith Analog Compressor\Presets      (Windows)
 //   ~/Library/Songsmith Studio/Songsmith Analog Compressor/Presets       (macOS)
 // a folder of their own, so they never mix with the EQ's. A preset stores the sound
-// (input, output, attack, release, ratio, All Buttons, GR Off), never bypass, oversampling
+// (input, output, attack, release, ratio, All Buttons, Gain Reduction Off, detector Low Cut), never bypass, oversampling
 // or editor state. Message thread only.
 namespace FET
 {

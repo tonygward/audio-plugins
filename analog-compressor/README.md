@@ -9,7 +9,8 @@ A feedback FET compressor inspired by the Rev D blackface 1176LN, by Songsmith S
 - **Analogue colour:** FET gain-cell distortion while compressing, plus the Class A output amplifier and transformer. **Gain Reduction Off** keeps the colour without compressing. Calibrated to the published specs: [docs/colour.md](docs/colour.md).
 - **Oversampling:** Off / 2x / 4x (default Off, so a new instance adds no delay and uses the least processing power; turn it up for a cleaner top end when compressing hard). Sessions saved earlier keep their setting. The latency is reported to the host, and the bypass stays aligned. If you switch Processing Load on (far left of the strip along the bottom of the editor), the readout beside it shows this instance's CPU use and that latency in milliseconds and samples.
 - **Needle meter** (about 45 % larger than before, with bigger scale numbers): Gain Reduction, Output +4 and Output +8 modes (0 on the scale at +4 or +8 dBu) with VU ballistics, plus a numeric gain reduction readout.
-- **Scalable vector editor:** 100-200 %, sharp on any display, on a fine brushed faceplate drawn as vectors. The ratio buttons read 4:1, 8:1, 12:1 and 20:1, each with a plain tooltip. A place beside Gain Reduction Off is kept free for the detector Low Cut control that [ACOMP-07](prompts/07-detector-low-cut.md) will add. See [docs/editor.md](docs/editor.md).
+- **Scalable vector editor:** 100-200 %, sharp on any display, on a fine brushed faceplate drawn as vectors. The ratio buttons read 4:1, 8:1, 12:1 and 20:1, each with a plain tooltip. See [docs/editor.md](docs/editor.md).
+- **Low Cut (a Songsmith addition):** beside Gain Reduction Off, under the meter. It stops deep bass from making the compressor turn the whole sound down. Only what the compressor *listens to* is filtered; the bass you hear is untouched. Off, 60, 80, 100, 150 or 200 Hz (gentle 12 dB/oct slope), Off by default, including in sessions saved earlier. The original 1176 has no such control. Details and tests: [docs/detector-low-cut.md](docs/detector-low-cut.md).
 - **Guidance:** an optional **Guidance** button, left of the Gain Reduction readout, opens a short card with the measured Gain Reduction and ratio, what to listen for and an optional next step. It never opens by itself and never changes a setting; doing nothing is often fine. See [shared/docs/guidance.md](../shared/docs/guidance.md).
 - **Presets:** four conservative, level-matched starting points (lead vocal, acoustic guitar, bass, drum room), each with a listening cue, plus your own presets.
 
@@ -59,7 +60,7 @@ To build and test the installers:
 - Manufacturer code `Tnyw`, plugin code `Sfc1`, so the AU is `aufx Sfc1 Tnyw`.
 - Windows AppId `{FF3BD6A4-58D4-4AFA-BFA3-26B221E29340}`.
 - macOS package ids `com.songsmithstudio.songsmithanalogcompressor.{vst3,au,app}`.
-- Parameter IDs (stable): `input`, `output`, `attack`, `release`, `ratio`, `allButtons`, `grOff`, `bypass`, plus `oversampling` since state version 2. See `Source/FETParams.h`.
+- Parameter IDs (stable): `input`, `output`, `attack`, `release`, `ratio`, `allButtons`, `grOff`, `bypass`, plus `oversampling` since state version 2 and `detectorLowCut` since state version 3. See `Source/FETParams.h`.
 
 ## Docs
 
@@ -70,6 +71,7 @@ To build and test the installers:
 | [colour.md](docs/colour.md) | Analogue colour and oversampling |
 | [all-buttons.md](docs/all-buttons.md) | All Buttons |
 | [editor.md](docs/editor.md) | The editor |
+| [detector-low-cut.md](docs/detector-low-cut.md) | The detector Low Cut: range, slope, tests and listening notes |
 | [presets.md](docs/presets.md) | How the controls work, and the starting points |
 | [daw-checks.md](docs/daw-checks.md) | Studio One and Logic checks, executed vs pending |
 | [smoke-test.md](docs/smoke-test.md) | Studio One smoke test |

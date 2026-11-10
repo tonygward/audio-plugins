@@ -13,7 +13,7 @@ namespace FET
     }
 
     const char* const Presets::presetParameterIds[] = { ID::input, ID::output, ID::attack, ID::release,
-                                                        ID::ratio, ID::allButtons, ID::grOff };
+                                                        ID::ratio, ID::allButtons, ID::grOff, ID::detectorLowCut };
     const int Presets::numPresetParameters = (int) std::size (presetParameterIds);
 
     // Conservative starting points. Output is set so a -18 dBFS RMS signal comes out at about
@@ -80,6 +80,7 @@ namespace FET
         setParam (ID::ratio, (float) f.ratio);
         setParam (ID::allButtons, f.allButtons ? 1.0f : 0.0f);
         setParam (ID::grOff, 0.0f);
+        setParam (ID::detectorLowCut, (float) lowCutDefault);   // starting points leave the detector hearing everything
         currentName = f.name;
         currentHint = f.hint;
     }

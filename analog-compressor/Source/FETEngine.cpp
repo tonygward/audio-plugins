@@ -43,6 +43,8 @@ namespace FET
     void Engine::prepare (double sampleRate) noexcept
     {
         fs = sampleRate > 0.0 ? sampleRate : 44100.0;
+        // Time constant a third of the glide time, so a change has settled in about lowCutGlideSeconds.
+        lowCutGlide = 1.0 - std::exp (-(double) lowCutBlock / (fs * lowCutGlideSeconds / 3.0));
         updateCoefficients();
         reset();
     }
@@ -51,6 +53,64 @@ namespace FET
     {
         gainReductionDb = 0.0f;
         peakGr.store (0.0f, std::memory_order_relaxed);
+        lowCutState = {};
+        lowCutMix = lowCutMixTarget;
+        lowCutCurrentHz = lowCutTargetHz;
+        lowCutCounter = 0;
+        updateLowCutCoefficients();
+    }
+
+    void Engine::setDetectorLowCutHz (float hz) noexcept
+    {
+        if (! (hz > 0.0f))
+        {
+            lowCutHz = 0.0f;
+            lowCutMixTarget = 0.0;   // fade the filter out; the cutoff stays where it was
+            return;
+        }
+        if (hz == lowCutHz)
+            return;
+        lowCutHz = hz;
+        lowCutTargetHz = (double) hz;
+        lowCutMixTarget = 1.0;
+        if (lowCutMix < 1.0e-3)      // filter not audible yet: start at the new cutoff, no glide from a stale one
+        {
+            lowCutCurrentHz = lowCutTargetHz;
+            updateLowCutCoefficients();
+        }
+    }
+
+    void Engine::updateLowCutCoefficients() noexcept
+    {
+        const double fc = std::clamp (lowCutCurrentHz, 1.0, fs * 0.45);
+        const double K = std::tan (3.14159265358979323846 * fc / fs);
+        const double root2 = 1.41421356237309505;
+        const double norm = 1.0 / (1.0 + root2 * K + K * K);
+        b0 = norm;
+        b1 = -2.0 * norm;
+        b2 = norm;
+        a1 = 2.0 * (K * K - 1.0) * norm;
+        a2 = (1.0 - root2 * K + K * K) * norm;
+    }
+
+    void Engine::advanceLowCutSmoothing() noexcept
+    {
+        bool changed = false;
+        if (lowCutMix != lowCutMixTarget)
+        {
+            lowCutMix += (lowCutMixTarget - lowCutMix) * lowCutGlide;
+            if (std::abs (lowCutMixTarget - lowCutMix) < 1.0e-4)
+                lowCutMix = lowCutMixTarget;
+        }
+        if (lowCutCurrentHz != lowCutTargetHz)
+        {
+            lowCutCurrentHz *= std::pow (lowCutTargetHz / lowCutCurrentHz, lowCutGlide);   // glide in octaves
+            if (std::abs (lowCutCurrentHz / lowCutTargetHz - 1.0) < 1.0e-4)
+                lowCutCurrentHz = lowCutTargetHz;
+            changed = true;
+        }
+        if (changed)
+            updateLowCutCoefficients();
     }
 
     void Engine::setRatioIndex (int index) noexcept
@@ -151,11 +211,39 @@ namespace FET
             float g0 = gainReductionDb;
             float gr;
 
+            // Detector Low Cut: filter a copy of the input for the detector only. The audio path below
+            // multiplies the unfiltered samples. Off and settled: no filtering, no state, bit-exact as before.
+            const bool lowCutActive = lowCutMix > 0.0 || lowCutMixTarget > 0.0;
+            float detected[maxChannels];
+            if (lowCutActive)
+            {
+                if (++lowCutCounter >= lowCutBlock)
+                {
+                    lowCutCounter = 0;
+                    advanceLowCutSmoothing();
+                }
+                for (int c = 0; c < nc; ++c)
+                {
+                    const double x = (double) channels[c][i];
+                    auto& s = lowCutState[(size_t) c];
+                    const double y = b0 * x + s.z1;
+                    s.z1 = b1 * x - a1 * y + s.z2;
+                    s.z2 = b2 * x - a2 * y;
+                    detected[c] = (float) (x + lowCutMix * (y - x));
+                }
+            }
+            else
+            {
+                lowCutState = {};
+                for (int c = 0; c < nc; ++c)
+                    detected[c] = channels[c][i];
+            }
+
             if (grEnabled)
             {
                 float peak = 0.0f;
                 for (int c = 0; c < nc; ++c)
-                    peak = std::max (peak, std::abs (channels[c][i]));
+                    peak = std::max (peak, std::abs (detected[c]));
 
                 const float levelDb = peak > 0.0f ? std::max (levelFloorDb, 20.0f * std::log10 (peak)) : levelFloorDb;
                 gr = solve (levelDb, g0);

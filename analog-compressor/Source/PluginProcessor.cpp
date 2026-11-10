@@ -26,6 +26,7 @@ SongsmithAnalogCompressorProcessor::SongsmithAnalogCompressorProcessor()
     grOffParam = apvts.getRawParameterValue (ID::grOff);
     oversamplingParam = apvts.getRawParameterValue (ID::oversampling);
     allButtonsParam = apvts.getRawParameterValue (ID::allButtons);
+    lowCutParam = apvts.getRawParameterValue (ID::detectorLowCut);
     jassert (bypassParam != nullptr && inputDb != nullptr && outputDb != nullptr);
 }
 
@@ -62,6 +63,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithAnalogCompressorPro
     // Added in state version 2.
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ID::oversampling, 2 }, "Oversampling",
                                                         oversamplingNames(), oversamplingDefault));
+
+    // Added in state version 3. Off by default, so older sessions sound exactly as they did.
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ID::detectorLowCut, 3 }, "Low Cut",
+                                                        lowCutNames(), lowCutDefault));
 
     return layout;
 }
@@ -168,6 +173,7 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
     engine.setReleaseKnob (releaseKnob->load());
     engine.setGainReductionEnabled (grOffParam->load() < 0.5f);
     engine.setAllButtons (isAllButtonsOn());
+    engine.setDetectorLowCutHz (FET::lowCutHz[juce::jlimit (0, FET::numLowCutSteps - 1, (int) lowCutParam->load())]);
     fetFactor.setTargetValue (isAllButtonsOn() ? FET::FetCell::allButtonsFactor : 1.0f);
 
     // Fully bypassed and settled with no latency to keep: leave the buffer untouched.

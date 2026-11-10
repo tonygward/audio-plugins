@@ -15,7 +15,8 @@ public:
     // 1 = first release (input, output, attack, release, ratio, allButtons, grOff, bypass).
     // 2 = adds oversampling (sessions from 1 load with the default, which is Off, as version 1 sounded;
     // version 2 sessions keep the oversampling they saved, including 4x).
-    static constexpr int stateVersion = 2;
+    // 3 = adds the detector Low Cut (sessions from 1 and 2 load it Off, as they sounded before).
+    static constexpr int stateVersion = 3;
 
     SongsmithAnalogCompressorProcessor();
     ~SongsmithAnalogCompressorProcessor() override;
@@ -101,6 +102,7 @@ private:
     std::atomic<float>* grOffParam = nullptr;
     std::atomic<float>* oversamplingParam = nullptr;
     std::atomic<float>* allButtonsParam = nullptr;
+    std::atomic<float>* lowCutParam = nullptr;
     std::atomic<float> outputMs { 0.0f };
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> fetFactor { 1.0f };
 

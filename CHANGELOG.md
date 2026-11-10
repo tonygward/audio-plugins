@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
 
+## Unreleased
+
+- Songsmith Analog Compressor has a new **Low Cut** control, beside Gain Reduction Off. It stops deep bass from making the compressor turn the whole sound down. It only changes what the compressor listens to, so the bass you hear is not filtered. Choose Off, 60, 80, 100, 150 or 200 Hz. It is a Songsmith addition, not part of the original 1176 design. It starts Off, including in sessions you saved earlier, so nothing sounds different until you choose a setting. If a kick or bass makes the whole mix duck, try 80 or 100 Hz; otherwise leaving it Off is fine.
+
 ## 0.5.6
 
 Behind-the-scenes improvements and fixes. There is nothing you need to do.

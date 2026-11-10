@@ -30,9 +30,21 @@ namespace FET
         inline constexpr const char* grOff      = "grOff";
         inline constexpr const char* bypass     = "bypass";
         inline constexpr const char* oversampling = "oversampling";   // version hint 2
+        inline constexpr const char* detectorLowCut = "detectorLowCut";   // version hint 3
     }
 
     inline constexpr int parameterVersion = 1;
+
+    // Detector Low Cut (ACOMP-07): a Songsmith addition to the 1176-inspired design. It filters only what the
+    // level detector hears, never the audio. 12 dB/oct, Off by default. See docs/detector-low-cut.md.
+    inline constexpr int numLowCutSteps = 6;
+    inline const juce::StringArray& lowCutNames()
+    {
+        static const juce::StringArray names { "Off", "60 Hz", "80 Hz", "100 Hz", "150 Hz", "200 Hz" };
+        return names;
+    }
+    inline constexpr float lowCutHz[numLowCutSteps] = { 0.0f, 60.0f, 80.0f, 100.0f, 150.0f, 200.0f };   // 0 = Off
+    inline constexpr int lowCutDefault = 0;
 
     // Input: drive in dB. Modelling choice: the hardware Input is a passive attenuator ahead of
     // a fixed threshold; a plugin needs gain above unity too, so the knob spans -24..+48 dB.
@@ -69,8 +81,7 @@ namespace FET
     inline constexpr float uiScales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f };
     inline constexpr int designWidth = 960, contentHeight = 400;   // the controls sit in the top 400
 
-    // ACOMP-08: the place kept free for the detector Low Cut control that ACOMP-07 will add, at the
-    // right of "Gain Reduction Off". Nothing is drawn or placed here yet: no dummy control, no parameter.
+    // ACOMP-08 kept this place free, at the right of "Gain Reduction Off", for the detector Low Cut (ACOMP-07).
     inline constexpr int lowCutX = 786, lowCutY = 314, lowCutWidth = 150, lowCutHeight = 32;
     inline constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
     inline constexpr int designHeight = contentHeight + footerHeight;

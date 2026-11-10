@@ -49,6 +49,13 @@ namespace FET
         void setAllButtons (bool on) noexcept;
         bool isAllButtons() const noexcept { return allButtons; }
 
+        // ACOMP-07 detector Low Cut (a Songsmith addition; the 1176 has none). A 12 dB/oct Butterworth
+        // high-pass that only the level detector listens through: the audio path is never filtered.
+        // 0 Hz = Off. Changes glide (cutoff and the Off/On blend are smoothed), so there are no clicks.
+        // Zero latency (an IIR filter), at the running (possibly oversampled) rate.
+        void setDetectorLowCutHz (float hz) noexcept;
+        float getDetectorLowCutHz() const noexcept { return lowCutHz; }
+
         // All Buttons ("British mode"): all four ratio buttons pressed. Sourced (UM p. 9, p. 22):
         // the ratio "goes to somewhere between 12:1 and 20:1", the bias points change, attack
         // lags on initial transients, attack and release keep changing, distortion rises
@@ -89,6 +96,23 @@ namespace FET
 
         float k = 3.0f, thresholdDb = -19.5f, kneeDb = 10.0f;   // k = ratio - 1 (feedback gain)
         float attackCoeff = 1.0f, releaseCoeff = 1.0f, grOffCoeff = 1.0f;
+
+        // Detector Low Cut: one Butterworth biquad per channel (double precision: at 4x oversampling the
+        // cutoff is a tiny fraction of the sample rate). Transposed direct form II.
+        struct Biquad { double z1 = 0.0, z2 = 0.0; };
+        void updateLowCutCoefficients() noexcept;
+        void advanceLowCutSmoothing() noexcept;
+
+        static constexpr double lowCutGlideSeconds = 0.02;
+        static constexpr int lowCutBlock = 16;          // samples between coefficient updates while gliding
+        float lowCutHz = 0.0f;                          // requested; 0 = Off
+        double lowCutTargetHz = 100.0;                  // the cutoff asked for (kept while Off, so switching on is instant)
+        double lowCutCurrentHz = 100.0;                 // the cutoff in use (glides to the target)
+        int lowCutCounter = 0;
+        double lowCutMix = 0.0, lowCutMixTarget = 0.0;  // 0 = detector hears everything, 1 = fully filtered
+        double lowCutGlide = 1.0;                       // per-block smoothing coefficient
+        double b0 = 1.0, b1 = 0.0, b2 = 0.0, a1 = 0.0, a2 = 0.0;
+        std::array<Biquad, maxChannels> lowCutState {};
 
         float gainReductionDb = 0.0f;
         std::atomic<float> peakGr { 0.0f };
