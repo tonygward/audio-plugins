@@ -6,12 +6,13 @@ import { atomic, lockedAsync, readState, claim, record } from './state.mjs';
 
 export const marker = job => `<!-- matrix-pickup:${job} -->`;
 
-export function pickupComment({ taskId, job, promptHash, revision, repository }) {
+export function pickupComment({ taskId, job, promptHash, revision, repository, limits = null }) {
   return [marker(job),
     `Matrix has picked up **${taskId}**.`, '',
     `- Matrix job: \`${job}\``,
     `- Prompt revision: \`${revision.slice(0, 12)}\` (prompt hash \`${promptHash.slice(0, 12)}\`)`,
-    `- Implementation repository: \`${repository}\``, '',
+    `- Implementation repository: \`${repository}\``,
+    ...(limits ? [`- Limits: ${limits}`] : []), '',
     'Progress, the pull request, CI results and any blockers will be posted on this issue. Nothing is merged until the required checks pass.'].join('\n');
 }
 
@@ -19,7 +20,7 @@ export function pickupComment({ taskId, job, promptHash, revision, repository })
  * Claim the selected card. Returns { claimed, ... }. Never throws for a refused claim.
  * io: { comment(repository, issue, body), hasComment(repository, issue, marker) }
  */
-export async function pickUp(stateDirectory, selected, { job, revision, io, now = () => new Date().toISOString() }) {
+export async function pickUp(stateDirectory, selected, { job, revision, io, limits = null, now = () => new Date().toISOString() }) {
   return lockedAsync(stateDirectory, async () => {
     const state = readState(stateDirectory);
     const active = Object.values(state.tasks).find(task => task.state === 'claimed');
@@ -32,19 +33,21 @@ export async function pickUp(stateDirectory, selected, { job, revision, io, now 
       issueRepository: selected.issueRepository, itemId: selected.itemId, claimedAt: now(), pickupCommentAt: null });
     record(state, { event: 'claimed', task: selected.taskId, job, issue: selected.issue });
     atomic(path.join(stateDirectory, 'state.json'), state); // durable before the comment
-    return { claimed: true, comment: await postPickupComment(stateDirectory, state, selected.taskId, { revision, io, now }) };
+    return { claimed: true, comment: await postPickupComment(stateDirectory, state, selected.taskId, { revision, io, limits, now }) };
   });
 }
 
 // Idempotent: a marker check prevents duplicate comments after a retry or restart.
-export async function postPickupComment(stateDirectory, state, taskId, { revision, io, now = () => new Date().toISOString() }) {
+export async function postPickupComment(stateDirectory, state, taskId, { revision, io, limits = null, now = () => new Date().toISOString() }) {
   const task = state.tasks[taskId];
   if (!task || task.state !== 'claimed' || !task.job) return { posted: false, reason: 'No active claim' };
   if (task.pickupCommentAt) return { posted: false, reason: 'Already commented' };
   try {
+    // The claim is durable. Move the card to Doing, then post the starting comment; both are safe to retry.
+    if (!task.movedToDoingAt && io.moveToDoing) { await io.moveToDoing(task.itemId); task.movedToDoingAt = now(); }
     const slug = task.issueRepository ?? task.repository;
     if (!(await io.hasComment(slug, task.issue, marker(task.job)))) {
-      await io.comment(slug, task.issue, pickupComment({ taskId, job: task.job, promptHash: task.hash, revision, repository: task.repository }));
+      await io.comment(slug, task.issue, pickupComment({ taskId, job: task.job, promptHash: task.hash, revision, repository: task.repository, limits }));
     }
     task.pickupCommentAt = now();
     record(state, { event: 'pickup-comment', task: taskId, job: task.job });
@@ -58,11 +61,11 @@ export async function postPickupComment(stateDirectory, state, taskId, { revisio
   }
 }
 
-export async function recoverPickupComments(stateDirectory, { revision, io, now }) {
+export async function recoverPickupComments(stateDirectory, { revision, io, limits = null, now }) {
   return lockedAsync(stateDirectory, async () => {
     const state = readState(stateDirectory), results = {};
     for (const task of Object.values(state.tasks)) {
-      if (task.state === 'claimed' && task.job && !task.pickupCommentAt) results[task.id] = await postPickupComment(stateDirectory, state, task.id, { revision, io, now });
+      if (task.state === 'claimed' && task.job && !task.pickupCommentAt) results[task.id] = await postPickupComment(stateDirectory, state, task.id, { revision, io, limits, now });
     }
     return results;
   });

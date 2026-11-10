@@ -129,17 +129,12 @@ test('a tick clears any earlier hand-off, even when it then selects nothing', as
   assert.equal(readHandoff(h.dir, { now: h.deps.clock() }), null);
 });
 
-test('Todo is only offered once per London day', async () => {
-  const noon = () => Date.now(); // dailyTime 00:00 makes the slot due whenever today has not been used
-  const fresh = harness({ cards: [node(1, 'Todo', 'A-01 — first')], dryRun: false }); fresh.config.dailyTime = '00:00';
-  assert.equal((await boardTick(fresh.config, { ...fresh.deps, clock: noon, handoff: true })).selected?.taskId, 'A-01');
-  const used = harness({ cards: [node(1, 'Todo', 'A-01 — first')], dryRun: false }); used.config.dailyTime = '00:00';
-  fs.writeFileSync(path.join(used.dir, 'state.json'), JSON.stringify({ schema: 1, tasks: {}, events: [], history: [], lastWorkerDaily: londonDay(new Date(noon())) }));
-  const result = await boardTick(used.config, { ...used.deps, clock: noon, handoff: true });
-  assert.equal(result.selected, null); assert.equal(result.blocker, 'No eligible card');
-  const doing = harness({ cards: [node(1, 'Doing', 'A-01 — first')], dryRun: false }); doing.config.dailyTime = '00:00';
-  fs.writeFileSync(path.join(doing.dir, 'state.json'), JSON.stringify({ schema: 1, tasks: {}, events: [], history: [], lastWorkerDaily: londonDay(new Date(noon())) }));
-  assert.equal((await boardTick(doing.config, { ...doing.deps, clock: noon, handoff: true })).selected?.taskId, 'A-01');
+test('Doing is claimed work: a Doing card with no claim blocks pickup, and only Todo cards are picked', async () => {
+  const stray = harness({ cards: [node(1, 'Doing', 'A-01 — first'), node(2, 'Todo', 'B-01 — second')], dryRun: false });
+  const blocked = await boardTick(stray.config, { ...stray.deps, handoff: true });
+  assert.equal(blocked.selected, null); assert.match(blocked.blocker, /Doing cards disagree/);
+  const clean = harness({ cards: [node(2, 'Todo', 'B-01 — second')], dryRun: false });
+  assert.equal((await boardTick(clean.config, { ...clean.deps, handoff: true })).selected.taskId, 'B-01');
 });
 
 test('hand-off validation: fresh, complete and unchanged only', () => {

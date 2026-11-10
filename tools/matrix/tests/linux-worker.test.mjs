@@ -206,15 +206,16 @@ import { parsePrompt } from '../backlog.mjs';
 import { validateBoardConfig } from '../linux-worker.mjs';
 
 const boardConfig = f => ({ ...f.config, batchLimit: 1, boardPickup: { enabled: true, projectId: 'P', repositories: ['example/plugins'], executionRepositories: ['example/plugins'],
-  promptRepository: 'example/plugins', statusFieldId: 'F', doneOptionId: 'O' } });
+  promptRepository: 'example/plugins', statusFieldId: 'F', doingOptionId: 'D', doneOptionId: 'O' } });
 const taskHash = f => parsePrompt('eq/prompts/41-fixture.md', fs.readFileSync(path.join(f.repo, 'eq/prompts/41-fixture.md'), 'utf8')).hash;
 const handoffFor = (f, extra = {}) => writeHandoff(f.config.stateDirectory, { job: 'matrix-test-1', revision: 'a'.repeat(40), now,
   selected: { taskId: 'EQ-41', promptHash: taskHash(f), status: 'Doing', issue: 41, itemId: 'item-41', repository: 'example/plugins', issueRepository: 'example/plugins', ...extra } });
 // The shared fake GitHub adapter does not know issue commands, so wrap it.
-const withIssues = a => { const comments = []; const run = async (exe, args, o) => {
+const withIssues = a => { const comments = [], moves = []; const run = async (exe, args, o) => {
   if (exe === GH && args[0] === 'issue' && args[1] === 'view') return { stdout: JSON.stringify({ comments: comments.map(body => ({ body })) }), stderr: '' };
-  if (exe === GH && args[0] === 'issue' && args[1] === 'comment') { comments.push(args[args.indexOf('--body') + 1]); return { stdout: '', stderr: '' }; }
-  return a.run(exe, args, o); }; return { run, seen: a.seen, comments }; };
+  if (exe === GH && args[0] === 'issue' && args[1] === 'comment') { if (a.failComment) throw Error('GitHub down'); comments.push(args[args.indexOf('--body') + 1]); return { stdout: '', stderr: '' }; }
+  if (exe === GH && args[0] === 'project' && args[1] === 'item-edit') { moves.push(args[args.indexOf('--single-select-option-id') + 1]); return { stdout: '', stderr: '' }; }
+  return a.run(exe, args, o); }; return { run, seen: a.seen, comments, moves, set failComment(v) { a.failComment = v; } }; };
 
 test('board mode without a hand-off idles: no fallback to the Markdown selector', async t => {
   const f = fixture(t), a = adapter(), report = await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
@@ -242,13 +243,20 @@ test('a stale, changed or already-claimed hand-off starts nothing', async t => {
   assert.match(report.reason, /Prompt changed/); assert.equal(a.seen.claude.length, 0);
 });
 
-test('Todo work uses up the overnight slot for the day; Doing does not', async t => {
-  const todo = fixture(t); handoffFor(todo, { status: 'Todo' });
-  await runLinuxWorker(boardConfig(todo), options(todo, withIssues(adapter()), { trigger: 'timer' }));
-  assert.ok(readState(todo.config.stateDirectory).lastWorkerDaily);
-  const doing = fixture(t); handoffFor(doing, { status: 'Doing' });
-  await runLinuxWorker(boardConfig(doing), options(doing, withIssues(adapter()), { trigger: 'timer' }));
-  assert.equal(readState(doing.config.stateDirectory).lastWorkerDaily, undefined);
+test('the card moves to Doing and the starting comment quotes the limits, before any code is written', async t => {
+  const f = fixture(t), a = withIssues(adapter()); handoffFor(f);
+  await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
+  assert.deepEqual(a.moves, ['D']);
+  assert.match(a.comments[0], /Limits: up to 10 Claude turns/); assert.match(a.comments[0], /60% weekly Claude usage/);
+  assert.ok(readState(f.config.stateDirectory).tasks['EQ-41'].movedToDoingAt);
+});
+
+test('no code is written when the starting comment cannot be posted; the task needs attention', async t => {
+  const f = fixture(t), base = adapter(), a = withIssues(base); a.failComment = true; handoffFor(f);
+  const report = await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
+  assert.equal(report.outcomes[0].interrupted, true); assert.equal(base.seen.claude.length, 0, 'Claude must not run');
+  const task = readState(f.config.stateDirectory).tasks['EQ-41'];
+  assert.equal(task.state, 'interrupted'); assert.match(task.reason, /Starting comment or Doing move failed/);
 });
 
 test('board configuration enforces one task and complete settings', t => {
@@ -258,6 +266,7 @@ test('board configuration enforces one task and complete settings', t => {
   assert.throws(() => validateBoardConfig({ ...good, worker: { ...good.worker, maximumPrompts: 2 } }), /maximumPrompts 1/);
   assert.throws(() => validateBoardConfig({ ...good, boardPickup: { ...good.boardPickup, projectId: '' } }), /Invalid boardPickup/);
   assert.throws(() => validateBoardConfig({ ...good, boardPickup: { ...good.boardPickup, doneOptionId: '' } }), /doneOptionId/);
+  assert.throws(() => validateBoardConfig({ ...good, boardPickup: { ...good.boardPickup, doingOptionId: undefined } }), /doingOptionId/);
   assert.throws(() => validateBoardConfig({ ...good, boardPickup: { ...good.boardPickup, tokenFile: 'relative' } }), /absolute/);
   assert.doesNotThrow(() => validateBoardConfig({ ...good, boardPickup: { enabled: false } }));
   assert.doesNotThrow(() => validateBoardConfig(f.config));

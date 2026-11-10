@@ -5,7 +5,8 @@
 import { matrixBranchTask } from './board.mjs';
 
 /**
- * kinds: requested (valid immediate request) | active (our running job) | in-review (open pull request)
+ * kinds: active (our claimed job) | in-review (open pull request) | release-pending (merged, delivery not verified)
+ *        | unclaimed (Doing without a claim: return to Todo) | needs-attention (interrupted or dead-lettered)
  *        | release-pending (merged, delivery not yet verified) | inconsistent (blocks enabling)
  */
 export function reconcileDoing(snapshot, prompts, pulls, tasks = {}) {
@@ -36,9 +37,9 @@ export function reconcileDoing(snapshot, prompts, pulls, tasks = {}) {
     else if (prompt.complete && !mergedPulls.length) add(card, 'inconsistent', 'Prompt is archived as merged but no merged Matrix pull request was found');
     else if (mergedPulls.length) add(card, 'release-pending', `Merged in #${mergedPulls.join(', #')}; delivery must be verified before Done. Never recode`);
     else if (task?.state === 'claimed') add(card, 'active',`Claimed by job ${task.job ?? 'unknown'}${openPulls.length ? `; open pull request #${openPulls.join(', #')}` : ''}`);
-    else if (task && ['interrupted', 'dead-letter'].includes(task.state)) add(card, 'inconsistent', `Durable state ${task.state}: needs an owner decision before pickup`);
+    else if (task && ['interrupted', 'dead-letter'].includes(task.state)) add(card, 'needs-attention', `Durable state ${task.state}: move to Needs attention with the reason; resume only on an explicit decision`);
     else if (openPulls.length) add(card, 'in-review', `Open pull request #${openPulls.join(', #')} already covers this task`);
-    else add(card, 'requested', 'Immediate work requested; not yet claimed');
+    else add(card, 'unclaimed', 'Doing without a claim is not pickup evidence: return the card to Todo');
   }
   // A claimed task whose card is missing from Doing or Todo means board and state disagree.
   for (const id of claimedIds) {
@@ -46,6 +47,6 @@ export function reconcileDoing(snapshot, prompts, pulls, tasks = {}) {
     if (!card) findings.push({ position: null, issue: tasks[id].issue ?? null, taskId: id, kind: 'inconsistent', detail: 'Claimed in worker state but no Doing or Todo card exists' });
   }
   if (claimedIds.length > 1) findings.push({ position: null, issue: null, taskId: null, kind: 'inconsistent', detail: `${claimedIds.length} tasks are claimed; only one job may be active` });
-  const blocking = findings.filter(f => f.kind === 'inconsistent');
+  const blocking = findings.filter(f => ['inconsistent', 'unclaimed', 'needs-attention'].includes(f.kind));
   return { ok: true, enableAllowed: blocking.length === 0, findings };
 }

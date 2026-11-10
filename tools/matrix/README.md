@@ -278,10 +278,12 @@ Each run is two steps in one process, run by `linux-worker.mjs`:
 
 1. **Board tick** (`board-run.mjs`). Reads the *Songsmith Development* board in its manual order and the open and merged pull requests in
    each repository, then resumes unfinished work: a lost pickup comment, or a merged task still waiting for beta delivery. It checks the Doing
-   cards against pull requests and worker state, applies the 60% weekly usage stop, and picks **one** task. Doing is immediate work, and
-   Todo is the overnight queue, offered once per London day after `dailyTime`. The choice goes to `board-handoff.json` in the state folder.
+   cards against pull requests and worker state, applies the 60% weekly usage stop, and picks **one** task. **Todo** is the ready queue, in board order.
+   **Doing** means genuinely claimed work and is never a request: a Doing card with no claim blocks pickup until it is returned to Todo.
+   The choice goes to `board-handoff.json` in the state folder.
 2. **Worker** (`linux-worker.mjs`). Under its own lock it re-checks the hand-off against a fresh copy of `main`, claims through its normal path,
-   comments on the tracking issue (task, Matrix job, prompt revision, repository), then builds. With no fresh, valid hand-off it does nothing.
+   moves the card to Doing, posts the starting comment (task, Matrix job, prompt revision, repository, limits), then builds. If either step fails it writes
+   no code and the task needs attention. With no fresh, valid hand-off it does nothing.
    There is no fallback to the Markdown selector.
 
 Delivery (`delivery.mjs`) runs in the next tick after a merge: verify the beta release, post the final comment, close the issue, then set the card
@@ -295,7 +297,7 @@ Config (all required when enabled; `batchLimit` and `worker.maximumPrompts` must
 ```json
 "boardPickup": {
   "enabled": true, "dryRun": true,
-  "projectId": "<project node id>", "statusFieldId": "<Status field id>", "doneOptionId": "<Done option id>",
+  "projectId": "<project node id>", "statusFieldId": "<Status field id>", "doingOptionId": "<Doing option id>", "doneOptionId": "<Done option id>",
   "repositories": ["owner/audio-plugins", "owner/songsmithstudio", "owner/songsmith-website"],
   "executionRepositories": ["owner/audio-plugins"], "promptRepository": "owner/audio-plugins",
   "downloadEvidence": "worker-checked", "tokenFile": "/absolute/path/to/board-token"
@@ -305,4 +307,5 @@ Config (all required when enabled; `batchLimit` and `worker.maximumPrompts` must
 The token needs to read the project and both repositories, and to comment on and close issues. It must not be able to publish releases.
 `tokenFile` is optional and defaults to the worker's token. A separate board token is recommended.
 
-**Known gap:** a claimed task whose worker died stays claimed. The tick reports it and picks nothing until the owner clears it (see issue #175).
+**Known gaps:** a claimed task whose worker died stays claimed; the tick reports it and picks nothing until the owner clears it (see issue #175).
+The board has no **Needs attention** column yet and RUN NOW is not implemented, so interrupted work is reported but not moved automatically.

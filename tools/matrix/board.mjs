@@ -109,7 +109,7 @@ export function normaliseCard(node, index) {
  * context: { now, usage, scopedUsagePercent[], tasks, activeJob, mergedTaskIds, openPullTaskIds, executionPaths }
  */
 export function selectFromBoard(snapshot, prompts, context) {
-  const { now = Date.now(), usage, scopedUsagePercent = [], tasks = {}, activeJob = null, mergedTaskIds = new Set(), openPullTaskIds = new Set(), executionPaths = new Set(), promptRepository = null, statuses = ['Doing', 'Todo'] } = context;
+  const { now = Date.now(), usage, scopedUsagePercent = [], tasks = {}, activeJob = null, mergedTaskIds = new Set(), openPullTaskIds = new Set(), executionPaths = new Set(), promptRepository = null, statuses = ['Todo'] } = context;
   const stop = reason => ({ selected: null, decisions: [], blocker: reason });
   if (!snapshot?.ok) return stop(snapshot?.reason ?? 'No board snapshot');
   const age = now - Date.parse(snapshot.fetchedAt);
@@ -122,8 +122,8 @@ export function selectFromBoard(snapshot, prompts, context) {
 
   const byId = new Map(prompts.map(p => [p.id, p]));
   const complete = new Set(prompts.filter(p => p.complete).map(p => p.id));
-  // Doing requests immediate work; Todo is the overnight queue. Each keeps board order.
-  const queue = ['Doing', 'Todo'].filter(status => statuses.includes(status)).flatMap(status => snapshot.cards.filter(card => card.status === status));
+  // Todo is the ready queue, in board order. Doing is claimed work, never a request, so it is not a candidate.
+  const queue = statuses.flatMap(status => snapshot.cards.filter(card => card.status === status));
   const decisions = [], seen = new Set();
   let selected = null;
   for (const card of queue) {

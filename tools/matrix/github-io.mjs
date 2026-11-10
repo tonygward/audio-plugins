@@ -2,7 +2,7 @@
 // that returns stdout, so tests need no network and the caller decides which token it holds.
 // Private storage, website and download checks come from verifiers.mjs. Any that is not supplied
 // throws, and delivery verification fails closed (the issue stays open, the card stays in Doing).
-export function githubIo(gh, { projectId, statusFieldId, doneOptionId, maxReleases = 30, verifiers = {} } = {}) {
+export function githubIo(gh, { projectId, statusFieldId, doneOptionId, doingOptionId, maxReleases = 30, verifiers = {} } = {}) {
   const json = async args => JSON.parse(await gh(args));
   const notConfigured = what => async () => { throw new Error(`${what} verifier is not configured`); };
   return {
@@ -30,6 +30,10 @@ export function githubIo(gh, { projectId, statusFieldId, doneOptionId, maxReleas
     },
     comment: async (repository, issue, body) => { await gh(['issue', 'comment', String(issue), '--repo', repository, '--body', body]); },
     closeIssue: async (repository, issue) => { await gh(['issue', 'close', String(issue), '--repo', repository, '--reason', 'completed']); },
+    moveToDoing: async itemId => {
+      if (!projectId || !statusFieldId || !doingOptionId) throw new Error('Board Doing field is not configured');
+      await gh(['project', 'item-edit', '--id', itemId, '--project-id', projectId, '--field-id', statusFieldId, '--single-select-option-id', doingOptionId]);
+    },
     setDone: async itemId => {
       if (!projectId || !statusFieldId || !doneOptionId) throw new Error('Board Done field is not configured');
       await gh(['project', 'item-edit', '--id', itemId, '--project-id', projectId, '--field-id', statusFieldId, '--single-select-option-id', doneOptionId]);

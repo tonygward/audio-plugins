@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { digest, scan, select } from './backlog.mjs';
 import { atomic, lockedAsync, readState, reconcile, claim, finish, record } from './state.mjs';
 import { checkClaudeUsage, validateUsageConfig } from './usage.mjs';
-import { usageGate, dailyDue, londonDay } from './policy.mjs';
+import { usageGate, dailyDue, londonDay, WEEKLY_LIMIT_PERCENT } from './policy.mjs';
 import { worktreePlan } from './validation.mjs';
 import { runProcess } from './process.mjs';
 import { agentArguments, validateChanges, parseAgent } from './worker.mjs';
@@ -51,10 +51,21 @@ export function validateBoardConfig(config) {
   const list = v => Array.isArray(v) && v.length > 0 && v.every(slug);
   if (config.batchLimit !== 1 || config.worker.maximumPrompts !== 1) throw Error('Board pickup requires batchLimit 1 and maximumPrompts 1');
   if (typeof b.projectId !== 'string' || !b.projectId || !list(b.repositories) || !list(b.executionRepositories) || !slug(b.promptRepository)) throw Error('Invalid boardPickup configuration');
-  if (typeof b.statusFieldId !== 'string' || typeof b.doneOptionId !== 'string' || !b.statusFieldId || !b.doneOptionId) throw Error('boardPickup needs statusFieldId and doneOptionId');
+  if (['statusFieldId', 'doneOptionId', 'doingOptionId'].some(key => typeof b[key] !== 'string' || !b[key])) throw Error('boardPickup needs statusFieldId, doingOptionId and doneOptionId');
   if (b.tokenFile !== undefined && !path.isAbsolute(b.tokenFile)) throw Error('boardPickup.tokenFile must be absolute');
   if (b.downloadEvidence !== undefined && b.downloadEvidence !== 'worker-checked') throw Error('Unknown downloadEvidence');
   if (b.dryRun !== undefined && typeof b.dryRun !== 'boolean') throw Error('dryRun must be a boolean');
+}
+
+export function boardIo(gh, config, verifiers = {}) {
+  const b = config.boardPickup;
+  return githubIo(gh, { projectId: b.projectId, statusFieldId: b.statusFieldId, doingOptionId: b.doingOptionId, doneOptionId: b.doneOptionId, verifiers });
+}
+
+// The limits this run actually enforces, quoted in the starting comment.
+export function limitsText(config) {
+  const w = config.worker;
+  return `up to ${w.maximumTurns} Claude turns and a ${w.maximumBudgetUsd} dollar budget per attempt, ${Math.round(w.timeoutSeconds / 60)} minutes per attempt, ${w.maximumRepairs} CI repairs; no new work at or above ${WEEKLY_LIMIT_PERCENT}% weekly Claude usage`;
 }
 
 // Run the board tick, then the worker. The tick holds no Claude access: it decides, delivers and hands off.
@@ -72,9 +83,9 @@ export async function runBoardWorker(config, options = {}) {
     { cwd: config.repository, env: { ...base, GH_TOKEN: token() }, timeoutMs: 120000 })).stdout.trimEnd();
   const gh = async args => (await run(w.ghExecutable, args, { cwd: config.repository, env: { ...base, GH_TOKEN: token() }, timeoutMs: 120000 })).stdout;
   const verifiers = betaVerifiers(gh, b.downloadEvidence === 'worker-checked' ? { workerChecked: true } : {});
-  const io = githubIo(gh, { projectId: b.projectId, statusFieldId: b.statusFieldId, doneOptionId: b.doneOptionId, verifiers });
+  const io = boardIo(gh, config, verifiers);
   const jobId = `matrix-${new Date(clock()).toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`;
-  const tick = await boardTick(config, { graphql: ghGraphql(gh), io, loadUsage, loadPrompts: promptLoader(git), jobId, clock, handoff: true });
+  const tick = await boardTick(config, { graphql: ghGraphql(gh), io, loadUsage, loadPrompts: promptLoader(git), jobId, clock, handoff: true, limits: limitsText(config) });
   if (!tick.selected) return { liveExecution: true, idle: true, board: { blocker: tick.blocker ?? null } };
   return runLinuxWorker(config, { ...options, trigger: 'board' });
 }
@@ -187,8 +198,13 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
       if (handoff) {
         // Durable claim first, then the pickup comment. A failed comment keeps the claim and is retried by the next tick.
         Object.assign(task, boardFields(handoff, new Date(clock()).toISOString())); clearHandoff(dir); save();
-        const posted = await postPickupComment(dir, state, p.id, { revision: initial.revision, io: githubIo(gh) });
+        const posted = await postPickupComment(dir, state, p.id, { revision: initial.revision, io: boardIo(gh, config), limits: limitsText(config) });
         log(p.id, 'board-pickup', { job: handoff.job, commented: posted.posted === true });
+        if (posted.posted !== true) {
+          // No code without a recorded claim and a successful starting comment. The task needs attention; nothing was written.
+          finish(state, p.id, 'interrupted', { phase: 'claimed', reason: 'Starting comment or Doing move failed; no code written. Return to Todo to retry' });
+          log(p.id, 'interrupted', { error: posted.reason ?? 'Starting comment failed' }); outcomes.push({ id: p.id, interrupted: true }); break;
+        }
       }
       const plan = worktreePlan(w.worktreeRoot, p.id, initial.revision);
       Object.assign(task, { branch: plan.branch, worktree: plan.directory, phase: 'claimed' }); save();
@@ -300,8 +316,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
         log(p.id, 'interrupted', { error: String(error?.message ?? error).slice(0, 300) }); outcomes.push({ id: p.id, interrupted: true }); break;
       }
     }
-    // Todo is the overnight queue: one overnight task per London day. Doing is immediate and does not use it up.
-    if (trigger === 'daily' || (handoff && handoff.status === 'Todo')) state.lastWorkerDaily = londonDay(new Date(clock()));
+    if (trigger === 'daily') state.lastWorkerDaily = londonDay(new Date(clock()));
     save();
     const report = { time: new Date(clock()).toISOString(), liveExecution: true, outcomes, merged: false, released: false };
     atomic(path.join(dir, 'latest-worker-report.json'), report);

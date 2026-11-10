@@ -8,10 +8,11 @@ const snap = (...cards) => ({ ok: true, cards });
 const pr = (number, state, headRefName, title = 'x') => ({ number, state, headRefName, title });
 const kinds = result => result.findings.map(f => [f.taskId, f.kind]);
 
-test('a fresh Doing card is a valid immediate request', () => {
+test('a Doing card with no claim is not pickup evidence: return it to Todo, and enabling waits', () => {
   const r = reconcileDoing(snap(card(1, 'A-01')), [prompt('A-01')], [], {});
-  assert.deepEqual(kinds(r), [['A-01', 'requested']]);
-  assert.equal(r.enableAllowed, true);
+  assert.deepEqual(kinds(r), [['A-01', 'unclaimed']]);
+  assert.match(r.findings[0].detail, /return the card to Todo/);
+  assert.equal(r.enableAllowed, false);
 });
 
 test('merged Matrix work stays release-pending and is never recoded', () => {
@@ -38,13 +39,14 @@ test('an open pull request or our own claim is recognised, not re-picked', () =>
 test('closed issue, missing prompt, duplicates and non-issue cards block enabling', () => {
   const r = reconcileDoing(snap(card(1, 'A-01', { state: 'CLOSED' }), card(2, 'B-01'), card(3, 'C-01'), card(4, 'C-01'), card(5, null, { issue: null }), card(6, null)),
     [prompt('A-01'), prompt('C-01')], [], {});
-  assert.deepEqual(kinds(r).map(k => k[1]), ['inconsistent', 'inconsistent', 'requested', 'inconsistent', 'inconsistent', 'inconsistent']);
+  assert.deepEqual(kinds(r).map(k => k[1]), ['inconsistent', 'inconsistent', 'unclaimed', 'inconsistent', 'inconsistent', 'inconsistent']);
   assert.equal(r.enableAllowed, false);
 });
 
-test('interrupted or dead-lettered tasks need an owner decision', () => {
+test('interrupted or dead-lettered tasks go to Needs attention', () => {
   for (const state of ['interrupted', 'dead-letter']) {
     const r = reconcileDoing(snap(card(1, 'A-01')), [prompt('A-01')], [], { 'A-01': { id: 'A-01', state } });
+    assert.equal(r.findings[0].kind, 'needs-attention');
     assert.equal(r.enableAllowed, false);
     assert.match(r.findings[0].detail, new RegExp(state));
   }

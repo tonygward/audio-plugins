@@ -24,10 +24,11 @@ test('ordering ignores task ID, issue number and prompt priority', () => {
   assert.equal(result.selected.taskId, 'Z-99');
 });
 
-test('Doing is picked before Todo, each in board order', () => {
+test('only Todo is queued; Doing is claimed work and is never picked', () => {
   const result = selectFromBoard(snapshot(card('Todo', 1, 'A-01'), card('Doing', 2, 'B-01'), card('Backlog', 3, 'C-01')), prompts, base());
-  assert.equal(result.selected.taskId, 'B-01');
-  assert.equal(result.decisions.some(d => d.taskId === 'C-01'), false, 'Backlog excluded');
+  assert.equal(result.selected.taskId, 'A-01');
+  assert.deepEqual(result.decisions.map(d => d.taskId), ['A-01'], 'Doing and Backlog are not candidates');
+  assert.equal(selectFromBoard(snapshot(card('Doing', 2, 'B-01')), prompts, base()).selected, null);
 });
 
 test('cards from other repositories and prefixes are considered, never refused by location', () => {
