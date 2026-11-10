@@ -553,11 +553,14 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         bandCountLabel.setBounds (row.removeFromRight (juce::jmin (countWidth, row.getWidth())));
     }
 
+    juce::Rectangle<int> guidanceInRowTwo;   // used only if the third row is too full
     {
         auto row = area.removeFromTop (rowHeight).reduced (margin, 3);
         phaseBox.setBounds (row.removeFromLeft (comboWidth (phaseBox)));
         row.removeFromLeft (gap);
         oversamplingBox.setBounds (row.removeFromLeft (comboWidth (oversamplingBox)));
+        row.removeFromLeft (gap);
+        guidanceInRowTwo = row.removeFromLeft (buttonWidth ({ guidanceButton->getButtonText() }));
 
         outputSlider.setBounds (row.removeFromRight (barWidth ({ "Output -24.0 dB", "Output +24.0 dB" })));
         row.removeFromRight (gap);
@@ -580,9 +583,19 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         row.removeFromLeft (4);
         guideBox.setBounds (row.removeFromLeft (comboWidth (guideBox)));
         row.removeFromLeft (gap);
-        guidanceButton->setBounds (row.removeFromLeft (buttonWidth ({ guidanceButton->getButtonText() })));   // beside the Frequency Guide
-        row.removeFromLeft (gap);
-        row.removeFromLeft (gap);
+        // Beside the Frequency Guide when there is room for it; otherwise in the free space of the row above,
+        // so it never overlaps or gets squeezed at the smallest window size.
+        const int guidanceWidth = buttonWidth ({ guidanceButton->getButtonText() });
+        if (row.getWidth() >= guidanceWidth + gap * 2)
+        {
+            guidanceButton->setBounds (row.removeFromLeft (guidanceWidth));
+            row.removeFromLeft (gap);
+            row.removeFromLeft (gap);
+        }
+        else
+        {
+            guidanceButton->setBounds (guidanceInRowTwo);
+        }
 
         const int hintWidth = (int) std::ceil (juce::GlyphArrangement::getStringWidth (hintLabel.getFont(), hintLabel.getText()))
                               + hintLabel.getBorderSize().getLeftAndRight() + 2;
