@@ -39,3 +39,17 @@ The Songsmith EQ output meter must match the track's audio layout: **two visible
 
 ## Delivery
 Use the repository's PR/CI workflow; create a branch, build and test, open a PR and merge only when checks pass. Keep the task to a UI/metering enhancement; avoid unrelated refactoring. Record the decisions, tests and screenshots. Mark EQ-39 done/move the prompt to `done/` **only when merged**. Do not bump suite version in this task; align with the next approved release checkpoint.
+
+
+## Lifecycle update — 10 November 2026 (authoritative)
+
+This section supersedes older scheduling/status/completion wording in this prompt. Follow [the current execution policy](https://github.com/tonygward/audio-plugins/blob/main/docs/songsmith-execution-policy.md).
+
+- [AUTO-11 #175](https://github.com/tonygward/audio-plugins/issues/175): board statuses, verified visible manual order, atomic claim and handoff. Todo is ready; Doing means genuinely claimed with a start comment, never an implicit run-now command. Needs attention is excluded from automatic pickup.
+- [AUTO-12 #180](https://github.com/tonygward/audio-plugins/issues/180): standard bounded Claude task loop. Defaults 120 minutes elapsed/run, three total repair iterations and an explicit finite configured Claude turn/token budget. One task/run, one active job; verified weekly/scoped usage below 60%, unknown/stale blocks new agent work.
+- On limit/blocker, save branch/SHA/PR/checks/delivery stage, comment with progress, actual reason, remaining work and resume action, leave open and set Needs attention. No automatic next-poll retry. Explicit Todo/run-now resumes saved work without duplicate coding or publication.
+- [AUTO-10 #157](https://github.com/tonygward/audio-plugins/issues/157): trusted delivery and finalisation. Exact-head required checks and relevant native CI precede automatic merge. Plugin changes require release, both suite installers, private R2 and matching authenticated beta downloads. Website-only tasks verify live deployment; infrastructure-only tasks verify deployed runtime/workflows; no unrelated plugin release. Parent epics/historical trackers are not additional jobs.
+- Final task-appropriate acceptance evidence comment must succeed before issue close and board Done. A failed board update after close retries finalisation only. Keep merged work intact while delivery is pending. Prompt archives alone are not delivery evidence.
+- Qualifying plugin main builds automatically increment only the third beta VERSION component. Major/minor increments deferred; documentation-only changes do not bump or publish.
+
+This archived implementation remains historical and must not be requeued; reconcile delivery evidence only.
