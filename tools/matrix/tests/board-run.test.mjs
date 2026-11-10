@@ -4,16 +4,17 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { boardTick, syncMerges, refreshTasks } from '../board-run.mjs';
-import { readState } from '../state.mjs';
+import { readState, atomic } from '../state.mjs';
 
 const repo = 'tonygward/audio-plugins', revision = 'a'.repeat(40);
 const prompt = id => ({ id, file: `shared/prompts/${id}.md`, hash: `hash-${id}-0123456789`, complete: false, deferred: false, excluded: false, blocked: false, execution: 'scheduled', dependencies: [], repository: repo });
 const node = (n, status, title) => ({ id: `item-${n}`, status: { name: status }, content: { __typename: 'Issue', number: n, title, state: 'OPEN', repository: { nameWithOwner: repo } } });
 
-function harness({ cards, pulls = [], usage = { allowed: true, extraUsageEnabled: false, snapshot: null }, enabled = true, dryRun } = {}) {
+const NOON = Date.parse('2026-11-10T12:00:00Z');
+function harness({ cards, pulls = [], usage = { allowed: true, extraUsageEnabled: false, snapshot: null }, enabled = true, dryRun, now = NOON, lastWorkerDaily } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tick-'));
-  const config = { stateDirectory: dir, claudeUsage: {}, boardPickup: { enabled, ...(dryRun === undefined ? {} : { dryRun }), projectId: 'P', repositories: [repo], executionRepositories: [repo], promptRepository: repo } };
-  const now = Date.now();
+  const config = { stateDirectory: dir, dailyTime: '02:00', claudeUsage: {}, boardPickup: { enabled, ...(dryRun === undefined ? {} : { dryRun }), projectId: 'P', repositories: [repo], executionRepositories: [repo], promptRepository: repo } };
+  if (lastWorkerDaily) { const seeded = readState(dir); seeded.lastWorkerDaily = lastWorkerDaily; atomic(path.join(dir, 'state.json'), seeded); }
   const comments = [], calls = [];
   const io = {
     hasComment: async (r, i, marker) => comments.some(c => c.body.includes(marker)),
@@ -154,4 +155,25 @@ test('hand-off validation: fresh, complete and unchanged only', () => {
   assert.match(adoptHandoff(state, [{ id: 'A-01', hash: 'h2' }], handoff).reason, /changed/);
   assert.match(adoptHandoff(state, [], handoff).reason, /no longer exists/);
   assert.match(adoptHandoff({ tasks: { 'A-01': { state: 'claimed' } } }, [{ id: 'A-01', hash: 'h1' }], handoff).reason, /not pending \(claimed\)/);
+});
+
+test('Todo is the overnight queue: one a day after dailyTime; Doing is offered at every run', async () => {
+  const mixed = [node(1, 'Todo', 'A-01 — first'), node(2, 'Doing', 'B-01 — second')];
+  const used = harness({ cards: [node(1, 'Todo', 'A-01 — first')], lastWorkerDaily: '2026-11-10' });
+  assert.equal((await boardTick(used.config, used.deps)).selected, null, 'the slot for this London day is used');
+  const early = harness({ cards: [node(1, 'Todo', 'A-01 — first')], now: Date.parse('2026-11-10T01:30:00Z'), lastWorkerDaily: '2026-11-09' });
+  assert.equal((await boardTick(early.config, early.deps)).selected, null, 'before 02:00 London');
+  const due = harness({ cards: [node(1, 'Todo', 'A-01 — first')], now: Date.parse('2026-11-10T02:30:00Z'), lastWorkerDaily: '2026-11-09' });
+  assert.equal((await boardTick(due.config, due.deps)).selected.taskId, 'A-01', 'after 02:00 London with yesterday as the last slot');
+  const run = harness({ cards: mixed, lastWorkerDaily: '2026-11-10' });
+  assert.equal((await boardTick(run.config, run.deps)).selected.taskId, 'B-01', 'Doing ignores the daily slot');
+});
+
+test('a live Todo pickup uses up the day; a Doing pickup does not', async () => {
+  const t1 = harness({ cards: [node(1, 'Todo', 'A-01 — first')], dryRun: false, lastWorkerDaily: '2026-11-09' });
+  assert.equal((await boardTick(t1.config, t1.deps)).selected.taskId, 'A-01');
+  assert.equal(readState(t1.dir).lastWorkerDaily, '2026-11-10');
+  const d1 = harness({ cards: [node(1, 'Doing', 'A-01 — first')], dryRun: false, lastWorkerDaily: '2026-11-09' });
+  assert.equal((await boardTick(d1.config, d1.deps)).selected.taskId, 'A-01');
+  assert.equal(readState(d1.dir).lastWorkerDaily, '2026-11-09');
 });

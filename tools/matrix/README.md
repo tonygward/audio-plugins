@@ -278,7 +278,7 @@ Each run is two steps in one process, run by `linux-worker.mjs`:
 
 1. **Board tick** (`board-run.mjs`). Reads the *Songsmith Development* board in its manual order and the open and merged pull requests in
    each repository, then resumes unfinished work: a lost pickup comment, or a merged task still waiting for beta delivery. It checks the Doing
-   cards against pull requests and worker state, applies the 60% weekly usage stop, and picks **one** task. **Todo** is the ready queue, in board order.
+   cards against pull requests and worker state, applies the 60% weekly usage stop, and picks **one** task. **Todo** is the overnight queue, in board order: one task per London day, on the first run after `dailyTime`.
    **Doing** is a run-now request: a Doing card with no claim is picked up ahead of Todo. A deferred card is left alone and blocks nothing: set the board **Execution** field to Deferred (Run Now or Scheduled releases it); with any other value the prompt's own deferred status decides.
    The choice goes to `board-handoff.json` in the state folder.
 2. **Worker** (`linux-worker.mjs`). Under its own lock it re-checks the hand-off against a fresh copy of `main`, claims through its normal path,

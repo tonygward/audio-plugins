@@ -271,3 +271,11 @@ test('board configuration enforces one task and complete settings', t => {
   assert.doesNotThrow(() => validateBoardConfig({ ...good, boardPickup: { enabled: false } }));
   assert.doesNotThrow(() => validateBoardConfig(f.config));
 });
+
+test('a Todo pickup uses up the overnight slot for the London day; a Doing pickup does not', async t => {
+  for (const [status, expected] of [['Todo', true], ['Doing', false]]) {
+    const f = fixture(t), a = withIssues(adapter()); handoffFor(f, { status });
+    await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
+    assert.equal(Boolean(readState(f.config.stateDirectory).lastWorkerDaily), expected, status);
+  }
+});

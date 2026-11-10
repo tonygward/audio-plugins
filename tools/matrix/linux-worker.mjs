@@ -199,7 +199,10 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
       if (!claim(state, p, initial.revision)) { save(); continue; }
       if (handoff) {
         // Durable claim first, then the pickup comment. A failed comment keeps the claim and is retried by the next tick.
-        Object.assign(task, boardFields(handoff, new Date(clock()).toISOString())); clearHandoff(dir); save();
+        Object.assign(task, boardFields(handoff, new Date(clock()).toISOString())); clearHandoff(dir);
+        // A Todo pickup uses up the overnight slot for this London day; a Doing (run-now) pickup does not.
+        if (handoff.status === 'Todo') state.lastWorkerDaily = londonDay(new Date(clock()));
+        save();
         const posted = await postPickupComment(dir, state, p.id, { revision: initial.revision, io: boardIo(boardGh, config), limits: limitsText(config) });
         log(p.id, 'board-pickup', { job: handoff.job, commented: posted.posted === true });
         if (posted.posted !== true) {
