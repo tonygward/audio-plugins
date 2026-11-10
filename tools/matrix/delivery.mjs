@@ -34,14 +34,19 @@ export async function verifyDelivery(delivery, io) {
     evidence.release = { tag: release.tag, url: release.url, version: release.version, assets: release.assets.map(a => a.name) };
     if (names) {
       const sizes = new Map(release.assets.map(a => [a.name, a.size]));
-      const stored = new Map((await io.r2(release.version)).map(o => [o.name, o.size]));
-      for (const name of names) if (stored.get(name) !== sizes.get(name)) missing.push(`Private storage object missing or different size: ${name}`);
-      const site = await io.site();
-      if (site?.version !== release.version) missing.push(`Beta website shows ${site?.version ?? 'no version'}, not ${release.version}`);
-      if (!site?.changelogVersions?.includes(release.version)) missing.push('Beta website changelog does not list this version');
-      const downloads = await io.downloads(release.version);
-      for (const [key, name] of [['windows', names[0]], ['macos', names[1]]]) {
-        if (!downloads?.[key]?.ok || downloads[key].bytes !== sizes.get(name)) missing.push(`Authenticated ${key} download failed or wrong size`);
+      // Each check runs on its own, so one unavailable verifier cannot hide the others' findings.
+      const attempt = async (label, fn) => { try { return await fn(); } catch (error) { missing.push(`${label} could not be verified: ${String(error.message).slice(0, 120)}`); return null; } };
+      const stored = await attempt('Private storage', async () => new Map((await io.r2(release.version)).map(o => [o.name, o.size])));
+      if (stored) for (const name of names) if (stored.get(name) !== sizes.get(name)) missing.push(`Private storage object missing or different size: ${name}`);
+      const site = await attempt('Beta website', () => io.site());
+      if (site) {
+        if (site.version !== release.version) missing.push(`Beta website shows ${site.version ?? 'no version'}, not ${release.version}`);
+        if (!site.changelogVersions?.includes(release.version)) missing.push('Beta website changelog does not list this version');
+        if (site.deployed === false) missing.push('Beta website deployment is not confirmed');
+      }
+      const downloads = await attempt('Authenticated downloads', () => io.downloads(release.version));
+      if (downloads) for (const [key, name] of [['windows', names[0]], ['macos', names[1]]]) {
+        if (!downloads[key]?.ok || downloads[key].bytes !== sizes.get(name)) missing.push(`Authenticated ${key} download failed or wrong size`);
       }
       evidence.deployment = { websiteVersion: site?.version ?? null, privateStorage: names, downloads: { windows: !!downloads?.windows?.ok, macos: !!downloads?.macos?.ok } };
     }

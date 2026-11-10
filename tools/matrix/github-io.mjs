@@ -1,9 +1,8 @@
 // GitHub-backed io for pickup.mjs and delivery.mjs. Every call goes through an injected `gh(args)`
 // that returns stdout, so tests need no network and the caller decides which token it holds.
-// Private storage, the beta website and authenticated downloads are NOT implemented here: they need
-// credentials that belong to a trusted component. Until one is supplied they throw, and delivery
-// verification fails closed (the issue stays open, the card stays in Doing).
-export function githubIo(gh, { projectId, statusFieldId, doneOptionId, maxReleases = 30 } = {}) {
+// Private storage, website and download checks come from verifiers.mjs. Any that is not supplied
+// throws, and delivery verification fails closed (the issue stays open, the card stays in Doing).
+export function githubIo(gh, { projectId, statusFieldId, doneOptionId, maxReleases = 30, verifiers = {} } = {}) {
   const json = async args => JSON.parse(await gh(args));
   const notConfigured = what => async () => { throw new Error(`${what} verifier is not configured`); };
   return {
@@ -35,8 +34,8 @@ export function githubIo(gh, { projectId, statusFieldId, doneOptionId, maxReleas
       if (!projectId || !statusFieldId || !doneOptionId) throw new Error('Board Done field is not configured');
       await gh(['project', 'item-edit', '--id', itemId, '--project-id', projectId, '--field-id', statusFieldId, '--single-select-option-id', doneOptionId]);
     },
-    r2: notConfigured('Private storage'),
-    site: notConfigured('Beta website'),
-    downloads: notConfigured('Authenticated download')
+    r2: verifiers.r2 ?? notConfigured('Private storage'),
+    site: verifiers.site ?? notConfigured('Beta website'),
+    downloads: verifiers.downloads ?? notConfigured('Authenticated download')
   };
 }
