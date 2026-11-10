@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchBoard, normaliseCard, selectFromBoard, BOARD_STALE_MS } from '../board.mjs';
+import { fetchBoard, fetchPulls, pullTaskState, normaliseCard, selectFromBoard, BOARD_STALE_MS } from '../board.mjs';
 import { TELEMETRY_SOURCE } from '../policy.mjs';
 
 const now = Date.parse('2026-11-10T02:00:00Z');
@@ -119,4 +119,35 @@ test('fetchBoard fails closed on API errors, partial snapshots and unverified vi
 test('normaliseCard handles pull requests and draft cards', () => {
   assert.equal(normaliseCard({ id: 'x', status: { name: 'Todo' }, content: { __typename: 'PullRequest', title: 'SUI-16: fix' } }, 0).issue, null);
   assert.equal(normaliseCard({ id: 'y', status: null, content: null }, 1).status, null);
+});
+
+const pr = (state, headRefName, title) => ({ state, headRefName, title, number: 1 });
+
+test('only Matrix implementation branches count as merged; prompt-only and fix PRs do not', () => {
+  const { merged, open } = pullTaskState([
+    pr('MERGED', 'matrix/sui-16-0d2f16c74f0a', 'SUI-16: Matrix implementation'),
+    pr('MERGED', 'sui-16-prompt', 'SUI-16: prompt for a fully visible version label'),
+    pr('MERGED', 'fix/worker-turn-check', 'AUTO-01: turn check becomes a runaway guard'),
+    pr('CLOSED', 'matrix/sui-09-9ed1107ea40d', 'SUI-09: Matrix implementation'),
+    pr('OPEN', 'auto-11-board-driven-pickup', 'AUTO-11: board-ordered pickup (partial)'),
+    pr('OPEN', 'matrix/max-07-abc123', 'Loudness work')]);
+  assert.deepEqual([...merged], ['SUI-16']);
+  assert.deepEqual([...open].sort(), ['AUTO-11', 'MAX-07']);
+});
+
+test('an open pull request already covering a task blocks recoding it', () => {
+  const result = selectFromBoard(snapshot(card('Todo', 1, 'A-01'), card('Todo', 2, 'B-01')), prompts, base({ openPullTaskIds: new Set(['A-01']) }));
+  assert.match(result.decisions[0].reason, /open pull request/);
+  assert.equal(result.selected.taskId, 'B-01');
+});
+
+test('fetchPulls reads open and merged pulls per repository and fails closed', async () => {
+  const seen = [];
+  const ok = await fetchPulls(async (query, vars) => { seen.push(`${vars.name}:${vars.states[0]}`);
+    return { data: { repository: { pullRequests: { pageInfo: { hasNextPage: false }, nodes: [{ number: 1, state: vars.states[0], title: 'T-01: x', headRefName: 'b' }] } } } }; }, ['o/a', 'o/b']);
+  assert.equal(ok.ok, true);
+  assert.deepEqual(seen, ['a:OPEN', 'a:MERGED', 'b:OPEN', 'b:MERGED']);
+  assert.equal(ok.pulls.length, 4);
+  assert.equal((await fetchPulls(async () => ({ data: { repository: null } }), ['o/a'])).ok, false);
+  assert.match((await fetchPulls(async () => { throw new Error('boom'); }, ['o/a'])).reason, /read failed: boom/);
 });

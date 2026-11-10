@@ -48,6 +48,50 @@ export async function fetchBoard(graphql, projectId, { clock = Date.now } = {}) 
   }
 }
 
+const PULLS_QUERY = `query($owner: String!, $name: String!, $states: [PullRequestState!], $after: String) {
+  repository(owner: $owner, name: $name) { pullRequests(first: 100, after: $after, states: $states, orderBy: { field: UPDATED_AT, direction: DESC }) {
+    pageInfo { hasNextPage endCursor } nodes { number state title headRefName }
+  } }
+}`;
+
+// Pull requests that show a task is already being or has been implemented. Open pull requests
+// of every kind are read completely. Merged ones are the most recent 100 per repository; the
+// archived prompt (backlog complete flag) is the backstop for anything older.
+export async function fetchPulls(graphql, repositories) {
+  const pulls = [];
+  try {
+    for (const full of repositories) {
+      const [owner, name] = full.split('/');
+      for (const states of [['OPEN'], ['MERGED']]) {
+        let after = null;
+        for (let page = 0; page < MAX_PAGES; page++) {
+          const data = (await graphql(PULLS_QUERY, { owner, name, states, after }))?.data?.repository?.pullRequests;
+          if (!data) return { ok: false, reason: `Pull request response missing for ${full}` };
+          pulls.push(...data.nodes.map(pull => ({ ...pull, repository: full })));
+          if (!data.pageInfo.hasNextPage || states[0] === 'MERGED') break;
+          after = data.pageInfo.endCursor;
+          if (page === MAX_PAGES - 1) return { ok: false, reason: `Too many open pull requests in ${full}` };
+        }
+      }
+    }
+    return { ok: true, pulls };
+  } catch (error) {
+    return { ok: false, reason: `Pull request read failed: ${error.message}` };
+  }
+}
+
+// Only Matrix implementation branches (matrix/<task-id>-<hash>) count as merged implementation.
+// Prompt-only, fix and documentation pull requests that merely mention a task ID do not.
+export function pullTaskState(pulls) {
+  const merged = new Set(), open = new Set();
+  for (const pull of pulls) {
+    const branch = /^matrix\/([a-z][a-z0-9]*-\d{2,})-[0-9a-f]+$/.exec(pull.headRefName)?.[1]?.toUpperCase();
+    if (pull.state === 'MERGED' && branch) merged.add(branch);
+    if (pull.state === 'OPEN') { const id = branch ?? taskPattern.exec(pull.title)?.[1]; if (id) open.add(id); }
+  }
+  return { merged, open };
+}
+
 export function normaliseCard(node, index) {
   const issue = node.content?.__typename === 'Issue' ? node.content : null;
   return { position: index, itemId: node.id, status: node.status?.name ?? null, issue: issue?.number ?? null,
@@ -58,10 +102,10 @@ export function normaliseCard(node, index) {
 /**
  * Choose at most one card. Returns { selected, decisions, blocker }.
  * snapshot: result of fetchBoard (ok: true) | prompts: parsePrompt results from backlog.scan
- * context: { now, usage, scopedUsagePercent[], tasks, activeJob, mergedTaskIds, executionPaths }
+ * context: { now, usage, scopedUsagePercent[], tasks, activeJob, mergedTaskIds, openPullTaskIds, executionPaths }
  */
 export function selectFromBoard(snapshot, prompts, context) {
-  const { now = Date.now(), usage, scopedUsagePercent = [], tasks = {}, activeJob = null, mergedTaskIds = new Set(), executionPaths = new Set() } = context;
+  const { now = Date.now(), usage, scopedUsagePercent = [], tasks = {}, activeJob = null, mergedTaskIds = new Set(), openPullTaskIds = new Set(), executionPaths = new Set() } = context;
   const stop = reason => ({ selected: null, decisions: [], blocker: reason });
   if (!snapshot?.ok) return stop(snapshot?.reason ?? 'No board snapshot');
   const age = now - Date.parse(snapshot.fetchedAt);
@@ -84,6 +128,7 @@ export function selectFromBoard(snapshot, prompts, context) {
     let reason = !card.issue ? 'not an issue card (implementation PR or draft)' : !card.taskId ? 'no task ID in issue title'
       : seen.has(card.taskId) ? 'duplicate card for task' : card.state !== 'OPEN' ? 'issue is closed'
       : mergedTaskIds.has(card.taskId) || complete.has(card.taskId) ? 'implementation merged; release pending, do not recode'
+      : openPullTaskIds.has(card.taskId) ? 'open pull request already exists for task'
       : !prompt ? 'no canonical prompt found'
       : prompt.deferred || prompt.execution === 'deferred' ? 'prompt is marked deferred'
       : prompt.blocked ? 'prompt is blocked'
