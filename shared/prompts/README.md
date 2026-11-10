@@ -45,6 +45,7 @@ Order below is an index, not the execution queue. The board decides order.
 | ACOMP-11 | [Add 2:1 ratio to Analog Compressor](../../analog-compressor/prompts/11-two-to-one-ratio.md) | [#199](https://github.com/tonygward/audio-plugins/issues/199) |
 | ACOMP-12 | [Ignore Below rotary Hz control](../../analog-compressor/prompts/12-ignore-below-rotary-hz.md) | [#200](https://github.com/tonygward/audio-plugins/issues/200) |
 | SUI-17 | [Replace Guidance button with plugin-title tooltip](SUI-17-title-tooltip-replaces-guidance.md) | [#201](https://github.com/tonygward/audio-plugins/issues/201) |
+| SUI-18 | [Consistent EQ-style title bars](SUI-18-consistent-plugin-title-bars.md) | [#202](https://github.com/tonygward/audio-plugins/issues/202) |
 | AUTO-10 | [Verify beta release distribution end to end](AUTO-10-verified-beta-distribution-e2e.md) | [#157](https://github.com/tonygward/audio-plugins/issues/157) |
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
