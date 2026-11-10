@@ -11,6 +11,7 @@ import { advanceDelivery, recordMerge } from './delivery.mjs';
 import { writeHandoff, clearHandoff } from './handoff.mjs';
 import { blockStopped, resumeBlocked } from './blocked.mjs';
 import { recoverInFlight } from './recover.mjs';
+import { resolveFromIssues } from './issue-prompt.mjs';
 import { scan } from './backlog.mjs';
 import { dailyDue, londonDay } from './policy.mjs';
 
@@ -52,6 +53,16 @@ export async function boardTick(config, deps) {
   // then refuse to pick anything new until the prompt is fixed.
   let prompts = [], revision = null, promptError = null;
   try { ({ prompts, revision } = await loadPrompts()); } catch (error) { promptError = error; }
+
+  // A card with no prompt file can still be built when its issue has enough detail: the prompt is generated from the issue and saved in the
+  // pull request. Without enough detail the issue gets one comment and the card moves to Blocked.
+  let issuePrompts = { prompts: [], blocked: [], notes: [] };
+  if (!promptError && io.issueBody) {
+    const early = readState(dir), todoSoon = dailyDue(early.lastWorkerDaily, config.dailyTime ?? '02:00', new Date(clock()));
+    const { merged: mergedIds, open: openIds } = pullTaskState(pulled.pulls);
+    issuePrompts = await resolveFromIssues({ board, prompts, tasks: early.tasks, io, statuses: todoSoon ? ['Doing', 'Todo'] : ['Doing'], executionRepositories: settings.executionRepositories, dryRun, merged: mergedIds, open: openIds });
+    prompts = [...prompts, ...issuePrompts.prompts];
+  }
 
   // Keep durable state in step with the repository and with merged pull requests (needs the lock).
   const recordedMerges = dryRun ? [] : await lockedAsync(dir, async () => {
