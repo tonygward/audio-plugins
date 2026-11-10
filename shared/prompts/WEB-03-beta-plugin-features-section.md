@@ -33,7 +33,7 @@ The site currently presents latest release, What's New, then Getting Started. Ad
 ## Tests, dependencies, risks and release
 - Add/extend page order, card content and release-list consistency tests as appropriate; run `npm test` and `npm run build`.
 - Check regression around authenticated release/download flows; do not weaken protection for testing.
-- Dependency: factual shipped-feature list; current private website process requires normal PR review for design/content work.
+- Dependency: factual shipped-feature list; use the current owner-approved exact-head CI and trusted automatic merge policy; do not introduce routine manual review gating for authorised website changes.
 - PR and merge are distinct from deploy. Record actual deployed commit and access test; no invented release or Matrix status.
 
 **Current execution and delivery:** Follow [the owner policy](../../docs/songsmith-execution-policy.md). Board order decides selection regardless of issue/prompt location or prefix, with one task and a 60% weekly usage stop threshold. Use the actual implementation repository's scoped execution path. Automatically approve/merge after current-head required checks; verify beta deployment and downloads, post the final issue comment, then close and finally mark board Done. Major/minor increments are deferred; beta build/patch increments are automatic.
