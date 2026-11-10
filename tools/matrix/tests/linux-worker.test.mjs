@@ -199,3 +199,75 @@ test('when Claude stops with an error the log says why, without the model text',
   const log = fs.readFileSync(path.join(f.config.stateDirectory, 'logs', 'worker.jsonl'), 'utf8');
   assert.match(log, /"stage":"agent-failed"[^\n]*"subtype":"error_max_turns"[^\n]*"turns":31/); assert.doesNotMatch(log, /SECRET MODEL TEXT/);
 });
+
+// ---- Board pickup switch-over (AUTO-11) ----
+import { writeHandoff, readHandoff } from '../handoff.mjs';
+import { parsePrompt } from '../backlog.mjs';
+import { validateBoardConfig } from '../linux-worker.mjs';
+
+const boardConfig = f => ({ ...f.config, batchLimit: 1, boardPickup: { enabled: true, projectId: 'P', repositories: ['example/plugins'], executionRepositories: ['example/plugins'],
+  promptRepository: 'example/plugins', statusFieldId: 'F', doingOptionId: 'D', doneOptionId: 'O' } });
+const taskHash = f => parsePrompt('eq/prompts/41-fixture.md', fs.readFileSync(path.join(f.repo, 'eq/prompts/41-fixture.md'), 'utf8')).hash;
+const handoffFor = (f, extra = {}) => writeHandoff(f.config.stateDirectory, { job: 'matrix-test-1', revision: 'a'.repeat(40), now,
+  selected: { taskId: 'EQ-41', promptHash: taskHash(f), status: 'Doing', issue: 41, itemId: 'item-41', repository: 'example/plugins', issueRepository: 'example/plugins', ...extra } });
+// The shared fake GitHub adapter does not know issue commands, so wrap it.
+const withIssues = a => { const comments = [], moves = []; const run = async (exe, args, o) => {
+  if (exe === GH && args[0] === 'issue' && args[1] === 'view') return { stdout: JSON.stringify({ comments: comments.map(body => ({ body })) }), stderr: '' };
+  if (exe === GH && args[0] === 'issue' && args[1] === 'comment') { if (a.failComment) throw Error('GitHub down'); comments.push(args[args.indexOf('--body') + 1]); return { stdout: '', stderr: '' }; }
+  if (exe === GH && args[0] === 'project' && args[1] === 'item-edit') { moves.push(args[args.indexOf('--single-select-option-id') + 1]); return { stdout: '', stderr: '' }; }
+  return a.run(exe, args, o); }; return { run, seen: a.seen, comments, moves, set failComment(v) { a.failComment = v; } }; };
+
+test('board mode without a hand-off idles: no fallback to the Markdown selector', async t => {
+  const f = fixture(t), a = adapter(), report = await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
+  assert.equal(report.idle, true); assert.equal(a.seen.claude.length, 0);
+  assert.equal(Object.values(readState(f.config.stateDirectory).tasks).some(x => x.state === 'claimed'), false);
+});
+
+test('board mode builds the chosen task, claims it, and comments on the issue with the job', async t => {
+  const f = fixture(t), a = withIssues(adapter()); handoffFor(f);
+  const report = await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
+  assert.equal(report.outcomes.length, 1);
+  const task = readState(f.config.stateDirectory).tasks['EQ-41'];
+  assert.equal(task.state, 'awaiting-review'); assert.equal(task.job, 'matrix-test-1'); assert.equal(task.issue, 41); assert.equal(task.itemId, 'item-41');
+  assert.ok(task.pickupCommentAt);
+  assert.equal(a.comments.length, 1); assert.match(a.comments[0], /Matrix has picked up \*\*EQ-41\*\*/); assert.match(a.comments[0], /matrix-test-1/);
+  assert.equal(readHandoff(f.config.stateDirectory, { now }), null, 'hand-off is consumed');
+});
+
+test('a stale, changed or already-claimed hand-off starts nothing', async t => {
+  const stale = fixture(t); handoffFor(stale);
+  const old = await runLinuxWorker(boardConfig(stale), options(stale, adapter(), { trigger: 'timer', clock: () => now + 3600000 }));
+  assert.equal(old.idle, true);
+  const changed = fixture(t); handoffFor(changed, { promptHash: 'edited' });
+  const a = adapter(), report = await runLinuxWorker(boardConfig(changed), options(changed, a, { trigger: 'timer' }));
+  assert.match(report.reason, /Prompt changed/); assert.equal(a.seen.claude.length, 0);
+});
+
+test('the card moves to Doing and the starting comment quotes the limits, before any code is written', async t => {
+  const f = fixture(t), a = withIssues(adapter()); handoffFor(f);
+  await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
+  assert.deepEqual(a.moves, ['D']);
+  assert.match(a.comments[0], /Limits: up to 10 Claude turns/); assert.match(a.comments[0], /60% weekly Claude usage/);
+  assert.ok(readState(f.config.stateDirectory).tasks['EQ-41'].movedToDoingAt);
+});
+
+test('no code is written when the starting comment cannot be posted; the task needs attention', async t => {
+  const f = fixture(t), base = adapter(), a = withIssues(base); a.failComment = true; handoffFor(f);
+  const report = await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
+  assert.equal(report.outcomes[0].interrupted, true); assert.equal(base.seen.claude.length, 0, 'Claude must not run');
+  const task = readState(f.config.stateDirectory).tasks['EQ-41'];
+  assert.equal(task.state, 'interrupted'); assert.match(task.reason, /Starting comment or Doing move failed/);
+});
+
+test('board configuration enforces one task and complete settings', t => {
+  const f = fixture(t), good = boardConfig(f);
+  assert.doesNotThrow(() => validateBoardConfig(good));
+  assert.throws(() => validateBoardConfig({ ...good, batchLimit: 3 }), /batchLimit 1/);
+  assert.throws(() => validateBoardConfig({ ...good, worker: { ...good.worker, maximumPrompts: 2 } }), /maximumPrompts 1/);
+  assert.throws(() => validateBoardConfig({ ...good, boardPickup: { ...good.boardPickup, projectId: '' } }), /Invalid boardPickup/);
+  assert.throws(() => validateBoardConfig({ ...good, boardPickup: { ...good.boardPickup, doneOptionId: '' } }), /doneOptionId/);
+  assert.throws(() => validateBoardConfig({ ...good, boardPickup: { ...good.boardPickup, doingOptionId: undefined } }), /doingOptionId/);
+  assert.throws(() => validateBoardConfig({ ...good, boardPickup: { ...good.boardPickup, tokenFile: 'relative' } }), /absolute/);
+  assert.doesNotThrow(() => validateBoardConfig({ ...good, boardPickup: { enabled: false } }));
+  assert.doesNotThrow(() => validateBoardConfig(f.config));
+});

@@ -268,3 +268,44 @@ its own policy. Existing release workflows and root VERSION remain unchanged.
 See [architecture decision](../../docs/adr/AUTO-01-matrix-orchestration.md) for trust
 boundaries and the staged delivery decision. This is infrastructure; not yet
 verified in a DAW.
+
+## Board pickup (AUTO-11)
+
+Board order decides what the Linux worker builds. It is **off** unless `boardPickup.enabled` is `true` in the worker config, and
+`dryRun: true` makes the tick report its choice without claiming anything. Policy: [execution policy](../../docs/songsmith-execution-policy.md).
+
+Each run is two steps in one process, run by `linux-worker.mjs`:
+
+1. **Board tick** (`board-run.mjs`). Reads the *Songsmith Development* board in its manual order and the open and merged pull requests in
+   each repository, then resumes unfinished work: a lost pickup comment, or a merged task still waiting for beta delivery. It checks the Doing
+   cards against pull requests and worker state, applies the 60% weekly usage stop, and picks **one** task. **Todo** is the ready queue, in board order.
+   **Doing** means genuinely claimed work and is never a request: a Doing card with no claim blocks pickup until it is returned to Todo.
+   The choice goes to `board-handoff.json` in the state folder.
+2. **Worker** (`linux-worker.mjs`). Under its own lock it re-checks the hand-off against a fresh copy of `main`, claims through its normal path,
+   moves the card to Doing, posts the starting comment (task, Matrix job, prompt revision, repository, limits), then builds. If either step fails it writes
+   no code and the task needs attention. With no fresh, valid hand-off it does nothing.
+   There is no fallback to the Markdown selector.
+
+Delivery (`delivery.mjs`) runs in the next tick after a merge: verify the beta release, post the final comment, close the issue, then set the card
+to Done. Each stage is saved. A failed or missing check leaves the issue open and the card in Doing. Evidence comes from the existing release
+pipeline (`verifiers.mjs`): the release, the private-storage distribution run, the website `release.json` and changelog, and the Cloudflare Pages
+check. `downloadEvidence: "worker-checked"` accepts the website Worker's own size and hash check on every download. Matrix does not call the
+download route, and the final comment says so.
+
+Config (all required when enabled; `batchLimit` and `worker.maximumPrompts` must both be 1):
+
+```json
+"boardPickup": {
+  "enabled": true, "dryRun": true,
+  "projectId": "<project node id>", "statusFieldId": "<Status field id>", "doingOptionId": "<Doing option id>", "doneOptionId": "<Done option id>",
+  "repositories": ["owner/audio-plugins", "owner/songsmithstudio", "owner/songsmith-website"],
+  "executionRepositories": ["owner/audio-plugins"], "promptRepository": "owner/audio-plugins",
+  "downloadEvidence": "worker-checked", "tokenFile": "/absolute/path/to/board-token"
+}
+```
+
+The token needs to read the project and both repositories, and to comment on and close issues. It must not be able to publish releases.
+`tokenFile` is optional and defaults to the worker's token. A separate board token is recommended.
+
+**Known gaps:** a claimed task whose worker died stays claimed; the tick reports it and picks nothing until the owner clears it (see issue #175).
+The board has no **Needs attention** column yet and RUN NOW is not implemented, so interrupted work is reported but not moved automatically.
