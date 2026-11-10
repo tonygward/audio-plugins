@@ -31,6 +31,7 @@ namespace FET
         inline constexpr const char* bypass     = "bypass";
         inline constexpr const char* oversampling = "oversampling";   // version hint 2
         inline constexpr const char* detectorLowCut = "detectorLowCut";   // version hint 3
+        inline constexpr const char* ratioTwoToOne = "ratioTwoToOne";     // version hint 4
     }
 
     inline constexpr int parameterVersion = 1;
@@ -64,6 +65,13 @@ namespace FET
     }
     inline constexpr float ratioValues[numRatios] = { 4.0f, 8.0f, 12.0f, 20.0f };
     inline constexpr int ratioDefault = 0;
+
+    // ACOMP-11: 2:1, a Songsmith addition (the 1176 has no 2:1 button). It is NOT a fifth item of the `ratio`
+    // choice: a choice's host-normalised value is index / (count - 1), so growing it from four to five items
+    // would move every legacy value (8:1 = 0.333, 12:1 = 0.667, 20:1 = 1.0 would become 8:1 / 20:1 / 2:1 ...).
+    // `ratio` therefore stays exactly as it was, and 2:1 is its own switch (version hint 4, Off by default)
+    // that takes over from `ratio` while it is on. See docs/two-to-one-ratio.md.
+    inline constexpr float gentleRatioValue = 2.0f;
 
     // Oversampling for the colour stages and the engine (Off, 2x, 4x). See docs/colour.md.
     inline const juce::StringArray& oversamplingNames()

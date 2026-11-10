@@ -71,7 +71,7 @@ struct TransferTests final : juce::UnitTest
         }
 
         beginTest ("threshold rises with ratio (UM p. 21)");
-        for (int r = 1; r < Engine::numRatios; ++r)
+        for (int r = 1; r < Engine::numHardwareRatios; ++r)   // the four 1176 buttons; 2:1 is a Songsmith addition
             expectGreaterThan (Engine::thresholdsDb[(size_t) r], Engine::thresholdsDb[(size_t) r - 1]);
 
         beginTest ("calibration: 20:1, 1 kHz sine at -18 dBFS RMS gives 1 dB GR");

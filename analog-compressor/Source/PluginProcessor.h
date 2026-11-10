@@ -16,7 +16,9 @@ public:
     // 2 = adds oversampling (sessions from 1 load with the default, which is Off, as version 1 sounded;
     // version 2 sessions keep the oversampling they saved, including 4x).
     // 3 = adds the detector Low Cut (sessions from 1 and 2 load it Off, as they sounded before).
-    static constexpr int stateVersion = 3;
+    // 4 = adds the Songsmith 2:1 ratio switch (sessions from 1-3 load it Off, so they keep their saved
+    // 4:1 / 8:1 / 12:1 / 20:1 / All Buttons ratio; the `ratio` choice itself is unchanged).
+    static constexpr int stateVersion = 4;
 
     SongsmithAnalogCompressorProcessor();
     ~SongsmithAnalogCompressorProcessor() override;
@@ -68,6 +70,7 @@ public:
         return ms > 1.0e-15f ? 10.0f * std::log10 (ms) : -150.0f;
     }
     bool isAllButtonsOn() const noexcept { return allButtonsParam->load() >= 0.5f; }
+    bool isGentleRatioOn() const noexcept { return gentleRatioParam->load() >= 0.5f; }
 
     // Editor state saved with the session (not automatable): interface size and meter mode.
     std::atomic<float> uiScale { 1.0f };   // the nearest interface size option (menu); old sessions only had this
@@ -99,6 +102,7 @@ private:
     std::atomic<float>* attackKnob = nullptr;
     std::atomic<float>* releaseKnob = nullptr;
     std::atomic<float>* ratioIndex = nullptr;
+    std::atomic<float>* gentleRatioParam = nullptr;
     std::atomic<float>* grOffParam = nullptr;
     std::atomic<float>* oversamplingParam = nullptr;
     std::atomic<float>* allButtonsParam = nullptr;

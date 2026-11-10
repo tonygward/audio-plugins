@@ -75,6 +75,7 @@ struct IdentityTests final : juce::UnitTest
             { "bypass",       0.0f,  1.0f, 0.0f },
             { "oversampling", 0.0f,  2.0f, 0.0f, 2 },
             { "detectorLowCut", 0.0f, 5.0f, 0.0f, 3 },
+            { "ratioTwoToOne", 0.0f, 1.0f, 0.0f, 4 },   // ACOMP-11: the Songsmith 2:1 switch
         };
 
         expectEquals (p.getParameters().size(), (int) std::size (expected), "no parameters added or removed silently");
@@ -533,6 +534,21 @@ struct EditorRefinementTests final : juce::UnitTest
                 expect (Songsmith::UI::Wording::findBanned (text).isEmpty(), "plain words: " + Songsmith::UI::Wording::findBanned (text));
         }
 
+        beginTest ("The Songsmith 2:1 button is labelled, explained and says it is not on the original hardware");
+        {
+            auto& b = dynamic_cast<juce::TextButton&> (ed->getRatioButton (4));
+            expectEquals (b.getButtonText(), juce::String ("2:1"));
+            expect (b.getTooltip().startsWith ("Ratio 2:1: "), "tooltip names the ratio");
+            expect (b.getTooltip().contains ("evens out louder parts without squashing the sound"), "and says what it does");
+            expect (b.getTooltip().contains ("Songsmith addition"), "and that it is an addition");
+            expect (Songsmith::UI::Wording::findBanned (b.getTooltip()).isEmpty(), "plain words");
+            expect (b.getTooltip().length() < 360, "short enough to read");
+            expect (ed->getRatioButton (4).getBounds().getHeight() >= 30, "large enough to press at the smallest size");
+            for (int i = 0; i < 4; ++i)
+                expect (! ed->getRatioButton (4).getBounds().intersects (ed->getRatioButton (i).getBounds()), "buttons do not overlap");
+            expect (! ed->getRatioButton (4).getBounds().intersects (ed->getAllButton().getBounds()), "nor the All button");
+        }
+
         beginTest ("All still presses every ratio button and a single ratio still leaves All");
         {
             ed->getAllButton().onClick();
@@ -561,7 +577,258 @@ struct EditorRefinementTests final : juce::UnitTest
     }
 };
 
+//==============================================================================
+// ACOMP-11: the Songsmith 2:1 ratio. See analog-compressor/docs/two-to-one-ratio.md.
+struct TwoToOneTests final : juce::UnitTest
+{
+    TwoToOneTests() : juce::UnitTest ("Two-to-one ratio", "FET") {}
+
+    static float settledGr (SongsmithAnalogCompressorProcessor& p, float amp)
+    {
+        juce::MidiBuffer m;
+        float gr = 0.0f;
+        int offset = 0;
+        for (int block = 0; block < 60; ++block)
+        {
+            juce::AudioBuffer<float> b (2, 512);
+            fillSine (b, 48000.0, 997.0, amp, offset);
+            offset += 512;
+            p.processBlock (b, m);
+            gr = p.takeGainReductionDb();
+        }
+        return gr;
+    }
+
+    void runTest() override
+    {
+        beginTest ("the four legacy ratio choices keep their stored index and host-normalised value");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            auto* ratio = p.apvts.getParameter (ID::ratio);
+            expectEquals (ratio->getNumSteps(), 4, "still a four-item choice, so index / 3 is unchanged");
+            expectEquals (ratioNames().size(), 4);
+            const float normalised[] = { 0.0f, 1.0f / 3.0f, 2.0f / 3.0f, 1.0f };
+            for (int i = 0; i < 4; ++i)
+            {
+                setParam (p, ID::ratio, (float) i);
+                expectWithinAbsoluteError (ratio->getValue(), normalised[i], 1.0e-6f, "index " + juce::String (i) + " normalises as before");
+                expectEquals ((int) getParam (p, ID::ratio), i);
+
+                // What a host sends back when it replays automation recorded by an older beta.
+                setParam (p, ID::ratio, 0.0f);
+                ratio->setValueNotifyingHost (normalised[i]);
+                expectEquals ((int) getParam (p, ID::ratio), i, "old automation value " + juce::String (normalised[i], 4) + " selects the same ratio");
+                expectEquals ((int) getParam (p, ID::ratioTwoToOne), 0, "and never turns 2:1 on");
+            }
+            expectEquals (ratioDefault, 0, "default stays 4:1");
+        }
+
+        beginTest ("the engine's four hardware ratios are untouched and 2:1 is appended");
+        {
+            using E = Engine;
+            expectEquals (E::numHardwareRatios, 4);
+            expectEquals (E::gentleRatioIndex, 4);
+            const float ratios[] = { 4.0f, 8.0f, 12.0f, 20.0f }, thresholds[] = { -19.5f, -17.0f, -15.5f, -13.8f }, knees[] = { 10.0f, 8.0f, 7.0f, 6.0f };
+            for (int i = 0; i < 4; ++i)
+            {
+                expectEquals (E::ratios[(size_t) i], ratios[i]);
+                expectEquals (E::thresholdsDb[(size_t) i], thresholds[i]);
+                expectEquals (E::kneeWidthsDb[(size_t) i], knees[i]);
+            }
+            expectEquals (E::ratios[4], FET::gentleRatioValue);
+        }
+
+        beginTest ("2:1 measures about 2:1 above the knee, and is gentler than 4:1 at loud levels");
+        {
+            Engine e;
+            e.prepare (48000.0);
+            e.setRatioIndex (Engine::gentleRatioIndex);
+            const float t = Engine::thresholdsDb[4], w = Engine::kneeWidthsDb[4];
+            for (float over : { w, 20.0f, 30.0f })   // levels above the knee
+            {
+                const float in1 = t + over, in2 = in1 + 6.0f;
+                // Steady-state through the running engine, not just the static curve.
+                const float out1 = in1 - Measure::settledGrDb (e, 48000.0, in1), out2 = in2 - Measure::settledGrDb (e, 48000.0, in2);
+                expectWithinAbsoluteError ((out2 - out1) / 6.0f, 0.5f, 0.03f, "output rises 1 dB per 2 dB in at +" + juce::String (over, 0) + " dB");
+            }
+            expectWithinAbsoluteError (e.staticGainReductionDb (t - w), 0.0f, 1.0e-4f, "no gain reduction well below the knee");
+
+            Engine four;
+            four.prepare (48000.0);
+            four.setRatioIndex (0);
+            expectLessThan (e.staticGainReductionDb (-6.0f), four.staticGainReductionDb (-6.0f), "less gain reduction than 4:1 at -6 dBFS");
+            expectLessThan (e.staticGainReductionDb (-10.0f), four.staticGainReductionDb (-10.0f), "and at -10 dBFS");
+        }
+
+        beginTest ("the 2:1 switch takes over from the ratio choice, and leaves the choice's own value alone");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            setParam (p, ID::oversampling, 0.0f);
+            setParam (p, ID::input, 12.0f);
+            p.setBusesLayout (layout (Set::stereo(), Set::stereo()));
+            p.prepareToPlay (48000.0, 512);
+            const float four = settledGr (p, 0.25f);
+
+            setParam (p, ID::ratioTwoToOne, 1.0f);
+            const float two = settledGr (p, 0.25f);
+            expectEquals ((int) getParam (p, ID::ratio), 0, "the stored ratio choice is still 4:1");
+            expect (two > 0.5f && std::abs (two - four) > 0.5f, "2:1 changes the gain reduction (" + juce::String (two, 2) + " dB vs " + juce::String (four, 2) + " dB)");
+
+            setParam (p, ID::ratioTwoToOne, 0.0f);
+            expectWithinAbsoluteError (settledGr (p, 0.25f), four, 0.05f, "switching 2:1 off returns to the saved ratio");
+        }
+
+        beginTest ("switching between 2:1 and the other ratios during playback is smooth and stable");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            setParam (p, ID::input, 18.0f);
+            p.setBusesLayout (layout (Set::stereo(), Set::stereo()));
+            p.prepareToPlay (48000.0, 512);
+            juce::MidiBuffer m;
+            float peak = 0.0f;
+            bool finite = true;
+            int offset = 0;
+            for (int block = 0; block < 80; ++block)
+            {
+                setParam (p, ID::ratioTwoToOne, (block / 5) % 2 == 0 ? 1.0f : 0.0f);
+                setParam (p, ID::ratio, (float) ((block / 10) % 4));
+                setParam (p, ID::allButtons, block % 40 >= 30 ? 1.0f : 0.0f);
+                juce::AudioBuffer<float> b (2, 256);
+                fillSine (b, 48000.0, 440.0, 0.2f, offset);
+                offset += 256;
+                p.processBlock (b, m);
+                for (int c = 0; c < 2; ++c)
+                    for (int i = 0; i < 256; ++i)
+                    {
+                        finite = finite && std::isfinite (b.getSample (c, i));
+                        peak = std::max (peak, std::abs (b.getSample (c, i)));
+                    }
+            }
+            expect (finite, "no NaN or infinity");
+            expectLessThan (peak, 8.0f, "no runaway level");
+        }
+
+        beginTest ("fresh sessions and sessions saved by earlier betas keep their ratio and load 2:1 Off");
+        {
+            SongsmithAnalogCompressorProcessor fresh;
+            expectEquals ((int) getParam (fresh, ID::ratioTwoToOne), 0);
+            expectEquals ((int) getParam (fresh, ID::ratio), 0);
+
+            for (int version : { 1, 2, 3 })
+                for (int saved = 0; saved < 4; ++saved)
+                    for (int all : { 0, 1 })
+                    {
+                        SongsmithAnalogCompressorProcessor p;
+                        setParam (p, ID::ratioTwoToOne, 1.0f);   // would stick if the loader kept current values
+
+                        juce::XmlElement old ("SongsmithAnalogCompressor");
+                        old.setAttribute ("stateVersion", version);
+                        auto* r = old.createNewChildElement ("PARAM");
+                        r->setAttribute ("id", "ratio");
+                        r->setAttribute ("value", (double) saved);
+                        auto* a = old.createNewChildElement ("PARAM");
+                        a->setAttribute ("id", "allButtons");
+                        a->setAttribute ("value", (double) all);
+                        juce::MemoryBlock mb;
+                        juce::AudioProcessor::copyXmlToBinary (old, mb);
+                        p.setStateInformation (mb.getData(), (int) mb.getSize());
+
+                        expectEquals ((int) getParam (p, ID::ratio), saved, "version " + juce::String (version) + " ratio index kept");
+                        expectEquals ((int) getParam (p, ID::allButtons), all, "All Buttons kept");
+                        expectEquals ((int) getParam (p, ID::ratioTwoToOne), 0, "2:1 is Off");
+                    }
+        }
+
+        beginTest ("a session saved with 2:1 on recalls it, and also keeps the ratio choice underneath");
+        {
+            juce::MemoryBlock saved;
+            {
+                SongsmithAnalogCompressorProcessor a;
+                setParam (a, ID::ratio, 2.0f);
+                setParam (a, ID::ratioTwoToOne, 1.0f);
+                a.getStateInformation (saved);
+            }
+            SongsmithAnalogCompressorProcessor b;
+            b.setStateInformation (saved.getData(), (int) saved.getSize());
+            expectEquals ((int) getParam (b, ID::ratioTwoToOne), 1);
+            expectEquals ((int) getParam (b, ID::ratio), 2);
+        }
+
+        beginTest ("presets: starting points turn 2:1 off, older preset files load it Off, and a saved preset recalls it");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            setParam (p, ID::ratioTwoToOne, 1.0f);
+            p.presets.loadFactory (0);
+            expectEquals ((int) getParam (p, ID::ratioTwoToOne), 0, "a starting point leaves 2:1");
+            expectEquals ((int) getParam (p, ID::ratio), 0);
+
+            const auto folder = juce::File::getSpecialLocation (juce::File::tempDirectory).getNonexistentChildFile ("acomp11", "", false);
+            juce::String error;
+            p.presets.setUserFolder (folder);
+            setParam (p, ID::ratioTwoToOne, 1.0f);
+            expect (p.presets.saveAs ("Gentle test", error), error);
+
+            setParam (p, ID::ratioTwoToOne, 0.0f);
+            const auto files = p.presets.getUserPresetFiles();
+            expectEquals (files.size(), 1);
+            if (files.size() == 1)
+            {
+                expect (p.presets.loadFile (files[0], error), error);
+                expectEquals ((int) getParam (p, ID::ratioTwoToOne), 1, "saved preset recalls 2:1");
+
+                // An older preset file has no ratioTwoToOne attribute.
+                auto xml = juce::XmlDocument::parse (files[0]);
+                expect (xml != nullptr);
+                if (xml != nullptr)
+                {
+                    xml->removeAttribute (ID::ratioTwoToOne);
+                    xml->setAttribute (ID::ratio, 3.0);
+                    expect (xml->writeTo (files[0]));
+                    expect (p.presets.loadFile (files[0], error), error);
+                    expectEquals ((int) getParam (p, ID::ratioTwoToOne), 0, "an older preset loads 2:1 Off");
+                    expectEquals ((int) getParam (p, ID::ratio), 3, "and keeps its ratio");
+                }
+            }
+            folder.deleteRecursively();
+        }
+
+        beginTest ("the 2:1 button selects 2:1 without touching the ratio choice, and the others leave it");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            setParam (p, ID::ratio, 2.0f);
+            std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
+            auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (editor.get());
+            expect (ed != nullptr);
+            if (ed == nullptr) return;
+
+            ed->getRatioButton (4).onClick();
+            expect (p.isGentleRatioOn(), "pressing 2:1 turns it on");
+            expect (ed->getRatioButton (4).getToggleState(), "and lights it");
+            for (int i = 0; i < 4; ++i)
+                expect (! ed->getRatioButton (i).getToggleState(), "the others go out");
+            expectEquals ((int) getParam (p, ID::ratio), 2, "the stored ratio is unchanged");
+
+            ed->getRatioButton (1).onClick();
+            expect (! p.isGentleRatioOn(), "pressing another ratio turns 2:1 off");
+            expectEquals ((int) getParam (p, ID::ratio), 1);
+            expect (ed->getRatioButton (1).getToggleState() && ! ed->getRatioButton (4).getToggleState());
+
+            ed->getAllButton().onClick();
+            ed->getRatioButton (4).onClick();
+            expect (! p.isAllButtonsOn() && p.isGentleRatioOn(), "pressing 2:1 leaves All Buttons");
+
+            ed->getAllButton().onClick();
+            expect (p.isAllButtonsOn() && ! ed->getRatioButton (4).getToggleState(), "All Buttons lights only the four hardware buttons");
+
+            setParam (p, ID::allButtons, 0.0f);
+            setParam (p, ID::ratioTwoToOne, 0.0f);
+            expect (ed->getRatioButton (1).getToggleState() && ! ed->getRatioButton (4).getToggleState(), "automation updates the buttons");
+        }
+    }
+};
+
 static IdentityTests identityTests;
+static TwoToOneTests twoToOneTests;
 static DiagnosticsTests diagnosticsTests;
 static LayoutTests layoutTests;
 static TransparencyTests transparencyTests;
