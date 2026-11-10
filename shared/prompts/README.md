@@ -29,7 +29,7 @@ Order below is an index, not the execution queue. The board decides order.
 |---|---|---|
 | REC-01 | [Standalone file Recording and Streaming Advisor](future/REC-01-file-recording-advisor.md) | [#173](https://github.com/tonygward/audio-plugins/issues/173) |
 | ADV-02 | [Reference-mix guided review](future/ADV-02-reference-mix-guided-review.md) | [#172](https://github.com/tonygward/audio-plugins/issues/172) |
-| ADV-01 | [Musician-friendly guidance across Songsmith plugins](ADV-01-musician-guidance.md) | [#171](https://github.com/tonygward/audio-plugins/issues/171) |
+| ADV-01 | [Musician-friendly guidance across Songsmith plugins](done/ADV-01-musician-guidance.md) | [#171](https://github.com/tonygward/audio-plugins/issues/171) |
 | PEQ-01 | [Pultec-style EQ](classics/PEQ-01-pultec-eq.md) | [#170](https://github.com/tonygward/audio-plugins/issues/170) |
 | OPT-01 | [Optical Leveller](classics/OPT-01-optical-leveller.md) | [#169](https://github.com/tonygward/audio-plugins/issues/169) |
 | CLN-01 | [Clean Compressor](classics/CLN-01-clean-compressor.md) | [#168](https://github.com/tonygward/audio-plugins/issues/168) |
@@ -39,7 +39,7 @@ Order below is an index, not the execution queue. The board decides order.
 | AUTO-03 | [Matrix remote heartbeat and backlog observability](AUTO-03-matrix-remote-heartbeat.md) | [#164](https://github.com/tonygward/audio-plugins/issues/164) |
 | AUTO-02 | [Codex fallback when Claude allowance is exhausted](AUTO-02-codex-fallback.md) | [#163](https://github.com/tonygward/audio-plugins/issues/163) |
 | AUTO-01 | [Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) | [#162](https://github.com/tonygward/audio-plugins/issues/162) |
-| MAX-07 | [Loudness meter (LUFS)](../../maximiser/prompts/07-loudness-meter.md) | [#161](https://github.com/tonygward/audio-plugins/issues/161) |
+| MAX-07 | [Loudness meter (LUFS)](../../maximiser/prompts/done/07-loudness-meter.md) | [#161](https://github.com/tonygward/audio-plugins/issues/161) |
 | ACOMP-07 | [Low Cut for the compressor detector](../../analog-compressor/prompts/07-detector-low-cut.md) | [#160](https://github.com/tonygward/audio-plugins/issues/160) |
 | AUTO-10 | [Verify beta release distribution end to end](AUTO-10-verified-beta-distribution-e2e.md) | [#157](https://github.com/tonygward/audio-plugins/issues/157) |
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
