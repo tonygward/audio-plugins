@@ -325,7 +325,7 @@ void SongsmithAnalogCompressorEditor::layoutContent()
 
     // Beside the Gain Reduction readout it talks about, at its left. The centred readout text never reaches
     // this far left, and the Low Cut slot reserved at FET::lowCutX stays free.
-    guidanceButton->setBounds (meterArea.getX(), meterModes.getBottom() + 4, 88, 24);
+    guidanceButton->setBounds (meterArea.getX(), meterModes.getBottom() + 4, 88, 26);
     grOffButton.setBounds (grOffArea);   // the Low Cut control will sit to its right (FET::lowCutX), when ACOMP-07 adds it
 
     // Top bar: global Bypass at the top-right, in the same place and size as in the other plugins (SUI-13).
