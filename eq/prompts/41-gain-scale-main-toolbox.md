@@ -3,7 +3,7 @@ id: EQ-41
 status: planned
 execution: scheduled
 model: sonnet
-effort: small
+effort: low
 dependencies: []
 conflicts: []
 ---
