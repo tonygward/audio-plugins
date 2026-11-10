@@ -2,7 +2,7 @@
 
 # ADV-01 — Musician-friendly guidance across Songsmith plugins
 
-**Status:** Implementation merged in [PR #188](https://github.com/tonygward/audio-plugins/pull/188). Hosted CI and beta release evidence remain unresolved; do not repeat implementation. Moving a delivery-verification task to Doing requests immediate reconciliation. **Model:** Sonnet for implementation; Opus only if a cross-plugin architecture decision requires it.
+**Status:** Matrix final comment records beta delivery via [release v0.5.5](https://github.com/tonygward/audio-plugins/releases/tag/v0.5.5) after merged [PR #188](https://github.com/tonygward/audio-plugins/pull/188), with private R2 and beta-manifest checks. Authenticated download route was not exercised directly by Matrix. Implementation and issue are closed; do not requeue. **Model:** Sonnet for implementation; Opus only if a cross-plugin architecture decision requires it.
 
 ## Goal
 
