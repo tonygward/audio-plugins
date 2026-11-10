@@ -22,7 +22,7 @@ Matrix owns an isolated, non-root Linux-container development controller. Claude
 The code foundation exists in tools/matrix/linux-worker.mjs. Real implementation PRs #174 and #177 demonstrate live execution has occurred; this does not certify every runtime isolation, recovery or distribution check. Retired Windows multi-account, DPAPI and local build-broker designs are historical; do not reactivate them.
 
 ## Current behaviour and desired completion
-The existing Markdown selector is not a verified board reader. [AUTO-11](AUTO-11-board-driven-pickup.md) specifies the board integration: actual visible manual order decides selection, regardless of issue/prompt repository or prefix. No priority/ID/repository fallback; fail closed if manual rank cannot be verified.
+The existing Markdown selector is not a verified board reader. [AUTO-11](done/AUTO-11-board-driven-pickup.md) specifies the board integration: actual visible manual order decides selection, regardless of issue/prompt repository or prefix. No priority/ID/repository fallback; fail closed if manual rank cannot be verified.
 
 Use one task per invocation and one active task total. Stop new pickup at >=60% verified weekly Claude usage, including scoped meters; unknown/stale telemetry blocks pickup. Infrastructure/website tasks require the correct scoped execution path, not a location-based refusal.
 

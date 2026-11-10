@@ -9,7 +9,7 @@ Owner decisions: 10 November 2026; Doing amended the same day. Applies to issues
 - Done: all task-specific acceptance and delivery verified, final evidence comment posted, issue closed, then card marked Done.
 - Board order decides selection regardless of prefix, issue repository or prompt location. Resolve the unique issue, merged canonical prompt and actual implementation repository. Parent epics/historical batch trackers are not separate execution jobs.
 - Verify actual view order through API and real A/B reordering; fail closed on unavailable rank, partial/stale snapshots or API errors. No priority/ID/pagination fallback. A numeric queue-order alternative requires owner decision.
-- AUTO-11 owns board configuration, selection and atomic claims; AUTO-12 owns the bounded task loop; AUTO-10 owns verified delivery and finalisation. Documentation is not evidence these integrations run.
+- AUTO-11 owns board configuration, selection and atomic claims; AUTO-12 owns the bounded task loop; AUTO-10 owns verified delivery and finalisation. AUTO-11 is running live; AUTO-12 is partial (committed-work resume and CI recovery are not built); documentation alone is never evidence an integration runs.
 - Before rollout, reconcile all existing Doing cards with job/PR/release evidence; an unclaimed Doing card is a run-now request and stays, a deferred one is left alone, interrupted/stuck work goes to Blocked with reason. Preserve board ordering and never recode merged work.
 
 ## Execution and limits
