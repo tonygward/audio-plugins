@@ -84,3 +84,46 @@ test('pickup comment says what happens next in plain words', () => {
   assert.match(body, /Matrix has picked up \*\*MAX-07\*\*/);
   assert.match(body, /Nothing is merged until the required checks pass/);
 });
+
+// ---- AUTO-14: why was this card picked up ----
+import { pickupProvenance, provenanceLines, UNKNOWN_REASON } from '../pickup.mjs';
+const AT = '2026-11-10T21:36:41.000Z';
+
+test('provenance: Todo is Scheduled with the London date, Doing is Run now, neither claims a human actor', () => {
+  const todo = pickupProvenance({ status: 'Todo', selectedAt: AT });
+  assert.deepEqual([todo.reason, todo.preClaimStatus, todo.scheduleDate, todo.initiator], ['Scheduled (Todo)', 'Todo', '2026-11-10', 'Scheduled overnight queue']);
+  const doing = pickupProvenance({ status: 'Doing', selectedAt: AT });
+  assert.deepEqual([doing.reason, doing.scheduleDate], ['Run now (Doing)', undefined]);
+  assert.match(doing.initiator, /^Unknown/); assert.doesNotMatch(JSON.stringify(doing), /Tony|manually/i);
+});
+
+test('provenance: a resume names the earlier job and checkpoint; anything unreliable is Unknown, never guessed', () => {
+  const resumed = pickupProvenance({ status: 'Todo', selectedAt: AT, resumedFrom: { job: 'old-job', reason: 'Run time limit', branch: 'matrix/a-01-abc' } });
+  assert.equal(resumed.reason, 'Resumed (Todo)'); assert.equal(resumed.resumedFrom.job, 'old-job');
+  for (const bad of [{}, { status: 'Blocked', selectedAt: AT }, { status: 'Doing', selectedAt: 'not a date' }, { status: 'Done', selectedAt: AT }]) assert.equal(pickupProvenance(bad).reason, UNKNOWN_REASON);
+});
+
+test('the starting comment shows the reason, the status before the claim and the London time; unknown says so', () => {
+  const body = pickupComment({ taskId: 'MAX-07', job: 'j', promptHash: 'h'.repeat(20), revision, repository: 'r', provenance: pickupProvenance({ status: 'Doing', selectedAt: AT }) });
+  assert.match(body, /- Pickup reason: Run now \(Doing\)/); assert.match(body, /- Before claim: Doing/); assert.match(body, /- Selected at: 2026-11-10 21:36 Europe\/London/);
+  assert.match(body, /- Initiator: Unknown \(board status requested immediate processing\)/); assert.match(body, /- Matrix job: `j`/);
+  const scheduled = pickupComment({ taskId: 'A-01', job: 'j', promptHash: 'h'.repeat(20), revision, repository: 'r', provenance: pickupProvenance({ status: 'Todo', selectedAt: '2026-07-01T01:30:00Z' }) });
+  assert.match(scheduled, /Selected at: 2026-07-01 02:30 Europe\/London/); assert.match(scheduled, /London schedule date: 2026-07-01/);
+  assert.deepEqual(provenanceLines(undefined), [`- Pickup reason: ${UNKNOWN_REASON}`]);
+});
+
+test('the reason is saved with the claim and the comment keeps it, even after the card is Doing and the comment is retried later', async () => {
+  const dir = setup(), failing = io({ fail: true });
+  await pickUp(dir, selected('MAX-07', { status: 'Todo', provenance: pickupProvenance({ status: 'Todo', selectedAt: AT }) }), { job: 'job-1', revision, io: failing });
+  assert.equal(readState(dir).tasks['MAX-07'].pickup.preClaimStatus, 'Todo');
+  const good = io(); await recoverPickupComments(dir, { revision, io: good });
+  assert.equal(good.calls.comments.length, 1);
+  assert.match(good.calls.comments[0][2], /Pickup reason: Scheduled \(Todo\)/); assert.match(good.calls.comments[0][2], /Before claim: Todo/);
+});
+
+test('a claim with no provenance says Unknown and logs a diagnostic', async () => {
+  const dir = setup(), fake = io();
+  await pickUp(dir, selected('MAX-07'), { job: 'job-1', revision, io: fake });
+  assert.match(fake.calls.comments[0][2], /Pickup reason: Unknown \(provenance unavailable\)/);
+  assert.ok(readState(dir).history.some(h => h.event === 'pickup-provenance-unknown'));
+});

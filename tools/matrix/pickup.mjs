@@ -3,12 +3,42 @@
 // so a crash or a failed comment can never lead to a second job for the same task.
 import path from 'node:path';
 import { atomic, lockedAsync, readState, claim, record } from './state.mjs';
+import { londonDay } from './policy.mjs';
 
 export const marker = job => `<!-- matrix-pickup:${job} -->`;
+export const UNKNOWN_REASON = 'Unknown (provenance unavailable)';
 
-export function pickupComment({ taskId, job, promptHash, revision, repository, limits = null }) {
+/**
+ * Why a card was picked up, captured at candidate selection, before Matrix moves the card to Doing. Never inferred afterwards:
+ * a Doing card does not prove a person moved it, and the status after the claim is always Doing.
+ * Returns the record that is persisted with the claim and rendered in the starting comment.
+ */
+export function pickupProvenance({ status, selectedAt, resumedFrom = null } = {}) {
+  const at = Date.parse(selectedAt);
+  if (!['Todo', 'Doing'].includes(status) || !Number.isFinite(at)) return { reason: UNKNOWN_REASON, preClaimStatus: null, selectedAt: null };
+  const base = { preClaimStatus: status, selectedAt: new Date(at).toISOString() };
+  if (resumedFrom) return { ...base, reason: `Resumed (${status})`, initiator: `Unknown (the card was moved back to ${status})`, resumedFrom };
+  if (status === 'Todo') return { ...base, reason: 'Scheduled (Todo)', scheduleDate: londonDay(new Date(at)), initiator: 'Scheduled overnight queue' };
+  return { ...base, reason: 'Run now (Doing)', initiator: 'Unknown (board status requested immediate processing)' };
+}
+
+const londonTime = iso => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+  .formatToParts(new Date(iso)).reduce((all, part) => ({ ...all, [part.type]: part.value }), {});
+
+export function provenanceLines(provenance) {
+  if (!provenance || !provenance.reason || provenance.reason === UNKNOWN_REASON) return [`- Pickup reason: ${UNKNOWN_REASON}`];
+  const t = londonTime(provenance.selectedAt), from = provenance.resumedFrom;
+  return [`- Pickup reason: ${provenance.reason}`, `- Before claim: ${provenance.preClaimStatus}`,
+    `- Selected at: ${t.year}-${t.month}-${t.day} ${t.hour}:${t.minute} Europe/London`,
+    ...(provenance.scheduleDate ? [`- London schedule date: ${provenance.scheduleDate}`] : []),
+    `- Initiator: ${provenance.initiator}`,
+    ...(from ? [`- Resumed from: job \`${from.job ?? 'unknown'}\`${from.reason ? ` (${from.reason})` : ''}${from.pr ? `, ${from.pr}` : ''}${from.branch ? `, branch \`${from.branch}\`` : ''}`] : [])];
+}
+
+export function pickupComment({ taskId, job, promptHash, revision, repository, limits = null, provenance = null }) {
   return [marker(job),
     `Matrix has picked up **${taskId}**.`, '',
+    ...provenanceLines(provenance),
     `- Matrix job: \`${job}\``,
     `- Prompt revision: \`${revision.slice(0, 12)}\` (prompt hash \`${promptHash.slice(0, 12)}\`)`,
     `- Implementation repository: \`${repository}\``,
@@ -30,7 +60,8 @@ export async function pickUp(stateDirectory, selected, { job, revision, io, limi
     catch (error) { return { claimed: false, reason: error.message }; }
     if (!ok) { atomic(path.join(stateDirectory, 'state.json'), state); return { claimed: false, reason: 'Attempts exhausted; moved to dead letter' }; }
     Object.assign(state.tasks[selected.taskId], { job, issue: selected.issue, repository: selected.repository,
-      issueRepository: selected.issueRepository, itemId: selected.itemId, claimedAt: now(), pickupCommentAt: null });
+      issueRepository: selected.issueRepository, itemId: selected.itemId, claimedAt: now(), pickupCommentAt: null,
+      pickup: selected.provenance ?? pickupProvenance({ status: selected.status, selectedAt: now(), resumedFrom: state.tasks[selected.taskId].resumedFrom ?? null }) });
     record(state, { event: 'claimed', task: selected.taskId, job, issue: selected.issue });
     atomic(path.join(stateDirectory, 'state.json'), state); // durable before the comment
     return { claimed: true, comment: await postPickupComment(stateDirectory, state, selected.taskId, { revision, io, limits, now }) };
@@ -47,7 +78,8 @@ export async function postPickupComment(stateDirectory, state, taskId, { revisio
     if (!task.movedToDoingAt && io.moveToDoing) { await io.moveToDoing(task.itemId); task.movedToDoingAt = now(); }
     const slug = task.issueRepository ?? task.repository;
     if (!(await io.hasComment(slug, task.issue, marker(task.job)))) {
-      await io.comment(slug, task.issue, pickupComment({ taskId, job: task.job, promptHash: task.hash, revision, repository: task.repository, limits }));
+      await io.comment(slug, task.issue, pickupComment({ taskId, job: task.job, promptHash: task.hash, revision, repository: task.repository, limits, provenance: task.pickup }));
+      if (!task.pickup || task.pickup.reason === UNKNOWN_REASON) record(state, { event: 'pickup-provenance-unknown', task: taskId, job: task.job });
     }
     task.pickupCommentAt = now();
     record(state, { event: 'pickup-comment', task: taskId, job: task.job });

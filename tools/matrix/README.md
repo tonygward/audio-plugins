@@ -295,6 +295,12 @@ plugin source always need a person. The worker's own scope is unchanged, so it c
   carries it through delivery. A failed Build, a head commit Matrix did not push, or no result within 90 minutes of recovery leaves it interrupted, so it is reported and parked in
   Blocked. Merged work is never parked: it goes to delivery. Recovery never starts the agent and never pushes.
 
+## Why a card was picked up (AUTO-14)
+
+The starting comment says why. The reason is captured at selection, before the card moves to Doing, written into the hand-off, persisted with the claim (`task.pickup`) and rendered from that copy, so a retry or restart
+never changes it. Labels: `Scheduled (Todo)` (with the London schedule date; uses the day's slot), `Run now (Doing)` (does not), `Resumed (Todo|Doing)` (with the earlier job, reason and branch or pull request),
+and `Unknown (provenance unavailable)` (with a `pickup-provenance-unknown` diagnostic). The initiator is always labelled Unknown for Doing and resumes: a Doing card never proves who moved it.
+
 ## Issues without a prompt file (issue-as-prompt)
 
 `issue-prompt.mjs`. A Doing card (or a Todo card on the day's slot) whose task has no prompt file, in an execution repository, with no merged or open pull request and no

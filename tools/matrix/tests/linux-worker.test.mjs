@@ -327,3 +327,14 @@ test('a generated prompt whose hash does not match the hand-off is not adopted',
   const report = await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
   assert.equal(report.idle, true); assert.equal(a.seen.claude.length, 0);
 });
+
+test('the starting comment records why the card was picked up, from the hand-off, not from the status after the claim', async t => {
+  const f = fixture(t), a = withIssues(adapter()); handoffFor(f);
+  await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
+  const task = readState(f.config.stateDirectory).tasks['EQ-41'];
+  assert.equal(task.pickup.reason, 'Run now (Doing)'); assert.equal(task.pickup.preClaimStatus, 'Doing');
+  assert.match(a.comments[0], /Pickup reason: Run now \(Doing\)/); assert.match(a.comments[0], /Before claim: Doing/);
+  const todo = fixture(t), b = withIssues(adapter()); handoffFor(todo, { status: 'Todo' });
+  await runLinuxWorker(boardConfig(todo), options(todo, b, { trigger: 'timer' }));
+  assert.match(b.comments[0], /Pickup reason: Scheduled \(Todo\)/); assert.match(b.comments[0], /London schedule date: /);
+});

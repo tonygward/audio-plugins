@@ -102,7 +102,7 @@ export async function boardTick(config, deps) {
     executionPaths: new Set(settings.executionRepositories), promptRepository: settings.promptRepository });
   if (!result.selected) return stop(result.blocker, { decisions: result.decisions, doing, delivery, recordedMerges });
   if (dryRun) return { ran: true, dryRun, selected: result.selected, decisions: result.decisions, doing, delivery, recordedMerges };
-  if (handoff) { writeHandoff(dir, { selected: result.selected, job: jobId, revision, now: clock() }); return { ran: true, dryRun, handoff: true, selected: result.selected, decisions: result.decisions, doing, delivery, recordedMerges }; }
+  if (handoff) { writeHandoff(dir, { selected: result.selected, job: jobId, revision, now: clock(), resumedFrom: state.tasks[result.selected.taskId]?.resumedFrom ?? null }); return { ran: true, dryRun, handoff: true, selected: result.selected, decisions: result.decisions, doing, delivery, recordedMerges }; }
   const claimed = await pickUp(dir, result.selected, { job: jobId, revision, io, limits });
   if (claimed.claimed && result.selected.status === 'Todo') await lockedAsync(dir, async () => { const s = readState(dir); s.lastWorkerDaily = londonDay(new Date(clock())); atomic(path.join(dir, 'state.json'), s); });
   return { ran: true, dryRun, selected: claimed.claimed ? result.selected : null, claim: claimed, decisions: result.decisions, doing, delivery, recordedMerges };
