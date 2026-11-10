@@ -16,6 +16,7 @@
 #include "../../shared/Tests/SongsmithControlSheet.h"
 #include "../../shared/Tests/SongsmithUITests.h"
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
+#include "../../shared/Tests/SongsmithGuidanceTests.h"
 #include "SongsmithWording.h"
 
 using namespace EQ;
@@ -5782,6 +5783,7 @@ static UiSizeTests uiSizeTests;
 static WordingAndFontTests wordingAndFontTests;
 static SongsmithUITests sharedUITests { "EQ" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "EQ" };
+static SongsmithGuidanceTests sharedGuidanceTests { "EQ" };
 static DiagnosticsTests diagnosticsTests;
 static RenameTests renameTests;
 static StartingPointTests startingPointTests;

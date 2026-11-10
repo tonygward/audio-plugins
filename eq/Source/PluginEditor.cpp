@@ -244,6 +244,9 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     content.addAndMakeVisible (*diagnostics);
     diagnostics->setTrailingControl (&pianoButton);
 
+    guidanceButton = std::make_unique<Songsmith::Guidance::Button> (JucePlugin_Name, [this] { return currentGuidance(); });
+    content.addAndMakeVisible (*guidanceButton);
+
     timerCallback();
 
     // Read the saved size first: setting the limits may call resized(), which overwrites it.
@@ -447,6 +450,29 @@ void SongsmithEQAudioProcessorEditor::paintContent (juce::Graphics& g)
     Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, EQColours::text, EQColours::accent);
 }
 
+Songsmith::Guidance::Message SongsmithEQAudioProcessorEditor::currentGuidance() const
+{
+    Songsmith::Guidance::EqInput in;
+    const int band = processor.selectedBand.load();
+    if (band >= 0 && processor.getBandValue (band, EQ::Param::Enabled) >= 0.5f)
+    {
+        const auto type = EQ::typeFromIndex ((int) std::lround (processor.getBandValue (band, EQ::Param::Type)));
+        in.hasSelectedBand = true;
+        in.frequencyHz = processor.getBandValue (band, EQ::Param::Freq);
+        in.gainDb = EQ::typeHasGain (type) ? processor.getBandValue (band, EQ::Param::Gain) * processor.getGainScale() : 0.0f;
+
+        // The Frequency Guide's own words for the chosen instrument, the first region that contains this band.
+        const auto& instrument = EQ::Guide::instrument (processor.guideInstrument.load());
+        const auto regions = EQ::Guide::regionsAt (instrument, in.frequencyHz);
+        if (! regions.empty())
+        {
+            in.regionName = regions.front()->label;
+            in.regionPurpose = regions.front()->tip;
+        }
+    }
+    return Songsmith::Guidance::eqMessage (in);
+}
+
 double SongsmithEQAudioProcessorEditor::parseOutputGainText (const juce::String& text)
 {
     // "Output +1.5 dB", "+1.5", "-3 dB" or "2": the number, whatever words surround it.
@@ -527,11 +553,14 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         bandCountLabel.setBounds (row.removeFromRight (juce::jmin (countWidth, row.getWidth())));
     }
 
+    juce::Rectangle<int> guidanceInRowTwo;   // used only if the third row is too full
     {
         auto row = area.removeFromTop (rowHeight).reduced (margin, 3);
         phaseBox.setBounds (row.removeFromLeft (comboWidth (phaseBox)));
         row.removeFromLeft (gap);
         oversamplingBox.setBounds (row.removeFromLeft (comboWidth (oversamplingBox)));
+        row.removeFromLeft (gap);
+        guidanceInRowTwo = row.removeFromLeft (buttonWidth ({ guidanceButton->getButtonText() }));
 
         outputSlider.setBounds (row.removeFromRight (barWidth ({ "Output -24.0 dB", "Output +24.0 dB" })));
         row.removeFromRight (gap);
@@ -554,7 +583,19 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         row.removeFromLeft (4);
         guideBox.setBounds (row.removeFromLeft (comboWidth (guideBox)));
         row.removeFromLeft (gap);
-        row.removeFromLeft (gap);
+        // Beside the Frequency Guide when there is room for it; otherwise in the free space of the row above,
+        // so it never overlaps or gets squeezed at the smallest window size.
+        const int guidanceWidth = buttonWidth ({ guidanceButton->getButtonText() });
+        if (row.getWidth() >= guidanceWidth + gap * 2)
+        {
+            guidanceButton->setBounds (row.removeFromLeft (guidanceWidth));
+            row.removeFromLeft (gap);
+            row.removeFromLeft (gap);
+        }
+        else
+        {
+            guidanceButton->setBounds (guidanceInRowTwo);
+        }
 
         const int hintWidth = (int) std::ceil (juce::GlyphArrangement::getStringWidth (hintLabel.getFont(), hintLabel.getText()))
                               + hintLabel.getBorderSize().getLeftAndRight() + 2;

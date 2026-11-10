@@ -4,6 +4,7 @@
 #include "PluginProcessor.h"
 #include "MaxLookAndFeel.h"
 #include "Meters.h"
+#include "../../shared/Source/SongsmithGuidance.h"
 
 // Songsmith Maximiser editor. Everything sits in one content component laid out at the design size
 // (720 x 420) and scaled as a whole, so the window can be resized (75 % to 300 %, fixed aspect)
@@ -95,6 +96,18 @@ private:
 
     // Latency and the optional Processing Load readout, in the strip below the controls.
     std::unique_ptr<Songsmith::Diagnostics::Bar> diagnostics;
+
+    // ADV-01: optional guidance, opened only when asked. It sits in the Loudness band, beside the readings
+    // it talks about. The reduction is the largest one seen in the last few seconds.
+    std::unique_ptr<Songsmith::Guidance::Button> guidanceButton;
+    float recentReductionDb = 0.0f;
+    double lastSignalSeconds = -1.0e9;
+    Songsmith::Guidance::Message currentGuidance() const;
+
+public:
+    juce::Button& getGuidanceButton() noexcept { return *guidanceButton; }
+    Songsmith::Guidance::Message getGuidanceMessage() const { return currentGuidance(); }
+private:
 
     bool updatingFaders = false;
     int gestureDepth = 0;

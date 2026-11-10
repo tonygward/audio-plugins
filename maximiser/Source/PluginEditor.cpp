@@ -182,6 +182,9 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (proc, proc.loadMeter, JucePlugin_Name);
     content.addAndMakeVisible (*diagnostics);
 
+    guidanceButton = std::make_unique<Songsmith::Guidance::Button> (JucePlugin_Name, [this] { return currentGuidance(); });
+    content.addAndMakeVisible (*guidanceButton);
+
     showLoudness();
     syncFromParameters();
 
@@ -273,6 +276,7 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
     momentaryValue.setBounds (400, ly + 62, 80, 24);
     momentaryUnit.setBounds (482, ly + 64, 48, 20);
     loudnessResetButton.setBounds (designW - 16 - 84, ly + 60, 84, 26);
+    guidanceButton->setBounds (designW - 16 - 84, ly + 8, 84, 26);   // beside the readings it talks about
 
     diagnostics->setBounds (0, designH + Max::EditorLayout::loudnessHeight, designW, Max::EditorLayout::footerHeight);
 }
@@ -352,12 +356,33 @@ void SongsmithMaximiserAudioProcessorEditor::syncFromParameters()
 
 void SongsmithMaximiserAudioProcessorEditor::updateMeters (double elapsedSeconds)
 {
-    inputMeter.push (Max::gainToDb (SongsmithMaximiserAudioProcessor::readAndReset (proc.inputPeak)), elapsedSeconds);
+    const float inputPeakDb = Max::gainToDb (SongsmithMaximiserAudioProcessor::readAndReset (proc.inputPeak));
+    inputMeter.push (inputPeakDb, elapsedSeconds);
     outputMeter.push (Max::gainToDb (SongsmithMaximiserAudioProcessor::readAndReset (proc.outputPeak)), elapsedSeconds);
-    reductionMeter.push (SongsmithMaximiserAudioProcessor::readAndReset (proc.gainReductionDb), elapsedSeconds);
+    const float reduction = SongsmithMaximiserAudioProcessor::readAndReset (proc.gainReductionDb);
+    reductionMeter.push (reduction, elapsedSeconds);
+
+    // Guidance only needs to know whether audio is playing and how much the limiter has been working lately.
+    const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    if (inputPeakDb > -60.0f)
+        lastSignalSeconds = now;
+    recentReductionDb = reduction > recentReductionDb ? reduction : recentReductionDb * (float) std::exp (-elapsedSeconds / 2.0);
 
     proc.updateLoudness();
     showLoudness();
+}
+
+Songsmith::Guidance::Message SongsmithMaximiserAudioProcessorEditor::currentGuidance() const
+{
+    Songsmith::Guidance::MaximiserInput in;
+    const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    in.hasSignal = (now - lastSignalSeconds) < 3.0;   // audio played in the last three seconds
+    in.gainReductionDb = recentReductionDb;
+    in.ceilingDb = proc.getCeilingDb();
+    const auto shortTerm = proc.getLoudnessReadings().getShortTerm();
+    if (shortTerm.valid)
+        in.shortTermLufs = shortTerm.lufs;
+    return Songsmith::Guidance::maximiserMessage (in);
 }
 
 void SongsmithMaximiserAudioProcessorEditor::showLoudness()
