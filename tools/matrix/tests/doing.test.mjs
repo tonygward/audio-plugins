@@ -8,11 +8,17 @@ const snap = (...cards) => ({ ok: true, cards });
 const pr = (number, state, headRefName, title = 'x') => ({ number, state, headRefName, title });
 const kinds = result => result.findings.map(f => [f.taskId, f.kind]);
 
-test('a Doing card with no claim is not pickup evidence: return it to Todo, and enabling waits', () => {
+test('a Doing card with no claim is a run-now request and does not block enabling', () => {
   const r = reconcileDoing(snap(card(1, 'A-01')), [prompt('A-01')], [], {});
-  assert.deepEqual(kinds(r), [['A-01', 'unclaimed']]);
-  assert.match(r.findings[0].detail, /return the card to Todo/);
-  assert.equal(r.enableAllowed, false);
+  assert.deepEqual(kinds(r), [['A-01', 'requested']]);
+  assert.match(r.findings[0].detail, /run-now request/);
+  assert.equal(r.enableAllowed, true);
+});
+
+test('a Doing card whose prompt is deferred is left alone and does not block enabling', () => {
+  const r = reconcileDoing(snap(card(1, 'A-01'), card(2, 'B-01')), [prompt('A-01', { deferred: true }), prompt('B-01', { execution: 'deferred' })], [], {});
+  assert.deepEqual(kinds(r), [['A-01', 'deferred'], ['B-01', 'deferred']]);
+  assert.equal(r.enableAllowed, true);
 });
 
 test('merged Matrix work stays release-pending and is never recoded', () => {
@@ -39,7 +45,7 @@ test('an open pull request or our own claim is recognised, not re-picked', () =>
 test('closed issue, missing prompt, duplicates and non-issue cards block enabling', () => {
   const r = reconcileDoing(snap(card(1, 'A-01', { state: 'CLOSED' }), card(2, 'B-01'), card(3, 'C-01'), card(4, 'C-01'), card(5, null, { issue: null }), card(6, null)),
     [prompt('A-01'), prompt('C-01')], [], {});
-  assert.deepEqual(kinds(r).map(k => k[1]), ['inconsistent', 'inconsistent', 'unclaimed', 'inconsistent', 'inconsistent', 'inconsistent']);
+  assert.deepEqual(kinds(r).map(k => k[1]), ['inconsistent', 'inconsistent', 'requested', 'inconsistent', 'inconsistent', 'inconsistent']);
   assert.equal(r.enableAllowed, false);
 });
 

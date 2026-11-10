@@ -3,7 +3,7 @@
 ## Current rules — 9 November 2026
 [Execution and delivery policy](../../docs/songsmith-execution-policy.md) is authoritative.
 
-- Board Todo order decides overnight pickup; Doing requests immediate work behind the active job. Never reject due to issue repository, prompt location or ID prefix. Validate the actual view order; no priority/ID fallback.
+- Board Todo order decides overnight pickup; Doing requests immediate work behind the active job, unless the prompt is deferred (a deferred prompt is never picked up, wherever its card sits). Never reject due to issue repository, prompt location or ID prefix. Validate the actual view order; no priority/ID fallback.
 - One task per invocation and one active job. Stop new work at >=60% verified weekly Claude usage, including scoped meters; unknown usage blocks pickup.
 - Automatically approve/merge only after current-head required CI/tests pass. Trusted workflows automatically increment the beta third-component build/patch number; major/minor increments are deferred.
 - Comment on actual pickup, progress, failure, merge and deployment. Verify matching beta website deployment and both installer downloads, post the final completion comment, then close the issue and finally set its board card Done.
@@ -11,7 +11,7 @@
 - AUTO-11 is the implementation specification for board pickup; it is not yet evidence of a working board reader. Infrastructure/website tasks require their scoped execution path and credentials, not a location-based rejection.
 
 ## Canonical issue and prompt links
-Every implementation item needs a unique stable ID, issue and canonical prompt linked both ways. Follow [the issue/prompt contract](../../docs/backlog-issue-prompt-contract.md). RUN NOW means requested, not proof of pickup.
+Every implementation item needs a unique stable ID, issue and canonical prompt linked both ways. Follow [the issue/prompt contract](../../docs/backlog-issue-prompt-contract.md). A Doing card is a run-now request, not proof of pickup.
 
 | ID | Canonical prompt | Tracking issue | Evidence / status |
 |---|---|---|---|
@@ -29,7 +29,7 @@ Order below is an index, not the execution queue. The board decides order.
 |---|---|---|
 | REC-01 | [Standalone file Recording and Streaming Advisor](future/REC-01-file-recording-advisor.md) | [#173](https://github.com/tonygward/audio-plugins/issues/173) |
 | ADV-02 | [Reference-mix guided review](future/ADV-02-reference-mix-guided-review.md) | [#172](https://github.com/tonygward/audio-plugins/issues/172) |
-| ADV-01 | [Musician-friendly guidance across Songsmith plugins](future/ADV-01-musician-guidance.md) | [#171](https://github.com/tonygward/audio-plugins/issues/171) |
+| ADV-01 | [Musician-friendly guidance across Songsmith plugins](ADV-01-musician-guidance.md) | [#171](https://github.com/tonygward/audio-plugins/issues/171) |
 | PEQ-01 | [Pultec-style EQ](classics/PEQ-01-pultec-eq.md) | [#170](https://github.com/tonygward/audio-plugins/issues/170) |
 | OPT-01 | [Optical Leveller](classics/OPT-01-optical-leveller.md) | [#169](https://github.com/tonygward/audio-plugins/issues/169) |
 | CLN-01 | [Clean Compressor](classics/CLN-01-clean-compressor.md) | [#168](https://github.com/tonygward/audio-plugins/issues/168) |
