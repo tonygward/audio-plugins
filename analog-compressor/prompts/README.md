@@ -16,6 +16,7 @@ Every task has a stable **ACOMP-##** reference (for example ACOMP-05), distinct 
 | [07 detector Low Cut](07-detector-low-cut.md) | To do · **Sonnet · Priority 3, after ACOMP-06** | |
 | 09 Guided compressor calibration | To do · **Sonnet** | |
 | 10 Switchable FET compressor models | To do · **Opus for DSP design, Sonnet for implementation** | |
+| [11 Add 2:1 compression ratio](11-two-to-one-ratio.md) | Backlog · **Sonnet; preserves existing parameter and automation mapping** | [#199](https://github.com/tonygward/audio-plugins/issues/199) |
 
 **Execution order update (5 November 2026):** Run **ACOMP-08 → ACOMP-06 → ACOMP-07**, retaining the permanent IDs and original filenames. ACOMP-08 must not depend on Low Cut existing: reserve layout space, then wire the actual Low Cut control when ACOMP-07 is implemented. Coordinate footer changes with SUI-12 and UI scaling with SUI-10. The suite [priority matrix](../../shared/prompts/README.md#delivery-priority) is canonical.
 
