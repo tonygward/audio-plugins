@@ -29,7 +29,7 @@
   },
   "boardPickup": {
     "enabled": true,
-    "dryRun": true,
+    "dryRun": false,
     "projectId": "PVT_kwHOAJUDvc4Bq5bn",
     "statusFieldId": "PVTSSF_lAHOAJUDvc4Bq5bnzhpOfJM",
     "doingOptionId": "88143d1a",
