@@ -146,6 +146,7 @@ export function selectFromBoard(snapshot, prompts, context) {
       : openPullTaskIds.has(card.taskId) ? 'open pull request already exists for task'
       : !prompt ? 'no canonical prompt found'
       : prompt.excluded ? 'prompt is in an excluded folder (future or archive)'
+      : card.execution === 'Separate' ? 'card is marked Separate on the board (scheduled separately)'
       : isDeferred(card, prompt) ? (card.execution === 'Deferred' ? 'card is marked Deferred on the board' : 'prompt is marked deferred')
       : prompt.blocked ? 'prompt is blocked'
       : task && ['claimed', 'interrupted', 'awaiting-review', 'complete', 'dead-letter', 'withdrawn'].includes(task.state) ? `durable state: ${task.state}`

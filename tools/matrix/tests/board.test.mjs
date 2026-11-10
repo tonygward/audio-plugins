@@ -186,3 +186,9 @@ test('fetchBoard carries the Execution field', async () => {
   const result = await fetchBoard(async () => page([withExec, node(2, 'Todo')], { total: 2 }), 'P');
   assert.deepEqual(result.cards.map(c => c.execution), ['Deferred', null]);
 });
+
+test('a card marked Separate on the board is never picked up by the worker', () => {
+  const r = selectFromBoard(snapshot(card('Doing', 1, 'A-01', { execution: 'Separate' }), card('Todo', 2, 'B-01')), prompts, base());
+  assert.equal(r.selected.taskId, 'B-01');
+  assert.equal(r.decisions[0].reason, 'card is marked Separate on the board (scheduled separately)');
+});
