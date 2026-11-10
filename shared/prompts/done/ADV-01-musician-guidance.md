@@ -2,7 +2,7 @@
 
 # ADV-01 — Musician-friendly guidance across Songsmith plugins
 
-**Status:** Ready. Moving its card to Doing on the board requests it now. **Model:** Sonnet for implementation; Opus only if a cross-plugin architecture decision requires it.
+**Status:** Implementation merged in [PR #188](https://github.com/tonygward/audio-plugins/pull/188). Hosted CI and beta release evidence remain unresolved; do not repeat implementation. Moving a delivery-verification task to Doing requests immediate reconciliation. **Model:** Sonnet for implementation; Opus only if a cross-plugin architecture decision requires it.
 
 ## Goal
 
