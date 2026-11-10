@@ -303,6 +303,9 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
           log(p.id, 'ci-waiting', { sha: task.commit });
           verdict = await waitForBuild(task.commit);
           if (verdict.state === 'success') {
+            // The merge gate can merge the moment Build passes. Never push to a branch whose pull request has already merged.
+            const current = JSON.parse(await gh(['pr', 'view', url, '--repo', w.repositorySlug, '--json', 'state'])).state;
+            if (current === 'MERGED') { log(p.id, 'ci-passed', { sha: task.commit, merged: true }); break; }
             // Main may have moved during the build (a release bump moves the changelog); merge it and re-check once.
             if (repair <= w.maximumRepairs && await integrate()) { task.commit = await git(['rev-parse', 'HEAD'], plan.directory); await gitRemote(['push', 'origin', plan.branch], plan.directory); log(p.id, 'main-merged', { sha: task.commit }); continue; }
             log(p.id, 'ci-passed', { sha: task.commit }); break;

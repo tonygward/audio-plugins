@@ -199,3 +199,16 @@ test('the tick resumes blocked work whose card an owner moved back to Todo', asy
   assert.equal(result.selected.taskId, 'A-01');
   assert.ok(readState(h.dir).tasks['A-01'].resumedAt);
 });
+
+test('an invalid prompt file does not stop a merged task being delivered, but nothing new is picked up', async () => {
+  const h = harness({ cards: todo, dryRun: false });
+  await boardTick(h.config, h.deps);
+  const merged = harness({ cards: [node(1, 'Doing', 'A-01 — first'), node(2, 'Todo', 'B-01 — second')], dryRun: false, pulls: [{ number: 180, state: 'MERGED', title: 'A-01: Matrix implementation', headRefName: 'matrix/a-01-abc123' }] });
+  merged.config.stateDirectory = h.dir; merged.comments.push(...h.comments);
+  merged.deps.loadPrompts = async () => { throw new Error('Backlog validation failed'); };
+  const result = await boardTick(merged.config, merged.deps);
+  assert.deepEqual(result.recordedMerges, ['A-01']);
+  assert.equal(result.delivery['A-01'].stage, 'done');
+  assert.deepEqual(merged.calls, ['close', 'done']);
+  assert.equal(result.selected, null); assert.match(result.blocker, /Prompt backlog is invalid/);
+});
