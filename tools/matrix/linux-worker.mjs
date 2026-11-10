@@ -206,7 +206,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
         const posted = await postPickupComment(dir, state, p.id, { revision: initial.revision, io: boardIo(boardGh, config), limits: limitsText(config) });
         log(p.id, 'board-pickup', { job: handoff.job, commented: posted.posted === true });
         if (posted.posted !== true) {
-          // No code without a recorded claim and a successful starting comment. The task needs attention; nothing was written.
+          // No code without a recorded claim and a successful starting comment. The task is blocked; nothing was written.
           finish(state, p.id, 'interrupted', { phase: 'claimed', reason: 'Starting comment or Doing move failed; no code written. Return to Todo to retry' });
           log(p.id, 'interrupted', { error: posted.reason ?? 'Starting comment failed' }); outcomes.push({ id: p.id, interrupted: true }); break;
         }

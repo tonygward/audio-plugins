@@ -49,10 +49,10 @@ test('closed issue, missing prompt, duplicates and non-issue cards block enablin
   assert.equal(r.enableAllowed, false);
 });
 
-test('interrupted or dead-lettered tasks go to Needs attention', () => {
+test('interrupted or dead-lettered tasks go to Blocked', () => {
   for (const state of ['interrupted', 'dead-letter']) {
     const r = reconcileDoing(snap(card(1, 'A-01')), [prompt('A-01')], [], { 'A-01': { id: 'A-01', state } });
-    assert.equal(r.findings[0].kind, 'needs-attention');
+    assert.equal(r.findings[0].kind, 'blocked');
     assert.equal(r.enableAllowed, false);
     assert.match(r.findings[0].detail, new RegExp(state));
   }
