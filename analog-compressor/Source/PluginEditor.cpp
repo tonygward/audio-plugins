@@ -330,13 +330,13 @@ void SongsmithAnalogCompressorEditor::layoutContent()
 
     // Hardware order, top to bottom: 20, 12, 8, 4, then the Songsmith 2:1 below them (then All).
     auto col = ratioArea;
-    const int h = 34, gap = 6;   // six buttons fit the 236-unit column
+    const int h = 33, gap = 6, allHeight = 40;   // five ratios plus All fit the 236-unit column; All keeps its 40-unit target
     for (int i : { 3, 2, 1, 0, 4 })
     {
         ratioButtons[(size_t) i]->setBounds (col.removeFromTop (h));
         col.removeFromTop (gap);
     }
-    allButton.setBounds (col.removeFromTop (h));
+    allButton.setBounds (col.removeFromTop (allHeight));
 
     meter.setBounds (meterArea);
     auto modes = meterModes;
