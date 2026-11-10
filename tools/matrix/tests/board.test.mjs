@@ -169,3 +169,20 @@ test('prompts in excluded folders and withdrawn tasks are skipped with a reason'
   assert.match(result.decisions[1].reason, /durable state: withdrawn/);
   assert.equal(result.selected.taskId, 'C-01');
 });
+
+test('the board Execution field defers or releases a card; otherwise the prompt decides', () => {
+  const pick = (execution, promptDeferred) => selectFromBoard(snapshot(card('Doing', 1, 'A-01', { execution })), prompts.map(p => p.id === 'A-01' ? { ...p, deferred: promptDeferred } : p), base());
+  assert.equal(pick('Deferred', false).selected, null);
+  assert.equal(pick('Deferred', false).decisions[0].reason, 'card is marked Deferred on the board');
+  assert.equal(pick('Run Now', true).selected.taskId, 'A-01', 'Run Now releases a prompt that says deferred');
+  assert.equal(pick('Scheduled', true).selected.taskId, 'A-01');
+  assert.equal(pick('Separate', true).selected, null, 'other values leave it to the prompt');
+  assert.equal(pick(null, true).selected, null);
+  assert.equal(pick(null, false).selected.taskId, 'A-01');
+});
+
+test('fetchBoard carries the Execution field', async () => {
+  const withExec = { ...node(1, 'Todo'), execution: { name: 'Deferred' } };
+  const result = await fetchBoard(async () => page([withExec, node(2, 'Todo')], { total: 2 }), 'P');
+  assert.deepEqual(result.cards.map(c => c.execution), ['Deferred', null]);
+});
