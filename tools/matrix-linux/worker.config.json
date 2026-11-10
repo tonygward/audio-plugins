@@ -7,7 +7,10 @@
   "liveExecution": true,
   "autoMerge": false,
   "releasePublication": false,
-  "claudeUsage": { "enabled": true, "executable": "/usr/local/bin/claude" },
+  "claudeUsage": {
+    "enabled": true,
+    "executable": "/usr/local/bin/claude"
+  },
   "worker": {
     "enabled": true,
     "mode": "ci",
@@ -23,5 +26,24 @@
     "ciTimeoutSeconds": 5400,
     "maximumRepairs": 2,
     "pollSeconds": 30
+  },
+  "boardPickup": {
+    "enabled": true,
+    "dryRun": true,
+    "projectId": "PVT_kwHOAJUDvc4Bq5bn",
+    "statusFieldId": "PVTSSF_lAHOAJUDvc4Bq5bnzhpOfJM",
+    "doingOptionId": "88143d1a",
+    "doneOptionId": "83a70d81",
+    "repositories": [
+      "tonygward/audio-plugins",
+      "tonygward/songsmithstudio",
+      "tonygward/songsmith-website"
+    ],
+    "executionRepositories": [
+      "tonygward/audio-plugins"
+    ],
+    "promptRepository": "tonygward/audio-plugins",
+    "downloadEvidence": "worker-checked",
+    "tokenFile": "/run/secrets/board_token"
   }
 }
