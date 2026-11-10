@@ -14,7 +14,7 @@ export const blockerMarker = (task, hash) => `<!-- matrix-blocker:${task}:${hash
 
 /**
  * io.pull(repository, number)       -> { state, mergeSha, url }
- * io.release(mergeSha)              -> { tag, url, sourceSha, version, assets: [{ name, size }] } | null
+ * io.release(mergeSha, repository) -> { tag, url, sourceSha, includesMerge, version, assets: [{ name, size }] } | null  (the release is built from the automatic version-bump commit after the merge, so it must contain the merge commit, not equal it)
  * io.r2(version)                    -> [{ name, size }]            private storage objects
  * io.site()                         -> { version, changelogVersions: [] }   deployed beta website
  * io.downloads(version)             -> { windows: { ok, bytes }, macos: { ok, bytes } }   authenticated
@@ -25,9 +25,9 @@ export async function verifyDelivery(delivery, io) {
     const pull = await io.pull(delivery.repository, delivery.pull);
     if (pull?.state !== 'MERGED' || !pull.mergeSha) return { verified: false, missing: ['Pull request is not merged'], evidence };
     evidence.pull = { number: delivery.pull, url: pull.url, mergeSha: pull.mergeSha };
-    const release = await io.release(pull.mergeSha);
-    if (!release) return { verified: false, missing: ['No beta release built from the merge commit yet'], evidence };
-    if (release.sourceSha !== pull.mergeSha) missing.push('Release was not built from the merge commit');
+    const release = await io.release(pull.mergeSha, delivery.repository);
+    if (!release) return { verified: false, missing: ['No beta release containing the merge commit yet'], evidence };
+    if (release.includesMerge !== true) missing.push('Release does not include the merge commit');
     let names;
     try { names = releaseAssets(release.version, release.assets.map(a => a.name)); }
     catch (error) { names = null; missing.push(`Release assets: ${error.message}`); }

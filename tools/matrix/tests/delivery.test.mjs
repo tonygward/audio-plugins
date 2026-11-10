@@ -8,7 +8,7 @@ import { readState, atomic } from '../state.mjs';
 
 const sha = 'c'.repeat(40), version = '0.5.4';
 const win = `Songsmith-Plugins-${version}-win64-setup.exe`, mac = `Songsmith-Plugins-${version}-macOS.pkg`;
-const release = (assets, sourceSha = sha) => async () => ({ tag: `v${version}`, url: 'https://example.test/rel', sourceSha, version, assets });
+const release = (assets, includesMerge = true) => async () => ({ tag: `v${version}`, url: 'https://example.test/rel', sourceSha: 'b'.repeat(40), includesMerge, version, assets });
 const good = [{ name: win, size: 100 }, { name: mac, size: 200 }];
 
 function setup() {
@@ -50,7 +50,7 @@ test('each blocker keeps the issue open and the card in Doing, with one comment'
     'unmerged pull request': { pull: async () => ({ state: 'OPEN' }) },
     'extra release asset': { release: release([...good, { name: 'x.zip', size: 1 }]) },
     'wrong installer name': { release: release([{ name: 'setup.exe', size: 1 }, good[1]]) },
-    'built from another commit': { release: release(good, 'd'.repeat(40)) },
+    'release does not include the merge': { release: release(good, false) },
     'private storage mismatch': { r2: async () => [{ name: win, size: 99 }, good[1]] },
     'website shows old version': { site: async () => ({ version: '0.5.3', changelogVersions: ['0.5.3'] }) },
     'changelog missing version': { site: async () => ({ version, changelogVersions: ['0.5.3'] }) },

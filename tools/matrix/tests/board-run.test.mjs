@@ -19,7 +19,7 @@ function harness({ cards, pulls = [], usage = { allowed: true, extraUsageEnabled
     hasComment: async (r, i, marker) => comments.some(c => c.body.includes(marker)),
     comment: async (r, i, body) => { comments.push({ r, i, body }); }, closeIssue: async () => calls.push('close'), setDone: async () => calls.push('done'),
     pull: async () => ({ state: 'MERGED', mergeSha: 'c'.repeat(40), url: 'u' }),
-    release: async () => ({ tag: 't', url: 'u', sourceSha: 'c'.repeat(40), version: '0.5.4', assets: [{ name: 'Songsmith-Plugins-0.5.4-win64-setup.exe', size: 1 }, { name: 'Songsmith-Plugins-0.5.4-macOS.pkg', size: 2 }] }),
+    release: async () => ({ tag: 't', url: 'u', sourceSha: 'b'.repeat(40), includesMerge: true, version: '0.5.4', assets: [{ name: 'Songsmith-Plugins-0.5.4-win64-setup.exe', size: 1 }, { name: 'Songsmith-Plugins-0.5.4-macOS.pkg', size: 2 }] }),
     r2: async () => [{ name: 'Songsmith-Plugins-0.5.4-win64-setup.exe', size: 1 }, { name: 'Songsmith-Plugins-0.5.4-macOS.pkg', size: 2 }],
     site: async () => ({ version: '0.5.4', changelogVersions: ['0.5.4'] }),
     downloads: async () => ({ windows: { ok: true, bytes: 1 }, macos: { ok: true, bytes: 2 } })
