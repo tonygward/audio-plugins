@@ -42,6 +42,7 @@ Order below is an index, not the execution queue. The board decides order.
 | AUTO-01 | [Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) | [#162](https://github.com/tonygward/audio-plugins/issues/162) |
 | MAX-07 | [Loudness meter (LUFS)](../../maximiser/prompts/done/07-loudness-meter.md) | [#161](https://github.com/tonygward/audio-plugins/issues/161) |
 | ACOMP-07 | [Low Cut for the compressor detector](../../analog-compressor/prompts/07-detector-low-cut.md) | [#160](https://github.com/tonygward/audio-plugins/issues/160) |
+| ACOMP-11 | [Add 2:1 ratio to Analog Compressor](../../analog-compressor/prompts/11-two-to-one-ratio.md) | [#199](https://github.com/tonygward/audio-plugins/issues/199) |
 | AUTO-10 | [Verify beta release distribution end to end](AUTO-10-verified-beta-distribution-e2e.md) | [#157](https://github.com/tonygward/audio-plugins/issues/157) |
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
