@@ -8,7 +8,7 @@
 - Automatically approve/merge only after current-head required CI/tests pass. Trusted workflows automatically increment the beta third-component build/patch number; major/minor increments are deferred.
 - Comment on actual pickup, progress, failure, merge and deployment. Verify matching beta website deployment and both installer downloads, post the final completion comment, then close the issue and finally set its board card Done.
 - Archived prompts mean merged implementation, not verified delivery. No duplicate implementation while a release is pending.
-- AUTO-11 is the implementation specification for board pickup; it is not yet evidence of a working board reader. Infrastructure/website tasks require their scoped execution path and credentials, not a location-based rejection.
+- AUTO-11 (board pickup) is done and running in the container; AUTO-12 (bounded loop, resume) is still partial. Infrastructure/website tasks require their scoped execution path and credentials, not a location-based rejection.
 
 ## Canonical issue and prompt links
 Every implementation item needs a unique stable ID, issue and canonical prompt linked both ways. Follow [the issue/prompt contract](../../docs/backlog-issue-prompt-contract.md). A Doing card is a run-now request, not proof of pickup.
@@ -50,7 +50,6 @@ Order below is an index, not the execution queue. The board decides order.
 | AUTO-10 | [Verify beta release distribution end to end](AUTO-10-verified-beta-distribution-e2e.md) | [#157](https://github.com/tonygward/audio-plugins/issues/157) |
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
-| AUTO-11 | [Board-ordered pickup and delivery lifecycle](AUTO-11-board-driven-pickup.md) | [#175](https://github.com/tonygward/audio-plugins/issues/175) |
 | AUTO-13 | [CI-passed comment on tracking issue](AUTO-13-ci-pass-issue-comment.md) | [#196](https://github.com/tonygward/audio-plugins/issues/196) |
 
 AUTO-01 and AUTO-05 are parent tracking epics. AUTO-06/07 are archived code foundations. AUTO-08/09/10 retain runtime, development/CI and distribution evidence respectively. Real Matrix PRs #174/#177 show execution has occurred; they do not prove every isolation/recovery/distribution acceptance criterion.
@@ -63,6 +62,7 @@ These links prevent completed features being selected again. Verify each ticket'
 ### shared
 - [AUTO-06-matrix-queue-and-usage-foundation](done/AUTO-06-matrix-queue-and-usage-foundation.md)
 - [AUTO-07-linux-ci-worker-code-foundation](done/AUTO-07-linux-ci-worker-code-foundation.md)
+- [AUTO-11-board-driven-pickup](done/AUTO-11-board-driven-pickup.md)
 - [S7-one-version-number](done/S7-one-version-number.md)
 - [SUI-01-shared-fonts-and-type](done/SUI-01-shared-fonts-and-type.md)
 - [SUI-02-bevelled-controls](done/SUI-02-bevelled-controls.md)

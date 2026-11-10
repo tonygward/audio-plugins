@@ -11,7 +11,7 @@ conflicts: []
 # AUTO-12 — Bounded Claude agentic loop and resumable issue lifecycle
 
 **Tracking issue:** [#180](https://github.com/tonygward/audio-plugins/issues/180)
-**Split from:** [AUTO-11](AUTO-11-board-driven-pickup.md)
+**Split from:** [AUTO-11](done/AUTO-11-board-driven-pickup.md)
 **Policy:** [Execution and delivery](../../docs/songsmith-execution-policy.md)
 **Status:** Partially implemented in merged PR #193 (Blocked checkpoint, basic explicit resume, elapsed-run budget). Committed/pushed-work resumption, in-flight CI recovery, turn/token budget and controlled end-to-end pilot remain open; live runtime not proven.
 

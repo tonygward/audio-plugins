@@ -82,3 +82,8 @@ test('moveToBlocked uses the board mutation and refuses without its option id', 
   assert.match(calls[0].join(' '), /-f o=B$/); assert.match(calls[0][3], /updateProjectV2ItemFieldValue/);
   await assert.rejects(githubIo(fakeGh({}), { projectId: 'P', statusFieldId: 'F' }).moveToBlocked('item-1'), /Blocked field is not configured/);
 });
+
+test('prChecks returns the head commit and the check roll-up', async () => {
+  const io = githubIo(fakeGh({ 'pr view': JSON.stringify({ headRefOid: merge, statusCheckRollup: [{ status: 'COMPLETED', conclusion: 'SUCCESS' }] }) }));
+  assert.deepEqual(await io.prChecks(repo, 9), { headSha: merge, checks: [{ status: 'COMPLETED', conclusion: 'SUCCESS' }] });
+});
