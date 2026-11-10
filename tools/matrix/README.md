@@ -292,7 +292,7 @@ Each run is two steps in one process, run by `linux-worker.mjs`:
    The choice goes to `board-handoff.json` in the state folder.
 2. **Worker** (`linux-worker.mjs`). Under its own lock it re-checks the hand-off against a fresh copy of `main`, claims through its normal path,
    moves the card to Doing, posts the starting comment (task, Matrix job, prompt revision, repository, limits), then builds. If either step fails it writes
-   no code and the task needs attention. With no fresh, valid hand-off it does nothing.
+   no code and the task is blocked. With no fresh, valid hand-off it does nothing.
    There is no fallback to the Markdown selector.
 
 Delivery (`delivery.mjs`) runs in the next tick after a merge: verify the beta release, post the final comment, close the issue, then set the card
@@ -317,4 +317,4 @@ The token needs to read the project and both repositories, and to comment on and
 `tokenFile` is optional and defaults to the worker's token. A separate board token is recommended.
 
 **Known gaps:** a claimed task whose worker died stays claimed; the tick reports it and picks nothing until the owner clears it (see issue #175).
-The board has no **Needs attention** column yet and RUN NOW is not implemented, so interrupted work is reported but not moved automatically.
+The board has no **Blocked** column yet and RUN NOW is not implemented, so interrupted work is reported but not moved automatically.

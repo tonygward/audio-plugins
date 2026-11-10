@@ -6,7 +6,7 @@ import { matrixBranchTask, isDeferred } from './board.mjs';
 
 /**
  * kinds: active (our claimed job) | in-review (open pull request) | release-pending (merged, delivery not verified)
- *        | requested (Doing without a claim: run-now, picked ahead of Todo) | deferred (Doing, prompt deferred: left alone) | needs-attention (interrupted or dead-lettered)
+ *        | requested (Doing without a claim: run-now, picked ahead of Todo) | deferred (Doing, prompt deferred: left alone) | blocked (interrupted or dead-lettered)
  *        | release-pending (merged, delivery not yet verified) | inconsistent (blocks enabling)
  */
 export function reconcileDoing(snapshot, prompts, pulls, tasks = {}) {
@@ -37,7 +37,7 @@ export function reconcileDoing(snapshot, prompts, pulls, tasks = {}) {
     else if (prompt.complete && !mergedPulls.length) add(card, 'inconsistent', 'Prompt is archived as merged but no merged Matrix pull request was found');
     else if (mergedPulls.length) add(card, 'release-pending', `Merged in #${mergedPulls.join(', #')}; delivery must be verified before Done. Never recode`);
     else if (task?.state === 'claimed') add(card, 'active',`Claimed by job ${task.job ?? 'unknown'}${openPulls.length ? `; open pull request #${openPulls.join(', #')}` : ''}`);
-    else if (task && ['interrupted', 'dead-letter'].includes(task.state)) add(card, 'needs-attention', `Durable state ${task.state}: move to Needs attention with the reason; resume only on an explicit decision`);
+    else if (task && ['interrupted', 'dead-letter'].includes(task.state)) add(card, 'blocked', `Durable state ${task.state}: move to Blocked with the reason; resume only on an explicit decision`);
     else if (openPulls.length) add(card, 'in-review', `Open pull request #${openPulls.join(', #')} already covers this task`);
     else if (isDeferred(card, prompt)) add(card, 'deferred', 'Deferred (board Execution field or prompt): the card stays in Doing and is not picked up');
     else add(card, 'requested', 'Doing without a claim is a run-now request: picked up next, ahead of Todo, once no job is active and the gates pass');
@@ -48,6 +48,6 @@ export function reconcileDoing(snapshot, prompts, pulls, tasks = {}) {
     if (!card) findings.push({ position: null, issue: tasks[id].issue ?? null, taskId: id, kind: 'inconsistent', detail: 'Claimed in worker state but no Doing or Todo card exists' });
   }
   if (claimedIds.length > 1) findings.push({ position: null, issue: null, taskId: null, kind: 'inconsistent', detail: `${claimedIds.length} tasks are claimed; only one job may be active` });
-  const blocking = findings.filter(f => ['inconsistent', 'needs-attention'].includes(f.kind));
+  const blocking = findings.filter(f => ['inconsistent', 'blocked'].includes(f.kind));
   return { ok: true, enableAllowed: blocking.length === 0, findings };
 }

@@ -251,7 +251,7 @@ test('the card moves to Doing and the starting comment quotes the limits, before
   assert.ok(readState(f.config.stateDirectory).tasks['EQ-41'].movedToDoingAt);
 });
 
-test('no code is written when the starting comment cannot be posted; the task needs attention', async t => {
+test('no code is written when the starting comment cannot be posted; the task is blocked', async t => {
   const f = fixture(t), base = adapter(), a = withIssues(base); a.failComment = true; handoffFor(f);
   const report = await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
   assert.equal(report.outcomes[0].interrupted, true); assert.equal(base.seen.claude.length, 0, 'Claude must not run');
