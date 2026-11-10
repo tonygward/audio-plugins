@@ -136,9 +136,10 @@ export function selectFromBoard(snapshot, prompts, context) {
       : mergedTaskIds.has(card.taskId) || complete.has(card.taskId) ? 'implementation merged; release pending, do not recode'
       : openPullTaskIds.has(card.taskId) ? 'open pull request already exists for task'
       : !prompt ? 'no canonical prompt found'
+      : prompt.excluded ? 'prompt is in an excluded folder (future or archive)'
       : prompt.deferred || prompt.execution === 'deferred' ? 'prompt is marked deferred'
       : prompt.blocked ? 'prompt is blocked'
-      : task && ['claimed', 'interrupted', 'awaiting-review', 'complete', 'dead-letter'].includes(task.state) ? `durable state: ${task.state}`
+      : task && ['claimed', 'interrupted', 'awaiting-review', 'complete', 'dead-letter', 'withdrawn'].includes(task.state) ? `durable state: ${task.state}`
       : !executionPaths.has(repository) ? `no scoped execution path for ${repository}` : null;
     if (!reason && prompt) {
       const missing = prompt.dependencies.filter(id => !complete.has(id));

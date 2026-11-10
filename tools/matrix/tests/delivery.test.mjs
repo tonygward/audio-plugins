@@ -120,3 +120,14 @@ test('final comment does not claim downloads were exercised when they were not',
   assert.match(io.comments[0], /not exercised by Matrix/);
   assert.doesNotMatch(io.comments[0], /Authenticated downloads checked/);
 });
+
+test('finishing delivery moves a claimed or reviewed task to complete so it cannot hold the job slot', async () => {
+  for (const before of ['claimed', 'awaiting-review']) {
+    const dir = setup(), state = readState(dir); state.tasks['MAX-07'].state = before; atomic(path.join(dir, 'state.json'), state);
+    assert.equal((await advanceDelivery(dir, 'MAX-07', fakeIo())).stage, 'done');
+    assert.equal(readState(dir).tasks['MAX-07'].state, 'complete', before);
+  }
+  const dir = setup();
+  await advanceDelivery(dir, 'MAX-07', fakeIo({ io: { release: async () => null } }));
+  assert.equal(readState(dir).tasks['MAX-07'].state, 'claimed', 'not complete while delivery is blocked');
+});

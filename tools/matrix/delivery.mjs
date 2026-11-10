@@ -113,7 +113,10 @@ export async function advanceDelivery(stateDirectory, taskId, io, now = () => ne
     }
     if (delivery.stage === 'closed') {
       try { await io.setDone(delivery.itemId); } catch (error) { return stop(`Setting the card to Done failed: ${error.message}`, 'done-failed'); }
-      Object.assign(delivery, { stage: 'done', doneAt: now() }); record(state, { event: 'card-done', task: taskId }); save();
+      Object.assign(delivery, { stage: 'done', doneAt: now() });
+      // Delivered work leaves the active states, so a finished task can never hold the single job slot.
+      const task = state.tasks[taskId]; if (task && ['claimed', 'awaiting-review'].includes(task.state)) task.state = 'complete';
+      record(state, { event: 'card-done', task: taskId }); save();
     }
     return { stage: delivery.stage, blocked: null };
   });

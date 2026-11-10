@@ -158,3 +158,11 @@ test('work lands in the prompt repository, not the repository holding the tracki
   assert.equal(result.selected.repository, repoA);
   assert.equal(result.selected.issueRepository, 'tonygward/songsmithstudio');
 });
+
+test('prompts in excluded folders and withdrawn tasks are skipped with a reason', () => {
+  const ps = [prompt('A-01', { excluded: true }), prompt('B-01'), prompt('C-01')];
+  const result = selectFromBoard(snapshot(card('Todo', 1, 'A-01'), card('Todo', 2, 'B-01'), card('Todo', 3, 'C-01')), ps, base({ tasks: { 'B-01': { state: 'withdrawn' } } }));
+  assert.match(result.decisions[0].reason, /excluded folder/);
+  assert.match(result.decisions[1].reason, /durable state: withdrawn/);
+  assert.equal(result.selected.taskId, 'C-01');
+});
