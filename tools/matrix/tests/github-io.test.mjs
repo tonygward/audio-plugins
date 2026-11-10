@@ -44,13 +44,14 @@ test('release returns null when no release contains the merge', async () => {
 
 test('comments, closing and Done use the expected gh arguments', async () => {
   const calls = [];
-  const io = githubIo(fakeGh({ 'issue view': JSON.stringify({ comments: [{ body: 'hello <!-- m:1 -->' }] }), issue: '', project: '' }, calls), { projectId: 'P', statusFieldId: 'F', doneOptionId: 'O' });
+  const io = githubIo(fakeGh({ 'issue view': JSON.stringify({ comments: [{ body: 'hello <!-- m:1 -->' }] }), issue: '', 'api graphql': '{}' }, calls), { projectId: 'P', statusFieldId: 'F', doneOptionId: 'O' });
   assert.equal(await io.hasComment(repo, 4, '<!-- m:1 -->'), true);
   assert.equal(await io.hasComment(repo, 4, '<!-- m:2 -->'), false);
   await io.comment(repo, 4, 'body text'); await io.closeIssue(repo, 4); await io.setDone('item-1');
   assert.deepEqual(calls.slice(2).map(c => c.join(' ')), [
     `issue comment 4 --repo ${repo} --body body text`, `issue close 4 --repo ${repo} --reason completed`,
-    'project item-edit --id item-1 --project-id P --field-id F --single-select-option-id O']);
+    'api graphql -f query=' + calls.at(-1)[3].slice(6) + ' -f p=P -f i=item-1 -f f=F -f o=O']);
+  assert.match(calls.at(-1)[3], /updateProjectV2ItemFieldValue/);
 });
 
 test('setDone refuses to run without the board field configuration', async () => {
