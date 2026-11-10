@@ -11,7 +11,7 @@ conflicts: []
 # SUI-17 — Replace Guidance button with tooltips on plugin titles
 
 **Issue:** [#201](https://github.com/tonygward/audio-plugins/issues/201)  
-**Related existing work:** [ADV-01 #171](https://github.com/tonygward/audio-plugins/issues/171) (implemented; do not recode)  
+**Related existing work:** [ADV-01 #171](https://github.com/tonygward/audio-plugins/issues/171) (implemented; do not recode); [SUI-18 #202](https://github.com/tonygward/audio-plugins/issues/202) (shared EQ-style title-bar layout and Undo/Redo).  
 **Policy:** [Songsmith execution and delivery](../../docs/songsmith-execution-policy.md)  
 **Execution:** Backlog only. Board-controlled; not queued or started by this prompt.
 
@@ -35,7 +35,8 @@ ADV-01 added an independent Guidance button for each plugin, backed by `shared/S
 4. Keep tooltips readable and not overlong: no multi-section card squeezed verbatim into a tiny tooltip. If small “What To Listen For” or “Try This” context can fit use it; otherwise prioritise the plain-English description.
 5. Review what to do with the existing **Measured** advice: do not replace live measurements with a static title tooltip. Keep genuine numerical metering in its original meter/control display, and remove unused guidance-only calculations. Do not add another overlay unless specifically justified by existing product behaviour. Preserve DSP and the audio thread's current computational load.
 6. Carefully remove or deprecate the guidance-only `Guidance.xml` preference and UI plumbing without touching saved DAW session/preset state. No unexpected modal, standalone preference, stale tooltip or unused focus target after removal. If shared guidance code remains for other concrete uses, document those consumers.
-7. Update `shared/docs/guidance.md`, plugin documentation, tooltip conventions, automated editor/shared tests and screenshots. Preserve ratio controls, frequency guide, loudness meter, bypass, Processing Load and individual parameter tooltips.
+7. **Maximiser preset title-bar requirement:** Move the existing Maximiser `startingPointBox` / preset selector from the lower editor into the title bar, immediately after **Songsmith Maximiser**, matching EQ's name → preset placement and preserving available starting points, selection, session state and accessibility. Keep the preset chooser visible after Guidance is removed; do not substitute a tooltip for presets. Coordinate the same work already specified by **SUI-18**, so it is implemented **once**, not duplicated or undone by either story. Ensure no overlap with the plugin-title tooltip hit target or the intended eventual **Name | Preset | Undo | Redo | Bypass** layout. SUI-18 owns the broader suite-wide header consistency/Undo/Redo scope.
+8. Update `shared/docs/guidance.md`, plugin documentation, tooltip conventions, automated editor/shared tests and screenshots. Preserve ratio controls, frequency guide, loudness meter, bypass, Processing Load and individual parameter tooltips.
 
 ## Acceptance criteria and automated tests
 
@@ -43,7 +44,7 @@ ADV-01 added an independent Guidance button for each plugin, backed by `shared/S
 - The existing plugin title itself has a discoverable concise tooltip; hovering over adjacent blank space does not show the tooltip. Keyboard users/accessibility clients can obtain equivalent information.
 - Title text and target stay correctly aligned on each supported UI scale and on Windows/macOS. No overlap/clipping or appearance regression.
 - Tooltip copy is truthful, plain-English, appropriate to plugin purpose and independent of live meter validity. No fabricated measurement or automated sound claims.
-- Existing per-control tooltips and useful measurements still work; no settings, presets, automation IDs, processing or audio output change.
+- Maximiser's existing preset selector is in its title bar immediately after the title and works exactly as before; this is consistent with SUI-18 and is not implemented twice. Existing per-control tooltips and useful measurements still work; no presets, automation IDs, processing or audio output change.
 - Unit and UI tests and current-head Windows/macOS CI pass. Retain before/after screenshots and DAW host check notes.
 - Automatic trusted merge followed by qualifying beta version increment, EXE/PKG suite installers, private R2 distribution and verified live beta website/downloads. Post final issue evidence comment before closing and marking board Done.
 
