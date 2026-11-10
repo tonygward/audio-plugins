@@ -9,6 +9,7 @@ import { reconcileDoing } from './doing.mjs';
 import { pickUp, recoverPickupComments } from './pickup.mjs';
 import { advanceDelivery, recordMerge } from './delivery.mjs';
 import { writeHandoff, clearHandoff } from './handoff.mjs';
+import { blockStopped, resumeBlocked } from './blocked.mjs';
 import { scan } from './backlog.mjs';
 import { dailyDue, londonDay } from './policy.mjs';
 
@@ -56,13 +57,17 @@ export async function boardTick(config, deps) {
     atomic(path.join(dir, 'state.json'), state);
     return recorded;
   });
-  const state = readState(dir);
+  let state = readState(dir);
 
   // Resume anything half-way before considering new work: lost pickup comments, then deliveries.
   const delivery = {};
   if (!dryRun) {
     await recoverPickupComments(dir, { revision, io, limits });
     for (const [id, d] of Object.entries(readState(dir).deliveries ?? {})) if (d.stage !== 'done') delivery[id] = await advanceDelivery(dir, id, io);
+    // Stopped work is reported once and parked in Blocked; an owner moving a card back to Todo or Doing is the explicit resume.
+    await resumeBlocked(dir, board, io);
+    for (const itemId of (await blockStopped(dir, io)).moved) { const card = board.cards.find(c => c.itemId === itemId); if (card) card.status = 'Blocked'; }
+    state = readState(dir);
   }
 
   const doing = reconcileDoing(board, prompts, pulled.pulls, state.tasks);

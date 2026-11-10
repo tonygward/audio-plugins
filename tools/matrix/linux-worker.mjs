@@ -20,6 +20,7 @@ import { betaVerifiers } from './verifiers.mjs';
 import { boardTick, ghGraphql, promptLoader } from './board-run.mjs';
 import { readHandoff, adoptHandoff, boardFields, clearHandoff } from './handoff.mjs';
 import { postPickupComment } from './pickup.mjs';
+import { budgetStop, runMinutes } from './budget.mjs';
 
 export const CI_VALIDATION = 'Hosted Windows and macOS builds and tests decide; this worker ran no local build.';
 const TURN_RUNAWAY_FACTOR = 3;
@@ -37,7 +38,8 @@ export function validateLinuxConfig(config) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(w.repositorySlug)) throw Error('Invalid GitHub repository');
   const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
   if (!int(w.maximumPrompts, 1, 6) || !int(w.maximumTurns, 1, 60) || !Number.isFinite(w.maximumBudgetUsd) || w.maximumBudgetUsd <= 0 || w.maximumBudgetUsd > 20) throw Error('Invalid worker budget');
-  if (!int(w.timeoutSeconds, 60, 1800) || !int(w.ciTimeoutSeconds, 300, 7200) || !int(w.maximumRepairs, 0, 2) || !int(w.pollSeconds, 5, 300)) throw Error('Invalid worker timing');
+  if (!int(w.timeoutSeconds, 60, 1800) || !int(w.ciTimeoutSeconds, 300, 7200) || !int(w.maximumRepairs, 0, 3) || !int(w.pollSeconds, 5, 300)) throw Error('Invalid worker timing');
+  if (w.maximumRunMinutes !== undefined && !int(w.maximumRunMinutes, 5, 600)) throw Error('Invalid worker timing');
   if (!int(config.batchLimit, 1, 6)) throw Error('batchLimit must be 1-6');
   if (typeof config.enabled !== 'boolean') throw Error('enabled must be a boolean');
   validateBoardConfig(config);
@@ -52,6 +54,7 @@ export function validateBoardConfig(config) {
   if (config.batchLimit !== 1 || config.worker.maximumPrompts !== 1) throw Error('Board pickup requires batchLimit 1 and maximumPrompts 1');
   if (typeof b.projectId !== 'string' || !b.projectId || !list(b.repositories) || !list(b.executionRepositories) || !slug(b.promptRepository)) throw Error('Invalid boardPickup configuration');
   if (['statusFieldId', 'doneOptionId', 'doingOptionId'].some(key => typeof b[key] !== 'string' || !b[key])) throw Error('boardPickup needs statusFieldId, doingOptionId and doneOptionId');
+  if (b.blockedOptionId !== undefined && (typeof b.blockedOptionId !== 'string' || !b.blockedOptionId)) throw Error('Invalid blockedOptionId');
   if (b.tokenFile !== undefined && !path.isAbsolute(b.tokenFile)) throw Error('boardPickup.tokenFile must be absolute');
   if (b.downloadEvidence !== undefined && b.downloadEvidence !== 'worker-checked') throw Error('Unknown downloadEvidence');
   if (b.dryRun !== undefined && typeof b.dryRun !== 'boolean') throw Error('dryRun must be a boolean');
@@ -59,13 +62,13 @@ export function validateBoardConfig(config) {
 
 export function boardIo(gh, config, verifiers = {}) {
   const b = config.boardPickup;
-  return githubIo(gh, { projectId: b.projectId, statusFieldId: b.statusFieldId, doingOptionId: b.doingOptionId, doneOptionId: b.doneOptionId, verifiers });
+  return githubIo(gh, { projectId: b.projectId, statusFieldId: b.statusFieldId, doingOptionId: b.doingOptionId, doneOptionId: b.doneOptionId, blockedOptionId: b.blockedOptionId, verifiers });
 }
 
 // The limits this run actually enforces, quoted in the starting comment.
 export function limitsText(config) {
   const w = config.worker;
-  return `up to ${w.maximumTurns} Claude turns and a ${w.maximumBudgetUsd} dollar budget per attempt, ${Math.round(w.timeoutSeconds / 60)} minutes per attempt, ${w.maximumRepairs} CI repairs; no new work at or above ${WEEKLY_LIMIT_PERCENT}% weekly Claude usage`;
+  return `up to ${w.maximumTurns} Claude turns and a ${w.maximumBudgetUsd} dollar budget per attempt, ${Math.round(w.timeoutSeconds / 60)} minutes per attempt, ${w.maximumRepairs} CI repairs, ${runMinutes(w)} minutes in total per run; no new work at or above ${WEEKLY_LIMIT_PERCENT}% weekly Claude usage`;
 }
 
 // Run the board tick, then the worker. The tick holds no Claude access: it decides, delivers and hands off.
@@ -197,6 +200,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
       if (!usage.allowed || !usageGate(usage.snapshot, clock()).allowed || usage.extraUsageEnabled !== false) { log(p.id, 'usage-blocked', { reason: usage.reason }); break; }
       const task = state.tasks[p.id];
       if (!claim(state, p, initial.revision)) { save(); continue; }
+      task.runStartedAt = new Date(clock()).toISOString(); // the run budget starts at the claim and survives a restart
       if (handoff) {
         // Durable claim first, then the pickup comment. A failed comment keeps the claim and is retried by the next tick.
         Object.assign(task, boardFields(handoff, new Date(clock()).toISOString())); clearHandoff(dir);
@@ -216,6 +220,8 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
       let blocked = null;
       try {
         fs.mkdirSync(w.worktreeRoot, { recursive: true });
+        // An explicit resume of work with no commits starts clean: drop the retained worktree and local branch first.
+        if (task.resumedAt && fs.existsSync(plan.directory)) { await git(['worktree', 'remove', '--force', plan.directory]).catch(() => {}); await git(['branch', '-D', plan.branch]).catch(() => {}); }
         if (fs.existsSync(plan.directory)) throw Error('Retained worktree exists; operator review required');
         await git(plan.args);
         if ((await git(['ls-files', '--stage'], plan.directory)).split('\n').some(line => /^(120000|160000) /.test(line))) throw Error('Symlinks/submodules require manual review');
@@ -226,6 +232,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
         if (Buffer.byteLength(basePrompt) > 512 * 1024) throw Error('Prompt exceeds input bound');
         let usedTurns = 0, spentUsd = 0, feedback = '', files = [];
         const implement = async attempt => {
+          const over = budgetStop(task, w, clock()); if (over) return over;
           if (attempt) { const next = loadUsage(config.claudeUsage); if (!next.allowed || !usageGate(next.snapshot, clock()).allowed || next.extraUsageEnabled !== false) return 'Repair stopped by usage policy'; }
           if (spentUsd >= w.maximumBudgetUsd) return 'Repair stopped by per-prompt turn/cost bounds';
           log(p.id, 'agent-started', { attempt: attempt + 1 });
@@ -270,10 +277,11 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
             if (!seen && clock() - start > 600000) return { state: 'not-started' };
             if (clock() - start > w.ciTimeoutSeconds * 1000) return { state: 'timeout' };
             if (cancelled()) throw Error('Worker paused or deadline reached');
+            const over = budgetStop(task, w, clock()); if (over) throw Object.assign(Error(over), { blocked: true });
             await sleep(w.pollSeconds * 1000);
           }
         };
-        const stop = await implement(0); if (stop) throw Error(stop);
+        const stop = await implement(0); if (stop) throw Object.assign(Error(stop), { blocked: true });
         if (files.some(file => /(?:Editor|LookAndFeel|FrequencyGuide|\/UI\/)/i.test(file))) blocked = UI_NOTE;
         await git(['add', '--', ...files], plan.directory);
         await git(['-c', 'user.name=Songsmith Matrix', '-c', 'user.email=matrix@users.noreply.github.com', 'commit', '-m', `${p.id}: Matrix controlled implementation`], plan.directory);

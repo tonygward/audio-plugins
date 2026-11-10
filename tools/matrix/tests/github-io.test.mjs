@@ -74,3 +74,11 @@ test('without storage, website and download verifiers a merged task never reache
   assert.equal(result.stage, 'pending'); assert.match(result.blocked, /Private storage verifier is not configured/);
   assert.equal(calls.some(c => c[0] === 'project' || (c[0] === 'issue' && c[1] === 'close')), false);
 });
+
+test('moveToBlocked uses the board mutation and refuses without its option id', async () => {
+  const calls = [];
+  const io = githubIo(fakeGh({ 'api graphql': '{}' }, calls), { projectId: 'P', statusFieldId: 'F', blockedOptionId: 'B' });
+  await io.moveToBlocked('item-1');
+  assert.match(calls[0].join(' '), /-f o=B$/); assert.match(calls[0][3], /updateProjectV2ItemFieldValue/);
+  await assert.rejects(githubIo(fakeGh({}), { projectId: 'P', statusFieldId: 'F' }).moveToBlocked('item-1'), /Blocked field is not configured/);
+});

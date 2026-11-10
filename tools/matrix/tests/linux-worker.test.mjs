@@ -75,7 +75,7 @@ const body = (f, report) => fs.readFileSync(path.join(f.config.stateDirectory, `
 
 test('config must keep merge and release off, use ci mode and sensible limits', t => {
   const f = fixture(t); validateLinuxConfig(f.config);
-  for (const mutate of [c => { c.autoMerge = true; }, c => { c.releasePublication = true; }, c => { c.worker.mode = 'scheduled'; }, c => { c.worker.maximumRepairs = 3; }, c => { c.worker.tokenFile = 'relative'; }, c => { c.claudeUsage.enabled = false; }, c => { c.worker.repositorySlug = 'bad slug'; }]) {
+  for (const mutate of [c => { c.autoMerge = true; }, c => { c.releasePublication = true; }, c => { c.worker.mode = 'scheduled'; }, c => { c.worker.maximumRepairs = 4; }, c => { c.worker.maximumRunMinutes = 4; }, c => { c.worker.maximumRunMinutes = 601; }, c => { c.worker.tokenFile = 'relative'; }, c => { c.claudeUsage.enabled = false; }, c => { c.worker.repositorySlug = 'bad slug'; }]) {
     const c = structuredClone(f.config); mutate(c); assert.throws(() => validateLinuxConfig(c));
   }
 });
@@ -278,4 +278,17 @@ test('a Todo pickup uses up the overnight slot for the London day; a Doing picku
     await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
     assert.equal(Boolean(readState(f.config.stateDirectory).lastWorkerDaily), expected, status);
   }
+});
+
+test('the run budget stops the agent before it starts and leaves the task interrupted with the reason', async t => {
+  const f = fixture(t), base = adapter(), a = withIssues(base); handoffFor(f);
+  const config = boardConfig(f); config.worker = { ...config.worker, maximumRunMinutes: 5 };
+  // Time stands still until the claim is saved, then six minutes pass before the agent would start.
+  const clock = () => now + (readState(f.config.stateDirectory).tasks['EQ-41']?.runStartedAt ? 360000 : 0);
+  const report = await runLinuxWorker(config, options(f, a, { trigger: 'timer', clock }));
+  assert.equal(report.outcomes[0].interrupted, true);
+  assert.equal(base.seen.claude.length, 0, 'Claude must not run once the budget is spent');
+  const task = readState(f.config.stateDirectory).tasks['EQ-41'];
+  assert.equal(task.state, 'interrupted'); assert.ok(task.runStartedAt);
+  assert.match(task.reason, /Run time limit of 5 minutes/);
 });

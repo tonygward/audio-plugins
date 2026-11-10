@@ -17,6 +17,7 @@ function harness({ cards, pulls = [], usage = { allowed: true, extraUsageEnabled
   if (lastWorkerDaily) { const seeded = readState(dir); seeded.lastWorkerDaily = lastWorkerDaily; atomic(path.join(dir, 'state.json'), seeded); }
   const comments = [], calls = [];
   const io = {
+    moveToBlocked: async id => calls.push('blocked:' + id),
     hasComment: async (r, i, marker) => comments.some(c => c.body.includes(marker)),
     comment: async (r, i, body) => { comments.push({ r, i, body }); }, closeIssue: async () => calls.push('close'), setDone: async () => calls.push('done'),
     pull: async () => ({ state: 'MERGED', mergeSha: 'c'.repeat(40), url: 'u' }),
@@ -176,4 +177,25 @@ test('a live Todo pickup uses up the day; a Doing pickup does not', async () => 
   const d1 = harness({ cards: [node(1, 'Doing', 'A-01 — first')], dryRun: false, lastWorkerDaily: '2026-11-09' });
   assert.equal((await boardTick(d1.config, d1.deps)).selected.taskId, 'A-01');
   assert.equal(readState(d1.dir).lastWorkerDaily, '2026-11-09');
+});
+
+test('the tick moves stopped work to Blocked, and does not let it hold up other work', async () => {
+  const h = harness({ cards: [node(1, 'Doing', 'A-01 — first'), node(2, 'Doing', 'B-01 — second')], dryRun: false });
+  const state = readState(h.dir);
+  state.tasks['A-01'] = { id: 'A-01', state: 'interrupted', attempts: 1, job: 'old', issue: 1, itemId: 'item-1', repository: repo, issueRepository: repo, reason: 'Agent produced no changes' };
+  atomic(path.join(h.dir, 'state.json'), state);
+  const result = await boardTick(h.config, { ...h.deps, handoff: true });
+  assert.ok(h.calls.includes('blocked:item-1'));
+  assert.equal(result.selected.taskId, 'B-01', 'the blocked card no longer stops the queue');
+  assert.ok(h.comments.some(c => c.body.includes('A-01 is Blocked')));
+});
+
+test('the tick resumes blocked work whose card an owner moved back to Todo', async () => {
+  const h = harness({ cards: [node(1, 'Todo', 'A-01 — first')], dryRun: false });
+  const state = readState(h.dir);
+  state.tasks['A-01'] = { id: 'A-01', state: 'interrupted', attempts: 2, job: 'old', issue: 1, itemId: 'item-1', repository: repo, issueRepository: repo, reason: 'x', blockedCommentAt: 't' };
+  atomic(path.join(h.dir, 'state.json'), state);
+  const result = await boardTick(h.config, { ...h.deps, handoff: true });
+  assert.equal(result.selected.taskId, 'A-01');
+  assert.ok(readState(h.dir).tasks['A-01'].resumedAt);
 });
