@@ -13,10 +13,10 @@ conflicts: []
 **Tracking issue:** [#180](https://github.com/tonygward/audio-plugins/issues/180)
 **Split from:** [AUTO-11](AUTO-11-board-driven-pickup.md)
 **Policy:** [Execution and delivery](../../docs/songsmith-execution-policy.md)
-**Status:** Specification; not queued, implemented or activated.
+**Status:** Partially implemented in merged PR #193 (Blocked checkpoint, basic explicit resume, elapsed-run budget). Committed/pushed-work resumption, in-flight CI recovery, turn/token budget and controlled end-to-end pilot remain open; live runtime not proven.
 
 ## Objective and user value
-One claimed issue enters the standard Claude loop and reaches verified delivery or a clear Blocked outcome. The board remains a truthful high-level view.
+One immediate Doing request is first claimed with durable evidence, then enters the standard Claude loop and reaches verified delivery or a clear Blocked outcome. The board remains a truthful high-level view.
 
 ## Existing and desired behaviour
 Inspect tools/matrix/linux-worker.mjs, existing repair limits, job state and trusted CI/merge/publish workflows first. Reuse those components. Matrix selects and claims; Claude implements/tests/reviews and coordinates trusted merge/publication. Do not build another scheduler or give the coding agent publication credentials.
