@@ -38,7 +38,7 @@ function fixture(t) {
 }
 
 // Real git; fake Claude and GitHub. `builds` gives the hosted-build conclusion for each new head commit, in order.
-function adapter({ builds = ['success'], onClaude, claudeFails } = {}) {
+function adapter({ builds = ['success'], onClaude, claudeFails, prState } = {}) {
   const seen = { claude: [], gh: [] }, results = new Map();
   let counter = 0;
   const run = async (exe, args, o) => {
@@ -59,6 +59,7 @@ function adapter({ builds = ['success'], onClaude, claudeFails } = {}) {
       if (args[0] === 'pr' && args[1] === 'list') return { stdout: '[]', stderr: '' };
       if (args[0] === 'pr' && args[1] === 'create') return { stdout: 'https://github.com/example/plugins/pull/7\n', stderr: '' };
       if (args[0] === 'pr' && args[1] === 'edit') return { stdout: '', stderr: '' };
+      if (args[0] === 'pr' && args[1] === 'view') return { stdout: JSON.stringify({ state: prState ?? 'OPEN' }), stderr: '' };
       if (args[0] === 'run' && args[1] === 'list') {
         const sha = args[args.indexOf('--commit') + 1];
         if (!results.has(sha)) results.set(sha, builds[Math.min(results.size, builds.length - 1)]);
@@ -291,4 +292,11 @@ test('the run budget stops the agent before it starts and leaves the task interr
   const task = readState(f.config.stateDirectory).tasks['EQ-41'];
   assert.equal(task.state, 'interrupted'); assert.ok(task.runStartedAt);
   assert.match(task.reason, /Run time limit of 5 minutes/);
+});
+
+test('a pull request that merged the moment Build passed is left alone: no extra push, not reported as blocked', async t => {
+  const f = fixture(t), a = adapter({ prState: 'MERGED' }), report = await runLinuxWorker(f.config, options(f, a));
+  assert.equal(report.outcomes[0].blocked, false);
+  assert.equal(a.seen.gh.filter(c => c.args[0] === 'pr' && c.args[1] === 'view').length, 1);
+  assert.equal(Object.values(readState(f.config.stateDirectory).tasks).find(x => x.pr).state, 'awaiting-review');
 });

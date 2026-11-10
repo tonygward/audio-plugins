@@ -47,12 +47,15 @@ export async function boardTick(config, deps) {
   if (!board.ok) return stop(board.reason);
   const pulled = await fetchPulls(graphql, settings.repositories);
   if (!pulled.ok) return stop(pulled.reason);
-  const { prompts, revision } = await loadPrompts();
+  // A broken prompt file must not stop delivery of work that has already merged: record merges and finish deliveries first,
+  // then refuse to pick anything new until the prompt is fixed.
+  let prompts = [], revision = null, promptError = null;
+  try { ({ prompts, revision } = await loadPrompts()); } catch (error) { promptError = error; }
 
   // Keep durable state in step with the repository and with merged pull requests (needs the lock).
   const recordedMerges = dryRun ? [] : await lockedAsync(dir, async () => {
     const state = readState(dir);
-    refreshTasks(state, prompts, revision);
+    if (!promptError) refreshTasks(state, prompts, revision);
     const recorded = syncMerges(state, pulled.pulls);
     atomic(path.join(dir, 'state.json'), state);
     return recorded;
@@ -62,7 +65,7 @@ export async function boardTick(config, deps) {
   // Resume anything half-way before considering new work: lost pickup comments, then deliveries.
   const delivery = {};
   if (!dryRun) {
-    await recoverPickupComments(dir, { revision, io, limits });
+    if (!promptError) await recoverPickupComments(dir, { revision, io, limits });
     for (const [id, d] of Object.entries(readState(dir).deliveries ?? {})) if (d.stage !== 'done') delivery[id] = await advanceDelivery(dir, id, io);
     // Stopped work is reported once and parked in Blocked; an owner moving a card back to Todo or Doing is the explicit resume.
     await resumeBlocked(dir, board, io);
@@ -70,6 +73,7 @@ export async function boardTick(config, deps) {
     state = readState(dir);
   }
 
+  if (promptError) return stop(`Prompt backlog is invalid, so nothing new is picked up: ${promptError.message}`, { delivery, recordedMerges });
   const doing = reconcileDoing(board, prompts, pulled.pulls, state.tasks);
   if (!doing.enableAllowed) return stop('Doing cards disagree with pull requests or worker state', { doing, delivery, recordedMerges });
 
