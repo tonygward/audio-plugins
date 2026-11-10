@@ -67,7 +67,7 @@ change-scope rules. It differs in validation: there is no local build.
 3. Commit, merge `main` in if it moved (a changelog-only conflict is resolved; anything else stops with a Blocked note), push, open a **draft** PR.
 4. Wait for the hosted Windows and macOS **Build** on the exact head commit. Stale runs never count. On failure, up to two repairs: the failed-job log is saved to a file
    the agent may read as untrusted data; it is never pasted into the instructions.
-5. When the build is green, `matrix-auto-merge.yml` (the existing workflow) merges it; the existing release pipeline publishes the beta. The worker never merges or releases.
+5. When the build is green, `matrix-auto-merge.yml` (the existing workflow) merges it; the existing release pipeline publishes the beta. The worker never merges or releases. Changes to Matrix's own code use the core lane described in `tools/matrix/README.md`; the image is still rebuilt by hand.
 6. If it cannot get a green build, the PR stays a draft with a **Blocked** section.
 
 Before every run the worker checks its own isolation (not root, no Docker socket, no publishing or GitHub credentials in its environment, proxy configured,

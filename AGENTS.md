@@ -71,6 +71,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 ## Working rules
 
 - Branch from an up-to-date `main`; never push commits straight to `main`, never force-push. Every change goes through a PR.
+- **Matrix's own code merges automatically too:** PRs on a `matrix/core/<name>` branch that touch only Matrix controller code, tests, evidence, container config or the execution policy merge once the hosted Matrix orchestration tests pass (workflows, the merge gate, scripts, the Dockerfile and plugin source stay manual). See the [execution policy](docs/songsmith-execution-policy.md).
 - **Automatically approve and merge authorised beta PRs** through the trusted workflow after all current-head required tests and hosted Windows/macOS CI pass; record approval checks in a comment if self-approval is unavailable. Blocked PRs remain pending with issue updates. Trusted workflows increment the beta build/patch number, publish installers and deploy the beta website. Keep the tracking issue open until verified delivery and its final completion comment; finally close it and set the board Done. See [execution policy](docs/songsmith-execution-policy.md).
 - Docs- and prompt-only changes (`*.md`, prompt folders, screenshots) skip CI and can merge without waiting for it.
 - Each plugin builds on its own from its own folder:

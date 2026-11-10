@@ -39,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           row=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
-            --jq '[.[] | select(.merged_at != null and (.head.ref | startswith("matrix/")))][0] | select(. != null) | "\(.number) \(.head.ref)"')
+            --jq '[.[] | select(.merged_at != null and (.head.ref | startswith("matrix/")) and ((.head.ref | startswith("matrix/core/")) | not))][0] | select(. != null) | "\(.number) \(.head.ref)"')
           echo "row=$row" >> "$GITHUB_OUTPUT"
           echo "Matrix pull request for this commit: ${row:-none}"
 

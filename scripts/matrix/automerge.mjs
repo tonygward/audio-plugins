@@ -16,6 +16,23 @@ export function inScope(file) {
     || file === 'CHANGELOG.md';
 }
 
+// Matrix core lane (owner decision, 10 November 2026): changes to Matrix's own controller code, tests and container
+// configuration merge automatically after the hosted Matrix orchestration tests pass on the exact head commit.
+// The worker's own scope (tools/matrix/worker.mjs validateChanges) is unchanged, so the worker still cannot edit this code:
+// only pull requests the owner raises can use this lane. Workflows, this gate (scripts/matrix), PowerShell and shell
+// scripts, the Dockerfile and the egress allow-list stay manual because they decide what may merge or run.
+export const CORE_BRANCH = /^matrix\/core\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const CORE_STATEMENT = 'Matrix core change: owner-approved lane';
+export const CORE_RUN = 'Matrix orchestration tests';
+export function inCoreScope(file) {
+  if (typeof file !== 'string' || !file || /[\\\x00-\x1f]/.test(file)) return false;
+  if (file.split('/').some(part => part === '..' || part.startsWith('.'))) return false;
+  if (/\.(exe|dll|cmd|bat|ps1|sh|cmake)$/i.test(file)) return false;
+  return /^tools\/matrix\/(?:tests\/|evidence\/)?[A-Za-z0-9._-]+\.(?:mjs|json|md)$/.test(file)
+    || /^tools\/matrix-linux\/(?:worker\.config\.json|README\.md)$/.test(file)
+    || file === 'docs/songsmith-execution-policy.md';
+}
+
 export function blockedReason(body) {
   const match = /\n## Blocked\n\n([\s\S]*?)\s*$/.exec(String(body).replace(/\r\n/g, '\n'));
   return match ? match[1].trim() : null;
@@ -23,6 +40,7 @@ export function blockedReason(body) {
 
 // Returns { merge, reasons }. Merge only when every gate holds; reasons explain a refusal.
 export function evaluate({ repository, pr, files, run, allowUiWithoutReview = true }) {
+  if (CORE_BRANCH.test(pr?.headRefName ?? '')) return evaluateCore({ repository, pr, files, run });
   const reasons = [];
   const no = reason => reasons.push(reason);
   if (!pr || pr.state !== 'OPEN') no('Pull request is not open');
@@ -37,7 +55,22 @@ export function evaluate({ repository, pr, files, run, allowUiWithoutReview = tr
   else for (const file of files) if (!inScope(file)) no(`Changed file outside the permitted scope: ${String(file).slice(0, 120)}`);
   if (!run || run.conclusion !== 'success' || run.event !== 'pull_request') no('Hosted Build workflow has not succeeded for the pull request');
   if (run && pr && run.head_sha !== pr.headRefOid) no('Build result is for an older commit than the pull request head');
-  return { merge: reasons.length === 0, reasons };
+  if (run && run.name !== undefined && run.name !== 'Build') no('Hosted Build workflow has not succeeded for the pull request');
+  return { merge: reasons.length === 0, reasons, lane: 'task' };
+}
+
+function evaluateCore({ repository, pr, files, run }) {
+  const reasons = [];
+  const no = reason => reasons.push(reason);
+  if (!pr || pr.state !== 'OPEN') no('Pull request is not open');
+  if (pr?.baseRefName !== 'main') no('Base branch is not main');
+  if (pr?.headRepository !== repository) no('Pull request is from another repository');
+  if (!String(pr?.body ?? '').includes(CORE_STATEMENT)) no('Description does not carry the Matrix core change statement');
+  if (!Array.isArray(files) || files.length === 0 || files.length > 100) no('Unexpected number of changed files');
+  else for (const file of files) if (!inCoreScope(file)) no(`Changed file outside the Matrix core scope: ${String(file).slice(0, 120)}`);
+  if (!run || run.conclusion !== 'success' || run.event !== 'pull_request' || run.name !== CORE_RUN) no('Hosted Matrix orchestration tests have not succeeded for the pull request');
+  if (run && pr && run.head_sha !== pr.headRefOid) no('Test result is for an older commit than the pull request head');
+  return { merge: reasons.length === 0, reasons, lane: 'core' };
 }
 
 // matrix/sui-14-aa16c3e5ab59 -> SUI-14

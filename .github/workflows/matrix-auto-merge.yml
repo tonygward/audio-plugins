@@ -1,14 +1,16 @@
 name: Matrix auto-merge
 
 # Merges a Matrix draft pull request once the hosted Build (Windows and macOS) has succeeded for
-# its exact head commit and every gate in scripts/matrix/automerge.mjs holds. Runs from main's
+# its exact head commit and every gate in scripts/matrix/automerge.mjs holds. A second, owner-approved
+# lane (branch matrix/core/<name>) merges changes to Matrix's own code once the hosted Matrix
+# orchestration tests (Windows, macOS, Linux) pass on the exact head commit; see the gate for its scope. Runs from main's
 # copy of the workflow and scripts; pull-request code is never checked out or executed here.
 # After the merge, the existing pipeline bumps the beta version and publishes (auto-beta-version,
 # auto-publish-release, distribute-beta-r2). Switch off with the repository variable
 # MATRIX_AUTOMERGE_ENABLED=false (or delete it).
 on:
   workflow_run:
-    workflows: [Build]
+    workflows: [Build, Matrix orchestration tests]
     types: [completed]
 
 permissions:
@@ -48,18 +50,19 @@ jobs:
           RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           RUN_EVENT: ${{ github.event.workflow_run.event }}
           RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_NAME: ${{ github.event.workflow_run.name }}
         run: |
           set -euo pipefail
           [[ "$PR_NUMBER" =~ ^[0-9]+$ ]] || { echo "No pull request is linked to this build"; exit 1; }
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > pr.json
           gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename' > files.txt
           jq -n --arg repo "$GITHUB_REPOSITORY" --slurpfile pr pr.json --rawfile files files.txt \
-            --arg conclusion "$RUN_CONCLUSION" --arg event "$RUN_EVENT" --arg sha "$RUN_SHA" '{
+            --arg conclusion "$RUN_CONCLUSION" --arg event "$RUN_EVENT" --arg sha "$RUN_SHA" --arg name "$RUN_NAME" '{
               repository: $repo,
               pr: { state: ($pr[0].state | ascii_upcase), baseRefName: $pr[0].base.ref, headRefName: $pr[0].head.ref,
                     headRefOid: $pr[0].head.sha, headRepository: $pr[0].head.repo.full_name, body: ($pr[0].body // "") },
               files: ($files | split("\n") | map(select(length > 0))),
-              run: { conclusion: $conclusion, event: $event, head_sha: $sha } }' > facts.json
+              run: { name: $name, conclusion: $conclusion, event: $event, head_sha: $sha } }' > facts.json
 
       - name: Decide
         id: gate
@@ -82,6 +85,18 @@ jobs:
         run: |
           set -euo pipefail
           [[ -n "$GH_TOKEN" ]] || { echo '::error::Configure RELEASE_PUBLISH_TOKEN'; exit 1; }
+          if [[ "$(jq -r .lane decision.json)" == core ]]; then
+            cat > comment.md <<EOF
+          Matrix auto-merge checked and approved this Matrix core change (owner-approved lane):
+
+          - hosted Matrix orchestration tests (Windows, macOS and Linux) succeeded for exactly ${RUN_SHA}: ${RUN_URL}
+          - every changed file is Matrix controller code, tests, evidence, container configuration or the execution policy
+          - no workflow, merge gate, script, Dockerfile, egress allow-list, plugin source or version file was changed
+          - the description carries the Matrix core change statement, on a matrix/core branch from this repository
+
+          The running container keeps its baked image until it is rebuilt. Merging now.
+          EOF
+          else
           cat > comment.md <<EOF
           Matrix auto-merge checked and approved this pull request:
 
@@ -93,6 +108,7 @@ jobs:
 
           Not verified in a DAW, and the interface was not reviewed by a person before this merge. Merging now; the beta release pipeline follows.
           EOF
+          fi
           gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file comment.md
           if [[ "$(jq -r .draft pr.json)" == "true" ]]; then gh pr ready "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"; fi
           gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$RUN_SHA"

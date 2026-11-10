@@ -1,10 +1,10 @@
 name: Matrix orchestration tests
 on:
   pull_request:
-    paths: ['tools/matrix/**', 'scripts/matrix/**', 'test/matrix-automerge.test.mjs', '.github/workflows/matrix-*.yml']
+    paths: ['tools/matrix/**', 'tools/matrix-linux/**', 'scripts/matrix/**', 'test/matrix-automerge.test.mjs', '.github/workflows/matrix-*.yml']
   push:
     branches: [main]
-    paths: ['tools/matrix/**', 'scripts/matrix/**', 'test/matrix-automerge.test.mjs', '.github/workflows/matrix-*.yml']
+    paths: ['tools/matrix/**', 'tools/matrix-linux/**', 'scripts/matrix/**', 'test/matrix-automerge.test.mjs', '.github/workflows/matrix-*.yml']
 permissions:
   contents: read
 jobs:
