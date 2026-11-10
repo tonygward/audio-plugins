@@ -7,7 +7,7 @@ import { matrixBranchTask, isDeferred } from './board.mjs';
 /**
  * kinds: active (our claimed job) | in-review (open pull request) | release-pending (merged, delivery not verified)
  *        | requested (Doing without a claim: run-now, picked ahead of Todo) | deferred (Doing, prompt deferred: left alone) | blocked (interrupted or dead-lettered)
- *        | release-pending (merged, delivery not yet verified) | inconsistent (blocks enabling)
+ *        | unready (Doing, no canonical prompt on main yet: skipped, non-blocking) | inconsistent (blocks enabling)
  */
 export function reconcileDoing(snapshot, prompts, pulls, tasks = {}) {
   if (!snapshot?.ok) return { ok: false, reason: snapshot?.reason ?? 'No board snapshot', findings: [] };
@@ -33,7 +33,7 @@ export function reconcileDoing(snapshot, prompts, pulls, tasks = {}) {
     const prompt = byId.get(card.taskId), task = tasks[card.taskId];
     const mergedPulls = merged.get(card.taskId) ?? [], openPulls = open.get(card.taskId) ?? [];
     if (card.state !== 'OPEN') add(card, 'inconsistent', 'Issue is closed but the card is still Doing');
-    else if (!prompt) add(card, 'inconsistent', 'No canonical prompt found');
+    else if (!prompt) add(card, 'unready', 'No canonical prompt on main yet: skipped until it merges, and it does not block other work');
     else if (prompt.complete && !mergedPulls.length) add(card, 'inconsistent', 'Prompt is archived as merged but no merged Matrix pull request was found');
     else if (mergedPulls.length) add(card, 'release-pending', `Merged in #${mergedPulls.join(', #')}; delivery must be verified before Done. Never recode`);
     else if (task?.state === 'claimed') add(card, 'active',`Claimed by job ${task.job ?? 'unknown'}${openPulls.length ? `; open pull request #${openPulls.join(', #')}` : ''}`);

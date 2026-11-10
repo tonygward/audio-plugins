@@ -42,10 +42,10 @@ test('an open pull request or our own claim is recognised, not re-picked', () =>
   assert.equal(mine.enableAllowed, true);
 });
 
-test('closed issue, missing prompt, duplicates and non-issue cards block enabling', () => {
+test('closed issue, duplicates and non-issue cards block enabling', () => {
   const r = reconcileDoing(snap(card(1, 'A-01', { state: 'CLOSED' }), card(2, 'B-01'), card(3, 'C-01'), card(4, 'C-01'), card(5, null, { issue: null }), card(6, null)),
     [prompt('A-01'), prompt('C-01')], [], {});
-  assert.deepEqual(kinds(r).map(k => k[1]), ['inconsistent', 'inconsistent', 'requested', 'inconsistent', 'inconsistent', 'inconsistent']);
+  assert.deepEqual(kinds(r).map(k => k[1]), ['inconsistent', 'unready', 'requested', 'inconsistent', 'inconsistent', 'inconsistent']);
   assert.equal(r.enableAllowed, false);
 });
 
@@ -89,4 +89,10 @@ test('the board Execution field marks a Doing card deferred or releases it', () 
   assert.deepEqual(kinds(held), [['A-01', 'deferred']]);
   const released = reconcileDoing(snap(card(1, 'A-01', { execution: 'Run Now' })), [prompt('A-01', { deferred: true })], [], {});
   assert.deepEqual(kinds(released), [['A-01', 'requested']]);
+});
+
+test('a Doing card whose prompt is not on main yet is skipped and does not block other work', () => {
+  const r = reconcileDoing(snap(card(1, 'B-01'), card(2, 'A-01')), [prompt('A-01')], [], {});
+  assert.deepEqual(kinds(r).map(k => k[1]), ['unready', 'requested']);
+  assert.equal(r.enableAllowed, true);
 });
