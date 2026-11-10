@@ -38,3 +38,17 @@ Make Songsmith EQ presets easy for a musician to find. The picker must be groupe
 
 ## Delivery instructions
 Read `CLAUDE.md`, `docs/style-guide.md`, `eq/Source/PresetManager.h/.cpp`, `eq/Source/PresetBar.cpp`, `eq/Tests/EQTests.cpp`, `eq/docs/starting-points.md`, and `eq/prompts/done/31-tom-presets.md`. Check source tracks before inventing Mid/High Tom differences. Make a focused, backwards-compatible UI/preset-list PR from current main. Test and merge under repo CI rules. Move EQ-40 into `done/` and update docs/changelog only after implementation is merged. No version bump until an agreed release milestone.
+
+
+## Lifecycle update — 10 November 2026 (authoritative)
+
+This section supersedes older scheduling/status/completion wording in this prompt. Follow [the current execution policy](https://github.com/tonygward/audio-plugins/blob/main/docs/songsmith-execution-policy.md).
+
+- [AUTO-11 #175](https://github.com/tonygward/audio-plugins/issues/175): board statuses, verified visible manual order, atomic claim and handoff. Todo is ready; Doing means genuinely claimed with a start comment, never an implicit run-now command. Needs attention is excluded from automatic pickup.
+- [AUTO-12 #180](https://github.com/tonygward/audio-plugins/issues/180): standard bounded Claude task loop. Defaults 120 minutes elapsed/run, three total repair iterations and an explicit finite configured Claude turn/token budget. One task/run, one active job; verified weekly/scoped usage below 60%, unknown/stale blocks new agent work.
+- On limit/blocker, save branch/SHA/PR/checks/delivery stage, comment with progress, actual reason, remaining work and resume action, leave open and set Needs attention. No automatic next-poll retry. Explicit Todo/run-now resumes saved work without duplicate coding or publication.
+- [AUTO-10 #157](https://github.com/tonygward/audio-plugins/issues/157): trusted delivery and finalisation. Exact-head required checks and relevant native CI precede automatic merge. Plugin changes require release, both suite installers, private R2 and matching authenticated beta downloads. Website-only tasks verify live deployment; infrastructure-only tasks verify deployed runtime/workflows; no unrelated plugin release. Parent epics/historical trackers are not additional jobs.
+- Final task-appropriate acceptance evidence comment must succeed before issue close and board Done. A failed board update after close retries finalisation only. Keep merged work intact while delivery is pending. Prompt archives alone are not delivery evidence.
+- Qualifying plugin main builds automatically increment only the third beta VERSION component. Major/minor increments deferred; documentation-only changes do not bump or publish.
+
+This archived implementation remains historical and must not be requeued; reconcile delivery evidence only.
