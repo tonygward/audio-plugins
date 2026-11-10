@@ -263,3 +263,10 @@ test('Local dry run cannot complete tasks or acknowledge canonical queue', t => 
   tick(config, { local: true, loadSnapshot: load(['eq/prompts/done/41-x.md', prose]) });
   assert.deepEqual(readState(config.stateDirectory), state());
 });
+
+test('effort accepts small and large as aliases; one malformed prompt is reported without hiding the others', () => {
+  const ok = (id, effort) => `---\nid: ${id}\nstatus: ready\nexecution: build-now\npriority: medium\nmodel: sonnet\neffort: ${effort}\ndependencies: []\nconflicts: []\n---\n\n# ${id}\n`;
+  const result = scan(new Map([['shared/prompts/A-01-a.md', ok('A-01', 'small')], ['shared/prompts/B-01-b.md', ok('B-01', 'large')], ['shared/prompts/C-01-c.md', ok('C-01', 'enormous')]]));
+  assert.deepEqual(result.prompts.map(p => [p.id, p.effort]), [['A-01', 'low'], ['B-01', 'high']]);
+  assert.deepEqual(result.errors.map(e => e.file), ['shared/prompts/C-01-c.md']);
+});

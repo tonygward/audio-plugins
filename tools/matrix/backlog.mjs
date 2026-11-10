@@ -68,7 +68,8 @@ export function parsePrompt(file, text) {
   // Never silently turn a design/Opus recommendation into a Sonnet implementation.
   const model = /^sonnet[.\s;]*(?:$|for implementation)/i.test(modelText.trim()) && !/opus for (?:design|initial|architecture)/i.test(modelText) ? 'sonnet' : null;
   const effortText = meta.effort ?? /\*\*(?:Estimated|Relative) effort\s*\/\s*usage:\*\*\s*(Low|Medium|High)/i.exec(body)?.[1] ?? 'unknown';
-  const effort = effortText.toLowerCase();
+  // Plain-size words are accepted as aliases, so a natural wording never invalidates a prompt.
+  const effort = ({ small: 'low', large: 'high' })[effortText.toLowerCase()] ?? effortText.toLowerCase();
   if (meta.effort && !['low', 'medium', 'high'].includes(effort)) throw new Error('Unknown effort');
   const priorityText = meta.priority ?? /\*\*Priority:\*\*\s*(\d+)/i.exec(body)?.[1] ?? '99';
   const priority = ({ high: 1, medium: 50, low: 90 })[priorityText] ?? Number(priorityText);

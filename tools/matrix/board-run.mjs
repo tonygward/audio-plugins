@@ -117,7 +117,8 @@ export function promptLoader(git) {
       if (/^(eq|analog-compressor|maximiser|shared)\/prompts\/.+\.md$/.test(file)) files.set(file, await git(['show', `${revision}:${file}`]));
     }
     const backlog = scan(files);
-    if (backlog.errors.length) throw new Error('Backlog validation failed');
+    // One malformed prompt is skipped (it cannot be picked up) and reported; it must not stop every other task.
+    for (const e of backlog.errors) console.error(JSON.stringify({ skippedPrompt: e.file, reason: e.reason }));
     return { prompts: backlog.prompts, revision };
   };
 }

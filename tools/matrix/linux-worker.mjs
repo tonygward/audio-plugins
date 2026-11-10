@@ -170,7 +170,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
     const remote = await git(['remote', 'get-url', 'origin']);
     if (remote !== `https://github.com/${w.repositorySlug}` && remote !== `https://github.com/${w.repositorySlug}.git`) throw Error('Origin does not match approved GitHub repository');
     const initial = await snapshot(), backlog = scan(initial.files);
-    if (backlog.errors.length) throw Error('Backlog validation failed');
+    for (const e of backlog.errors) console.error(JSON.stringify({ skippedPrompt: e.file, reason: e.reason })); // skipped, never a reason to stop other tasks
     reconcile(state, backlog.prompts, initial.revision); save();
     // Board pickup (AUTO-11): the board tick chose the task and left a hand-off. There is no fallback to the
     // Markdown selector; without a fresh, still-valid hand-off the worker idles.
