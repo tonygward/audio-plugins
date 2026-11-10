@@ -24,7 +24,8 @@
     "maximumBudgetUsd": 5,
     "timeoutSeconds": 1800,
     "ciTimeoutSeconds": 5400,
-    "maximumRepairs": 2,
+    "maximumRepairs": 3,
+    "maximumRunMinutes": 120,
     "pollSeconds": 30
   },
   "boardPickup": {
@@ -34,6 +35,7 @@
     "statusFieldId": "PVTSSF_lAHOAJUDvc4Bq5bnzhpOfJM",
     "doingOptionId": "88143d1a",
     "doneOptionId": "83a70d81",
+    "blockedOptionId": "692f30d5",
     "repositories": [
       "tonygward/audio-plugins",
       "tonygward/songsmithstudio",

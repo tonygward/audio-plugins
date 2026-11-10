@@ -278,6 +278,18 @@ or `docs/songsmith-execution-policy.md`. Workflows, the gate itself (`scripts/ma
 plugin source always need a person. The worker's own scope is unchanged, so it cannot edit this code. Merging does not rebuild the container; rebuild the image
 (`Start-MatrixAgent.ps1 -Action Build`) and restart it to run the new code.
 
+## Blocked outcomes, resume and the run budget (AUTO-12, first slice)
+
+- **Blocked.** A task that stops (interrupted, dead-lettered, or out of budget) is reported once on its issue (reason, job, attempts, branch and pull request,
+  what to do next) and its card moves to **Blocked** (`blockedOptionId`). The comment is deduplicated by a marker and both steps are retried if they fail.
+  Nothing re-queues a blocked task on a poll.
+- **Resume is explicit.** Move the card back to **Todo** or **Doing**. A task with no committed work starts again from a clean worktree with a fresh budget
+  (attempts reset). A task with committed work is **not** restarted, because that would duplicate its branch and pull request: Matrix comments once and
+  puts the card back in Blocked for an owner to review. Resuming committed work automatically is not built yet.
+- **Run budget.** `worker.maximumRunMinutes` (default 120) counts from the first claim, includes CI waiting and is saved in the state, so a restart cannot reset it.
+  At the limit no further agent call starts and the run stops with the reason. `maximumRepairs` is 3 (up to 3 allowed). Per-attempt limits (turns, cost,
+  minutes) still apply. There is no separate token budget: the Claude CLI's turn and cost limits are the finite budget.
+
 ## Board pickup (AUTO-11)
 
 Board order decides what the Linux worker builds. It is **off** unless `boardPickup.enabled` is `true` in the worker config, and
@@ -317,4 +329,4 @@ The token needs to read the project and both repositories, and to comment on and
 `tokenFile` is optional and defaults to the worker's token. A separate board token is recommended.
 
 **Known gaps:** a claimed task whose worker died stays claimed; the tick reports it and picks nothing until the owner clears it (see issue #175).
-The board has no **Blocked** column yet and RUN NOW is not implemented, so interrupted work is reported but not moved automatically.
+RUN NOW as a separate request is not implemented: a Doing card is the run-now request.

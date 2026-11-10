@@ -5,7 +5,7 @@
 // Card moves use the GraphQL mutation: `gh project item-edit` needs the read:org scope, which the board token does not have.
 const MOVE = 'mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){projectV2Item{id}}}';
 
-export function githubIo(gh, { projectId, statusFieldId, doneOptionId, doingOptionId, maxReleases = 30, verifiers = {} } = {}) {
+export function githubIo(gh, { projectId, statusFieldId, doneOptionId, doingOptionId, blockedOptionId, maxReleases = 30, verifiers = {} } = {}) {
   const json = async args => JSON.parse(await gh(args));
   const move = (itemId, optionId) => gh(['api', 'graphql', '-f', `query=${MOVE}`, '-f', `p=${projectId}`, '-f', `i=${itemId}`, '-f', `f=${statusFieldId}`, '-f', `o=${optionId}`]);
   const notConfigured = what => async () => { throw new Error(`${what} verifier is not configured`); };
@@ -37,6 +37,10 @@ export function githubIo(gh, { projectId, statusFieldId, doneOptionId, doingOpti
     moveToDoing: async itemId => {
       if (!projectId || !statusFieldId || !doingOptionId) throw new Error('Board Doing field is not configured');
       await move(itemId, doingOptionId);
+    },
+    moveToBlocked: async itemId => {
+      if (!projectId || !statusFieldId || !blockedOptionId) throw new Error('Board Blocked field is not configured');
+      await move(itemId, blockedOptionId);
     },
     setDone: async itemId => {
       if (!projectId || !statusFieldId || !doneOptionId) throw new Error('Board Done field is not configured');
