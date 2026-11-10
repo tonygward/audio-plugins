@@ -46,6 +46,7 @@ Order below is an index, not the execution queue. The board decides order.
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
 | AUTO-11 | [Board-ordered pickup and delivery lifecycle](AUTO-11-board-driven-pickup.md) | [#175](https://github.com/tonygward/audio-plugins/issues/175) |
+| AUTO-13 | [CI-passed comment on tracking issue](AUTO-13-ci-pass-issue-comment.md) | [#196](https://github.com/tonygward/audio-plugins/issues/196) |
 
 AUTO-01 and AUTO-05 are parent tracking epics. AUTO-06/07 are archived code foundations. AUTO-08/09/10 retain runtime, development/CI and distribution evidence respectively. Real Matrix PRs #174/#177 show execution has occurred; they do not prove every isolation/recovery/distribution acceptance criterion.
 
