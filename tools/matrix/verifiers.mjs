@@ -16,7 +16,7 @@
 const PAGES_APP = 'cloudflare-workers-and-pages';
 
 export function betaVerifiers(gh, { sourceRepo = 'tonygward/audio-plugins', websiteRepo = 'tonygward/songsmith-website',
-  siteUrl = 'https://beta.songsmith.uk', head = null, accessHeaders = {} } = {}) {
+  siteUrl = 'https://beta.songsmith.uk', head = null, accessHeaders = {}, workerChecked = false } = {}) {
   const text = async args => gh(args);
   const json = async args => JSON.parse(await gh(args));
   const websiteFile = async file => Buffer.from((await text(['api', `repos/${websiteRepo}/contents/${file}`, '--jq', '.content'])).trim(), 'base64').toString('utf8');
@@ -49,8 +49,13 @@ export function betaVerifiers(gh, { sourceRepo = 'tonygward/audio-plugins', webs
     },
 
     downloads: async version => {
-      if (!head) throw new Error('Authenticated download verifier is not configured');
+      if (!head && !workerChecked) throw new Error('Authenticated download verifier is not configured');
       const current = await release();
+      if (!head) {
+        // Owner-accepted evidence: the website Worker checks etag, size and SHA-256 against private storage on
+        // every download. Matrix does not exercise the route, and the evidence says so.
+        return Object.fromEntries(['windows', 'macos'].map(p => [p, current.version === version && current.installers?.[p]?.sha256 ? { ok: true, bytes: current.installers[p].size, exercised: false } : { ok: false, bytes: 0 }]));
+      }
       const result = {};
       for (const platform of ['windows', 'macos']) {
         const installer = current.installers?.[platform];

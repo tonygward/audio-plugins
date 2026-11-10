@@ -48,7 +48,7 @@ export async function verifyDelivery(delivery, io) {
       if (downloads) for (const [key, name] of [['windows', names[0]], ['macos', names[1]]]) {
         if (!downloads[key]?.ok || downloads[key].bytes !== sizes.get(name)) missing.push(`Authenticated ${key} download failed or wrong size`);
       }
-      evidence.deployment = { websiteVersion: site?.version ?? null, privateStorage: names, downloads: { windows: !!downloads?.windows?.ok, macos: !!downloads?.macos?.ok } };
+      evidence.deployment = { websiteVersion: site?.version ?? null, privateStorage: names, downloads: { windows: !!downloads?.windows?.ok, macos: !!downloads?.macos?.ok, exercised: downloads?.windows?.exercised !== false } };
     }
   } catch (error) {
     return { verified: false, missing: [`Verification could not complete: ${String(error.message).slice(0, 160)}`], evidence };
@@ -64,7 +64,8 @@ export function finalComment({ taskId, job, evidence }) {
     `- Beta version: ${release.version} (${release.url ?? release.tag})`,
     `- Installers: ${release.assets.join(' and ')}`,
     `- Private storage matches the release; beta website shows ${deployment.websiteVersion} with this version in its changelog`,
-    `- Authenticated downloads checked: Windows ${deployment.downloads.windows ? 'passed' : 'failed'}, macOS ${deployment.downloads.macos ? 'passed' : 'failed'}`, '',
+    deployment.downloads.exercised ? `- Authenticated downloads checked: Windows ${deployment.downloads.windows ? 'passed' : 'failed'}, macOS ${deployment.downloads.macos ? 'passed' : 'failed'}`
+      : '- Download route: not exercised by Matrix; the beta website checks installer size and SHA-256 against private storage on every download', '',
     'Closing this issue and moving the card to Done.'].join('\n');
 }
 

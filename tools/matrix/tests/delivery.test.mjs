@@ -113,3 +113,10 @@ test('verifyDelivery reports every missing item together', async () => {
   assert.equal(result.verified, false);
   assert.ok(result.missing.length >= 6, result.missing.join(' | '));
 });
+
+test('final comment does not claim downloads were exercised when they were not', async () => {
+  const dir = setup(), io = fakeIo({ io: { downloads: async () => ({ windows: { ok: true, bytes: 100, exercised: false }, macos: { ok: true, bytes: 200, exercised: false } }) } });
+  assert.equal((await advanceDelivery(dir, 'MAX-07', io)).stage, 'done');
+  assert.match(io.comments[0], /not exercised by Matrix/);
+  assert.doesNotMatch(io.comments[0], /Authenticated downloads checked/);
+});

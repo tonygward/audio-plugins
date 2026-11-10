@@ -70,3 +70,9 @@ test('an unconfirmed Pages deployment blocks delivery even when versions match',
   const result = await verifyDelivery({ repository: 'r', pull: 1 }, io);
   assert.deepEqual(result.missing, ['Beta website deployment is not confirmed']);
 });
+
+test('worker-checked downloads use release.json and are labelled as not exercised', async () => {
+  const result = await betaVerifiers(gh(), { workerChecked: true }).downloads('0.5.4');
+  assert.deepEqual(result, { windows: { ok: true, bytes: 100, exercised: false }, macos: { ok: true, bytes: 200, exercised: false } });
+  assert.equal((await betaVerifiers(gh(), { workerChecked: true }).downloads('0.5.5')).windows.ok, false);
+});
