@@ -2,8 +2,12 @@
 // that returns stdout, so tests need no network and the caller decides which token it holds.
 // Private storage, website and download checks come from verifiers.mjs. Any that is not supplied
 // throws, and delivery verification fails closed (the issue stays open, the card stays in Doing).
+// Card moves use the GraphQL mutation: `gh project item-edit` needs the read:org scope, which the board token does not have.
+const MOVE = 'mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){projectV2Item{id}}}';
+
 export function githubIo(gh, { projectId, statusFieldId, doneOptionId, doingOptionId, maxReleases = 30, verifiers = {} } = {}) {
   const json = async args => JSON.parse(await gh(args));
+  const move = (itemId, optionId) => gh(['api', 'graphql', '-f', `query=${MOVE}`, '-f', `p=${projectId}`, '-f', `i=${itemId}`, '-f', `f=${statusFieldId}`, '-f', `o=${optionId}`]);
   const notConfigured = what => async () => { throw new Error(`${what} verifier is not configured`); };
   return {
     pull: async (repository, number) => {
@@ -32,11 +36,11 @@ export function githubIo(gh, { projectId, statusFieldId, doneOptionId, doingOpti
     closeIssue: async (repository, issue) => { await gh(['issue', 'close', String(issue), '--repo', repository, '--reason', 'completed']); },
     moveToDoing: async itemId => {
       if (!projectId || !statusFieldId || !doingOptionId) throw new Error('Board Doing field is not configured');
-      await gh(['project', 'item-edit', '--id', itemId, '--project-id', projectId, '--field-id', statusFieldId, '--single-select-option-id', doingOptionId]);
+      await move(itemId, doingOptionId);
     },
     setDone: async itemId => {
       if (!projectId || !statusFieldId || !doneOptionId) throw new Error('Board Done field is not configured');
-      await gh(['project', 'item-edit', '--id', itemId, '--project-id', projectId, '--field-id', statusFieldId, '--single-select-option-id', doneOptionId]);
+      await move(itemId, doneOptionId);
     },
     r2: verifiers.r2 ?? notConfigured('Private storage'),
     site: verifiers.site ?? notConfigured('Beta website'),

@@ -141,6 +141,8 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
     const git = async (args, cwd) => (await command(w.gitExecutable, [...hooks, ...args], cwd)).stdout.trimEnd();
     const gitRemote = async (args, cwd) => (await command(w.gitExecutable, [...hooks, '-c', 'credential.helper=', '-c', `credential.helper=!${w.ghExecutable} auth git-credential`, ...args], cwd, { env: withToken(), timeoutMs: 120000 })).stdout.trimEnd();
     const gh = async (args, extra = {}) => (await command(w.ghExecutable, args, config.repository, { env: withToken(), timeoutMs: 120000, ...extra })).stdout;
+    // Board calls (card moves, starting comment) use the board token; the agent token cannot see the project.
+    const boardGh = async args => (await command(w.ghExecutable, args, config.repository, { env: { ...env, GH_TOKEN: readToken(config.boardPickup?.tokenFile ?? w.tokenFile) }, timeoutMs: 120000 })).stdout;
     const log = (id, stage, details = {}) => {
       const entry = { time: new Date(clock()).toISOString(), id, stage, ...details };
       fs.mkdirSync(path.join(dir, 'logs'), { recursive: true });
@@ -198,7 +200,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
       if (handoff) {
         // Durable claim first, then the pickup comment. A failed comment keeps the claim and is retried by the next tick.
         Object.assign(task, boardFields(handoff, new Date(clock()).toISOString())); clearHandoff(dir); save();
-        const posted = await postPickupComment(dir, state, p.id, { revision: initial.revision, io: boardIo(gh, config), limits: limitsText(config) });
+        const posted = await postPickupComment(dir, state, p.id, { revision: initial.revision, io: boardIo(boardGh, config), limits: limitsText(config) });
         log(p.id, 'board-pickup', { job: handoff.job, commented: posted.posted === true });
         if (posted.posted !== true) {
           // No code without a recorded claim and a successful starting comment. The task needs attention; nothing was written.

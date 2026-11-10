@@ -214,7 +214,7 @@ const handoffFor = (f, extra = {}) => writeHandoff(f.config.stateDirectory, { jo
 const withIssues = a => { const comments = [], moves = []; const run = async (exe, args, o) => {
   if (exe === GH && args[0] === 'issue' && args[1] === 'view') return { stdout: JSON.stringify({ comments: comments.map(body => ({ body })) }), stderr: '' };
   if (exe === GH && args[0] === 'issue' && args[1] === 'comment') { if (a.failComment) throw Error('GitHub down'); comments.push(args[args.indexOf('--body') + 1]); return { stdout: '', stderr: '' }; }
-  if (exe === GH && args[0] === 'project' && args[1] === 'item-edit') { moves.push(args[args.indexOf('--single-select-option-id') + 1]); return { stdout: '', stderr: '' }; }
+  if (exe === GH && args[0] === 'api' && args[1] === 'graphql') { moves.push(args.find(a => a.startsWith('o=')).slice(2)); return { stdout: '', stderr: '' }; }
   return a.run(exe, args, o); }; return { run, seen: a.seen, comments, moves, set failComment(v) { a.failComment = v; } }; };
 
 test('board mode without a hand-off idles: no fallback to the Markdown selector', async t => {
