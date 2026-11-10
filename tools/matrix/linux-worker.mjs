@@ -21,6 +21,7 @@ import { boardTick, ghGraphql, promptLoader } from './board-run.mjs';
 import { readHandoff, adoptHandoff, boardFields, clearHandoff } from './handoff.mjs';
 import { postPickupComment } from './pickup.mjs';
 import { budgetStop, runMinutes } from './budget.mjs';
+import { parsePrompt } from './backlog.mjs';
 
 export const CI_VALIDATION = 'Hosted Windows and macOS builds and tests decide; this worker ran no local build.';
 const TURN_RUNAWAY_FACTOR = 3;
@@ -171,6 +172,14 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
     if (remote !== `https://github.com/${w.repositorySlug}` && remote !== `https://github.com/${w.repositorySlug}.git`) throw Error('Origin does not match approved GitHub repository');
     const initial = await snapshot(), backlog = scan(initial.files);
     for (const e of backlog.errors) console.error(JSON.stringify({ skippedPrompt: e.file, reason: e.reason })); // skipped, never a reason to stop other tasks
+    // A prompt generated from the issue travels in the hand-off. It must parse, match the hand-off's hash and ID, and sit at a prompt path.
+    const handed = config.boardPickup?.enabled === true ? readHandoff(dir, { now: clock() }) : null;
+    if (handed?.generated && !backlog.prompts.some(p => p.id === handed.taskId)) {
+      try {
+        const generated = parsePrompt(handed.generated.file, handed.generated.text);
+        if (generated.id === handed.taskId && generated.hash === handed.promptHash && /^(eq|analog-compressor|maximiser|shared)\/prompts\/[A-Za-z0-9._-]+\.md$/.test(generated.file)) backlog.prompts.push({ ...generated, generated: handed.generated });
+      } catch { /* an unreadable generated prompt is simply not adopted */ }
+    }
     reconcile(state, backlog.prompts, initial.revision); save();
     // Board pickup (AUTO-11): the board tick chose the task and left a hand-off. There is no fallback to the
     // Markdown selector; without a fresh, still-valid hand-off the worker idles.
@@ -251,6 +260,8 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
           if (metrics.turns > w.maximumTurns * TURN_RUNAWAY_FACTOR || spentUsd > w.maximumBudgetUsd) throw Error(`Agent exceeded configured bounds (turns ${metrics.turns}/${w.maximumTurns}, cost ${spentUsd.toFixed(2)}/${w.maximumBudgetUsd} USD)`);
           log(p.id, 'agent-finished', metrics);
           files = await changes(plan.directory); validateChanges(files);
+          // The canonical prompt generated from the issue is saved in the same pull request.
+          if (p.generated) { const target = path.join(plan.directory, p.generated.file); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, p.generated.text); if (!files.includes(p.generated.file)) files = [...files, p.generated.file]; }
           return null;
         };
         // Bring main into the branch before pushing; a changelog-only conflict is resolved, anything else blocks.
@@ -288,7 +299,10 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
         await integrate();
         task.commit = await git(['rev-parse', 'HEAD'], plan.directory); task.phase = 'committed'; save();
         await gitRemote(['push', '--set-upstream', 'origin', plan.branch], plan.directory); task.phase = 'pushed'; save();
-        const body = problem => `Implements ${p.id} from [canonical prompt](https://github.com/${w.repositorySlug}/blob/${initial.revision}/${p.file}).\n\n` +
+        const origin = p.generated
+          ? `Implements ${p.id} from its tracking issue. There was no prompt file, so Matrix generated the canonical prompt from the issue and saves it in this pull request as \`${p.file}\`.\n\n`
+          : `Implements ${p.id} from [canonical prompt](https://github.com/${w.repositorySlug}/blob/${initial.revision}/${p.file}).\n\n`;
+        const body = problem => origin +
           `Base: ${initial.revision}. Implementation: ${task.commit}.\n\nValidation: ${CI_VALIDATION}\n\n` +
           'Claude Sonnet in an isolated container; file tools only; hosted-build repairs are bounded. Review the diff for prompt deviations and UI screenshots before relying on it. DAW review remains required.\n\nRelease checkpoint: unassigned; no version bump or publication. Not yet verified in a DAW.\n' +
           (problem ? `\n## Blocked\n\n${problem}\n` : '');

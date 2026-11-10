@@ -295,6 +295,16 @@ plugin source always need a person. The worker's own scope is unchanged, so it c
   carries it through delivery. A failed Build, a head commit Matrix did not push, or no result within 90 minutes of recovery leaves it interrupted, so it is reported and parked in
   Blocked. Merged work is never parked: it goes to delivery. Recovery never starts the agent and never pushes.
 
+## Issues without a prompt file (issue-as-prompt)
+
+`issue-prompt.mjs`. A Doing card (or a Todo card on the day's slot) whose task has no prompt file, in an execution repository, with no merged or open pull request and no
+existing task state, has its issue read. **Enough detail** means the body has headings for an objective, scope or implementation, acceptance criteria and tests
+(a combined "Acceptance criteria and tests" heading counts for both; each section needs real text). Then the tick generates a canonical prompt
+(`<plugin>/prompts/NN-slug.md` for EQ, ACOMP and MAX, otherwise `shared/prompts/ID-slug.md`; ready, build-now, Sonnet, medium) from the issue, hands it to the worker in the
+hand-off (the worker checks it parses and matches the hand-off hash), and the worker **saves it in the same pull request**. **Not enough detail:** one comment lists what is
+missing (marker includes a hash of the missing list and the issue text, so it is not repeated until the issue changes) and the card moves to Blocked. Issues that say they are deferred,
+and cards marked Deferred or Separate, are left alone. A dry run assesses but writes nothing.
+
 ## Board pickup (AUTO-11)
 
 Board order decides what the Linux worker builds. It is **off** unless `boardPickup.enabled` is `true` in the worker config, and

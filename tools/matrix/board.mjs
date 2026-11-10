@@ -157,7 +157,7 @@ export function selectFromBoard(snapshot, prompts, context) {
     }
     if (card.taskId) seen.add(card.taskId);
     decisions.push({ position: card.position, status: card.status, issue: card.issue, taskId: card.taskId, repository, issueRepository: card.repository, reason: reason ?? (selected ? 'eligible; one task per run' : 'selected') });
-    if (!reason && !selected) selected = { ...card, repository, issueRepository: card.repository, prompt: prompt.file, promptHash: prompt.hash };
+    if (!reason && !selected) selected = { ...card, repository, issueRepository: card.repository, prompt: prompt.file, promptHash: prompt.hash, generated: prompt.generated ?? null };
   }
   return { selected, decisions, blocker: selected ? null : 'No eligible card' };
 }

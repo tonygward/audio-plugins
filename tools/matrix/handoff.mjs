@@ -14,6 +14,7 @@ export function writeHandoff(directory, { selected, job, revision, now = Date.no
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   atomic(path.join(directory, HANDOFF_FILE), {
     schema: 1, createdAt: new Date(now).toISOString(), job, revision, taskId: selected.taskId, promptHash: selected.promptHash, status: selected.status,
+    ...(selected.generated ? { generated: selected.generated } : {}),
     issue: selected.issue, itemId: selected.itemId, repository: selected.repository, issueRepository: selected.issueRepository });
 }
 
@@ -25,6 +26,7 @@ export function readHandoff(directory, { now = Date.now(), maxAgeMs = HANDOFF_MA
   const age = now - Date.parse(data?.createdAt);
   const text = value => typeof value === 'string' && value.length > 0;
   if (data?.schema !== 1 || !Number.isFinite(age) || age < 0 || age > maxAgeMs) return null;
+  if (data.generated !== undefined && !(typeof data.generated?.file === 'string' && typeof data.generated?.text === 'string' && data.generated.text.length <= 200000)) return null;
   if (![data.job, data.revision, data.taskId, data.promptHash, data.itemId, data.repository, data.issueRepository].every(text) || !Number.isInteger(data.issue)) return null;
   return data;
 }

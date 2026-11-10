@@ -33,6 +33,7 @@ export function githubIo(gh, { projectId, statusFieldId, doneOptionId, doingOpti
       const pull = await json(['pr', 'view', String(number), '--repo', repository, '--json', 'headRefOid,statusCheckRollup']);
       return { headSha: pull.headRefOid, checks: pull.statusCheckRollup ?? [] };
     },
+    issueBody: async (repository, issue) => (await json(['issue', 'view', String(issue), '--repo', repository, '--json', 'body'])).body ?? '',
     hasComment: async (repository, issue, marker) => {
       const data = await json(['issue', 'view', String(issue), '--repo', repository, '--json', 'comments']);
       return data.comments.some(comment => comment.body.includes(marker));
