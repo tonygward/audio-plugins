@@ -83,3 +83,10 @@ test('does not modify the worker state it inspects', () => {
   reconcileDoing(snap(card(1, 'A-01')), [prompt('A-01')], [], tasks);
   assert.equal(JSON.stringify(tasks), before);
 });
+
+test('the board Execution field marks a Doing card deferred or releases it', () => {
+  const held = reconcileDoing(snap(card(1, 'A-01', { execution: 'Deferred' })), [prompt('A-01')], [], {});
+  assert.deepEqual(kinds(held), [['A-01', 'deferred']]);
+  const released = reconcileDoing(snap(card(1, 'A-01', { execution: 'Run Now' })), [prompt('A-01', { deferred: true })], [], {});
+  assert.deepEqual(kinds(released), [['A-01', 'requested']]);
+});

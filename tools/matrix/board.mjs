@@ -17,6 +17,7 @@ export const BOARD_QUERY = `query($id: ID!, $after: String) {
       nodes {
         id
         status: fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+        execution: fieldValueByName(name: "Execution") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
         content { __typename ... on Issue { number title state repository { nameWithOwner } } }
       }
     }
@@ -96,9 +97,17 @@ export function pullTaskState(pulls) {
   return { merged, open };
 }
 
+// Deferral. The board's Execution field is the easy switch: Deferred holds a card back, and Run Now or Scheduled releases it even if
+// the prompt's own wording says deferred. Any other value, or none, leaves it to the prompt.
+export function isDeferred(card, prompt) {
+  if (card?.execution === 'Deferred') return true;
+  if (['Run Now', 'Scheduled'].includes(card?.execution)) return false;
+  return Boolean(prompt?.deferred || prompt?.execution === 'deferred');
+}
+
 export function normaliseCard(node, index) {
   const issue = node.content?.__typename === 'Issue' ? node.content : null;
-  return { position: index, itemId: node.id, status: node.status?.name ?? null, issue: issue?.number ?? null,
+  return { position: index, itemId: node.id, status: node.status?.name ?? null, execution: node.execution?.name ?? null, issue: issue?.number ?? null,
     state: issue?.state ?? null, repository: issue?.repository?.nameWithOwner ?? null,
     taskId: issue ? taskPattern.exec(issue.title)?.[1] ?? null : null, title: issue?.title ?? node.content?.title ?? '' };
 }
@@ -137,7 +146,7 @@ export function selectFromBoard(snapshot, prompts, context) {
       : openPullTaskIds.has(card.taskId) ? 'open pull request already exists for task'
       : !prompt ? 'no canonical prompt found'
       : prompt.excluded ? 'prompt is in an excluded folder (future or archive)'
-      : prompt.deferred || prompt.execution === 'deferred' ? 'prompt is marked deferred'
+      : isDeferred(card, prompt) ? (card.execution === 'Deferred' ? 'card is marked Deferred on the board' : 'prompt is marked deferred')
       : prompt.blocked ? 'prompt is blocked'
       : task && ['claimed', 'interrupted', 'awaiting-review', 'complete', 'dead-letter', 'withdrawn'].includes(task.state) ? `durable state: ${task.state}`
       : !executionPaths.has(repository) ? `no scoped execution path for ${repository}` : null;
