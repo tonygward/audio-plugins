@@ -64,7 +64,9 @@ export async function resumeBlocked(stateDirectory, board, io, { now = () => new
       const card = board.cards.find(c => c.taskId === task.id && c.issue === task.issue);
       if (!card || !['Todo', 'Doing'].includes(card.status)) continue;
       if (!hasWork(task)) {
-        for (const key of ['blockedCommentAt', 'movedBlockedAt', 'pickupCommentAt', 'movedToDoingAt', 'claimedAt', 'runStartedAt', 'job', 'reason', 'phase', 'commit', 'pr']) delete task[key];
+        // Remember where the work stopped, so the next starting comment can say this is a resume and from what.
+        task.resumedFrom = { job: task.job, reason: task.reason, branch: task.branch, pr: task.pr, checkpoint: task.phase };
+        for (const key of ['blockedCommentAt', 'movedBlockedAt', 'pickupCommentAt', 'movedToDoingAt', 'claimedAt', 'runStartedAt', 'job', 'reason', 'phase', 'commit', 'pr', 'pickup']) delete task[key];
         Object.assign(task, { state: 'pending', attempts: 0, resumedAt: now() });
         record(state, { event: 'resumed', task: task.id });
         resumed.push(task.id);

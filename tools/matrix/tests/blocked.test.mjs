@@ -89,3 +89,11 @@ test('committed work is never started again: one comment and the card goes back 
   assert.equal(log.comments.length, 1); assert.match(log.comments[0].body, new RegExp(heldMarker('A-01', 'job-1').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')));
   assert.match(log.comments[0].body, /would duplicate it/);
 });
+
+test('a resume remembers the stopped job so the next starting comment can say it is a resume', async () => {
+  const dir = seed({ 'A-01': { blockedCommentAt: 't', branch: 'matrix/a-01-abc', phase: 'pushed', pickup: { reason: 'Run now (Doing)' } } }), { io } = fakeIo();
+  await resumeBlocked(dir, board(['A-01', 'Todo']), io);
+  const task = readState(dir).tasks['A-01'];
+  assert.equal(task.resumedFrom.job, 'job-1'); assert.match(task.resumedFrom.reason, /no changes/); assert.equal(task.resumedFrom.checkpoint, 'pushed');
+  assert.equal(task.pickup, undefined, 'the old pickup reason is cleared');
+});

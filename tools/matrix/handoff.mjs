@@ -6,14 +6,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { atomic } from './state.mjs';
+import { pickupProvenance } from './pickup.mjs';
 
 export const HANDOFF_FILE = 'board-handoff.json';
 export const HANDOFF_MAX_AGE_MS = 15 * 60000;
 
-export function writeHandoff(directory, { selected, job, revision, now = Date.now() }) {
+export function writeHandoff(directory, { selected, job, revision, now = Date.now(), resumedFrom = null }) {
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   atomic(path.join(directory, HANDOFF_FILE), {
     schema: 1, createdAt: new Date(now).toISOString(), job, revision, taskId: selected.taskId, promptHash: selected.promptHash, status: selected.status,
+    provenance: pickupProvenance({ status: selected.status, selectedAt: new Date(now).toISOString(), resumedFrom }),
     ...(selected.generated ? { generated: selected.generated } : {}),
     issue: selected.issue, itemId: selected.itemId, repository: selected.repository, issueRepository: selected.issueRepository });
 }
@@ -43,5 +45,5 @@ export function adoptHandoff(state, prompts, handoff) {
 
 // Board fields the delivery lifecycle and the pickup comment need.
 export function boardFields(handoff, now = new Date().toISOString()) {
-  return { job: handoff.job, issue: handoff.issue, itemId: handoff.itemId, repository: handoff.repository, issueRepository: handoff.issueRepository, claimedAt: now, pickupCommentAt: null };
+  return { job: handoff.job, issue: handoff.issue, itemId: handoff.itemId, repository: handoff.repository, issueRepository: handoff.issueRepository, claimedAt: now, pickupCommentAt: null, pickup: handoff.provenance ?? pickupProvenance({}) };
 }
