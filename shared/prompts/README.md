@@ -27,6 +27,7 @@ Order below is an index, not the execution queue. The board decides order.
 
 | ID | Canonical prompt | Tracking issue |
 |---|---|---|
+| ARCH-01 | [Future monorepo migration — plugins, Matrix and two websites](future/ARCH-01-songsmith-monorepo-migration.md) | [#194](https://github.com/tonygward/audio-plugins/issues/194) |
 | REC-01 | [Standalone file Recording and Streaming Advisor](future/REC-01-file-recording-advisor.md) | [#173](https://github.com/tonygward/audio-plugins/issues/173) |
 | ADV-02 | [Reference-mix guided review](future/ADV-02-reference-mix-guided-review.md) | [#172](https://github.com/tonygward/audio-plugins/issues/172) |
 | ADV-01 | [Musician-friendly guidance across Songsmith plugins](done/ADV-01-musician-guidance.md) | [#171](https://github.com/tonygward/audio-plugins/issues/171) |
@@ -48,7 +49,7 @@ Order below is an index, not the execution queue. The board decides order.
 
 AUTO-01 and AUTO-05 are parent tracking epics. AUTO-06/07 are archived code foundations. AUTO-08/09/10 retain runtime, development/CI and distribution evidence respectively. Real Matrix PRs #174/#177 show execution has occurred; they do not prove every isolation/recovery/distribution acceptance criterion.
 
-AUTO-02 provider fallback and future/classic plugin designs remain deferred until intentionally promoted. A board card cannot bypass unmet dependencies or execution permissions.
+ARCH-01 is a deferred parent architecture epic requiring an approved, staged migration after the current SDLC proves end-to-end. It is not an executable Matrix job. AUTO-02 provider fallback and future/classic plugin designs remain deferred until intentionally promoted. A board card cannot bypass unmet dependencies or execution permissions.
 
 ## Merged implementation archive
 These links prevent completed features being selected again. Verify each ticket's delivery separately; the archive is not board Done.
