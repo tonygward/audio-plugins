@@ -12,6 +12,6 @@ Every task has a stable **MAX-##** reference (for example MAX-05), distinct from
 | [04 editor and dither](done/04-editor-and-dither.md) | Done | #44 |
 | [05 validation and packaging](done/05-validation-and-packaging.md) | Done | #46 |
 | [06 true peak by default](done/06-true-peak-by-default.md) | To do · **Sonnet** | |
-| [07 loudness meter (LUFS)](07-loudness-meter.md) | To do · **Opus for measurement design and validation plan, Sonnet for implementation** | |
+| [07 loudness meter (LUFS)](done/07-loudness-meter.md) | Implemented in PR #187; delivery verification pending · **Opus for measurement design and validation plan, Sonnet for implementation** | |
 
 Still to do by hand before a release: the host checks in [`docs/host-checks.md`](../docs/host-checks.md).
