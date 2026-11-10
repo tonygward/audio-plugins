@@ -97,6 +97,10 @@ A Songsmith addition: the Waves L1 had no loudness meter. A section below the co
 
 **Not yet verified in a DAW** against a reference meter; see `docs/host-checks.md`.
 
+## Guidance (ADV-01)
+
+A **Guidance** button at the top right of the Loudness band opens a short card: the measured Gain Reduction and Output Ceiling (and Short Term loudness once there is enough sound), what to listen for, and an optional next step. It never opens by itself, never changes a setting, says nothing when no audio is playing, and never names a loudness number you must reach. **Turn Guidance Off** in the card hides the advice until you turn it on again. See [../shared/docs/guidance.md](../shared/docs/guidance.md). Not yet verified in a DAW.
+
 ## Starting points, validation and packaging (step 05)
 
 - **Starting points** (`Source/StartingPoints.h`, the editor's "Starting point" menu): all conservative, all with a ceiling at or below −1 dB, and Dither always off. Loading one leaves Bypass and Link alone.

@@ -6,6 +6,8 @@
 #include "EQLookAndFeel.h"
 #include "OutputMeter.h"
 #include "PresetBar.h"
+#include "FrequencyGuide.h"
+#include "../../shared/Source/SongsmithGuidance.h"
 
 class SongsmithEQAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
@@ -94,6 +96,14 @@ private:
 
     // Latency and the optional Processing Load readout, in the strip along the bottom.
     std::unique_ptr<Songsmith::Diagnostics::Bar> diagnostics;
+
+    // ADV-01: optional guidance, opened only when asked, beside the Frequency Guide it builds on.
+    std::unique_ptr<Songsmith::Guidance::Button> guidanceButton;
+    Songsmith::Guidance::Message currentGuidance() const;
+public:
+    juce::Button& getGuidanceButton() noexcept { return *guidanceButton; }
+    Songsmith::Guidance::Message getGuidanceMessage() const { return currentGuidance(); }
+private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SongsmithEQAudioProcessorEditor)
 };

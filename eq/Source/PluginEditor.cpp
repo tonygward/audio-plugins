@@ -244,6 +244,9 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     content.addAndMakeVisible (*diagnostics);
     diagnostics->setTrailingControl (&pianoButton);
 
+    guidanceButton = std::make_unique<Songsmith::Guidance::Button> (JucePlugin_Name, [this] { return currentGuidance(); });
+    content.addAndMakeVisible (*guidanceButton);
+
     timerCallback();
 
     // Read the saved size first: setting the limits may call resized(), which overwrites it.
@@ -447,6 +450,29 @@ void SongsmithEQAudioProcessorEditor::paintContent (juce::Graphics& g)
     Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, EQColours::text, EQColours::accent);
 }
 
+Songsmith::Guidance::Message SongsmithEQAudioProcessorEditor::currentGuidance() const
+{
+    Songsmith::Guidance::EqInput in;
+    const int band = processor.selectedBand.load();
+    if (band >= 0 && processor.getBandValue (band, EQ::Param::Enabled) >= 0.5f)
+    {
+        const auto type = EQ::typeFromIndex ((int) std::lround (processor.getBandValue (band, EQ::Param::Type)));
+        in.hasSelectedBand = true;
+        in.frequencyHz = processor.getBandValue (band, EQ::Param::Freq);
+        in.gainDb = EQ::typeHasGain (type) ? processor.getBandValue (band, EQ::Param::Gain) * processor.getGainScale() : 0.0f;
+
+        // The Frequency Guide's own words for the chosen instrument, the first region that contains this band.
+        const auto& instrument = EQ::Guide::instrument (processor.guideInstrument.load());
+        const auto regions = EQ::Guide::regionsAt (instrument, in.frequencyHz);
+        if (! regions.empty())
+        {
+            in.regionName = regions.front()->label;
+            in.regionPurpose = regions.front()->tip;
+        }
+    }
+    return Songsmith::Guidance::eqMessage (in);
+}
+
 double SongsmithEQAudioProcessorEditor::parseOutputGainText (const juce::String& text)
 {
     // "Output +1.5 dB", "+1.5", "-3 dB" or "2": the number, whatever words surround it.
@@ -553,6 +579,8 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         guideButton.setBounds (row.removeFromLeft (buttonWidth ({ guideButton.getButtonText() })));
         row.removeFromLeft (4);
         guideBox.setBounds (row.removeFromLeft (comboWidth (guideBox)));
+        row.removeFromLeft (gap);
+        guidanceButton->setBounds (row.removeFromLeft (buttonWidth ({ guidanceButton->getButtonText() })));   // beside the Frequency Guide
         row.removeFromLeft (gap);
         row.removeFromLeft (gap);
 

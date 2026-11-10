@@ -4,6 +4,7 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 ## Unreleased
 
+- Songsmith EQ, Songsmith Analog Compressor and Songsmith Maximiser each have a new **Guidance** button. Press it when you would like a short, plain explanation of what you are hearing, what to listen for and an optional next step. Facts the plugin measured, such as Gain Reduction, are shown separately from listening suggestions. It never opens by itself, never changes a setting, and says nothing when no audio is playing. **Turn Guidance Off** in the card hides the advice until you turn it on again. Nothing in your saved sessions changes, and doing nothing is often the right choice.
 - Songsmith Maximiser now has a loudness meter below the controls. It shows **Integrated**, **Short Term** and **Momentary** loudness in LUFS, the unit streaming services use. It measures what plays through the plugin, as it plays, so play your song through from the start and read Integrated at the end. It is not an analysis of a whole file. It starts again by itself each time the host starts playing from a stop; **Reset**, or a click on the Integrated number, starts again whenever you like. A dash means there is not yet enough sound to measure. The window is taller to make room, and nothing in your saved sessions changes. There is nothing you need to do.
 
 ## 0.5.3
