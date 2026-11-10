@@ -269,6 +269,15 @@ See [architecture decision](../../docs/adr/AUTO-01-matrix-orchestration.md) for 
 boundaries and the staged delivery decision. This is infrastructure; not yet
 verified in a DAW.
 
+## Matrix core lane (auto-merge for Matrix's own code)
+
+`matrix-auto-merge.yml` has a second, owner-approved lane. A pull request from a branch named `matrix/core/<name>`, whose description contains
+`Matrix core change: owner-approved lane`, merges automatically when the hosted **Matrix orchestration tests** (Windows, macOS, Linux) succeed on its exact head
+commit and every changed file is Matrix code: `tools/matrix/*.mjs|json|md`, `tools/matrix/tests` and `evidence`, `tools/matrix-linux/worker.config.json` and `README.md`,
+or `docs/songsmith-execution-policy.md`. Workflows, the gate itself (`scripts/matrix`), PowerShell and shell scripts, the Dockerfile, the egress allow-list and
+plugin source always need a person. The worker's own scope is unchanged, so it cannot edit this code. Merging does not rebuild the container; rebuild the image
+(`Start-MatrixAgent.ps1 -Action Build`) and restart it to run the new code.
+
 ## Board pickup (AUTO-11)
 
 Board order decides what the Linux worker builds. It is **off** unless `boardPickup.enabled` is `true` in the worker config, and

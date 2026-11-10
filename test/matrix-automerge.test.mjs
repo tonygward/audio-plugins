@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluate, inScope, promptIdFromBranch, archivePath, markDone, blockedReason, UI_REVIEW_NOTE, CLEAN_VALIDATION, CI_VALIDATION } from '../scripts/matrix/automerge.mjs';
+import { evaluate, inCoreScope, inScope, promptIdFromBranch, archivePath, markDone, blockedReason, UI_REVIEW_NOTE, CLEAN_VALIDATION, CI_VALIDATION, CORE_STATEMENT, CORE_RUN } from '../scripts/matrix/automerge.mjs';
 
 const repository = 'tonygward/audio-plugins';
 const sha = 'a'.repeat(40);
@@ -13,7 +13,7 @@ const good = () => ({
 });
 
 test('a clean Matrix pull request with green hosted builds merges', () => {
-  assert.deepEqual(evaluate(good()), { merge: true, reasons: [] });
+  assert.deepEqual(evaluate(good()), { merge: true, reasons: [], lane: 'task' });
 });
 
 test('UI-review block is accepted by default and refused when the owner switches it off', () => {
@@ -89,4 +89,44 @@ test('the Linux worker hosted-build validation line is accepted, and an unknown 
   assert.equal(evaluate(facts).merge, true);
   facts.pr.body = bodyWith('Looks fine to me.');
   assert.equal(evaluate(facts).merge, false);
+});
+
+const core = () => ({
+  repository,
+  pr: { state: 'OPEN', baseRefName: 'main', headRefName: 'matrix/core/board-moves', headRefOid: sha, headRepository: repository, body: `Fixes board moves.\n\n${CORE_STATEMENT}` },
+  files: ['tools/matrix/board.mjs', 'tools/matrix/tests/board.test.mjs', 'tools/matrix-linux/worker.config.json', 'docs/songsmith-execution-policy.md'],
+  run: { name: CORE_RUN, conclusion: 'success', event: 'pull_request', head_sha: sha }
+});
+
+test('core lane: Matrix code with green orchestration tests on the exact head merges', () => {
+  assert.deepEqual(evaluate(core()), { merge: true, reasons: [], lane: 'core' });
+});
+
+test('core lane: needs the statement, the orchestration tests, the exact head and a same-repository PR on main', () => {
+  const no = (change, text) => { const f = core(); change(f); const r = evaluate(f); assert.equal(r.merge, false, text); assert.equal(r.lane, 'core'); };
+  no(f => { f.pr.body = 'Fixes board moves.'; }, 'statement');
+  no(f => { f.run.name = 'Build'; }, 'wrong workflow');
+  no(f => { delete f.run.name; }, 'unnamed workflow');
+  no(f => { f.run.conclusion = 'failure'; }, 'failed run');
+  no(f => { f.run.head_sha = 'b'.repeat(40); }, 'older commit');
+  no(f => { f.pr.headRepository = 'someone/else'; }, 'fork');
+  no(f => { f.pr.baseRefName = 'dev'; }, 'base');
+  no(f => { f.files = []; }, 'no files');
+});
+
+test('core lane: workflows, the gate, scripts, the Dockerfile, the allow-list and plugin code stay manual', () => {
+  for (const file of ['.github/workflows/matrix-auto-merge.yml', 'scripts/matrix/automerge.mjs', 'tools/matrix/Build-Broker.ps1', 'tools/matrix-linux/entrypoint.sh',
+    'tools/matrix-linux/Dockerfile', 'tools/matrix-linux/squid/squid.conf', 'tools/matrix/../../CLAUDE.md', 'tools/matrix/.hidden.mjs', 'eq/Source/Plugin.cpp', 'CHANGELOG.md', 'VERSION', 'tools/matrix/x/y.mjs']) {
+    assert.equal(inCoreScope(file), false, file);
+    const f = core(); f.files = [file]; assert.equal(evaluate(f).merge, false, file);
+  }
+  for (const file of ['tools/matrix/board.mjs', 'tools/matrix/README.md', 'tools/matrix/tests/board.test.mjs', 'tools/matrix/evidence/auto-01.json', 'tools/matrix-linux/worker.config.json', 'docs/songsmith-execution-policy.md']) assert.equal(inCoreScope(file), true, file);
+});
+
+test('task lane: only the Build workflow counts, and the core branch pattern is exact', () => {
+  const f = good(); f.run.name = 'Matrix orchestration tests'; assert.equal(evaluate(f).merge, false);
+  const g = good(); g.run.name = 'Build'; assert.equal(evaluate(g).merge, true);
+  for (const branch of ['matrix/core', 'matrix/core/', 'matrix/core/Bad_Name', 'matrix/core/a/b', 'matrix/corex/a']) {
+    const c = core(); c.pr.headRefName = branch; const r = evaluate(c); assert.equal(r.merge, false, branch); assert.equal(r.lane, 'task', branch);
+  }
 });
