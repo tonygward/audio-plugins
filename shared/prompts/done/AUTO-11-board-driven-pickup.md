@@ -1,6 +1,6 @@
 ---
 id: AUTO-11
-status: deferred
+status: done
 execution: deferred
 priority: 1
 model: sonnet
@@ -13,9 +13,9 @@ conflicts: []
 
 **Tracking issue:** [#175](https://github.com/tonygward/audio-plugins/issues/175)
 **Board:** [Songsmith Development](https://github.com/users/tonygward/projects/2)
-**Policy:** [Execution and delivery](../../docs/songsmith-execution-policy.md)
+**Policy:** [Execution and delivery](../../../docs/songsmith-execution-policy.md)
 **Split:** Task execution/limits/resume belong to [AUTO-12 #180](https://github.com/tonygward/audio-plugins/issues/180); verified delivery belongs to [AUTO-10 #157](https://github.com/tonygward/audio-plugins/issues/157).
-**Status:** Partial implementation merged (PRs #179, #182, #185, #186 and #190); live container pickup, recovery and end-to-end delivery still require verification. This prompt tracks remaining acceptance, not another worker implementation.
+**Status:** Done (10 November 2026). Merged in PRs #179, #182, #185, #186, #190, #191 and #198. Live evidence: three board-picked tasks (MAX-07, ADV-01, ACOMP-07) ran from Doing to Done in the container; Doing was offered ahead of Todo; deferred and Separate cards were skipped without blocking; Todo was limited to one per London day; the usage gate held; the Blocked column moves cards through the real board; and reordering two cards through the board API changed the order the reader returns, and was restored. Task execution, resume and limits continue in AUTO-12; verified delivery in AUTO-10.
 
 ## Objective and existing behaviour
 Let board management determine the next task. Board-selection code has been merged; live rollout and verified end-to-end operation remain outstanding. Keep this task focused on board configuration, selection, claims and handoff, without duplicating the agent loop or publishing implementation.
