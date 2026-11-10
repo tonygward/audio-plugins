@@ -32,6 +32,7 @@ SongsmithMaximiserAudioProcessor::SongsmithMaximiserAudioProcessor()
     jassert (thresholdRaw != nullptr && ceilingRaw != nullptr && releaseRaw != nullptr && bypassParam != nullptr);
 
     dryBuffer.setSize (2, 512, false, true);   // resized in prepareToPlay
+    loudnessTimer.startTimer (100);            // keeps the loudness readings up to date with no editor open
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout SongsmithMaximiserAudioProcessor::createParameterLayout()
@@ -98,6 +99,8 @@ void SongsmithMaximiserAudioProcessor::prepareToPlay (double sampleRate, int sam
     limiter.setCeilingHeadroom (Max::Dither::headroomFor (getDitherDepth()));
     limiter.prepare (sampleRate);
     dither.reset();
+    loudnessMeter.prepare (sampleRate);
+    wasPlaying = false;
 
     dryDelay.setSize (2, limiter.getLatencySamples() + 1, false, true, false);
     dryDelay.clear();
@@ -194,6 +197,12 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
         for (int c = 0; c < numCh; ++c)
             outPeak = juce::jmax (outPeak, buffer.getMagnitude (c, pos, num));
     }
+
+    // Loudness of what leaves the plugin (after the limiter, dither and bypass mix).
+    if (auto* head = getPlayHead())
+        if (const auto position = head->getPosition())
+            notePlayState (position->getIsPlaying());
+    loudnessMeter.process (buffer.getArrayOfReadPointers(), numCh, total);
 
     pushPeak (inputPeak, inPeak);
     pushPeak (outputPeak, outPeak);

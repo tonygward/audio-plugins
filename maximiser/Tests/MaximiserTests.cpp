@@ -3,6 +3,9 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 #include <cmath>
+#include <cstdlib>
+#include <limits>
+#include <new>
 #include <random>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
@@ -1628,6 +1631,328 @@ static DiagnosticsTests diagnosticsTests;
 static StressTests stressTests;
 
 //==============================================================================
+// Loudness meter (MAX-07): BS.1770-4 K-weighting and gating, EBU R 128 windows, EBU Tech 3341 signals.
+// The signals are generated here; no audio files are stored.
+static std::atomic<bool> countAllocations { false };
+static std::atomic<int> allocationCount { 0 };
+
+void* operator new (std::size_t size)
+{
+    if (countAllocations.load (std::memory_order_relaxed))
+        allocationCount.fetch_add (1, std::memory_order_relaxed);
+    if (void* p = std::malloc (size > 0 ? size : 1))
+        return p;
+    throw std::bad_alloc();
+}
+void operator delete (void* p) noexcept { std::free (p); }
+void operator delete (void* p, std::size_t) noexcept { std::free (p); }
+
+namespace
+{
+    using Max::Loudness::LoudnessReadings;
+    using Max::Loudness::StepMeter;
+
+    // 'seconds' of a sine at 'peakDb' dBFS (1 kHz by default), or silence when peakDb is -200.
+    std::vector<float> tone (double fs, double seconds, double peakDb, double freq = 1000.0)
+    {
+        std::vector<float> v ((size_t) std::llround (seconds * fs), 0.0f);
+        if (peakDb <= -200.0)
+            return v;
+        const double amp = std::pow (10.0, peakDb / 20.0);
+        for (size_t i = 0; i < v.size(); ++i)
+            v[i] = (float) (amp * std::sin (2.0 * 3.14159265358979323846 * freq * (double) i / fs));
+        return v;
+    }
+
+    struct Meter
+    {
+        StepMeter steps;
+        LoudnessReadings readings;
+        double fs;
+        int channels;
+
+        Meter (double sampleRate, int numChannels) : fs (sampleRate), channels (numChannels) { steps.prepare (fs); }
+
+        // Feeds the same signal to every channel, in blocks of 'block' samples.
+        void feed (const std::vector<float>& signal, int block = 4800)
+        {
+            for (size_t pos = 0; pos < signal.size();)
+            {
+                const int n = (int) std::min ((size_t) block, signal.size() - pos);
+                const float* ptr[2] = { signal.data() + pos, signal.data() + pos };
+                steps.process (ptr, channels, n);
+                readings.update (steps);
+                pos += (size_t) n;
+            }
+        }
+    };
+
+    double lufsOf (const Max::Loudness::Reading& r) { return r.valid ? (double) r.lufs : -1000.0; }
+}
+
+class LoudnessTests final : public juce::UnitTest
+{
+public:
+    LoudnessTests() : juce::UnitTest ("Loudness meter", "Maximiser") {}
+
+    void runTest() override
+    {
+        beginTest ("K-weighting: BS.1770-4 coefficients at 48 kHz");
+        {
+            Max::Loudness::Biquad shelf, hp;
+            Max::Loudness::kWeightingCoefficients (48000.0, shelf, hp);
+            // The standard's published 48 kHz values.
+            expectWithinAbsoluteError (shelf.b0,  1.53512485958697, 1.0e-5, "shelf b0");
+            expectWithinAbsoluteError (shelf.b1, -2.69169618940638, 1.0e-5, "shelf b1");
+            expectWithinAbsoluteError (shelf.b2,  1.19839281085285, 1.0e-5, "shelf b2");
+            expectWithinAbsoluteError (shelf.a1, -1.69065929318241, 1.0e-5, "shelf a1");
+            expectWithinAbsoluteError (shelf.a2,  0.73248077421585, 1.0e-5, "shelf a2");
+            expectWithinAbsoluteError (hp.a1, -1.99004745483398, 1.0e-5, "high pass a1");
+            expectWithinAbsoluteError (hp.a2,  0.99007225036621, 1.0e-5, "high pass a2");
+
+            // Response shape: +0.7 dB at 1 kHz, about +4 dB at the top, -6 dB at the 38 Hz corner (Q 0.5).
+            expectWithinAbsoluteError (Max::Loudness::kWeightingMagnitudeDb (48000.0, 1000.0), 0.69, 0.05, "1 kHz");
+            expectWithinAbsoluteError (Max::Loudness::kWeightingMagnitudeDb (48000.0, 10000.0), 4.0, 0.3, "10 kHz");
+            expectWithinAbsoluteError (Max::Loudness::kWeightingMagnitudeDb (48000.0, 38.13547), -6.0, 0.3, "38 Hz");
+
+            // Derived for other rates, the response agrees where the sample rate does not warp it.
+            for (double fs : { 44100.0, 96000.0, 192000.0 })
+                for (double f : { 100.0, 1000.0 })
+                    expectWithinAbsoluteError (Max::Loudness::kWeightingMagnitudeDb (fs, f),
+                                               Max::Loudness::kWeightingMagnitudeDb (48000.0, f), 0.05,
+                                               juce::String (fs) + " Hz rate at " + juce::String (f) + " Hz");
+        }
+
+        beginTest ("Tech 3341: 1 kHz tone at -23 and -33 dBFS on both channels");
+        for (double level : { -23.0, -33.0 })
+        {
+            Meter m (48000.0, 2);
+            m.feed (tone (48000.0, 20.0, level));
+            const auto name = juce::String (level) + " dBFS";
+            expectWithinAbsoluteError (lufsOf (m.readings.getMomentary()), level, 0.1, name + " Momentary");
+            expectWithinAbsoluteError (lufsOf (m.readings.getShortTerm()), level, 0.1, name + " Short Term");
+            expectWithinAbsoluteError (lufsOf (m.readings.getIntegrated()), level, 0.1, name + " Integrated");
+        }
+
+        beginTest ("Readings agree at 44.1, 48, 96 and 192 kHz");
+        for (double fs : { 44100.0, 48000.0, 96000.0, 192000.0 })
+        {
+            Meter m (fs, 2);
+            m.feed (tone (fs, 12.0, -23.0), (int) std::llround (fs * 0.1));
+            expectWithinAbsoluteError (lufsOf (m.readings.getIntegrated()), -23.0, 0.1, juce::String (fs) + " Hz Integrated");
+            expectWithinAbsoluteError (lufsOf (m.readings.getShortTerm()), -23.0, 0.1, juce::String (fs) + " Hz Short Term");
+        }
+
+        beginTest ("Gating: the relative gate, the absolute gate, and a level change both above the gate");
+        {
+            // Modelled on the gated sequences of Tech 3341 (cases 3 to 5); built here from their descriptions.
+            auto sequence = [] (std::initializer_list<std::pair<double, double>> parts)   // { seconds, level }
+            {
+                std::vector<float> all;
+                for (auto& [seconds, level] : parts)
+                {
+                    const auto t = tone (48000.0, seconds, level);
+                    all.insert (all.end(), t.begin(), t.end());
+                }
+                return all;
+            };
+
+            Meter relative (48000.0, 2);   // 10 s at -36, 60 s at -23, 10 s at -36: the quiet parts fall below the relative gate
+            relative.feed (sequence ({ { 10.0, -36.0 }, { 60.0, -23.0 }, { 10.0, -36.0 } }));
+            expectWithinAbsoluteError (lufsOf (relative.readings.getIntegrated()), -23.0, 0.1, "relative gate");
+
+            Meter absolute (48000.0, 2);   // 20 s at -23, then 20 s far below the -70 LUFS absolute gate
+            absolute.feed (sequence ({ { 20.0, -23.0 }, { 20.0, -80.0 } }));
+            expectWithinAbsoluteError (lufsOf (absolute.readings.getIntegrated()), -23.0, 0.1, "absolute gate");
+
+            Meter both (48000.0, 2);   // 20 s at -23 and 20 s at -30: both pass the gates, so the energies average
+            both.feed (sequence ({ { 20.0, -23.0 }, { 20.0, -30.0 } }));
+            const double expected = 10.0 * std::log10 (0.5 * std::pow (10.0, -2.3) + 0.5 * std::pow (10.0, -3.0));
+            expectWithinAbsoluteError (lufsOf (both.readings.getIntegrated()), expected, 0.1, "no gating needed");
+        }
+
+        beginTest ("Momentary (400 ms) and Short Term (3 s) rise and fall at the right pace");
+        {
+            Meter m (48000.0, 2);
+            m.feed (tone (48000.0, 1.0, -200.0));   // silence first: no reading
+            expect (! m.readings.getMomentary().valid, "no Momentary reading in silence");
+
+            const auto step = tone (48000.0, 0.1, -23.0);
+            for (int n = 1; n <= 4; ++n)
+            {
+                m.feed (step);
+                // n of the 4 steps in the window hold the tone, the rest silence.
+                expectWithinAbsoluteError (lufsOf (m.readings.getMomentary()), -23.0 + 10.0 * std::log10 (n / 4.0), 0.1,
+                                           "Momentary rising, " + juce::String (n * 100) + " ms in");
+            }
+            for (int n = 1; n < 30; ++n)
+                m.feed (step);   // 3 s of tone in all
+            expectWithinAbsoluteError (lufsOf (m.readings.getShortTerm()), -23.0, 0.1, "Short Term after 3 s");
+
+            m.feed (tone (48000.0, 0.1, -200.0));   // one step of silence
+            expectWithinAbsoluteError (lufsOf (m.readings.getMomentary()), -23.0 + 10.0 * std::log10 (3.0 / 4.0), 0.1, "Momentary falling");
+            expectWithinAbsoluteError (lufsOf (m.readings.getShortTerm()), -23.0 + 10.0 * std::log10 (29.0 / 30.0), 0.1, "Short Term falling slowly");
+            m.feed (tone (48000.0, 0.5, -200.0));
+            expect (lufsOf (m.readings.getMomentary()) < -70.0 || ! m.readings.getMomentary().valid, "Momentary has fallen away after 400 ms");
+        }
+
+        beginTest ("Silence: no reading, nothing infinite or NaN");
+        {
+            Meter m (48000.0, 2);
+            m.feed (tone (48000.0, 10.0, -200.0));
+            expect (! m.readings.getMomentary().valid && ! m.readings.getShortTerm().valid && ! m.readings.getIntegrated().valid,
+                    "no readings");
+            expectEquals (Max::Loudness::format (m.readings.getIntegrated()), juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93")));
+            for (const auto& r : { m.readings.getMomentary(), m.readings.getShortTerm(), m.readings.getIntegrated() })
+                expect (std::isfinite (r.lufs) && r.lufs >= Max::dbFloor, "finite, at or above the floor");
+
+            // Bad input never poisons the meter.
+            m.readings.addStep (std::numeric_limits<double>::quiet_NaN());
+            m.readings.addStep (std::numeric_limits<double>::infinity() * 0.0);
+            std::vector<float> loud ((size_t) 4800, 1.0f);
+            m.feed (loud);
+            expect (std::isfinite (m.readings.getIntegrated().lufs), "finite after bad steps");
+        }
+
+        beginTest ("Mono reads 3 dB lower than the same signal in both stereo channels");
+        {
+            Meter stereo (48000.0, 2), mono (48000.0, 1);
+            const auto t = tone (48000.0, 10.0, -23.0);
+            stereo.feed (t);
+            mono.feed (t);
+            expectWithinAbsoluteError (lufsOf (stereo.readings.getIntegrated()) - lufsOf (mono.readings.getIntegrated()), 3.01, 0.1);
+            expectWithinAbsoluteError (lufsOf (mono.readings.getIntegrated()), -26.0, 0.1, "mono -23 dBFS");
+        }
+
+        beginTest ("Integrated counts only audio after a reset");
+        {
+            Meter m (48000.0, 2);
+            m.feed (tone (48000.0, 8.0, -23.0));
+            m.steps.requestReset();   // as when playback starts from a stop
+            m.feed (tone (48000.0, 8.0, -33.0));
+            expectWithinAbsoluteError (lufsOf (m.readings.getIntegrated()), -33.0, 0.1, "after the reset marker");
+
+            m.feed (tone (48000.0, 8.0, -23.0));   // no reset: carries on, the energies average
+            const double mixed = 10.0 * std::log10 ((std::pow (10.0, -3.3) + std::pow (10.0, -2.3)) / 2.0);
+            expectWithinAbsoluteError (lufsOf (m.readings.getIntegrated()), mixed, 0.15, "carrying on does not reset");
+        }
+
+        beginTest ("Block sizes 1, 64, 441, 4096 and 1000 give the same readings");
+        {
+            const auto signal = noise (48000 * 6, 0.3f, 77u);
+            double ref[3] = {};
+            bool first = true;
+            for (int block : { 4800, 1, 64, 441, 4096, 1000, 7 })
+            {
+                Meter m (48000.0, 2);
+                m.feed (signal, block);
+                const double got[3] = { lufsOf (m.readings.getMomentary()), lufsOf (m.readings.getShortTerm()), lufsOf (m.readings.getIntegrated()) };
+                if (first)
+                    for (int i = 0; i < 3; ++i) ref[i] = got[i];
+                first = false;
+                for (int i = 0; i < 3; ++i)
+                    expectWithinAbsoluteError (got[i], ref[i], 1.0e-6, "block " + juce::String (block) + " reading " + juce::String (i));
+            }
+        }
+
+        beginTest ("The processor measures its output, resets on play from a stop only, and bypass passes through");
+        {
+            constexpr double fs = 48000.0;
+            SongsmithMaximiserAudioProcessor p;
+            setParam (p, Max::bypassId, 1.0f);   // output = input, so the expected values are exact
+            prepare (p, fs, 512);
+            const auto a = tone (fs, 6.0, -23.0), b = tone (fs, 6.0, -33.0);
+
+            p.notePlayState (false);
+            p.notePlayState (true);   // playing from a stop: a new measurement
+            run (p, { a, a }, { 512 });
+            p.updateLoudness();
+            expectWithinAbsoluteError (lufsOf (p.getLoudnessReadings().getIntegrated()), -23.0, 0.1, "bypassed: what passes through");
+
+            p.notePlayState (true);   // still playing: no reset
+            run (p, { b, b }, { 512 });
+            p.updateLoudness();
+            expectWithinAbsoluteError (lufsOf (p.getLoudnessReadings().getIntegrated()),
+                                       10.0 * std::log10 ((std::pow (10.0, -2.3) + std::pow (10.0, -3.3)) / 2.0), 0.2, "carried on");
+
+            p.notePlayState (false);
+            p.notePlayState (true);   // stopped, then started: reset
+            run (p, { b, b }, { 512 });
+            p.updateLoudness();
+            expectWithinAbsoluteError (lufsOf (p.getLoudnessReadings().getIntegrated()), -33.0, 0.1, "only the audio after the restart");
+
+            p.resetLoudness();   // the Reset button
+            expect (! p.getLoudnessReadings().getIntegrated().valid, "nothing to show right after Reset");
+            run (p, { a, a }, { 512 });
+            p.updateLoudness();
+            expectWithinAbsoluteError (lufsOf (p.getLoudnessReadings().getIntegrated()), -23.0, 0.1, "after Reset");
+        }
+
+        beginTest ("The meter is not saved and does not change the audio");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            juce::MemoryBlock before, after;
+            p.getStateInformation (before);
+            prepare (p, 48000.0, 256);
+            const auto t = tone (48000.0, 2.0, -10.0);
+            run (p, { t, t }, { 256 });
+            p.updateLoudness();
+            p.getStateInformation (after);
+            expect (before == after, "readings are not in the session");
+            expectEquals (SongsmithMaximiserAudioProcessor::stateVersion, 3, "state version unchanged");
+        }
+
+        beginTest ("The editor shows the readings, Reset and a click on the number start again");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            setParam (p, Max::bypassId, 1.0f);
+            prepare (p, 48000.0, 512);
+            SongsmithMaximiserAudioProcessorEditor ed (p);
+            const auto dash = juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93"));
+            expectEquals (ed.getIntegratedLabel().getText(), dash, "a dash until there is audio");
+
+            const auto t = tone (48000.0, 5.0, -23.0);
+            run (p, { t, t }, { 512 });
+            ed.updateMeters (0.03);
+            expectEquals (ed.getIntegratedLabel().getText(), juce::String ("-23.0"));
+            expectEquals (ed.getShortTermLabel().getText(), juce::String ("-23.0"));
+            expectEquals (ed.getMomentaryLabel().getText(), juce::String ("-23.0"));
+
+            ed.getLoudnessResetButton().onClick();   // what pressing Reset runs
+            expectEquals (ed.getIntegratedLabel().getText(), dash, "Reset clears the readout");
+            run (p, { t, t }, { 512 });
+            ed.updateMeters (0.03);
+            expectEquals (ed.getIntegratedLabel().getText(), juce::String ("-23.0"), "measuring again");
+            ed.clickIntegratedReadout();   // what a click on the Integrated number runs
+            expectEquals (ed.getIntegratedLabel().getText(), dash, "clicking the number resets");
+        }
+
+        beginTest ("No allocation in processBlock with the meter running");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            prepare (p, 48000.0, 512);
+            juce::AudioBuffer<float> buffer (2, 512);
+            juce::MidiBuffer midi;
+            const auto n = noise (512, 0.5f, 5u);
+            for (int c = 0; c < 2; ++c)
+                buffer.copyFrom (c, 0, n.data(), 512);
+
+            p.processBlock (buffer, midi);   // warm up
+            allocationCount = 0;
+            countAllocations = true;
+            for (int i = 0; i < 200; ++i)   // 2.1 s: many finished steps and a reset
+            {
+                if (i == 100) { p.notePlayState (false); p.notePlayState (true); }
+                p.processBlock (buffer, midi);
+            }
+            countAllocations = false;
+            expectEquals (allocationCount.load(), 0, "allocations in processBlock");
+        }
+    }
+};
+static LoudnessTests loudnessTests;
+
+//==============================================================================
 static SongsmithUITests sharedUITests { "Maximiser" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "Maximiser" };
 
@@ -1648,7 +1973,7 @@ static int renderScreenshot (const juce::File& file, float scale)
     p.linkThresholdCeiling = true;
     prepare (p, 48000.0, 512);
     std::unique_ptr<SongsmithMaximiserAudioProcessorEditor> editor (dynamic_cast<SongsmithMaximiserAudioProcessorEditor*> (p.createEditor()));
-    const auto in = noise (4800, 0.7f, 1u);
+    const auto in = noise (96000, 0.7f, 1u);   // two seconds, so the loudness readings have something to show
     run (p, { in, in }, { 512 });
     editor->updateMeters (0.02);
 

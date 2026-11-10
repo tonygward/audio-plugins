@@ -11,8 +11,9 @@ namespace Max
     namespace EditorLayout
     {
         constexpr int designWidth = 720, contentHeight = 420;   // the controls sit in the top 420
-        constexpr int footerHeight = 28;                      // the latency and Processing Load strip below them
-        constexpr int designHeight = contentHeight + footerHeight;
+        constexpr int loudnessHeight = 104;                   // the loudness section, below the controls
+        constexpr int footerHeight = 28;                      // the latency and Processing Load strip below that
+        constexpr int designHeight = contentHeight + loudnessHeight + footerHeight;
         constexpr int defaultWidth = designWidth;
         constexpr int minWidth = 540, maxWidth = 2160;   // 75 % to 300 %
 
