@@ -4,7 +4,7 @@ status: deferred
 execution: deferred
 priority: medium
 model: sonnet
-effort: small
+effort: low
 dependencies: []
 conflicts: []
 ---
