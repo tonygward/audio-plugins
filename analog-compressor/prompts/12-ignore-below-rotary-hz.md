@@ -12,7 +12,7 @@ conflicts: []
 
 **Issue:** https://github.com/tonygward/audio-plugins/issues/200
 **Policy:** https://github.com/tonygward/audio-plugins/blob/main/docs/songsmith-execution-policy.md
-**Status:** Specification only; not queued or claimed.
+**Status:** Ready for implementation; the board decides when it starts.
 
 ## Objective and user value
 Replace the Analog Compressor's detector Low Cut dropdown with a rotary frequency control like Input, Output, Attack and Release, and rename the visible label to **Ignore Below**. Make the controls approachable without changing the audible signal path.
