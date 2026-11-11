@@ -153,10 +153,10 @@ struct PresetTests final : juce::UnitTest
             expect (b.presets.loadFile (a.presets.getUserPresetFiles()[0], error), error);
             expectWithinAbsoluteError (b.apvts.getRawParameterValue (ID::input)->load(), 9.0f, 0.01f);
 
-            for (const auto& f : Presets::factory())
+            for (const auto& factoryPreset : Presets::factory())
             {
-                expect (Presets::isFactoryName (f.name));
-                expect (! a.presets.saveAs (f.name, error), juce::String (f.name) + " is read-only");
+                expect (Presets::isFactoryName (factoryPreset.name));
+                expect (! a.presets.saveAs (factoryPreset.name, error), juce::String (factoryPreset.name) + " is read-only");
                 expect (error.isNotEmpty());
             }
             expect (! a.presets.saveAs ("lead vocal", error), "factory names are matched ignoring case");

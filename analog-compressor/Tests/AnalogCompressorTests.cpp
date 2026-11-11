@@ -493,7 +493,7 @@ struct EditorRefinementTests final : juce::UnitTest
             expectLessThan (knob.getBottom(), 356, "above the hint line");
             expect (ed->getGrOffBounds().getRight() < knob.getX(), "to the right of Gain Reduction Off");
             expect (ed->getGrOffBounds().getBottom() > knob.getY() && ed->getGrOffBounds().getY() < knob.getBottom(), "on the same row");
-            expectEquals (knob.slider.getSliderStyle() == juce::Slider::RotaryHorizontalVerticalDrag, true, "a rotary, not a dropdown");
+            expect (knob.slider.getSliderStyle() == juce::Slider::RotaryHorizontalVerticalDrag, "a rotary, not a dropdown");
             expectGreaterOrEqual (knob.slider.getWidth(), 40, "a comfortable knob");
             expectEquals (knob.slider.getTitle(), juce::String ("Ignore Below"));
             expect (knob.isCompact());
