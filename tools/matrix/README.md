@@ -43,14 +43,12 @@ even fetching. Pause remains effective after reboot. Resume only restores dry ru
 
 ## Metadata and normalisation
 
-Existing Markdown prompts work without edits and default to `scheduled`. New metadata
-supports the following restricted YAML subset (scalars and inline JSON arrays):
+A prompt carries no status and no execution mode: **the project board owns both** (its column and Execution field). Any `status:` or `execution:` left in a file is ignored,
+and the repository test fails if a prompt still has one. Metadata supports the following restricted YAML subset (scalars and inline JSON arrays):
 
 ```yaml
 ---
 id: EQ-41
-status: ready
-execution: build-now
 priority: high
 model: sonnet
 effort: low
@@ -59,9 +57,7 @@ conflicts: []
 ---
 ```
 
-Allowed status values: `ready`, `planned`, `blocked`, `in-progress`, `deferred`, `done`.
-`done` must be in the canonical merged archive. Allowed execution values are exactly
-`scheduled`, `build-now`, `deferred`. Empty/unknown/duplicate fields, nested YAML,
+Empty/unknown/duplicate fields, nested YAML,
 aliases/tags, inconsistent IDs and invalid explicit values block the batch visibly.
 Priority accepts a non-negative number or `high`, `medium`, `low` (1, 50, 90).
 Effort is `low`, `medium`, `high`; model must recommend Sonnet for candidate selection.
@@ -71,9 +67,7 @@ IDs come from scope-qualified filenames, or the numeric filename plus plugin sco
 (`EQ`, `ACOMP`, `MAX`). The historical `done/S7-...` alias is reported as an archive
 warning and cannot satisfy dependencies; canonical SUI-07 supplies that identity.
 Duplicate active IDs or malformed active metadata block **all** selection.
-Done/future/archive folders, explicit deferred prose/status (including AUTO-02),
-blocked/claimed work and durable non-pending states are excluded. Metadata cannot
-override a deferred prose policy; promotion requires deliberately editing both.
+Done/future/archive folders and durable non-pending states are excluded. Wording in a prompt such as "not queued" or "deferred" holds nothing: a card the owner puts in Todo or Doing runs, and the board Execution value `Deferred` is the only hold.
 
 Labelled dependency links and `Build after 06` / `Run this after task 06` prose are
 normalised. Explicit `after ID` in a linked local README row adds a dependency;
@@ -314,7 +308,7 @@ and `Unknown (provenance unavailable)` (with a `pickup-provenance-unknown` diagn
 `issue-prompt.mjs`. A Doing card (or a Todo card on the day's slot) whose task has no prompt file, in an execution repository, with no merged or open pull request and no
 existing task state, has its issue read. **Enough detail** means the body has headings for an objective, scope or implementation, acceptance criteria and tests
 (a combined "Acceptance criteria and tests" heading counts for both; each section needs real text). Then the tick generates a canonical prompt
-(`<plugin>/prompts/NN-slug.md` for EQ, ACOMP and MAX, otherwise `shared/prompts/ID-slug.md`; ready, build-now, Sonnet, medium) from the issue, hands it to the worker in the
+(`<plugin>/prompts/NN-slug.md` for EQ, ACOMP and MAX, otherwise `shared/prompts/ID-slug.md`; Sonnet, medium; no status or execution, which the board owns) from the issue, hands it to the worker in the
 hand-off (the worker checks it parses and matches the hand-off hash), and the worker **saves it in the same pull request**. **Not enough detail:** one comment lists what is
 missing (marker includes a hash of the missing list and the issue text, so it is not repeated until the issue changes) and the card moves to Blocked. Issues that say they are deferred,
 and cards marked Deferred or Separate, are left alone. A dry run assesses but writes nothing.
