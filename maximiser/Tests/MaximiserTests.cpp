@@ -1277,17 +1277,18 @@ public:
             expectEquals (ed->getWidth(), Max::EditorLayout::designWidth);
             expectEquals (ed->getHeight(), Max::EditorLayout::designHeight);
 
-            ed->setSize (1080, Max::EditorLayout::heightFor (1080));
+            const int scaledWidth = Max::EditorLayout::designWidth * 3 / 2;   // 150 %
+            ed->setSize (scaledWidth, Max::EditorLayout::heightFor (scaledWidth));
             expectWithinAbsoluteError (ed->getContentScale(), 1.5f, 1.0e-4f, "content scales with the window");
-            expectEquals (p.editorWidth.load(), 1080);
+            expectEquals (p.editorWidth.load(), scaledWidth);
 
             juce::MemoryBlock mb;
             p.getStateInformation (mb);
             SongsmithMaximiserAudioProcessor q;
             q.setStateInformation (mb.getData(), (int) mb.getSize());
-            expectEquals (q.editorWidth.load(), 1080, "size saved with the session");
+            expectEquals (q.editorWidth.load(), scaledWidth, "size saved with the session");
             std::unique_ptr<juce::AudioProcessorEditor> ed2 (q.createEditor());
-            expectEquals (ed2->getWidth(), 1080, "reopens at that size");
+            expectEquals (ed2->getWidth(), scaledWidth, "reopens at that size");
 
             // Every control fits inside the design area.
             bool inside = true;
