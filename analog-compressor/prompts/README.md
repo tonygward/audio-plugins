@@ -13,11 +13,11 @@ Every task has a stable **ACOMP-##** reference (for example ACOMP-05), distinct 
 | [05 presets, validation and packaging](done/05-presets-validation-packaging.md) | Done | #50 |
 | [08 1176-inspired editor](done/08-1176-editor.md) | Done · Sonnet | #88 (shipped in 1.3.0) |
 | [06 oversampling off by default](done/06-oversampling-off-by-default.md) | To do · **Sonnet · Priority 3** | |
-| [07 detector Low Cut](07-detector-low-cut.md) | To do · **Sonnet · Priority 3, after ACOMP-06** | |
+| [07 detector Low Cut](done/07-detector-low-cut.md) | Done · Sonnet | [#160](https://github.com/tonygward/audio-plugins/issues/160) (closed) |
 | 09 Guided compressor calibration | To do · **Sonnet** | |
 | 10 Switchable FET compressor models | To do · **Opus for DSP design, Sonnet for implementation** | |
-| [11 Add 2:1 compression ratio](11-two-to-one-ratio.md) | Backlog · **Sonnet; preserves existing parameter and automation mapping** | [#199](https://github.com/tonygward/audio-plugins/issues/199) |
-| [12 Ignore Below rotary Hz control](12-ignore-below-rotary-hz.md) | Backlog · **Sonnet; preserve legacy Low Cut automation** | [#200](https://github.com/tonygward/audio-plugins/issues/200) |
+| [11 Add 2:1 compression ratio](done/11-two-to-one-ratio.md) | Done · Sonnet | [#199](https://github.com/tonygward/audio-plugins/issues/199), PR #207 (shipped in 0.5.8) |
+| [12 Ignore Below rotary Hz control](done/12-ignore-below-rotary-hz.md) | Done · Sonnet | [#200](https://github.com/tonygward/audio-plugins/issues/200), PR #215 (shipped in 0.5.9) |
 
 **Execution order update (5 November 2026):** Run **ACOMP-08 → ACOMP-06 → ACOMP-07**, retaining the permanent IDs and original filenames. ACOMP-08 must not depend on Low Cut existing: reserve layout space, then wire the actual Low Cut control when ACOMP-07 is implemented. Coordinate footer changes with SUI-12 and UI scaling with SUI-10. The suite [priority matrix](../../shared/prompts/README.md#delivery-priority) is canonical.
 
