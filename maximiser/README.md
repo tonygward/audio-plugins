@@ -97,9 +97,9 @@ A Songsmith addition: the Waves L1 had no loudness meter. A section below the co
 
 **Not yet verified in a DAW** against a reference meter; see `docs/host-checks.md`.
 
-## Guidance (ADV-01)
+## Title tooltip (SUI-17)
 
-A **Guidance** button at the top right of the Loudness band opens a short card: the measured Gain Reduction and Output Ceiling (and Short Term loudness once there is enough sound), what to listen for, and an optional next step. It never opens by itself, never changes a setting, says nothing when no audio is playing, and never names a loudness number you must reach. **Turn Guidance Off** in the card hides the advice until you turn it on again. See [../shared/docs/guidance.md](../shared/docs/guidance.md). Not yet verified in a DAW.
+Hover over **Songsmith Maximiser** at the top left for a short explanation of what the plugin does and one listening suggestion. It is fixed wording, not a measurement, and never names a loudness number you must reach. The old Guidance button and card were removed; the meters and loudness readings are unchanged, and the **Preset** menu stays right after the name. See [../shared/docs/guidance.md](../shared/docs/guidance.md). Not yet verified in a DAW.
 
 ## Starting points, validation and packaging (step 05)
 

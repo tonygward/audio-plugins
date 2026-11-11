@@ -99,12 +99,10 @@ private:
     // Latency and the optional Processing Load readout, in the strip along the bottom.
     std::unique_ptr<Songsmith::Diagnostics::Bar> diagnostics;
 
-    // ADV-01: optional guidance, opened only when asked, beside the Frequency Guide it builds on.
-    std::unique_ptr<Songsmith::Guidance::Button> guidanceButton;
-    Songsmith::Guidance::Message currentGuidance() const;
+    // SUI-17: a transparent hit target over the painted title; hovering it shows what the plugin does.
+    Songsmith::Guidance::TitleHint titleHint { JucePlugin_Name };
 public:
-    juce::Button& getGuidanceButton() noexcept { return *guidanceButton; }
-    Songsmith::Guidance::Message getGuidanceMessage() const { return currentGuidance(); }
+    juce::Component& getTitleHint() noexcept { return titleHint; }
 private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SongsmithEQAudioProcessorEditor)
