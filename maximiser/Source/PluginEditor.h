@@ -7,7 +7,7 @@
 #include "../../shared/Source/SongsmithGuidance.h"
 
 // Songsmith Maximiser editor. Everything sits in one content component laid out at the design size
-// (720 x 420) and scaled as a whole, so the window can be resized (75 % to 300 %, fixed aspect)
+// (860 x 448) and scaled as a whole, so the window can be resized (75 % to 300 %, fixed aspect)
 // without anything getting cramped. Vector drawing and the embedded Inter font throughout.
 class SongsmithMaximiserAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
@@ -37,8 +37,9 @@ public:
     juce::Component& getContent() noexcept      { return content; }
     juce::Button& getLoudnessResetButton() noexcept { return loudnessResetButton; }
     juce::Label& getIntegratedLabel() noexcept  { return integratedValue; }
-    juce::Label& getShortTermLabel() noexcept   { return shortTermValue; }
-    juce::Label& getMomentaryLabel() noexcept   { return momentaryValue; }
+    juce::Label& getIntegratedCaption() noexcept { return integratedCaption; }
+    juce::Label& getIntegratedUnit() noexcept   { return integratedUnit; }
+    juce::Rectangle<int> getReleaseDialBounds() const noexcept { return releaseSlider.getBounds(); }
 
     void clickIntegratedReadout() { if (integratedValue.onClick) integratedValue.onClick(); }
 
@@ -98,9 +99,8 @@ private:
         std::function<void()> onClick;
         void mouseDown (const juce::MouseEvent&) override { if (onClick) onClick(); }
     };
-    juce::Label loudnessTitle, loudnessHint, integratedCaption, shortTermCaption, momentaryCaption,
-                integratedUnit, shortTermUnit, momentaryUnit;
-    ReadoutLabel integratedValue, shortTermValue, momentaryValue;
+    juce::Label integratedCaption, integratedUnit;
+    ReadoutLabel integratedValue;
     juce::TextButton loudnessResetButton { "Reset" };
     void showLoudness();
 

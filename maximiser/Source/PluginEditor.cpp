@@ -182,11 +182,6 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
 
     // Loudness section. A Songsmith addition (the L1 had none). It only hears audio as it plays through.
     using Just = juce::Justification;
-    setupLabel (loudnessTitle, "Loudness", Just::centredLeft);
-    loudnessTitle.setFont (juce::Font (MaxColours::font (MaxColours::Type::heading, MaxColours::Weight::SemiBold)));
-    loudnessTitle.setColour (juce::Label::textColourId, MaxColours::text);
-    setupLabel (loudnessHint, "Measures what plays through the plugin, as it plays.", Just::centredLeft);
-    loudnessHint.setFont (juce::Font (MaxColours::font (MaxColours::Type::hint)));
 
     auto setupReading = [&] (juce::Label& caption, ReadoutLabel& value, juce::Label& unit, const char* name, float valueSize,
                              MaxColours::Weight valueWeight, const juce::String& tip)
@@ -205,14 +200,19 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
                 t->setTooltip (tip);
         value.setInterceptsMouseClicks (true, false);
     };
-    setupReading (integratedCaption, integratedValue, integratedUnit, "Integrated", MaxColours::Type::title, MaxColours::Weight::SemiBold,
-                  "Integrated: the loudness of everything played since the last reset. Play the whole song through for its loudness. Click to reset");
-    setupReading (shortTermCaption, shortTermValue, shortTermUnit, "Short Term", MaxColours::Type::heading, MaxColours::Weight::Medium,
-                  "Short Term: the loudness over the last 3 seconds. Click the Integrated number or Reset to start again");
-    setupReading (momentaryCaption, momentaryValue, momentaryUnit, "Momentary", MaxColours::Type::heading, MaxColours::Weight::Medium,
-                  "Momentary: the loudness over the last 0.4 seconds. It follows the music closely. Click the Integrated number or Reset to start again");
-    integratedValue.setTooltip ("Integrated: the loudness of everything played since the last reset. Play the whole song through for its loudness. Click to reset");
-    loudnessResetButton.setTooltip ("Reset: start measuring again. This also happens each time the host starts playing from a stop");
+    // MAX-09: one reading only. The tooltip is guidance, not a rule: no platform has a universal target.
+    const juce::String integratedTip = juce::String (juce::CharPointer_UTF8 (
+        "Integrated LUFS is the average perceived loudness of everything played since the last reset. "
+        "Play the whole song through for a representative reading. "
+        "Around \xe2\x88\x92" "14 LUFS is a useful reference for some streaming masters, not a rule: "
+        "different music can sound best louder or quieter. Avoid clipping and judge by ear. "
+        "Click the number or Reset to start measuring again; this also happens each time the host starts playing from a stop."));
+    setupReading (integratedCaption, integratedValue, integratedUnit, "Integrated LUFS", MaxColours::Type::title, MaxColours::Weight::SemiBold,
+                  integratedTip);
+    integratedValue.setTitle ("Integrated LUFS");   // read out by screen readers
+    integratedValue.setWantsKeyboardFocus (true);   // so the tooltip and a reset by keyboard are reachable
+    integratedValue.setHelpText (integratedTip);
+    loudnessResetButton.setTooltip ("Reset: start measuring Integrated LUFS again. This also happens each time the host starts playing from a stop");
     loudnessResetButton.onClick = [this] { resetLoudness(); };
     content.addAndMakeVisible (loudnessResetButton);
 
@@ -312,22 +312,15 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
     ditherLabel.setBounds (500, rowY + 32, boxX - 500 - 4, 26);
     ditherBox.setBounds (boxX, rowY + 32, boxW, 26);
 
-    // Loudness section: its own band below the controls, above the diagnostics strip.
-    const int ly = designH;
-    loudnessTitle.setBounds (16, ly + 8, 90, 22);
-    loudnessHint.setBounds (106, ly + 8, 440, 22);
-    integratedCaption.setBounds (16, ly + 36, 140, 20);
-    integratedValue.setBounds (16, ly + 58, 100, 32);
-    integratedUnit.setBounds (118, ly + 66, 48, 20);
-    shortTermCaption.setBounds (220, ly + 36, 140, 20);
-    shortTermValue.setBounds (220, ly + 62, 80, 24);
-    shortTermUnit.setBounds (302, ly + 64, 48, 20);
-    momentaryCaption.setBounds (400, ly + 36, 140, 20);
-    momentaryValue.setBounds (400, ly + 62, 80, 24);
-    momentaryUnit.setBounds (482, ly + 64, 48, 20);
-    loudnessResetButton.setBounds (designW - 16 - 84, ly + 60, 84, 26);
+    // Integrated LUFS (MAX-09): a column to the right of the Release dial, level with it, never below it.
+    // Release spans x 515..665 and the controls end at 720; the column starts at 720 + 12.
+    const int lx = Max::EditorLayout::controlsWidth + 12, lw = Max::EditorLayout::loudnessWidth - 24;
+    integratedCaption.setBounds (lx, releaseTop + 40, lw, 20);
+    integratedValue.setBounds (lx, releaseTop + 64, 76, 32);
+    integratedUnit.setBounds (lx + 78, releaseTop + 72, 42, 20);
+    loudnessResetButton.setBounds (lx, releaseTop + 104, 84, 26);
 
-    diagnostics->setBounds (0, designH + Max::EditorLayout::loudnessHeight, designW, Max::EditorLayout::footerHeight);
+    diagnostics->setBounds (0, designH, designW, Max::EditorLayout::footerHeight);
 }
 
 void SongsmithMaximiserAudioProcessorEditor::paintContent (juce::Graphics& g)
@@ -354,9 +347,9 @@ void SongsmithMaximiserAudioProcessorEditor::paintContent (juce::Graphics& g)
 
     Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, MaxColours::text, MaxColours::accent);
 
-    // A fine line sets the loudness section apart from the controls above it.
+    // A fine vertical line sets the loudness column apart from the controls on its left.
     g.setColour (MaxColours::panelEdge);
-    g.drawHorizontalLine (designH, 12.0f, (float) designW - 12.0f);
+    g.drawVerticalLine (Max::EditorLayout::controlsWidth, (float) Songsmith::UI::titleBarHeight + 16.0f, (float) designH - 16.0f);
 
     // The Link bracket between the two faders while linked.
     if (linkButton.getToggleState())
@@ -432,8 +425,6 @@ void SongsmithMaximiserAudioProcessorEditor::showLoudness()
 {
     const auto& readings = proc.getLoudnessReadings();
     integratedValue.setText (Max::Loudness::format (readings.getIntegrated()), juce::dontSendNotification);
-    shortTermValue.setText (Max::Loudness::format (readings.getShortTerm()), juce::dontSendNotification);
-    momentaryValue.setText (Max::Loudness::format (readings.getMomentary()), juce::dontSendNotification);
 }
 
 void SongsmithMaximiserAudioProcessorEditor::resetLoudness()
