@@ -80,7 +80,8 @@ export async function resolveFromIssues({ board, prompts, pulls = [], tasks = {}
   const known = new Set(prompts.map(p => p.id)), generated = [], blocked = [], notes = [];
   for (const card of board.cards) {
     if (!statuses.includes(card.status) || !card.issue || card.state !== 'OPEN' || !card.taskId || known.has(card.taskId)) continue;
-    if (merged.has(card.taskId) || open.has(card.taskId) || ['Separate', 'Deferred'].includes(card.execution)) continue;
+    // A task resumed with committed work has an open pull request by design; its generated prompt is rebuilt from the issue so the resume can be selected.
+    if (merged.has(card.taskId) || (open.has(card.taskId) && !tasks[card.taskId]?.resumeWork) || ['Separate', 'Deferred'].includes(card.execution)) continue;
     if (!executionRepositories.includes(card.repository)) continue;
     if (tasks[card.taskId] && !['pending', 'withdrawn'].includes(tasks[card.taskId].state)) continue;
     try {
