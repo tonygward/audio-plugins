@@ -1,9 +1,11 @@
 # Automated Songsmith release checkpoints (AUTO-01 Phase D hand-off)
 
+Which workflows are CI and which are CD: see [pipelines](pipelines.md).
+
 ## How it works
 
 A successful source merge to `main` starts the existing full Windows/macOS
-`Build` workflow when the changed paths match its build filters. Once **all**
+`CI - Build and test` workflow (`build.yml`) when the changed paths match its build filters. Once **all**
 platform/plugin/suite jobs succeed, the new `auto-publish-release.yml`
 workflow examines the exact Build run.
 
@@ -68,7 +70,7 @@ approved merge/version checkpoint and GitHub Release publishing.
 
 ## Automatic beta version bump
 
-When `AUTO_BETA_VERSION_ENABLED=true`, every successful first-attempt `Build` push on `main` whose current `VERSION` is already tagged is followed by a `[beta-version]` commit that raises the patch number and adds a changelog entry. That commit builds again, and the publish workflow then releases it. Commits that only change documentation, prompts or screenshots (the paths `build.yml` ignores) landing after a successful build no longer make that build "stale": the bump is applied on top of them and a release is still published. A later *source* commit still supersedes the build, and its own build takes over. Pause with `AUTO_BETA_VERSION_ENABLED=false`.
+When `AUTO_BETA_VERSION_ENABLED=true`, every successful first-attempt `CI - Build and test` push on `main` whose current `VERSION` is already tagged is followed by a `[beta-version]` commit that raises the patch number and adds a changelog entry. That commit builds again, and the publish workflow then releases it. Commits that only change documentation, prompts or screenshots (the paths `build.yml` ignores) landing after a successful build no longer make that build "stale": the bump is applied on top of them and a release is still published. A later *source* commit still supersedes the build, and its own build takes over. Pause with `AUTO_BETA_VERSION_ENABLED=false`.
 
 ### Release notes are for musicians
 

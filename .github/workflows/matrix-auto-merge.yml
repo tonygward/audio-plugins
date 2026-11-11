@@ -1,4 +1,4 @@
-name: Matrix auto-merge
+name: Gate - Matrix auto-merge
 
 # Merges a Matrix draft pull request once the hosted Build (Windows and macOS) has succeeded for
 # its exact head commit and every gate in scripts/matrix/automerge.mjs holds. A second, owner-approved
@@ -10,7 +10,7 @@ name: Matrix auto-merge
 # MATRIX_AUTOMERGE_ENABLED=false (or delete it).
 on:
   workflow_run:
-    workflows: [Build, Matrix orchestration tests]
+    workflows: ["CI - Build and test", "CI - Matrix orchestration tests"]
     types: [completed]
 
 permissions:

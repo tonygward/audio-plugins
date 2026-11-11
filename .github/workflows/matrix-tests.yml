@@ -1,4 +1,4 @@
-name: Matrix orchestration tests
+name: CI - Matrix orchestration tests
 on:
   pull_request:
     paths: ['tools/matrix/**', 'tools/matrix-linux/**', 'scripts/matrix/**', 'test/matrix-automerge.test.mjs', '.github/workflows/matrix-*.yml']

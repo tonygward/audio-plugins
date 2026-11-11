@@ -1,4 +1,4 @@
-name: Auto-release policy tests
+name: CI - Release policy tests
 on:
   pull_request:
     paths:

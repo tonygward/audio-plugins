@@ -1,10 +1,10 @@
-name: Publish validated Songsmith suite release
+name: CD - Publish validated suite release
 
 # VERSION is the release checkpoint; ordinary code merges do not republish.
 # A scoped PAT must create the release to trigger the downstream R2 workflow.
 on:
   workflow_run:
-    workflows: [Build]
+    workflows: ["CI - Build and test"]
     types: [completed]
 
 permissions:

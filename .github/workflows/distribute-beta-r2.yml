@@ -1,4 +1,4 @@
-name: Distribute published Songsmith beta release to R2
+name: CD - Distribute published beta release to R2
 
 # Distribution is explicitly opt-in at repository level. Publishing a GitHub
 # release starts the gated workflow; no environment approval is required.

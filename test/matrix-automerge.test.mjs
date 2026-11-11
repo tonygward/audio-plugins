@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluate, inCoreScope, inScope, promptIdFromBranch, archivePath, markDone, blockedReason, UI_REVIEW_NOTE, CLEAN_VALIDATION, CI_VALIDATION, CORE_STATEMENT, CORE_RUN } from '../scripts/matrix/automerge.mjs';
+import { evaluate, inCoreScope, inScope, promptIdFromBranch, archivePath, markDone, blockedReason, UI_REVIEW_NOTE, CLEAN_VALIDATION, CI_VALIDATION, CORE_STATEMENT, CORE_RUN, BUILD_RUN } from '../scripts/matrix/automerge.mjs';
 
 const repository = 'tonygward/audio-plugins';
 const sha = 'a'.repeat(40);
@@ -108,7 +108,7 @@ test('core lane: Matrix code with green orchestration tests on the exact head me
 test('core lane: needs the statement, the orchestration tests, the exact head and a same-repository PR on main', () => {
   const no = (change, text) => { const f = core(); change(f); const r = evaluate(f); assert.equal(r.merge, false, text); assert.equal(r.lane, 'core'); };
   no(f => { f.pr.body = 'Fixes board moves.'; }, 'statement');
-  no(f => { f.run.name = 'Build'; }, 'wrong workflow');
+  no(f => { f.run.name = BUILD_RUN; }, 'wrong workflow');
   no(f => { delete f.run.name; }, 'unnamed workflow');
   no(f => { f.run.conclusion = 'failure'; }, 'failed run');
   no(f => { f.run.head_sha = 'b'.repeat(40); }, 'older commit');
@@ -127,9 +127,26 @@ test('core lane: workflows, the gate, scripts, the Dockerfile, the allow-list an
 });
 
 test('task lane: only the Build workflow counts, and the core branch pattern is exact', () => {
-  const f = good(); f.run.name = 'Matrix orchestration tests'; assert.equal(evaluate(f).merge, false);
-  const g = good(); g.run.name = 'Build'; assert.equal(evaluate(g).merge, true);
+  const f = good(); f.run.name = CORE_RUN; assert.equal(evaluate(f).merge, false);
+  const g = good(); g.run.name = BUILD_RUN; assert.equal(evaluate(g).merge, true);
   for (const branch of ['matrix/core', 'matrix/core/', 'matrix/core/Bad_Name', 'matrix/core/a/b', 'matrix/corex/a']) {
     const c = core(); c.pr.headRefName = branch; const r = evaluate(c); assert.equal(r.merge, false, branch); assert.equal(r.lane, 'task', branch);
   }
+});
+
+// ---- Pipeline names: every workflow says whether it is CI, CD, a gate or housekeeping, and nothing that matches on a name can drift ----
+test('every workflow is named by kind, and every name something depends on exists exactly', async () => {
+  const fs = await import('node:fs'), path = await import('node:path');
+  const dir = new URL('../.github/workflows/', import.meta.url);
+  const workflows = fs.readdirSync(dir).filter(f => f.endsWith('.yml')).map(f => {
+    const text = fs.readFileSync(new URL(f, dir), 'utf8');
+    return { file: f, text, name: /^name:\s*(.+?)\s*$/m.exec(text)?.[1] };
+  });
+  const names = workflows.map(w => w.name);
+  for (const w of workflows) assert.match(w.name, /^(CI|CD|Gate|Housekeeping) - \S/, `${w.file} must start with CI, CD, Gate or Housekeeping`);
+  assert.equal(new Set(names).size, names.length, 'workflow names are unique');
+  for (const w of workflows) for (const m of w.text.matchAll(/^\s*workflows:\s*\[(.+?)\]\s*$/gm)) for (const ref of m[1].split(',').map(s => s.trim().replace(/^["']|["']$/g, ''))) assert.ok(names.includes(ref), `${w.file} listens for a workflow that does not exist: ${ref}`);
+  assert.ok(names.includes(BUILD_RUN) && names.includes(CORE_RUN), 'the names the merge gate matches on exist');
+  assert.equal(workflows.find(w => w.file === 'build.yml').name, BUILD_RUN);
+  assert.equal(workflows.find(w => w.file === 'matrix-tests.yml').name, CORE_RUN);
 });

@@ -23,7 +23,8 @@ export function inScope(file) {
 // scripts, the Dockerfile and the egress allow-list stay manual because they decide what may merge or run.
 export const CORE_BRANCH = /^matrix\/core\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const CORE_STATEMENT = 'Matrix core change: owner-approved lane';
-export const CORE_RUN = 'Matrix orchestration tests';
+export const BUILD_RUN = 'CI - Build and test';
+export const CORE_RUN = 'CI - Matrix orchestration tests';
 export function inCoreScope(file) {
   if (typeof file !== 'string' || !file || /[\\\x00-\x1f]/.test(file)) return false;
   if (file.split('/').some(part => part === '..' || part.startsWith('.'))) return false;
@@ -55,7 +56,7 @@ export function evaluate({ repository, pr, files, run, allowUiWithoutReview = tr
   else for (const file of files) if (!inScope(file)) no(`Changed file outside the permitted scope: ${String(file).slice(0, 120)}`);
   if (!run || run.conclusion !== 'success' || run.event !== 'pull_request') no('Hosted Build workflow has not succeeded for the pull request');
   if (run && pr && run.head_sha !== pr.headRefOid) no('Build result is for an older commit than the pull request head');
-  if (run && run.name !== undefined && run.name !== 'Build') no('Hosted Build workflow has not succeeded for the pull request');
+  if (run && run.name !== undefined && run.name !== BUILD_RUN) no('Hosted Build workflow has not succeeded for the pull request');
   return { merge: reasons.length === 0, reasons, lane: 'task' };
 }
 
