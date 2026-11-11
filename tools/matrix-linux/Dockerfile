@@ -1,7 +1,8 @@
 # Songsmith Matrix developer agent - isolated Linux container (AUTO-05).
 # Runs under wslc (WSL containers); plain OCI, so it also builds with Docker. It holds Claude Code and git/gh only: no compilers for the
 # native plugins (GitHub-hosted Windows and macOS runners build those), no Docker CLI, no sudo.
-# Build (context = repository root):  ./Start-MatrixAgent.ps1 -Action Build -ClaudeCodeVersion <exact version>
+# Build (context = repository root):  ./Start-MatrixAgent.ps1 -Action Build [-ClaudeCodeVersion <exact version>]
+# The version is kept current by ./Start-MatrixAgent.ps1 -Action Update (host side; see README).
 ARG NODE_IMAGE=node:22-bookworm-slim
 FROM ${NODE_IMAGE}
 

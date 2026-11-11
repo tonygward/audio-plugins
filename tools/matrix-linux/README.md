@@ -28,7 +28,7 @@ wslc is part of WSL (`wsl --update`). Compose is not available in wslc, so `Star
 
 ```powershell
 cd tools\matrix-linux
-./Start-MatrixAgent.ps1 -Action Build -ClaudeCodeVersion <exact version you have vetted>
+./Start-MatrixAgent.ps1 -Action Build -ClaudeCodeVersion <exact version>   # first time only; later builds and updates use the recorded version
 ./Start-MatrixAgent.ps1 -Action Verify     # isolation self-test; must print ALL CHECKS PASSED
 ./Start-MatrixAgent.ps1 -Action Login      # one time: sign in with the Claude subscription (opens a URL; paste the code back)
 ./Start-MatrixAgent.ps1 -Action Run -SecretsDirectory C:\MatrixSecrets   # the owner's go-ahead: starts the worker (any folder outside the repo works)
@@ -59,6 +59,42 @@ Register-ScheduledTask -TaskName 'Songsmith Matrix Agent (start containers)' -Ac
 
 Starting at boot with nobody logged in has not yet been confirmed across a real restart: after one, check `start.log` before logging in.
 Remove the task with `Unregister-ScheduledTask 'Songsmith Matrix Agent (start containers)'`.
+
+## Automatic Claude Code updates
+
+The image carries one exact Claude Code version (the container's own auto-updater is off, so a running worker never changes under itself). Keeping it current is a **host** job,
+because the container cannot rebuild itself:
+
+```powershell
+./Start-MatrixAgent.ps1 -Action Update -SecretsDirectory C:\MatrixSecrets    # normally run daily by a scheduled task
+./Start-MatrixAgent.ps1 -Action Rollback -SecretsDirectory C:\MatrixSecrets  # manual: return to the image kept before the last update
+```
+
+What `Update` does:
+
+1. **Choose a target** (`claude-version.mjs`, from the npm registry): the newest release that is a stable `x.y.z`, **not deprecated**, **at least 3 days old** (`-MinimumAgeDays`, so a bad release is usually withdrawn before Matrix takes it),
+   on the **same major version** (a new major needs `-AllowMajor`), never newer than the registry's `latest`, and never one that already failed a trial. It never downgrades.
+2. **Wait for an idle worker.** If a job is claimed it does nothing and tries again at the next scheduled run; an update never interrupts work.
+3. **Prove a candidate image** built beside the live one: the 16-check isolation self-test passes, it reports exactly the target version, and the Claude subscription sign-in still works with it.
+   A candidate that fails is **rejected** (recorded, never retried) and the live image is untouched.
+4. **Swap and watch.** The live image is kept as `songsmith-matrix-agent:previous`, the candidate becomes live, the worker restarts, and it must report started and still be running the new version a minute later.
+   If not, it **rolls back automatically** to the previous image and rejects that version.
+
+The versions and decisions are recorded on the host (not in the repository): `%LOCALAPPDATA%\MatrixAgent\claude-version.json` (current, previous, rejected) and `update.log`. `-Action Build` with no version rebuilds the recorded one.
+
+Register the daily task once (same account and elevation as the start task; it only runs this script):
+
+```powershell
+$arguments = '-NoProfile -NonInteractive -WindowStyle Hidden -Command "& ''C:\dev\audio-plugins\tools\matrix-linux\Start-MatrixAgent.ps1'' -Action Update -SecretsDirectory C:\MatrixSecrets *>> ''' + "$env:LOCALAPPDATA\MatrixAgent\update-task.log" + '''; exit $LASTEXITCODE"'
+Register-ScheduledTask -TaskName 'Songsmith Matrix Agent (update Claude Code)' `
+  -Action (New-ScheduledTaskAction -Execute 'C:\Program Files\PowerShell\7\pwsh.exe' -Argument $arguments) `
+  -Trigger (New-ScheduledTaskTrigger -Daily -At 4:30am) `
+  -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1)) `
+  -Principal (New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType S4U -RunLevel Highest)
+```
+
+Limits: the update trusts the npm registry and Anthropic's package, with the age delay and the self-test as the safeguards; it does not run a paid agent task to prove the new version works, so a behaviour change in Claude Code
+would show up on the next real task. Roll back with `-Action Rollback` if that happens.
 
 ## What the Linux worker does
 

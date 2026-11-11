@@ -17,6 +17,9 @@ case "${1:-verify}" in
     # (it refuses API keys and alternate providers), so no API key is used anywhere in this container.
     exec claude auth login
     ;;
+  claude-version)
+    claude --version | sed 's/ .*//'
+    ;;
   claude-check)
     exec claude auth status --json
     ;;
@@ -39,7 +42,7 @@ case "${1:-verify}" in
     done
     ;;
   *)
-    echo "Unknown mode: $1 (use verify, login, claude-check or worker)" >&2
+    echo "Unknown mode: $1 (use verify, login, claude-check, claude-version or worker)" >&2
     exit 64
     ;;
 esac
