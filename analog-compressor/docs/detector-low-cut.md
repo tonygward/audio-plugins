@@ -6,7 +6,15 @@
 
 The compressor decides how much to turn the sound down by listening to the level. Deep bass carries a lot of level, so a loud kick or bass note can make the whole sound duck. Low Cut removes the deepest bass from **what the compressor listens to** only. The audio you hear is never filtered: the bass stays as it was, and it is simply no longer the reason for the gain reduction.
 
-Tooltip (sentence case, plain words): "Low Cut: stops deep bass from making the compressor turn the whole sound down. Only the part of the sound the compressor listens to is filtered; the bass you hear stays as it is. Off is the usual setting."
+## ACOMP-12: now the Ignore Below knob
+
+The dropdown named Low Cut became a round knob named **Ignore Below**, in the same look as Input, Output, Attack and Release. It sits right of Gain Reduction Off (design units x 760, y 302, 176 x 50), clear of the Gain Reduction readout above and the hint line below. The name and the readout (`Off`, `60 Hz`, `80 Hz`, `100 Hz`, `150 Hz`, `200 Hz`) are to the right of the knob. Double-click returns it to Off; arrow keys step through the values.
+
+Tooltip: "Ignore bass below this frequency when deciding how much to compress. The bass you hear stays unchanged."
+
+**Trade-off, stepped rather than continuous:** the knob is *stepped* with the six original values. `detectorLowCut` stays a six-item choice, so its ID, its host-normalised automation values (index / 5) and every saved session and preset keep their meaning exactly, with no migration and no old/new precedence rules. A continuous Hz parameter would need a new parameter ID, a state-version migration and a rule for which value wins when a session holds both; that risk was not worth it for this change. Only the host's displayed parameter name changed, from "Low Cut" to "Ignore Below" (the ID is unchanged). The filter, its slope, location and smoothing are untouched. A continuous range could follow later as its own task.
+
+Not yet verified in a DAW; screenshots are not refreshed in this change because the run could not build the plugin.
 
 ## Design choices
 

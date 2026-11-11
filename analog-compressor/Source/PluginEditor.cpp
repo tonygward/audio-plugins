@@ -89,8 +89,8 @@ namespace
 
 //==============================================================================
 FETKnob::FETKnob (juce::AudioProcessorValueTreeState& state, const char* paramId, const juce::String& n,
-                  std::vector<std::pair<float, juce::String>> scaleMarks, Formatter format)
-    : name (n), marks (std::move (scaleMarks)), formatter (std::move (format)),
+                  std::vector<std::pair<float, juce::String>> scaleMarks, Formatter format, bool compactLayout)
+    : compact (compactLayout), name (n), marks (std::move (scaleMarks)), formatter (std::move (format)),
       attachment (state, paramId, slider)
 {
     auto* p = state.getParameter (paramId);
@@ -107,6 +107,12 @@ FETKnob::FETKnob (juce::AudioProcessorValueTreeState& state, const char* paramId
 void FETKnob::resized()
 {
     auto r = getLocalBounds();
+    if (compact)
+    {
+        const int side = r.getHeight();
+        slider.setBounds (r.removeFromLeft (side).reduced (2));
+        return;
+    }
     r.removeFromTop (22);
     r.removeFromBottom (24);
     const int side = juce::jmin (r.getWidth(), r.getHeight());
@@ -117,6 +123,16 @@ void FETKnob::resized()
 void FETKnob::paint (juce::Graphics& g)
 {
     auto r = getLocalBounds().toFloat();
+    if (compact)
+    {
+        auto text = r.withTrimmedLeft ((float) getHeight() + 6.0f);
+        g.setColour (Colours::text);
+        g.setFont (font (Type::heading, Weight::SemiBold));
+        g.drawText (name, text.removeFromTop (text.getHeight() * 0.5f), juce::Justification::bottomLeft);
+        g.setFont (numbers (Type::control));
+        g.drawText (getValueText(), text, juce::Justification::topLeft);
+        return;
+    }
     g.setColour (Colours::text);
     g.setFont (font (Type::heading, Weight::SemiBold));
     g.drawText (name, r.removeFromTop (20.0f), juce::Justification::centred);
@@ -156,8 +172,9 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
       gentleAttachment (*p.apvts.getParameter (ID::ratioTwoToOne), [this] (float v) { gentleOn = v >= 0.5f; refreshButtons(); }),
       grOffAttachment (p.apvts, ID::grOff, grOffButton),
       bypassAttachment (p.apvts, ID::bypass, bypassButton),
-      oversamplingAttachment (p.apvts, ID::oversampling, oversampling),
-      lowCutAttachment (p.apvts, ID::detectorLowCut, lowCutBox)
+      ignoreBelow (p.apvts, ID::detectorLowCut, "Ignore Below", {},
+                   [] (float v) { return lowCutText (juce::roundToInt (v)); }, true),
+      oversamplingAttachment (p.apvts, ID::oversampling, oversampling)
 {
     setLookAndFeel (&lnf);
     addAndMakeVisible (content);
@@ -221,14 +238,8 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     content.addAndMakeVisible (oversampling);
     oversampling.setSelectedItemIndex ((int) p.apvts.getRawParameterValue (ID::oversampling)->load(), juce::dontSendNotification);
 
-    for (int i = 0; i < lowCutNames().size(); ++i)
-        lowCutBox.addItem (lowCutText (i), i + 1);
-    lowCutBox.setTooltip ("Low Cut: stops deep bass from making the compressor turn the whole sound down. "
-                          "Only the part of the sound the compressor listens to is filtered; the bass you hear stays as it is. "
-                          "Off is the usual setting.");
-    lowCutBox.setTitle ("Low Cut");
-    content.addAndMakeVisible (lowCutBox);
-    lowCutBox.setSelectedItemIndex ((int) p.apvts.getRawParameterValue (ID::detectorLowCut)->load(), juce::dontSendNotification);
+    ignoreBelow.slider.setTooltip ("Ignore bass below this frequency when deciding how much to compress. The bass you hear stays unchanged.");
+    content.addAndMakeVisible (ignoreBelow);
 
     for (int i = 0; i < (int) std::size (uiScales); ++i)
         sizeBox.addItem ("Interface size: " + juce::String (juce::roundToInt (uiScales[i] * 100.0f)) + " %", i + 1);
@@ -352,9 +363,9 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     // this far left.
     guidanceButton->setBounds (meterArea.getX(), meterModes.getBottom() + 4, 88, 26);
     grOffButton.setBounds (grOffArea);
-    // Low Cut sits in the place ACOMP-08 kept free, right of Gain Reduction Off: both are about what the
-    // compressor reacts to, directly under the Gain Reduction meter.
-    lowCutBox.setBounds (lowCutX, lowCutY, lowCutWidth, 32);
+    // Ignore Below sits right of Gain Reduction Off: both are about what the compressor reacts to,
+    // directly under the Gain Reduction meter, clear of the readout above it and the hint below it.
+    ignoreBelow.setBounds (lowCutX, lowCutY, lowCutWidth, lowCutHeight);
 
     // Top bar: global Bypass at the top-right, in the same place and size as in the other plugins (SUI-13).
     bypassButton.setBounds (designWidth - 16 - 84, 14, 84, 26);
@@ -450,7 +461,7 @@ juce::String SongsmithAnalogCompressorEditor::oversamplingText (int index)
 
 juce::String SongsmithAnalogCompressorEditor::lowCutText (int index)
 {
-    return "Low Cut: " + lowCutNames()[juce::jlimit (0, lowCutNames().size() - 1, index)];
+    return lowCutNames()[juce::jlimit (0, lowCutNames().size() - 1, index)];
 }
 
 void SongsmithAnalogCompressorEditor::refreshButtons()
@@ -503,6 +514,7 @@ FETKnob& SongsmithAnalogCompressorEditor::getKnob (const juce::String& id)
 {
     if (id == ID::input)  return input;
     if (id == ID::output) return output;
+    if (id == ID::detectorLowCut) return ignoreBelow;
     if (id == ID::attack) return attack;
     return release;
 }

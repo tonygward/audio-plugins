@@ -13,15 +13,17 @@ public:
     using Formatter = std::function<juce::String (float)>;
 
     FETKnob (juce::AudioProcessorValueTreeState& state, const char* paramId, const juce::String& name,
-             std::vector<std::pair<float, juce::String>> scaleMarks, Formatter format);
+             std::vector<std::pair<float, juce::String>> scaleMarks, Formatter format, bool compactLayout = false);
 
     void paint (juce::Graphics&) override;
     void resized() override;
 
     juce::Slider slider { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::NoTextBox };
     juce::String getValueText() const { return formatter ((float) slider.getValue()); }
+    bool isCompact() const noexcept { return compact; }
 
 private:
+    bool compact;   // knob at the left, name and value at its right (used by Ignore Below)
     juce::String name;
     std::vector<std::pair<float, juce::String>> marks;
     Formatter formatter;
@@ -46,8 +48,8 @@ public:
     juce::Button& getRatioButton (int index) { return *ratioButtons[(size_t) index]; }   // 0..3 = 4, 8, 12, 20; 4 = 2:1
     juce::Button& getAllButton() { return allButton; }
     juce::Rectangle<int> getGrOffBounds() const { return grOffButton.getBounds(); }
-    juce::ComboBox& getLowCutBox() noexcept { return lowCutBox; }
-    static juce::String lowCutText (int index);          // "Low Cut: Off", "Low Cut: 80 Hz" ...
+    FETKnob& getIgnoreBelowKnob() noexcept { return ignoreBelow; }
+    static juce::String lowCutText (int index);          // "Off", "60 Hz", "80 Hz" ... (the Ignore Below readout)
     juce::Rectangle<int> getDiagnosticsBounds() const { return diagnostics->getBounds(); }
     juce::ComboBox& getPresetBox() { return presetBox; }
     void advanceMeter (float seconds);
@@ -95,7 +97,7 @@ private:
     float grDisplayDb = 0.0f;
 
     juce::ComboBox oversampling, sizeBox;
-    juce::ComboBox lowCutBox;   // detector Low Cut, beside Gain Reduction Off, under the Gain Reduction meter it affects
+    FETKnob ignoreBelow;   // detector low cut as a stepped rotary, beside Gain Reduction Off, under the meter it affects
     juce::ComboBox presetBox;
     juce::TooltipWindow tooltips { this, 600 };
 
@@ -115,7 +117,6 @@ private:
     static constexpr int savePresetId = 1000, openFolderId = 1001, firstUserId = 100;
     juce::Array<juce::File> userPresetFiles;
     juce::AudioProcessorValueTreeState::ComboBoxAttachment oversamplingAttachment;
-    juce::AudioProcessorValueTreeState::ComboBoxAttachment lowCutAttachment;
 
     int ratioIndex = 0;
     bool allButtonsOn = false;
