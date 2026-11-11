@@ -1,12 +1,10 @@
 ---
 id: MAX-09
-status: backlog
-execution: scheduled
 priority: medium
 model: sonnet
 effort: low
 dependencies: []
-conflicts: [MAX-08, SUI-18]
+conflicts: ["MAX-08", "SUI-18"]
 ---
 
 # MAX-09 — Single Integrated LUFS readout beside the main dial
@@ -14,7 +12,6 @@ conflicts: [MAX-08, SUI-18]
 **Tracking issue:** https://github.com/tonygward/audio-plugins/issues/229  
 **Related:** [MAX-07 LUFS meter](https://github.com/tonygward/audio-plugins/issues/161), [MAX-08 meter styling](https://github.com/tonygward/audio-plugins/issues/224), [SUI-18 title bar](https://github.com/tonygward/audio-plugins/issues/202).  
 **Policy:** [Songsmith execution policy](../../docs/songsmith-execution-policy.md).  
-**Execution:** Backlog only; no pickup or work triggered by creating this prompt.
 
 ## Objective and value
 Reduce unnecessary information in Songsmith Maximiser: show **only Integrated LUFS**, move that value **right of the main dial/control area (never below it)**, and add an understandable tooltip describing the value and a qualified reference target. Keep UI uncluttered and approachable.

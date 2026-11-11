@@ -1,7 +1,7 @@
 name: Matrix archive merged prompt
 
 # A prompt counts as done only once its Matrix pull request is merged into main. This moves the
-# prompt into its done/ folder (status: done) in a docs-only commit on main, which Matrix reads
+# prompt into its done/ folder (the folder is the record; prompts carry no status) in a docs-only commit on main, which Matrix reads
 # as completion evidence (and which unlocks prompts that depend on it). Docs-only commits do not
 # start a Build. Switch off with MATRIX_AUTOMERGE_ENABLED=false.
 on:

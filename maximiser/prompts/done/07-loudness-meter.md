@@ -67,7 +67,7 @@ The meter only hears audio while it plays through the plugin in real time. It is
 - README: what the meter shows, that it only hears real-time playback, the automatic reset, the sources (BS.1770-4, R 128, Tech 3341) and which test checks each.
 - Open the PR with what changed, test output, known limitations, and "Not yet verified in a DAW". Ask in `docs/host-checks.md` for a check against a reference meter (for example the DAW's own loudness meter) on a real mix. Move this prompt to `done/` and update `maximiser/prompts/README.md` in the same PR.
 
-**Current execution and delivery:** Follow [the owner policy](../../docs/songsmith-execution-policy.md). Board order decides selection regardless of issue/prompt location or prefix, with one task and a 60% weekly usage stop threshold. Use the actual implementation repository's scoped execution path. Automatically approve/merge after current-head required checks; verify beta deployment and downloads, post the final issue comment, then close and finally mark board Done. Major/minor increments are deferred; beta build/patch increments are automatic.
+**Current execution and delivery:** Follow [the owner policy](../../../docs/songsmith-execution-policy.md). Board order decides selection regardless of issue/prompt location or prefix, with one task and a 60% weekly usage stop threshold. Use the actual implementation repository's scoped execution path. Automatically approve/merge after current-head required checks; verify beta deployment and downloads, post the final issue comment, then close and finally mark board Done. Major/minor increments are deferred; beta build/patch increments are automatic.
 
 
 ## Lifecycle update — 10 November 2026 (authoritative)

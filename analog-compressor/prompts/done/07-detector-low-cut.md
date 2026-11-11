@@ -12,7 +12,7 @@ Add an optional **Low Cut** in the compressor's level detector. It should reduce
 
 Give the setting stable parameter IDs, migrate old states, smooth changes and keep stereo linking, bypass and latency consistent. Verify a bass-heavy signal produces less gain reduction with Low Cut enabled, and verify the filter is confined to the detector with a no-gain-reduction response test. Cover automation, recall and supported oversampling modes. Include listening notes and a tooltip and layout check.
 
-**Current execution and delivery:** Follow [the owner policy](../../docs/songsmith-execution-policy.md). Board order decides selection regardless of issue/prompt location or prefix, with one task and a 60% weekly usage stop threshold. Use the actual implementation repository's scoped execution path. Automatically approve/merge after current-head required checks; verify beta deployment and downloads, post the final issue comment, then close and finally mark board Done. Major/minor increments are deferred; beta build/patch increments are automatic.
+**Current execution and delivery:** Follow [the owner policy](../../../docs/songsmith-execution-policy.md). Board order decides selection regardless of issue/prompt location or prefix, with one task and a 60% weekly usage stop threshold. Use the actual implementation repository's scoped execution path. Automatically approve/merge after current-head required checks; verify beta deployment and downloads, post the final issue comment, then close and finally mark board Done. Major/minor increments are deferred; beta build/patch increments are automatic.
 
 
 ## Lifecycle update — 10 November 2026 (authoritative)

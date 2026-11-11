@@ -284,3 +284,11 @@ test('effort accepts small and large as aliases; one malformed prompt is reporte
   assert.deepEqual(result.prompts.map(p => [p.id, p.effort]), [['A-01', 'low'], ['B-01', 'high']]);
   assert.deepEqual(result.errors.map(e => e.file), ['shared/prompts/C-01-c.md']);
 });
+
+test('a bare ID list in dependencies or conflicts is accepted; anything else still fails', () => {
+  const p = parsePrompt('eq/prompts/41-x.md', '---\ndependencies: [EQ-32, EQ-33]\nconflicts: [ACOMP-01]\n---\n' + prose);
+  assert.deepEqual(p.dependencies, ['EQ-32', 'EQ-33']); assert.deepEqual(p.conflicts, ['ACOMP-01']);
+  assert.throws(() => parsePrompt('eq/prompts/41-x.md', '---\nconflicts: [not an id]\n---\n' + prose));
+  assert.throws(() => parsePrompt('eq/prompts/41-x.md', '---\nconflicts: [eq-1]\n---\n' + prose));
+  assert.throws(() => parsePrompt('eq/prompts/41-x.md', '---\nconflicts: EQ-1\n---\n' + prose));
+});

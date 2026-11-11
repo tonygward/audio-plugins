@@ -11,7 +11,7 @@ conflicts: []
 **Tracking issue:** [SUI-18 #202](https://github.com/tonygward/audio-plugins/issues/202)  
 **Related:** [SUI-17 plugin-title tooltip #201](https://github.com/tonygward/audio-plugins/issues/201), [ACOMP-12 Ignore Below #200](https://github.com/tonygward/audio-plugins/issues/200), [EQ-41 Gain Scale in toolbox #203](https://github.com/tonygward/audio-plugins/issues/203)  
 **Execution:** Backlog only; the issue/prompt does not queue or start Matrix.  
-**Policy:** [Songsmith execution and delivery](../../docs/songsmith-execution-policy.md).
+**Policy:** [Songsmith execution and delivery](../../../docs/songsmith-execution-policy.md).
 
 ## Objective and user value
 

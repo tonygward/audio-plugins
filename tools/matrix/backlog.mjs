@@ -33,7 +33,12 @@ export function parsePrompt(file, text) {
       if (!match || !fields.has(match[1]) || Object.hasOwn(meta, match[1])) throw new Error(`Invalid or duplicate metadata: ${line}`);
       const [, key, raw] = match;
       if (['dependencies', 'conflicts'].includes(key)) {
-        try { meta[key] = JSON.parse(raw); } catch { throw new Error(`${key} must be an inline JSON array`); }
+        try { meta[key] = JSON.parse(raw); } catch {
+          // A bare list such as [MAX-08, SUI-18] is a natural way to write IDs; accept it (each ID is still validated below).
+          const bare = /^\[\s*([A-Za-z0-9-]+(?:\s*,\s*[A-Za-z0-9-]+)*)?\s*\]$/.exec(raw);
+          if (!bare) throw new Error(`${key} must be an inline JSON array`);
+          meta[key] = bare[1] ? bare[1].split(',').map(s => s.trim()) : [];
+        }
         if (!Array.isArray(meta[key]) || meta[key].some(x => typeof x !== 'string' || !idPattern.test(x))) throw new Error(`Invalid ${key}`);
       } else {
         let value = raw;

@@ -1,5 +1,4 @@
 ---
-status: done
 id: SUI-17
 model: sonnet
 effort: medium
@@ -11,7 +10,7 @@ conflicts: []
 
 **Issue:** [#201](https://github.com/tonygward/audio-plugins/issues/201)  
 **Related existing work:** [ADV-01 #171](https://github.com/tonygward/audio-plugins/issues/171) (implemented; do not recode); [SUI-18 #202](https://github.com/tonygward/audio-plugins/issues/202) (shared EQ-style title-bar layout and Undo/Redo).  
-**Policy:** [Songsmith execution and delivery](../../docs/songsmith-execution-policy.md)  
+**Policy:** [Songsmith execution and delivery](../../../docs/songsmith-execution-policy.md)  
 
 ## Objective and user value
 
