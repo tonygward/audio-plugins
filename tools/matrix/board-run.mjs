@@ -4,7 +4,7 @@
 // Off unless config.boardPickup.enabled is true. dryRun defaults to true: decide and report, never claim.
 import path from 'node:path';
 import { atomic, lockedAsync, readState } from './state.mjs';
-import { fetchBoard, fetchPulls, selectFromBoard, pullTaskState, matrixBranchTask } from './board.mjs';
+import { fetchBoard, fetchPulls, selectFromBoard, pullTaskState, matrixBranchTask, isDeferred } from './board.mjs';
 import { reconcileDoing } from './doing.mjs';
 import { pickUp, recoverPickupComments } from './pickup.mjs';
 import { advanceDelivery, recordMerge } from './delivery.mjs';
@@ -17,11 +17,15 @@ import { dailyDue, londonDay } from './policy.mjs';
 
 // Unlike state.reconcile (a worker restart marks claimed tasks interrupted), a board tick must keep an
 // active claim intact: it only adds or refreshes tasks that are still unclaimed.
-export function refreshTasks(state, prompts, revision, now = new Date().toISOString()) {
+// The board's Execution field decides deferral where it is set: Run Now or Scheduled releases a prompt whose own wording reads as
+// deferred (every backlog prompt says "not queued"), and Deferred holds one back. Prompts in excluded folders or marked blocked
+// stay withdrawn whatever the board says.
+export function refreshTasks(state, prompts, revision, now = new Date().toISOString(), cards = []) {
   for (const p of prompts) {
     const task = state.tasks[p.id] ??= { id: p.id, state: 'pending', attempts: 0, created: now };
+    const card = cards.find(c => c.taskId === p.id && c.issue);
     if (p.complete && ['pending', 'withdrawn'].includes(task.state)) task.state = 'complete';
-    else if (['pending', 'withdrawn'].includes(task.state)) task.state = p.deferred || p.excluded || p.blocked ? 'withdrawn' : 'pending';
+    else if (['pending', 'withdrawn'].includes(task.state)) task.state = isDeferred(card, p) || p.excluded || p.blocked ? 'withdrawn' : 'pending';
     if (['pending', 'withdrawn', 'complete'].includes(task.state)) Object.assign(task, { file: p.file, hash: p.hash, execution: p.execution, revision, updated: now });
   }
 }
@@ -67,7 +71,7 @@ export async function boardTick(config, deps) {
   // Keep durable state in step with the repository and with merged pull requests (needs the lock).
   const recordedMerges = dryRun ? [] : await lockedAsync(dir, async () => {
     const state = readState(dir);
-    if (!promptError) refreshTasks(state, prompts, revision);
+    if (!promptError) refreshTasks(state, prompts, revision, undefined, board.cards);
     const recorded = syncMerges(state, pulled.pulls);
     atomic(path.join(dir, 'state.json'), state);
     return recorded;
@@ -82,7 +86,7 @@ export async function boardTick(config, deps) {
     if (io.prChecks) await recoverInFlight(dir, pulled.pulls, io, { now: clock });
     for (const [id, d] of Object.entries(readState(dir).deliveries ?? {})) if (d.stage !== 'done') delivery[id] = await advanceDelivery(dir, id, io);
     // Stopped work is reported once and parked in Blocked; an owner moving a card back to Todo or Doing is the explicit resume.
-    await resumeBlocked(dir, board, io);
+    await resumeBlocked(dir, board, io, { pulls: pulled.pulls });
     for (const itemId of (await blockStopped(dir, io)).moved) { const card = board.cards.find(c => c.itemId === itemId); if (card) card.status = 'Blocked'; }
     state = readState(dir);
   }

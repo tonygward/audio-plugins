@@ -4,9 +4,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { runLinuxWorker, validateLinuxConfig, preflight, baseEnvironment, resolveChangelogConflict, ciOutcome, CI_VALIDATION } from '../linux-worker.mjs';
+import { runLinuxWorker, limitReason, resumePathsValid, validateLinuxConfig, preflight, baseEnvironment, resolveChangelogConflict, ciOutcome, CI_VALIDATION } from '../linux-worker.mjs';
 import { runProcess } from '../process.mjs';
-import { readState } from '../state.mjs';
+import { readState, atomic } from '../state.mjs';
+import { blockStopped, resumeBlocked } from '../blocked.mjs';
 import { TELEMETRY_SOURCE } from '../policy.mjs';
 const gitExecutable = execFileSync(process.platform === 'win32' ? 'where.exe' : 'which', ['git'], { encoding: 'utf8' }).trim().split(/\r?\n/)[0];
 const now = Date.now();
@@ -39,7 +40,7 @@ function fixture(t) {
 
 // Real git; fake Claude and GitHub. `builds` gives the hosted-build conclusion for each new head commit, in order.
 function adapter({ builds = ['success'], onClaude, claudeFails, prState } = {}) {
-  const seen = { claude: [], gh: [] }, results = new Map();
+  const seen = { claude: [], gh: [] }, results = new Map(), pr = { existing: [] };
   let counter = 0;
   const run = async (exe, args, o) => {
     if (exe === gitExecutable) {
@@ -56,20 +57,21 @@ function adapter({ builds = ['success'], onClaude, claudeFails, prState } = {}) 
     }
     if (exe === GH) {
       seen.gh.push({ args, env: o.env });
-      if (args[0] === 'pr' && args[1] === 'list') return { stdout: '[]', stderr: '' };
+      if (args[0] === 'pr' && args[1] === 'list') return { stdout: JSON.stringify(pr.existing), stderr: '' };
       if (args[0] === 'pr' && args[1] === 'create') return { stdout: 'https://github.com/example/plugins/pull/7\n', stderr: '' };
       if (args[0] === 'pr' && args[1] === 'edit') return { stdout: '', stderr: '' };
       if (args[0] === 'pr' && args[1] === 'view') return { stdout: JSON.stringify({ state: prState ?? 'OPEN' }), stderr: '' };
       if (args[0] === 'run' && args[1] === 'list') {
         const sha = args[args.indexOf('--commit') + 1];
         if (!results.has(sha)) results.set(sha, builds[Math.min(results.size, builds.length - 1)]);
-        return { stdout: JSON.stringify([{ databaseId: ++counter, status: 'completed', conclusion: results.get(sha), headSha: sha, event: 'pull_request' }]), stderr: '' };
+        const pending = results.get(sha) === 'pending';
+        return { stdout: JSON.stringify([{ databaseId: ++counter, status: pending ? 'in_progress' : 'completed', conclusion: pending ? null : results.get(sha), headSha: sha, event: 'pull_request' }]), stderr: '' };
       }
       if (args[0] === 'run' && args[1] === 'view') return { stdout: 'error C2065: undeclared identifier\n', stderr: '' };
     }
     throw Error('Unexpected command ' + exe + ' ' + args.join(' '));
   };
-  return { run, seen };
+  return { run, seen, results, pr };
 }
 const options = (f, a, extra = {}) => ({ trigger: 'daily', run: a.run, loadUsage: goodUsage, clock: () => now, sleep: async () => {}, check: () => {}, environment: { PATH: process.env.PATH, HOME: f.root }, ...extra });
 const body = (f, report) => fs.readFileSync(path.join(f.config.stateDirectory, `${report.outcomes[0].id}-pr.md`), 'utf8');
@@ -216,7 +218,7 @@ const withIssues = a => { const comments = [], moves = []; const run = async (ex
   if (exe === GH && args[0] === 'issue' && args[1] === 'view') return { stdout: JSON.stringify({ comments: comments.map(body => ({ body })) }), stderr: '' };
   if (exe === GH && args[0] === 'issue' && args[1] === 'comment') { if (a.failComment) throw Error('GitHub down'); comments.push(args[args.indexOf('--body') + 1]); return { stdout: '', stderr: '' }; }
   if (exe === GH && args[0] === 'api' && args[1] === 'graphql') { moves.push(args.find(a => a.startsWith('o=')).slice(2)); return { stdout: '', stderr: '' }; }
-  return a.run(exe, args, o); }; return { run, seen: a.seen, comments, moves, set failComment(v) { a.failComment = v; } }; };
+  return a.run(exe, args, o); }; return { run, seen: a.seen, results: a.results, pr: a.pr, comments, moves, set failComment(v) { a.failComment = v; } }; };
 
 test('board mode without a hand-off idles: no fallback to the Markdown selector', async t => {
   const f = fixture(t), a = adapter(), report = await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
@@ -337,4 +339,102 @@ test('the starting comment records why the card was picked up, from the hand-off
   const todo = fixture(t), b = withIssues(adapter()); handoffFor(todo, { status: 'Todo' });
   await runLinuxWorker(boardConfig(todo), options(todo, b, { trigger: 'timer' }));
   assert.match(b.comments[0], /Pickup reason: Scheduled \(Todo\)/); assert.match(b.comments[0], /London schedule date: /);
+});
+
+// ---- Limits, parking and resuming committed work (AUTO-12) ----
+test('a turn, cost or time limit stops the task and the reason names the limit', async t => {
+  const cases = [
+    [{ claudeFails: { type: 'result', subtype: 'error_max_turns', is_error: true, num_turns: 11, total_cost_usd: 1 } }, /Claude turn limit \(10 turns\)/],
+    [{ claudeFails: { type: 'result', subtype: 'error_max_budget_usd', is_error: true, num_turns: 4, total_cost_usd: 5 } }, /Claude cost limit \(5 dollars\)/],
+    [{ onClaude: () => { throw Error('Process timed out'); } }, /time limit for one attempt \(1 minutes\)/],
+  ];
+  for (const [extra, expected] of cases) {
+    const f = fixture(t), a = adapter(extra), report = await runLinuxWorker(f.config, options(f, a));
+    assert.equal(report.outcomes[0].interrupted, true);
+    const task = readState(f.config.stateDirectory).tasks['EQ-41'];
+    assert.equal(task.state, 'interrupted'); assert.match(task.reason, expected); assert.doesNotMatch(task.reason, /inspect retained worktree/);
+    assert.equal(task.commit, undefined, 'nothing was committed, so a resume starts clean');
+  }
+});
+
+test('limitReason names only configured limits and ignores other failures', () => {
+  const w = { maximumTurns: 60, maximumBudgetUsd: 5, timeoutSeconds: 1800 };
+  assert.match(limitReason({ subtype: 'error_max_turns' }, null, w), /60 turns/);
+  assert.match(limitReason({ subtype: 'error_max_budget_usd' }, null, w), /5 dollars/);
+  assert.match(limitReason({}, Error('Process timed out'), w), /30 minutes/);
+  assert.equal(limitReason({ subtype: 'error_during_execution' }, Error('Process failed'), w), null);
+  assert.equal(limitReason({ exitCode: 1 }, Error('Process failed'), w), null);
+});
+
+test('resume only trusts a branch and worktree where Matrix keeps them', () => {
+  const root = path.join(os.tmpdir(), 'wt');
+  assert.equal(resumePathsValid({ worktree: path.join(root, 'EQ-41-abc123'), branch: 'matrix/eq-41-abc123' }, root), true);
+  for (const bad of [{ worktree: path.join(os.tmpdir(), 'elsewhere'), branch: 'matrix/eq-41-abc123' }, { worktree: root, branch: 'matrix/eq-41-abc123' },
+    { worktree: path.join(root, '..', 'x'), branch: 'matrix/eq-41-abc123' }, { worktree: path.join(root, 'EQ-41-abc123'), branch: 'main' },
+    { worktree: path.join(root, 'EQ-41-abc123'), branch: 'matrix/eq-41-abc123;rm' }, { branch: 'matrix/eq-41-abc123' }]) assert.equal(resumePathsValid(bad, root), false, JSON.stringify(bad));
+});
+
+test('a Build that keeps failing parks the task as interrupted, keeping the pull request and commit for a resume', async t => {
+  const f = fixture(t), a = adapter({ builds: ['failure'] }), report = await runLinuxWorker(f.config, options(f, a));
+  assert.equal(report.outcomes[0].blocked, true); assert.equal(report.outcomes[0].interrupted, true);
+  const task = readState(f.config.stateDirectory).tasks['EQ-41'];
+  assert.equal(task.state, 'interrupted'); assert.match(task.reason, /Hosted Build failed/);
+  assert.equal(task.pr, 'https://github.com/example/plugins/pull/7'); assert.ok(task.commit); assert.ok(task.worktree && fs.existsSync(task.worktree));
+});
+
+// A first run that stops with committed work and an open pull request, then an explicit resume by moving the card back to Doing.
+const quietIo = () => ({ moveToBlocked: async () => {}, hasComment: async () => false, comment: async () => {} });
+async function stopThenResume(t, { builds, firstRun = {} }) {
+  const f = fixture(t), base = adapter({ builds }), a = withIssues(base), config = boardConfig(f), dir = f.config.stateDirectory; handoffFor(f);
+  const first = await runLinuxWorker(config, options(f, a, { trigger: 'timer', ...firstRun }));
+  assert.equal(first.outcomes[0].interrupted, true);
+  await blockStopped(dir, quietIo());
+  const stopped = readState(dir).tasks['EQ-41'];
+  base.pr.existing = [{ url: stopped.pr, headRefOid: stopped.commit, state: 'OPEN' }];
+  await resumeBlocked(dir, { ok: true, cards: [{ taskId: 'EQ-41', status: 'Doing', issue: 41 }] }, quietIo(), { pulls: [{ headRefName: stopped.branch, state: 'OPEN' }] });
+  const resumed = readState(dir).tasks['EQ-41']; assert.equal(resumed.state, 'pending'); assert.equal(resumed.resumeWork, true);
+  const again = () => writeHandoff(dir, { job: 'matrix-test-2', revision: 'a'.repeat(40), now, resumedFrom: resumed.resumedFrom,
+    selected: { taskId: 'EQ-41', promptHash: taskHash(f), status: 'Doing', issue: 41, itemId: 'item-41', repository: 'example/plugins', issueRepository: 'example/plugins' } });
+  return { f, base, a, config, dir, stopped, resumed, again };
+}
+
+test('an explicit resume carries on from the saved branch and pull request: one agent repair, no second pull request, no repeat coding', async t => {
+  const { f, base, a, config, dir, stopped, again } = await stopThenResume(t, { builds: ['failure', 'failure', 'failure', 'success'] });
+  assert.equal(base.seen.claude.length, 3); again();
+  const report = await runLinuxWorker(config, options(f, a, { trigger: 'timer' }));
+  assert.equal(report.outcomes[0].interrupted, undefined); assert.equal(report.outcomes[0].blocked, false);
+  assert.equal(base.seen.claude.length, 4, 'one more agent run, on the failed build');
+  assert.match(base.seen.claude[3].input, /Matrix is resuming this task/); assert.match(base.seen.claude[3].input, /Do not start over/); assert.match(base.seen.claude[3].input, /ci-failure\.log/);
+  assert.equal(base.seen.claude[3].cwd, stopped.worktree, 'the same worktree, not a new one');
+  assert.equal(base.seen.gh.filter(c => c.args[0] === 'pr' && c.args[1] === 'create').length, 1, 'the existing pull request is reused');
+  assert.doesNotMatch(fs.readFileSync(path.join(dir, 'EQ-41-pr.md'), 'utf8'), /## Blocked/, 'the old Blocked section is gone from the description');
+  const task = readState(dir).tasks['EQ-41'];
+  assert.equal(task.state, 'awaiting-review'); assert.equal(task.pr, stopped.pr); assert.equal(task.resumeWork, undefined); assert.equal(task.branch, stopped.branch);
+  const subjects = execFileSync(gitExecutable, ['--git-dir', f.remote, 'log', '--format=%s', stopped.branch], { encoding: 'utf8' });
+  assert.match(subjects, /Matrix resumed implementation/);
+  assert.match(a.comments.at(-1), /Pickup reason: Resumed \(Doing\)/); assert.match(a.comments.at(-1), /Resumed from: job `matrix-test-1`/);
+});
+
+test('a resume whose pushed commit now has a green Build starts no agent, even after the worktree was lost', async t => {
+  let elapsed = 0;
+  const { f, base, a, config, dir, stopped, again } = await stopThenResume(t, { builds: ['pending'], firstRun: { clock: () => now + elapsed, sleep: async ms => { elapsed += ms; } } });
+  assert.match(readState(dir).tasks['EQ-41'].resumedFrom.reason, /did not finish in time/);
+  assert.equal(base.seen.claude.length, 1);
+  base.results.set(stopped.commit, 'success');
+  f.git(['worktree', 'remove', '--force', stopped.worktree]); assert.equal(fs.existsSync(stopped.worktree), false);
+  again(); elapsed = 0;
+  const report = await runLinuxWorker(config, options(f, a, { trigger: 'timer' }));
+  assert.equal(report.outcomes[0].blocked, false); assert.equal(base.seen.claude.length, 1, 'no agent: nothing needed fixing');
+  assert.ok(fs.existsSync(stopped.worktree), 'recreated from the pushed branch');
+  assert.equal(readState(dir).tasks['EQ-41'].state, 'awaiting-review');
+  assert.match(fs.readFileSync(path.join(dir, 'logs', 'worker.jsonl'), 'utf8'), /"stage":"worktree-resumed"/);
+});
+
+test('a resume refuses a saved worktree that is not where Matrix keeps them, and runs nothing', async t => {
+  const { f, base, a, config, dir, again } = await stopThenResume(t, { builds: ['failure'] });
+  const state = readState(dir); state.tasks['EQ-41'].worktree = path.join(os.tmpdir(), 'somewhere-else'); atomic(path.join(dir, 'state.json'), state);
+  again(); const before = base.seen.claude.length;
+  const report = await runLinuxWorker(config, options(f, a, { trigger: 'timer' }));
+  assert.equal(report.outcomes[0].interrupted, true); assert.equal(base.seen.claude.length, before);
+  assert.match(readState(dir).tasks['EQ-41'].reason, /not where Matrix keeps them/);
 });

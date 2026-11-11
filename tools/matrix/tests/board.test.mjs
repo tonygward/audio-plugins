@@ -192,3 +192,11 @@ test('a card marked Separate on the board is never picked up by the worker', () 
   assert.equal(r.selected.taskId, 'B-01');
   assert.equal(r.decisions[0].reason, 'card is marked Separate on the board (scheduled separately)');
 });
+
+test('a task resumed with committed work is selected even though its pull request is still open', () => {
+  const ps = [prompt('A-01')], cards = snapshot(card('Doing', 1, 'A-01'));
+  const blocked = selectFromBoard(cards, ps, base({ openPullTaskIds: new Set(['A-01']), tasks: { 'A-01': { state: 'pending' } } }));
+  assert.equal(blocked.selected, null); assert.match(blocked.decisions[0].reason, /open pull request already exists/);
+  const resumed = selectFromBoard(cards, ps, base({ openPullTaskIds: new Set(['A-01']), tasks: { 'A-01': { state: 'pending', resumeWork: true } } }));
+  assert.equal(resumed.selected?.taskId, 'A-01');
+});

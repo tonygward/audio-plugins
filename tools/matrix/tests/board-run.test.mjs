@@ -7,7 +7,7 @@ import { boardTick, syncMerges, refreshTasks } from '../board-run.mjs';
 import { readState, atomic } from '../state.mjs';
 
 const repo = 'tonygward/audio-plugins', revision = 'a'.repeat(40);
-const prompt = id => ({ id, file: `shared/prompts/${id}.md`, hash: `hash-${id}-0123456789`, complete: false, deferred: false, excluded: false, blocked: false, execution: 'scheduled', dependencies: [], repository: repo });
+const prompt = (id, extra = {}) => ({ id, file: `shared/prompts/${id}.md`, hash: `hash-${id}-0123456789`, complete: false, deferred: false, excluded: false, blocked: false, execution: 'scheduled', dependencies: [], repository: repo, ...extra });
 const node = (n, status, title) => ({ id: `item-${n}`, status: { name: status }, content: { __typename: 'Issue', number: n, title, state: 'OPEN', repository: { nameWithOwner: repo } } });
 
 const NOON = Date.parse('2026-11-10T12:00:00Z');
@@ -251,4 +251,27 @@ test('in a dry run the issue is assessed but nothing is commented or moved', asy
   h.deps.io.issueBody = async () => 'Just do it.';
   await boardTick(h.config, h.deps);
   assert.equal(h.comments.length, 0); assert.ok(!h.calls.includes('blocked:item-9'));
+});
+
+// ---- Board Execution field releases a prompt whose own wording reads as deferred (AUTO-12) ----
+test('Run Now or Scheduled on the card releases a prompt that only reads as deferred; Deferred holds one back', () => {
+  const deferredPrompt = prompt('A-01', { deferred: true }), liveCard = (execution, id = 'A-01') => ({ taskId: id, issue: 1, execution, status: 'Doing' });
+  for (const [execution, expected] of [['Run Now', 'pending'], ['Scheduled', 'pending'], [null, 'withdrawn'], ['Deferred', 'withdrawn']]) {
+    const state = { tasks: {} }; refreshTasks(state, [deferredPrompt], revision, undefined, [liveCard(execution)]);
+    assert.equal(state.tasks['A-01'].state, expected, String(execution));
+  }
+  // The same state a previous tick left behind (withdrawn) is released once the card says Run Now.
+  const stale = { tasks: { 'A-01': { id: 'A-01', state: 'withdrawn' } } };
+  refreshTasks(stale, [deferredPrompt], revision, undefined, [liveCard('Run Now')]); assert.equal(stale.tasks['A-01'].state, 'pending');
+  // A card for another task, or no cards at all, changes nothing from the old behaviour.
+  const other = { tasks: {} }; refreshTasks(other, [deferredPrompt], revision, undefined, [liveCard('Run Now', 'B-01')]); assert.equal(other.tasks['A-01'].state, 'withdrawn');
+  const none = { tasks: {} }; refreshTasks(none, [deferredPrompt], revision); assert.equal(none.tasks['A-01'].state, 'withdrawn');
+});
+
+test('the board cannot release a prompt in an excluded folder or marked blocked, and Deferred holds back a normal prompt', () => {
+  const run = (extra, execution) => { const state = { tasks: {} }; refreshTasks(state, [prompt('A-01', extra)], revision, undefined, [{ taskId: 'A-01', issue: 1, execution, status: 'Doing' }]); return state.tasks['A-01'].state; };
+  assert.equal(run({ excluded: true }, 'Run Now'), 'withdrawn');
+  assert.equal(run({ blocked: true }, 'Run Now'), 'withdrawn');
+  assert.equal(run({}, 'Deferred'), 'withdrawn');
+  assert.equal(run({}, 'Run Now'), 'pending');
 });

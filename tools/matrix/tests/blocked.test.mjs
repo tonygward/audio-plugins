@@ -58,7 +58,7 @@ test('a comment that already exists is not posted again after a crash', async ()
 test('the comment says what to do next, with and without committed work', () => {
   assert.match(blockedComment({ id: 'A-01', job: 'j', attempts: 1, reason: 'r' }), /starts the task again from a clean worktree/);
   const withWork = blockedComment({ id: 'A-01', job: 'j', attempts: 2, reason: 'Run time limit', commit: 'abc', branch: 'matrix/a-01-123', pr: 'https://x/pull/9' });
-  assert.match(withWork, /committed work/); assert.match(withWork, /matrix\/a-01-123/); assert.match(withWork, /pull\/9/);
+  assert.match(withWork, /carries on from the saved branch and pull request/); assert.doesNotMatch(withWork, /not built yet/); assert.match(withWork, /matrix\/a-01-123/); assert.match(withWork, /pull\/9/);
 });
 
 test('moving the card back to Todo or Doing resumes a task with no committed work, with a fresh budget', async () => {
@@ -80,14 +80,39 @@ test('a card still in Blocked, Backlog or Done is not resumed; nothing is retrie
   }
 });
 
-test('committed work is never started again: one comment and the card goes back to Blocked', async () => {
-  const dir = seed({ 'A-01': { blockedCommentAt: 't', commit: 'abc123', branch: 'matrix/a-01-123', pr: 'https://x/pull/9' } }), { io, log } = fakeIo();
-  const first = await resumeBlocked(dir, board(['A-01', 'Todo']), io); await resumeBlocked(dir, board(['A-01', 'Todo']), io);
+const committed = { blockedCommentAt: 't', movedBlockedAt: 't', claimedAt: 't', runStartedAt: 't', attempts: 2, phase: 'draft-pr', commit: 'abc123', branch: 'matrix/a-01-123abc', worktree: '/w/A-01-123abc', pr: 'https://x/pull/9' };
+const pull = state => ({ headRefName: 'matrix/a-01-123abc', state, number: 9 });
+
+test('committed work is resumed on its own branch and pull request, with a fresh budget and nothing coded twice', async () => {
+  for (const state of ['OPEN', undefined]) {
+    const dir = seed({ 'A-01': { ...committed } }), { io, log } = fakeIo();
+    const r = await resumeBlocked(dir, board(['A-01', 'Doing']), io, { pulls: state ? [pull(state)] : [] });
+    assert.deepEqual(r.resumed, ['A-01'], String(state)); assert.deepEqual(r.held, []);
+    const task = readState(dir).tasks['A-01'];
+    assert.equal(task.state, 'pending'); assert.equal(task.attempts, 0); assert.equal(task.resumeWork, true);
+    assert.deepEqual([task.commit, task.branch, task.worktree, task.pr], ['abc123', 'matrix/a-01-123abc', '/w/A-01-123abc', 'https://x/pull/9'], 'the saved work is kept');
+    for (const key of ['blockedCommentAt', 'runStartedAt', 'job', 'reason', 'claimedAt']) assert.equal(task[key], undefined, key);
+    assert.equal(task.resumedFrom.pr, 'https://x/pull/9'); assert.equal(task.resumedFrom.checkpoint, 'draft-pr');
+    assert.equal(log.comments.length, 0, 'the starting comment of the resumed job says it, not a second blocked comment');
+  }
+});
+
+test('work whose pull request already merged is never resumed or recoded; delivery owns it', async () => {
+  const dir = seed({ 'A-01': { ...committed } }), { io, log } = fakeIo();
+  const r = await resumeBlocked(dir, board(['A-01', 'Todo']), io, { pulls: [pull('MERGED')] });
+  assert.deepEqual(r.resumed, []); assert.deepEqual(r.held, []);
+  assert.equal(readState(dir).tasks['A-01'].state, 'interrupted'); assert.equal(readState(dir).tasks['A-01'].resumeWork, undefined);
+  assert.equal(log.comments.length, 0);
+});
+
+test('work whose pull request was closed without merging is held: one comment, card back to Blocked', async () => {
+  const dir = seed({ 'A-01': { ...committed } }), { io, log } = fakeIo();
+  const first = await resumeBlocked(dir, board(['A-01', 'Todo']), io, { pulls: [pull('CLOSED')] }); await resumeBlocked(dir, board(['A-01', 'Todo']), io, { pulls: [pull('CLOSED')] });
   assert.deepEqual(first.held, ['A-01']); assert.deepEqual(first.resumed, []);
   assert.equal(readState(dir).tasks['A-01'].state, 'interrupted');
   assert.deepEqual(log.moves, ['item-A-01', 'item-A-01']);
-  assert.equal(log.comments.length, 1); assert.match(log.comments[0].body, new RegExp(heldMarker('A-01', 'job-1').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')));
-  assert.match(log.comments[0].body, /would duplicate it/);
+  assert.equal(log.comments.length, 1); assert.match(log.comments[0].body, new RegExp(heldMarker('A-01', 'job-1').replace(/[-/\^$*+?.()|[]{}]/g, '\$&')));
+  assert.match(log.comments[0].body, /closed without merging/);
 });
 
 test('a resume remembers the stopped job so the next starting comment can say it is a resume', async () => {
