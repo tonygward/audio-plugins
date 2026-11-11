@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
 
-## Unreleased
+## 0.5.10
 
 - Every Songsmith plugin now has the same title bar: the plugin name, a **Preset** menu, **Undo**, **Redo**, and **Bypass** at the far right. Nothing else sits there, so you always know where to look.
 - Songsmith Analog Compressor and Songsmith Maximiser have working **Undo** and **Redo** for the changes you make in the plugin window and for loading a preset (also Ctrl+Z, and Ctrl+Y or Ctrl+Shift+Z). They never undo your DAW's automation. Songsmith EQ keeps the Undo and Redo it had.
