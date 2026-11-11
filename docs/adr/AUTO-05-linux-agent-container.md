@@ -1,5 +1,7 @@
 # ADR: AUTO-05 — isolated Linux container for the Matrix developer agent
 
+> **Update (November 2026):** the Linux container is live and the Windows machinery described below (the worker task, approval renewal, build broker, `SongsmithBuild` and `SongsmithAgent`) has been retired from the repository. This record is kept as the decision history.
+
 Status: proposed (pilot running 8 November 2026). Decision owner: Tony. Supersedes the Windows account/ACL approach in AUTO-01 **only after** a clean supervised pilot.
 
 ## Context

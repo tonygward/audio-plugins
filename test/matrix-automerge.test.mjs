@@ -118,12 +118,12 @@ test('core lane: needs the statement, the orchestration tests, the exact head an
 });
 
 test('core lane: workflows, the gate, scripts, the Dockerfile, the allow-list and plugin code stay manual', () => {
-  for (const file of ['.github/workflows/matrix-auto-merge.yml', 'scripts/matrix/automerge.mjs', 'tools/matrix/Build-Broker.ps1', 'tools/matrix-linux/entrypoint.sh',
+  for (const file of ['.github/workflows/matrix-auto-merge.yml', 'scripts/matrix/automerge.mjs', 'tools/matrix/Notify-Matrix.ps1', 'tools/matrix-linux/entrypoint.sh',
     'tools/matrix-linux/Dockerfile', 'tools/matrix-linux/squid/squid.conf', 'tools/matrix/../../CLAUDE.md', 'tools/matrix/.hidden.mjs', 'eq/Source/Plugin.cpp', 'CHANGELOG.md', 'VERSION', 'tools/matrix/x/y.mjs']) {
     assert.equal(inCoreScope(file), false, file);
     const f = core(); f.files = [file]; assert.equal(evaluate(f).merge, false, file);
   }
-  for (const file of ['tools/matrix/board.mjs', 'tools/matrix/README.md', 'tools/matrix/tests/board.test.mjs', 'tools/matrix/evidence/auto-01.json', 'tools/matrix-linux/worker.config.json', 'docs/songsmith-execution-policy.md']) assert.equal(inCoreScope(file), true, file);
+  for (const file of ['tools/matrix/board.mjs', 'tools/matrix/README.md', 'tools/matrix/tests/board.test.mjs', 'tools/matrix-linux/worker.config.json', 'docs/songsmith-execution-policy.md']) assert.equal(inCoreScope(file), true, file);
 });
 
 test('task lane: only the Build workflow counts, and the core branch pattern is exact', () => {

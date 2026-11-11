@@ -3,7 +3,7 @@
 Status: implemented foundation; live development/release activation blocked.
 Canonical prompt: [AUTO-01](../../shared/prompts/AUTO-01-matrix-autonomous-development.md).
 
-Phase C follow-up: the [controlled worker](../../tools/matrix/WORKER.md) now executes
+Phase C follow-up: the controlled worker (its Windows deployment notes have since been retired; see the [Matrix README](../../tools/matrix/README.md)) now executes
 real worktree, restricted-file-tool Claude, build, Git and draft-PR operations.
 Claude cannot run commands; trusted orchestration owns Git and invokes builds under
 a distinct Windows identity using a protected DPAPI credential. An expiring external
