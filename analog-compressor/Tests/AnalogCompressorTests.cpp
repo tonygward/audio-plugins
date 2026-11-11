@@ -483,37 +483,45 @@ struct EditorRefinementTests final : juce::UnitTest
             }
         }
 
-        beginTest ("Low Cut sits in the place kept for it, beside Gain Reduction Off and under the Gain Reduction meter, with a plain label and tooltip");
+        beginTest ("Ignore Below is a rotary knob beside Gain Reduction Off and under the Gain Reduction meter, with a plain label and tooltip");
         {
-            auto& box = ed->getLowCutBox();
+            auto& knob = ed->getIgnoreBelowKnob();
             const juce::Rectangle<int> slot (lowCutX, lowCutY, lowCutWidth, lowCutHeight);
-            expect (box.isVisible());
-            expect (slot.contains (box.getBounds()), "inside the place ACOMP-08 kept free");
-            expect (juce::Rectangle<int> (0, 0, designWidth, contentHeight).contains (box.getBounds()), "inside the controls area");
-            expectGreaterOrEqual (box.getHeight(), 28);
-            expectGreaterOrEqual (box.getWidth(), 130);
-            expect (ed->getGrOffBounds().getRight() < box.getX(), "to the right of Gain Reduction Off");
-            expectEquals (ed->getGrOffBounds().getY(), box.getY(), "on the same row");
-            expectEquals (box.getTitle(), juce::String ("Low Cut"));
-            expectEquals (box.getNumItems(), numLowCutSteps);
-            for (int i = 0; i < box.getNumItems(); ++i)
+            expect (knob.isVisible());
+            expect (slot.contains (knob.getBounds()), "inside its place");
+            expect (juce::Rectangle<int> (0, 0, designWidth, contentHeight).contains (knob.getBounds()), "inside the controls area");
+            expectLessThan (knob.getBottom(), 356, "above the hint line");
+            expect (ed->getGrOffBounds().getRight() < knob.getX(), "to the right of Gain Reduction Off");
+            expect (ed->getGrOffBounds().getBottom() > knob.getY() && ed->getGrOffBounds().getY() < knob.getBottom(), "on the same row");
+            expectEquals (knob.slider.getSliderStyle() == juce::Slider::RotaryHorizontalVerticalDrag, true, "a rotary, not a dropdown");
+            expectGreaterOrEqual (knob.slider.getWidth(), 40, "a comfortable knob");
+            expectEquals (knob.slider.getTitle(), juce::String ("Ignore Below"));
+            expect (knob.isCompact());
+
+            for (int i = 0; i < numLowCutSteps; ++i)
             {
-                expectEquals (box.getItemText (i), SongsmithAnalogCompressorEditor::lowCutText (i));
-                expect (Songsmith::UI::Wording::findBanned (box.getItemText (i)).isEmpty(), "plain words: " + box.getItemText (i));
+                const auto text = SongsmithAnalogCompressorEditor::lowCutText (i);
+                expectEquals (text, i == 0 ? juce::String ("Off") : juce::String ((int) lowCutHz[i]) + " Hz");
+                expect (Songsmith::UI::Wording::findBanned (text).isEmpty(), "plain words: " + text);
             }
-            expectEquals (box.getItemText (0), juce::String ("Low Cut: Off"));
-            expectEquals (box.getText(), juce::String ("Low Cut: Off"), "starts Off");
 
-            const auto tip = box.getTooltip();
-            expect (tip.contains ("stops deep bass from making the compressor turn the whole sound down"), "the tooltip says what it does");
-            expect (tip.contains ("bass you hear stays as it is"), "and that the audio is not filtered");
+            expectEquals (knob.getValueText(), juce::String ("Off"), "starts Off");
+            expectEquals (knob.slider.getDoubleClickReturnValue(), 0.0, "double-click returns to Off");
+
+            const auto tip = knob.slider.getTooltip();
+            expectEquals (tip, juce::String ("Ignore bass below this frequency when deciding how much to compress. The bass you hear stays unchanged."));
             expect (Songsmith::UI::Wording::findBanned (tip).isEmpty(), "plain words: " + Songsmith::UI::Wording::findBanned (tip));
-            expect (tip.length() < 260, "short enough to read");
 
-            box.setSelectedItemIndex (3, juce::sendNotificationSync);
-            expectEquals ((int) getParam (p, ID::detectorLowCut), 3, "choosing a setting changes the parameter");
+            for (int i = 0; i < numLowCutSteps; ++i)
+            {
+                knob.slider.setValue ((double) i, juce::sendNotificationSync);
+                expectEquals ((int) getParam (p, ID::detectorLowCut), i, "turning the knob sets the saved choice");
+                expectEquals (knob.getValueText(), SongsmithAnalogCompressorEditor::lowCutText (i));
+            }
+            setParam (p, ID::detectorLowCut, 2.0f);
+            expectEquals (juce::roundToInt (knob.slider.getValue()), 2, "and the parameter moves the knob (automation)");
+            expectEquals (knob.getValueText(), juce::String ("80 Hz"));
             setParam (p, ID::detectorLowCut, 0.0f);
-            expectEquals (box.getSelectedItemIndex(), 0, "and the parameter changes the box (automation)");
         }
 
         beginTest ("The ratio buttons say what they are, and All is called All");

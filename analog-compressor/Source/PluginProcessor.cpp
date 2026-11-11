@@ -66,7 +66,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithAnalogCompressorPro
                                                         oversamplingNames(), oversamplingDefault));
 
     // Added in state version 3. Off by default, so older sessions sound exactly as they did.
-    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ID::detectorLowCut, 3 }, "Low Cut",
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ID::detectorLowCut, 3 }, "Ignore Below",
                                                         lowCutNames(), lowCutDefault));
 
     // Added in state version 4 (ACOMP-11). Off by default, so older sessions keep their saved ratio.
