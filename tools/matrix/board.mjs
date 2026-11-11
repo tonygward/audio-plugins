@@ -143,7 +143,7 @@ export function selectFromBoard(snapshot, prompts, context) {
     let reason = !card.issue ? 'not an issue card (implementation PR or draft)' : !card.taskId ? 'no task ID in issue title'
       : seen.has(card.taskId) ? 'duplicate card for task' : card.state !== 'OPEN' ? 'issue is closed'
       : mergedTaskIds.has(card.taskId) || complete.has(card.taskId) ? 'implementation merged; release pending, do not recode'
-      : openPullTaskIds.has(card.taskId) ? 'open pull request already exists for task'
+      : openPullTaskIds.has(card.taskId) && !task?.resumeWork ? 'open pull request already exists for task'
       : !prompt ? 'no canonical prompt found'
       : prompt.excluded ? 'prompt is in an excluded folder (future or archive)'
       : card.execution === 'Separate' ? 'card is marked Separate on the board (scheduled separately)'

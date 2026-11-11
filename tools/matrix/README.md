@@ -278,14 +278,22 @@ or `docs/songsmith-execution-policy.md`. Workflows, the gate itself (`scripts/ma
 plugin source always need a person. The worker's own scope is unchanged, so it cannot edit this code. Merging does not rebuild the container; rebuild the image
 (`Start-MatrixAgent.ps1 -Action Build`) and restart it to run the new code.
 
-## Blocked outcomes, resume and the run budget (AUTO-12, first slice)
+## Blocked outcomes, resume and the run budget (AUTO-12)
 
-- **Blocked.** A task that stops (interrupted, dead-lettered, or out of budget) is reported once on its issue (reason, job, attempts, branch and pull request,
-  what to do next) and its card moves to **Blocked** (`blockedOptionId`). The comment is deduplicated by a marker and both steps are retried if they fail.
-  Nothing re-queues a blocked task on a poll.
-- **Resume is explicit.** Move the card back to **Todo** or **Doing**. A task with no committed work starts again from a clean worktree with a fresh budget
-  (attempts reset). A task with committed work is **not** restarted, because that would duplicate its branch and pull request: Matrix comments once and
-  puts the card back in Blocked for an owner to review. Resuming committed work automatically is not built yet.
+- **Blocked.** A task that stops is reported once on its issue (reason, job, attempts, branch and pull request, what to do next) and its card moves to **Blocked**
+  (`blockedOptionId`). The comment is deduplicated by a marker and both steps are retried if they fail. Nothing re-queues a blocked task on a poll. Every stop is explicit:
+  a turn limit, cost limit or per-attempt time limit names the limit in the reason (`limitReason`); the run time limit and an exhausted repair budget do the same; and a
+  hosted Build that keeps failing, never starts or does not finish parks the task as interrupted with its pull request and commit saved, not as "awaiting review".
+- **Resume is explicit, and never repeats work.** Move the card back to **Todo** or **Doing**; the budget and attempts start fresh.
+  - No committed work: the task starts again from a clean worktree.
+  - Committed work: the task carries on from the saved branch, worktree and pull request (`resumeWork`). The worker checks the saved paths are where Matrix keeps them and that the
+    last pushed commit is still on the branch, recreates a lost worktree from the pushed branch, and asks the hosted Build about that commit. It runs the agent only when that build
+    failed (the failure log is saved to a file, never pasted into the instructions); a green, pending or not-yet-started build goes straight on to waiting and the merge gate.
+    The existing pull request is reused and its description rewritten, so an old Blocked section does not linger. Selection exempts a resumed task from the
+    "open pull request already exists" rule.
+  - A task whose pull request has merged is never resumed: delivery owns it. A task whose pull request was closed without merging is held (one comment, card back in Blocked).
+- **The board decides deferral where it is set.** `Run Now` or `Scheduled` in the card's Execution field releases a prompt whose own wording reads as deferred (every backlog
+  prompt says "not queued"); `Deferred` holds one back. Prompts in excluded folders or marked blocked stay withdrawn whatever the board says (`refreshTasks`).
 - **Run budget.** `worker.maximumRunMinutes` (default 120) counts from the first claim, includes CI waiting and is saved in the state, so a restart cannot reset it.
   At the limit no further agent call starts and the run stops with the reason. `maximumRepairs` is 3 (up to 3 allowed). Per-attempt limits (turns, cost,
   minutes) still apply. There is no separate token budget: the Claude CLI's turn and cost limits are the finite budget.
