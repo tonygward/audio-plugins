@@ -75,3 +75,14 @@ test('a dry run, deferred or Separate cards, other repositories, existing prompt
 test('the needs-detail marker changes when the missing list or the issue text changes', () => {
   assert.notEqual(needsDetailMarker('A-01', 'aaa'), needsDetailMarker('A-01', 'bbb'));
 });
+
+test('a task resumed with committed work regenerates its prompt even though its pull request is open; other open-PR tasks do not', async () => {
+  const { io } = fakeIo({ 5: GOOD });
+  const open = new Set(['ACOMP-12']);
+  const resumed = await resolveFromIssues(base([card('ACOMP-12')], io, { open, tasks: { 'ACOMP-12': { state: 'pending', resumeWork: true } } }));
+  assert.deepEqual(resumed.prompts.map(p => p.id), ['ACOMP-12']);
+  const notResumed = await resolveFromIssues(base([card('ACOMP-12')], io, { open, tasks: { 'ACOMP-12': { state: 'pending' } } }));
+  assert.deepEqual(notResumed.prompts, []);
+  const merged = await resolveFromIssues(base([card('ACOMP-12')], io, { merged: new Set(['ACOMP-12']), open, tasks: { 'ACOMP-12': { state: 'pending', resumeWork: true } } }));
+  assert.deepEqual(merged.prompts, [], 'merged work is never rebuilt');
+});
