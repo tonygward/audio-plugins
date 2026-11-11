@@ -11,7 +11,6 @@
 The fallback remains **deferred**, not automatically enabled by this documentation change. Reconcile this story with [AUTO-05](AUTO-05-linux-agent-github-actions.md) and the existing `tools/matrix/linux-worker.mjs` provider boundary at implementation time.
 
 
-**Status:** Deferred / planned only — **DO NOT IMPLEMENT YET**.  
 **Priority:** Future enhancement after AUTO-01 is operational and tested.  
 **Dependency:** [AUTO-01 Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md).  
 **Recommended model:** Sonnet for implementation and tests; Opus only if agent orchestration/security architecture requires a new design decision.  

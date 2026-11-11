@@ -2,7 +2,7 @@
 
 # REC-01 — Standalone file Recording and Streaming Advisor
 
-**Status:** Future candidate, not queued for automatic execution. **Model:** Sonnet; Opus for detailed measurement design if necessary.
+**Model:** Sonnet; Opus for detailed measurement design if necessary.
 
 ## Goal
 

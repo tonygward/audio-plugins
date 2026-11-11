@@ -1,6 +1,6 @@
 # WEB-01 — Songsmith Private Beta Developer Portal
 
-**Status:** Reconciliation required: portal and distribution source exist. Verify current deployment and remaining acceptance criteria before implementing missing work. **Priority:** Early commercial/beta readiness; independent of plugin DSP priorities.
+**Priority:** Early commercial/beta readiness; independent of plugin DSP priorities.
 **Recommended model:** Sonnet (implementation, integration and tests). **Relative effort/usage:** Medium. **Escalate to Opus:** Only for unresolved private asset-delivery/authentication architecture or security review; document the decision then return to Sonnet.
 
 ## Objective

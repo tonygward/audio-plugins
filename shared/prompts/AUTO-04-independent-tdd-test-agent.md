@@ -1,7 +1,5 @@
 ---
 id: AUTO-04
-status: planned
-execution: deferred
 priority: medium
 model: sonnet
 effort: medium
@@ -24,7 +22,7 @@ The older instructions below referring to the separate Windows build account, Wi
 
 # AUTO-04 — Independent test-writing agent and test-first (TDD) workflow
 
-**Status:** Planned only; do not activate or spawn a second agent yet. **Priority:** Medium — follow the safe AUTO-01 single-agent pilot. **Recommended model:** Sonnet for initial implementation; architecture/security review if adding a second trust boundary. **Effort:** Medium. **Dependency:** [AUTO-01](AUTO-01-matrix-autonomous-development.md) must support safe, bounded development and test execution first.
+**Priority:** Medium — follow the safe AUTO-01 single-agent pilot. **Recommended model:** Sonnet for initial implementation; architecture/security review if adding a second trust boundary. **Effort:** Medium. **Dependency:** [AUTO-01](AUTO-01-matrix-autonomous-development.md) must support safe, bounded development and test execution first.
 
 ## Rationale
 "It's important to get another agent to write the tests TDD style if you've got time." The intent is to avoid the implementing agent validating its own assumptions and to catch regressions earlier. **Independence matters more than running two agents in parallel**: a separate role/context should derive acceptance tests from the canonical backlog specification and existing code/contracts, without looking at the implementer's solution first.

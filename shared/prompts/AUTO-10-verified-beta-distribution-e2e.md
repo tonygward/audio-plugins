@@ -1,7 +1,5 @@
 ---
 id: AUTO-10
-status: planned
-execution: deferred
 priority: medium
 model: sonnet
 effort: medium

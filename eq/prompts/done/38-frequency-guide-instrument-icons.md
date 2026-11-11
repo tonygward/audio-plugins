@@ -1,7 +1,5 @@
 ---
 id: EQ-38
-status: ready
-execution: build-now
 priority: high
 model: sonnet
 effort: low

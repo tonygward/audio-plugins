@@ -1,7 +1,5 @@
 ---
 id: AUTO-11
-status: done
-execution: deferred
 priority: 1
 model: sonnet
 effort: medium

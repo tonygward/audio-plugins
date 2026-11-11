@@ -1,7 +1,5 @@
 ---
 id: AUTO-06
-status: done
-execution: deferred
 priority: high
 model: sonnet
 effort: medium

@@ -2,7 +2,6 @@
 
 # ADV-02 — Reference-mix guided review
 
-**Status:** Future product candidate; discovery/design only, **not queued** for automatic development or release.
 **Recommended model:** Opus for feasibility, user journey, architecture and evaluation design; Sonnet for isolated prototype and implementation after design approval.
 **Relative effort/usage:** High. **Opus escalation:** Already scoped to initial system design; return to Sonnet for routine UI, tests and integrations.
 

@@ -1,7 +1,5 @@
 ---
 id: EQ-41
-status: planned
-execution: scheduled
 model: sonnet
 effort: low
 dependencies: []
@@ -12,7 +10,6 @@ conflicts: []
 
 **Issue:** [EQ-41 #203](https://github.com/tonygward/audio-plugins/issues/203)  
 **Related:** [SUI-18 #202](https://github.com/tonygward/audio-plugins/issues/202) (standardise title bars) and [SUI-17 #201](https://github.com/tonygward/audio-plugins/issues/201) (plugin title tooltip)  
-**Execution:** Backlog specification only; no Matrix pickup or execution from creating this file.
 
 ## Objective and user value
 

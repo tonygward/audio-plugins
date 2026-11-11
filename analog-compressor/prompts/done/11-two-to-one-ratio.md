@@ -1,7 +1,5 @@
 ---
 id: ACOMP-11
-status: done
-execution: scheduled
 model: sonnet
 effort: medium
 dependencies: []

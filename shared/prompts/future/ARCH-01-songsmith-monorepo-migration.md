@@ -1,7 +1,5 @@
 ---
 id: ARCH-01
-status: deferred
-execution: deferred
 priority: low
 model: sonnet
 effort: high
@@ -13,7 +11,6 @@ conflicts: []
 
 **Tracking issue:** [ARCH-01 #194](https://github.com/tonygward/audio-plugins/issues/194)  
 **Target:** `tonygward/songsmith-plugins` (proposed, NOT yet created or renamed)  
-**Status:** Future architecture epic / deferred, **not an executable Matrix job**.  
 **Owner approval:** Required before any repository rename, history migration, permissions changes, Cloudflare deployment or cutover.  
 **Policy:** [Songsmith execution and delivery](../../../docs/songsmith-execution-policy.md).
 

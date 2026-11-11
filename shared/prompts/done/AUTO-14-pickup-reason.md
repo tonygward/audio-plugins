@@ -1,7 +1,5 @@
 ---
 id: AUTO-14
-status: done
-execution: deferred
 priority: medium
 model: sonnet
 effort: low
