@@ -1,4 +1,4 @@
-name: Matrix archive merged prompt
+name: Housekeeping - Archive merged prompt
 
 # A prompt counts as done only once its Matrix pull request is merged into main. This moves the
 # prompt into its done/ folder (the folder is the record; prompts carry no status) in a docs-only commit on main, which Matrix reads

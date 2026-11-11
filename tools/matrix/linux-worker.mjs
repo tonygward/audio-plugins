@@ -321,7 +321,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
         const waitForBuild = async sha => {
           const start = clock(); let seen = false;
           for (;;) {
-            const rows = JSON.parse(await gh(['run', 'list', '--repo', w.repositorySlug, '--workflow', 'Build', '--branch', plan.branch, '--commit', sha, '--event', 'pull_request', '--json', 'databaseId,status,conclusion,headSha,event', '--limit', '10']));
+            const rows = JSON.parse(await gh(['run', 'list', '--repo', w.repositorySlug, '--workflow', 'build.yml', '--branch', plan.branch, '--commit', sha, '--event', 'pull_request', '--json', 'databaseId,status,conclusion,headSha,event', '--limit', '10']));
             const outcome = ciOutcome(rows, sha); if (outcome.state !== 'none') seen = true;
             if (outcome.state === 'success' || outcome.state === 'failure') return outcome;
             // No Build run at all: the change touched nothing that triggers it, or the PR conflicts.
@@ -344,7 +344,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
         if (resuming) {
           const from = task.resumedFrom ?? {}; runAgent = !task.commit;
           if (task.commit) {
-            const rows = JSON.parse(await gh(['run', 'list', '--repo', w.repositorySlug, '--workflow', 'Build', '--branch', plan.branch, '--commit', task.commit, '--event', 'pull_request', '--json', 'databaseId,status,conclusion,headSha,event', '--limit', '10']));
+            const rows = JSON.parse(await gh(['run', 'list', '--repo', w.repositorySlug, '--workflow', 'build.yml', '--branch', plan.branch, '--commit', task.commit, '--event', 'pull_request', '--json', 'databaseId,status,conclusion,headSha,event', '--limit', '10']));
             const earlier = ciOutcome(rows, task.commit);
             if (earlier.state === 'failure') { await saveFailureLog(earlier.id); runAgent = true; }
           }

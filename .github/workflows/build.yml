@@ -1,4 +1,4 @@
-name: Build
+name: CI - Build and test
 
 # Build each change once: PRs build on pull_request, and main builds on push
 # (merges, which the release files come from). Branches without a PR can be
