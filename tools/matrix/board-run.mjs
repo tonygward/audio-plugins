@@ -7,6 +7,7 @@ import { atomic, lockedAsync, readState } from './state.mjs';
 import { fetchBoard, fetchPulls, selectFromBoard, pullTaskState, matrixBranchTask, isDeferred } from './board.mjs';
 import { reconcileDoing } from './doing.mjs';
 import { pickUp, recoverPickupComments } from './pickup.mjs';
+import { recoverCiComments } from './ci-comment.mjs';
 import { advanceDelivery, recordMerge } from './delivery.mjs';
 import { writeHandoff, clearHandoff } from './handoff.mjs';
 import { blockStopped, resumeBlocked } from './blocked.mjs';
@@ -82,6 +83,7 @@ export async function boardTick(config, deps) {
   const delivery = {};
   if (!dryRun) {
     if (!promptError) await recoverPickupComments(dir, { revision, io, limits });
+    await recoverCiComments(dir, { io });
     // A restart must not lose work whose branch is pushed and whose pull request is open: hand it back to the hosted Build and merge gate.
     if (io.prChecks) await recoverInFlight(dir, pulled.pulls, io, { now: clock });
     for (const [id, d] of Object.entries(readState(dir).deliveries ?? {})) if (d.stage !== 'done') delivery[id] = await advanceDelivery(dir, id, io);
