@@ -39,12 +39,10 @@ Order below is an index, not the execution queue. The board decides order.
 | AUTO-03 | [Matrix remote heartbeat and backlog observability](AUTO-03-matrix-remote-heartbeat.md) | [#164](https://github.com/tonygward/audio-plugins/issues/164) |
 | AUTO-02 | [Codex fallback when Claude allowance is exhausted](AUTO-02-codex-fallback.md) | [#163](https://github.com/tonygward/audio-plugins/issues/163) |
 | AUTO-01 | [Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) | [#162](https://github.com/tonygward/audio-plugins/issues/162) |
-| MAX-09 | [Integrated LUFS beside the Maximiser dial](../../maximiser/prompts/09-integrated-lufs-beside-dial.md) | [#229](https://github.com/tonygward/audio-plugins/issues/229) |
 | EQ-41 | [Move Gain Scale into EQ main toolbox](../../eq/prompts/41-gain-scale-main-toolbox.md) | [#203](https://github.com/tonygward/audio-plugins/issues/203) |
 | AUTO-10 | [Verify beta release distribution end to end](AUTO-10-verified-beta-distribution-e2e.md) | [#157](https://github.com/tonygward/audio-plugins/issues/157) |
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
-| AUTO-13 | [CI-passed comment on tracking issue](AUTO-13-ci-pass-issue-comment.md) | [#196](https://github.com/tonygward/audio-plugins/issues/196) |
 
 AUTO-01 and AUTO-05 are parent tracking epics. AUTO-06/07 are archived code foundations. AUTO-08/09/10 retain runtime, development/CI and distribution evidence respectively. Real Matrix PRs #174/#177 show execution has occurred; they do not prove every isolation/recovery/distribution acceptance criterion.
 
@@ -59,6 +57,7 @@ These links prevent completed features being selected again. Verify each ticket'
 - [AUTO-07-linux-ci-worker-code-foundation](done/AUTO-07-linux-ci-worker-code-foundation.md)
 - [AUTO-11-board-driven-pickup](done/AUTO-11-board-driven-pickup.md)
 - [AUTO-12-bounded-claude-agentic-loop](done/AUTO-12-bounded-claude-agentic-loop.md)
+- [AUTO-13-ci-pass-issue-comment](done/AUTO-13-ci-pass-issue-comment.md)
 - [AUTO-14-pickup-reason](done/AUTO-14-pickup-reason.md)
 - [S7-one-version-number](done/S7-one-version-number.md)
 - [SUI-01-shared-fonts-and-type](done/SUI-01-shared-fonts-and-type.md)
@@ -143,6 +142,7 @@ These links prevent completed features being selected again. Verify each ticket'
 - [06-true-peak-by-default](../../maximiser/prompts/done/06-true-peak-by-default.md)
 - [07-loudness-meter](../../maximiser/prompts/done/07-loudness-meter.md)
 - [08-faceplate-and-meter-polish](../../maximiser/prompts/done/08-faceplate-and-meter-polish.md)
+- [09-integrated-lufs-beside-dial](../../maximiser/prompts/done/09-integrated-lufs-beside-dial.md)
 - [overnight-prompt](../../maximiser/prompts/done/overnight-prompt.md)
 
 ## Product direction

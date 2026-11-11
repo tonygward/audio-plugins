@@ -10,8 +10,9 @@ conflicts: []
 # AUTO-13 — Comment on issue when PR CI passes
 
 **Tracking issue:** https://github.com/tonygward/audio-plugins/issues/196
+**Status:** Done (11 November 2026). Implemented in PR #238 (`ci-comment.mjs`, wired into the worker, the board tick and restart recovery). Live evidence: MAX-09 (job `matrix-20261111213512`, pull request #240) had a first Build that failed, which got no note, then a repaired head `07c47a87518f` that passed, which got exactly one note on its tracking issue #229 with the pull request, Build run link, commit and "not delivered yet" wording. Not exercised live: a failed post followed by a retry, and the post made by restart recovery; both are covered by tests. Infrastructure only: no plugin version bump or release.
 **Related:** [AUTO-11 board pickup](https://github.com/tonygward/audio-plugins/issues/175), [AUTO-12 agentic lifecycle](https://github.com/tonygward/audio-plugins/issues/180).
-**Policy:** [Songsmith execution policy](../../docs/songsmith-execution-policy.md).
+**Policy:** [Songsmith execution policy](../../../docs/songsmith-execution-policy.md).
 
 ## Objective and value
 When all required PR-head CI checks pass, Matrix posts a concise, auditable progress comment on the **original functional GitHub issue**, so the board's Doing card explains that testing passed and work is progressing towards merge and beta publication.
