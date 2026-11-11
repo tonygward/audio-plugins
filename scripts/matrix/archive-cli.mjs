@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { scan } from '../../tools/matrix/backlog.mjs';
-import { archivePath, markDone, promptIdFromBranch } from './automerge.mjs';
+import { archivePath, markDone, promptIdFromBranch, relinkMoved } from './automerge.mjs';
 
 const id = promptIdFromBranch(process.argv[2]);
 if (!id) { console.error('Not a Matrix branch'); process.exit(2); }
@@ -25,3 +25,19 @@ fs.mkdirSync(path.dirname(target), { recursive: true });
 fs.writeFileSync(target, markDone(fs.readFileSync(prompt.file, 'utf8')));
 fs.rmSync(prompt.file);
 console.log(`${prompt.file} -> ${target}`);
+
+// Repair links to the moved prompt in every Markdown page (README indexes, other prompts, docs).
+const repaired = [];
+const pages = directory => {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const full = path.join(directory, entry.name);
+    if (entry.isDirectory()) { if (!['node_modules', 'build', '.git'].includes(entry.name)) pages(full); }
+    else if (entry.name.endsWith('.md')) {
+      const file = path.relative('.', full).split(path.sep).join('/');
+      const before = fs.readFileSync(full, 'utf8'), after = relinkMoved(before, file, prompt.file, target);
+      if (after !== before) { fs.writeFileSync(full, after); repaired.push(file); }
+    }
+  }
+};
+pages('.');
+if (repaired.length) console.log(`Links updated in: ${repaired.join(', ')}`);

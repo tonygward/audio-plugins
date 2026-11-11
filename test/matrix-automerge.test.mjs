@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluate, inCoreScope, inScope, promptIdFromBranch, archivePath, markDone, blockedReason, UI_REVIEW_NOTE, CLEAN_VALIDATION, CI_VALIDATION, CORE_STATEMENT, CORE_RUN, BUILD_RUN } from '../scripts/matrix/automerge.mjs';
+import { evaluate, inCoreScope, inScope, promptIdFromBranch, archivePath, markDone, relinkMoved, blockedReason, UI_REVIEW_NOTE, CLEAN_VALIDATION, CI_VALIDATION, CORE_STATEMENT, CORE_RUN, BUILD_RUN } from '../scripts/matrix/automerge.mjs';
 
 const repository = 'tonygward/audio-plugins';
 const sha = 'a'.repeat(40);
@@ -149,4 +149,36 @@ test('every workflow is named by kind, and every name something depends on exist
   assert.ok(names.includes(BUILD_RUN) && names.includes(CORE_RUN), 'the names the merge gate matches on exist');
   assert.equal(workflows.find(w => w.file === 'build.yml').name, BUILD_RUN);
   assert.equal(workflows.find(w => w.file === 'matrix-tests.yml').name, CORE_RUN);
+});
+
+test('relinkMoved repairs relative and blob links to a moved prompt, and nothing else', () => {
+  const old = 'maximiser/prompts/09-x.md', next = 'maximiser/prompts/done/09-x.md';
+  assert.equal(relinkMoved('| [09](09-x.md) | Todo |', 'maximiser/prompts/README.md', old, next), '| [09](done/09-x.md) | Todo |');
+  assert.equal(relinkMoved('[p](../../maximiser/prompts/09-x.md#why)', 'shared/prompts/README.md', old, next), '[p](../../maximiser/prompts/done/09-x.md#why)');
+  assert.equal(relinkMoved('[p](maximiser/prompts/09-x.md)', 'README.md', old, next), '[p](maximiser/prompts/done/09-x.md)');
+  assert.equal(relinkMoved('[i](https://github.com/o/r/blob/main/maximiser/prompts/09-x.md)', 'x.md', old, next), '[i](https://github.com/o/r/blob/main/maximiser/prompts/done/09-x.md)');
+  const untouched = '[other](10-y.md) [web](https://example.com/09-x.md) [anchor](#top) [same](done/09-x.md)';
+  assert.equal(relinkMoved(untouched, 'maximiser/prompts/README.md', old, next), untouched);
+});
+
+test('the archive step moves the prompt and leaves no broken link in any page', async () => {
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path'), { execFileSync } = await import('node:child_process');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'archive-'));
+  try {
+    const put = (file, text) => { fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true }); fs.writeFileSync(path.join(dir, file), text); };
+    put('maximiser/prompts/09-x.md', '---\nid: MAX-09\nstatus: ready\n---\n# MAX-09 - X\nSee [policy](../../docs/p.md).\n');
+    put('maximiser/prompts/README.md', '| [09](09-x.md) | Todo |\n');
+    put('shared/prompts/README.md', '| MAX-09 | [x](../../maximiser/prompts/09-x.md) |\n');
+    put('docs/p.md', 'policy\n'); put('docs/plan.md', 'see [x](../maximiser/prompts/09-x.md)\n');
+    const cli = new URL('../scripts/matrix/archive-cli.mjs', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+    const out = execFileSync(process.execPath, [cli, 'matrix/max-09-aaaaaaaaaaaa'], { cwd: dir, encoding: 'utf8' });
+    assert.match(out, /09-x\.md -> maximiser\/prompts\/done\/09-x\.md/); assert.match(out, /Links updated in:/);
+    assert.ok(!fs.existsSync(path.join(dir, 'maximiser/prompts/09-x.md')));
+    const read = f => fs.readFileSync(path.join(dir, f), 'utf8');
+    assert.match(read('maximiser/prompts/README.md'), /\(done\/09-x\.md\)/);
+    assert.match(read('shared/prompts/README.md'), /\.\.\/\.\.\/maximiser\/prompts\/done\/09-x\.md/);
+    assert.match(read('docs/plan.md'), /\.\.\/maximiser\/prompts\/done\/09-x\.md/);
+    assert.match(read('maximiser/prompts/done/09-x.md'), /\.\.\/\.\.\/\.\.\/docs\/p\.md/);
+    assert.doesNotMatch(read('maximiser/prompts/done/09-x.md'), /status:/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
