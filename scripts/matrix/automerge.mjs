@@ -1,5 +1,6 @@
 // Pure decision logic for merging and archiving Matrix pull requests. No network, no git.
 // The workflows fetch the facts with `gh` and call these functions from main (never from PR code).
+import path from 'node:path';
 
 export const UI_REVIEW_NOTE = 'UI changes require retained before/after screenshots and visual review before marking this draft ready';
 export const CLEAN_VALIDATION = 'Local Release configure, build and tests passed without detected warnings.';
@@ -97,4 +98,16 @@ export function markDone(text) {
   if (end < 0) return normal.replace(/\n/g, eol);
   const head = normal.slice(4, end).split('\n').filter(line => !/^(status|execution):/.test(line));
   return (`---\n${head.join('\n')}` + normal.slice(end)).replace(/\n/g, eol);
+}
+
+// When a prompt moves into done/, every Markdown link to its old path (from a README index, another prompt, a doc) would 404.
+// Rewrites relative links that resolve to the old path, and GitHub blob links to it, so the archive step leaves no broken link behind.
+export function relinkMoved(text, fromFile, oldPath, newPath) {
+  const dir = path.posix.dirname(fromFile);
+  return text
+    .replace(/\]\(([^)\s#]+)(#[^)\s]*)?\)/g, (match, link, fragment = '') => {
+      if (/^[a-z][a-z0-9+.-]*:/i.test(link)) return match;
+      return path.posix.normalize(path.posix.join(dir, link)) === oldPath ? `](${path.posix.relative(dir, newPath)}${fragment})` : match;
+    })
+    .split(`/blob/main/${oldPath}`).join(`/blob/main/${newPath}`);
 }
