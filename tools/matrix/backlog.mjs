@@ -45,21 +45,16 @@ export function parsePrompt(file, text) {
     }
     body = normal.slice(end + 5);
   }
-  if (Object.hasOwn(meta, 'execution') && !modes.has(meta.execution)) throw new Error('Unknown execution mode');
   const base = path.posix.basename(file);
   const inferred = /^([A-Z][A-Z0-9]*-\d{2,})-/.exec(base)?.[1]
     ?? (scopes[file.split('/')[0]] && /^\d{2,}-/.test(base) ? `${scopes[file.split('/')[0]]}-${base.split('-')[0]}` : null);
   const id = meta.id ?? inferred;
   if (!id || !idPattern.test(id) || (inferred && id !== inferred)) throw new Error('Missing or inconsistent stable ID');
-  const statusLine = [...body.matchAll(/\*\*Status:\*\*([^\n]*)/gi)].map(m => m[1]).join(' ');
-  const status = (meta.status ?? statusLine).toLowerCase();
+  // Status and execution belong to the project board. Whatever a prompt still says about them is ignored.
+  const status = '';
   const excluded = file.split('/').some(p => ['done', 'future', 'archive', 'archived'].includes(p));
-  const proseDeferred = /\b(deferred|do not implement yet|not queued|not authorised|not authorized)\b/i.test(statusLine + '\n' + body.slice(0, 1500));
-  const blocked = /\b(blocked|in.progress|claimed|experimental|cancelled|done|completed|archived)\b/.test(status);
+  const blocked = false;
   const complete = file.split('/').includes('done');
-  const invalidStatus = meta.status && !['ready', 'planned', 'blocked', 'in-progress', 'deferred', 'done'].includes(meta.status);
-  if (invalidStatus) throw new Error('Unknown status');
-  if (meta.status === 'done' && !complete) throw new Error('Done status outside canonical done folder requires merge verification');
   const dependencies = meta.dependencies ?? [...new Set([...body.matchAll(/\*\*(?:Depends on|Dependency):\*\*([^\n]*)/gi)].flatMap(m => m[1].match(/[A-Z][A-Z0-9]*-\d{2,}/g) ?? []))];
   if (!meta.dependencies && scopes[file.split('/')[0]]) {
     for (const m of body.matchAll(/\b(?:build|run)\s+(?:this\s+)?after\s+(?:task\s+|prompt\s+)?(\d{2,})\b/gi)) dependencies.push(`${scopes[file.split('/')[0]]}-${m[1]}`);
@@ -74,8 +69,8 @@ export function parsePrompt(file, text) {
   const priorityText = meta.priority ?? /\*\*Priority:\*\*\s*(\d+)/i.exec(body)?.[1] ?? '99';
   const priority = ({ high: 1, medium: 50, low: 90 })[priorityText] ?? Number(priorityText);
   if (!Number.isFinite(priority) || priority < 0) throw new Error('Invalid priority');
-  return { id, file, hash: digest(normal), execution: meta.execution ?? 'scheduled', defaulted: !Object.hasOwn(meta, 'execution'),
-    status, complete, excluded, deferred: proseDeferred || meta.execution === 'deferred' || meta.status === 'deferred', blocked,
+  return { id, file, hash: digest(normal), execution: 'scheduled', defaulted: true,
+    status, complete, excluded, deferred: false, blocked,
     dependencies, conflicts: meta.conflicts ?? [], priority, model, effort, body };
 }
 
