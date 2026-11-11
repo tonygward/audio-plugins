@@ -4,6 +4,26 @@ namespace
 {
     // The controls are laid out in the top contentHeight; the diagnostics strip sits below them.
     constexpr int designW = Max::EditorLayout::designWidth, designH = Max::EditorLayout::contentHeight;
+
+    // The same fine brushed-metal grain as the Analog Compressor, fitted to the Maximiser's faceplate.
+    // Vector paths built once with a fixed seed, so the texture is identical every time, scales with the
+    // editor and is never regenerated when the meters repaint.
+    struct Grain
+    {
+        juce::Path light, dark;
+        Grain()
+        {
+            juce::Random random (1176);
+            const float right = (float) designW - 10.0f;
+            for (float y = (float) Songsmith::UI::titleBarHeight + 2.0f; y < (float) Max::EditorLayout::designHeight - 6.0f; y += 2.0f)
+                for (float x = 10.0f; x < right;)
+                {
+                    const float length = 24.0f + random.nextFloat() * 120.0f;
+                    (random.nextBool() ? light : dark).addRectangle (x, y, juce::jmin (length, right - x), 0.8f);
+                    x += length + random.nextFloat() * 70.0f;
+                }
+        }
+    };
 }
 
 SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (SongsmithMaximiserAudioProcessor& p)
@@ -314,6 +334,22 @@ void SongsmithMaximiserAudioProcessorEditor::paintContent (juce::Graphics& g)
 {
     const auto area = juce::Rectangle<float> ((float) designW, (float) Max::EditorLayout::designHeight);
     Songsmith::UI::LookAndFeelBase::drawPanel (g, area);
+
+    // Faceplate: a subtle brushed grain and a lit inner edge (kept faint so captions stay legible).
+    {
+        static const Grain grain;
+        g.setColour (juce::Colours::white.withAlpha (0.03f));
+        g.fillPath (grain.light);
+        g.setColour (juce::Colours::black.withAlpha (0.06f));
+        g.fillPath (grain.dark);
+
+        const auto plate = juce::Rectangle<float> (6.0f, (float) Songsmith::UI::titleBarHeight + 4.0f, (float) designW - 12.0f,
+                                                   area.getHeight() - (float) Songsmith::UI::titleBarHeight - 10.0f);
+        g.setColour (juce::Colours::white.withAlpha (0.05f));
+        g.drawRoundedRectangle (plate, 8.0f, 1.0f);
+        g.setColour (juce::Colours::black.withAlpha (0.22f));
+        g.drawRoundedRectangle (plate.translated (1.0f, 1.0f), 8.0f, 1.0f);
+    }
     Songsmith::UI::LookAndFeelBase::drawTitleBar (g, area.withHeight (Songsmith::UI::titleBarHeight));
 
     Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, MaxColours::text, MaxColours::accent);
