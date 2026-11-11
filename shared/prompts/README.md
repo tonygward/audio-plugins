@@ -8,7 +8,7 @@
 - Automatically approve/merge only after current-head required CI/tests pass. Trusted workflows automatically increment the beta third-component build/patch number; major/minor increments are deferred.
 - Comment on actual pickup, progress, failure, merge and deployment. Verify matching beta website deployment and both installer downloads, post the final completion comment, then close the issue and finally set its board card Done.
 - Archived prompts mean merged implementation, not verified delivery. No duplicate implementation while a release is pending.
-- AUTO-11 (board pickup) is done and running in the container; AUTO-12 (bounded loop, resume) is still partial. Infrastructure/website tasks require their scoped execution path and credentials, not a location-based rejection.
+- AUTO-11 (board pickup) is done and running in the container; AUTO-12 (bounded loop, resume) and AUTO-14 (pickup reason) are done and verified live. Infrastructure/website tasks require their scoped execution path and credentials, not a location-based rejection.
 
 ## Canonical issue and prompt links
 Every implementation item needs a unique stable ID, issue and canonical prompt linked both ways. Follow [the issue/prompt contract](../../docs/backlog-issue-prompt-contract.md). A Doing card is a run-now request, not proof of pickup.
@@ -63,6 +63,8 @@ These links prevent completed features being selected again. Verify each ticket'
 - [AUTO-06-matrix-queue-and-usage-foundation](done/AUTO-06-matrix-queue-and-usage-foundation.md)
 - [AUTO-07-linux-ci-worker-code-foundation](done/AUTO-07-linux-ci-worker-code-foundation.md)
 - [AUTO-11-board-driven-pickup](done/AUTO-11-board-driven-pickup.md)
+- [AUTO-12-bounded-claude-agentic-loop](done/AUTO-12-bounded-claude-agentic-loop.md)
+- [AUTO-14-pickup-reason](done/AUTO-14-pickup-reason.md)
 - [S7-one-version-number](done/S7-one-version-number.md)
 - [SUI-01-shared-fonts-and-type](done/SUI-01-shared-fonts-and-type.md)
 - [SUI-02-bevelled-controls](done/SUI-02-bevelled-controls.md)
