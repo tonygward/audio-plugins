@@ -1,6 +1,6 @@
 ---
 id: ACOMP-12
-status: planned
+status: done
 execution: scheduled
 model: sonnet
 effort: medium
