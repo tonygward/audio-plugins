@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
 
-## Unreleased
+## 0.5.11
 
 - The **Guidance** button and its card are gone from Songsmith EQ, Songsmith Analog Compressor and Songsmith Maximiser. Hover over the plugin name at the top left instead to read a short explanation of what the plugin does and one thing to listen for. Nothing else changes: the meters, the Frequency Guide, the loudness readings and every control work as before, and there is nothing you need to do. The preset menu in Songsmith Maximiser stays right after the name.
 
