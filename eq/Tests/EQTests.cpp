@@ -15,6 +15,7 @@
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
 #include "../../shared/Tests/SongsmithUITests.h"
+#include "../../shared/Tests/SongsmithHeaderTests.h"
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
 #include "SongsmithWording.h"
@@ -5040,6 +5041,24 @@ public:
             SongsmithEQAudioProcessor p;
             auto ed = UiSizeTests::makeEditor (p, s, juce::roundToInt (1280 * s), juce::roundToInt (788 * s));
             Songsmith::UI::Testing::checkGlobalBypass (*this, *ed, *p.apvts.getParameter (EQ::bypassId), "EQ at " + juce::String (s) + "x");
+        }
+
+        beginTest ("Title bar reads name, preset, Undo, Redo, Bypass; Gain Scale stays reachable in the toolbox (SUI-18)");
+        for (float s : { 1.0f, 2.0f })
+        {
+            SongsmithEQAudioProcessor p;
+            const auto context = "EQ at " + juce::String (s) + "x";
+            p.apvts.getParameter (EQ::gainScaleId)->setValueNotifyingHost (p.apvts.getParameter (EQ::gainScaleId)->convertTo0to1 (150.0f));
+            auto ed = UiSizeTests::makeEditor (p, s, juce::roundToInt (1280 * s), juce::roundToInt (788 * s));
+            Songsmith::UI::Testing::checkSuiteHeader (*this, *ed, context);
+
+            if (auto* eqEditor = dynamic_cast<SongsmithEQAudioProcessorEditor*> (ed.get()))
+            {
+                auto& scale = eqEditor->getScaleSlider();
+                expect (scale.isVisible() && scale.getY() > 42, context + ": the Scale control is out of the title bar and still visible");
+                expectWithinAbsoluteError (scale.getValue(), 150.0, 0.5, context + ": a saved non-default Gain Scale is kept, not reset to 100 %");
+                expectWithinAbsoluteError ((double) p.getGainScale(), 1.5, 0.01, context + ": and the sound still uses it");
+            }
         }
     }
 };

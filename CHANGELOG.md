@@ -2,6 +2,14 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
 
+## Unreleased
+
+- Every Songsmith plugin now has the same title bar: the plugin name, a **Preset** menu, **Undo**, **Redo**, and **Bypass** at the far right. Nothing else sits there, so you always know where to look.
+- Songsmith Analog Compressor and Songsmith Maximiser have working **Undo** and **Redo** for the changes you make in the plugin window and for loading a preset (also Ctrl+Z, and Ctrl+Y or Ctrl+Shift+Z). They never undo your DAW's automation. Songsmith EQ keeps the Undo and Redo it had.
+- Songsmith Maximiser's starting points are now in the **Preset** menu in the title bar. **Peak Mode** and **Dither** moved under the Release knob, next to the output settings. They work exactly as before, and your saved sessions keep their settings.
+- Songsmith Analog Compressor no longer has an **Interface size** menu. Drag the bottom-right corner of the window to resize it; your window size is still remembered. **Oversampling** moved down beside Ignore Below, with the other processing controls.
+- Songsmith EQ's **Scale** control moved out of the title bar into the second row of controls, beside Auto Gain and Output. It still scales every band's gain together, and your saved sessions and automation keep their value. The band count moved there too, when there is room.
+
 ## 0.5.9
 
 - Songsmith Analog Compressor's **Low Cut** dropdown is now a round **Ignore Below** knob, beside Gain Reduction Off, like the Input, Output, Attack and Release knobs. It shows Off, 60 Hz, 80 Hz, 100 Hz, 150 Hz or 200 Hz. It still only changes what the compressor listens to, so the bass you hear is unchanged. Double-click the knob to turn it Off. Your saved sessions, presets and automation keep the setting they had, and there is nothing you need to do.

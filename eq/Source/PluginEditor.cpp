@@ -28,6 +28,11 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     redoButton.onClick = [this] { processor.edits.redo(); };
     content.addAndMakeVisible (undoButton);
     content.addAndMakeVisible (redoButton);
+    // Keyboard order follows the title bar, left to right: preset, Undo, Redo, Bypass (SUI-18).
+    presetBar.setExplicitFocusOrder (1);
+    undoButton.setExplicitFocusOrder (2);
+    redoButton.setExplicitFocusOrder (3);
+    bypassButton.setExplicitFocusOrder (4);
 
     for (int i = 0; i < 3; ++i)
         rangeBox.addItem (juce::String::charToString (0x00b1) + juce::String ((int) ranges[i]) + " dB", i + 1);
@@ -516,8 +521,8 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
 {
 
     // Three rows, so every label fits spelled out at the minimum width (980 px):
-    //   1: title | presets | undo | redo | scale ............ band count | bypass
-    //   2: phase mode | oversampling ............... auto gain | output gain
+    //   1: title | presets | undo | redo ............................ bypass   (SUI-18: the suite header)
+    //   2: phase mode | oversampling ...... band count | scale | auto gain | output gain
     //   graph ..................................................... | output meter
     //   3: display range | analyser | settings | curve view | side chain | frequency guide + instrument ...... hint
     //   footer: Processing Load | CPU and latency (when on) ...... piano
@@ -535,22 +540,15 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
     }
 
     {
-        auto row = area.removeFromTop (row1Height).reduced (margin, 7);
-        titleBounds = row.removeFromLeft ((int) std::ceil (Songsmith::UI::titleWidth (JucePlugin_Name)) + 4);
-        row.removeFromLeft (16);
-        presetBar.setBounds (row.removeFromLeft (220));
-        row.removeFromLeft (gap + 4);
-        undoButton.setBounds (row.removeFromLeft (buttonWidth ({ "Undo", "Redo" })));
-        row.removeFromLeft (6);
-        redoButton.setBounds (row.removeFromLeft (buttonWidth ({ "Undo", "Redo" })));
-        row.removeFromLeft (gap + 4);
-        scaleSlider.setBounds (row.removeFromLeft (barWidth ({ "Scale -100%", "Scale 200%" })));
-
-        bypassButton.setBounds (row.removeFromRight (juce::jmax (84, buttonWidth ({ "Bypass" }))));   // the same size in every plugin (SUI-13)
-        row.removeFromRight (gap + 4);
-        const int countWidth = (int) std::ceil (textWidth ("24 / 24 bands", EQColours::numbers (EQColours::Type::control))) + 8;
-        bandCountLabel.setVisible (row.getWidth() >= countWidth + gap);
-        bandCountLabel.setBounds (row.removeFromRight (juce::jmin (countWidth, row.getWidth())));
+        // SUI-18: the header is only name | preset | undo | redo ... bypass (far right), laid out by the
+        // shared header so the sizes and spacing match Analog Compressor and Maximiser.
+        const auto header = Songsmith::UI::Header::layout (area.removeFromTop (row1Height).reduced (margin, 7),
+                                                           JucePlugin_Name);
+        titleBounds = header.title;
+        presetBar.setBounds (header.preset);
+        undoButton.setBounds (header.undo);
+        redoButton.setBounds (header.redo);
+        bypassButton.setBounds (header.bypass);
     }
 
     juce::Rectangle<int> guidanceInRowTwo;   // used only if the third row is too full
@@ -565,6 +563,17 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         outputSlider.setBounds (row.removeFromRight (barWidth ({ "Output -24.0 dB", "Output +24.0 dB" })));
         row.removeFromRight (gap);
         autoGainButton.setBounds (row.removeFromRight (buttonWidth ({ "Auto Gain -12.0 dB", "Auto Gain +12.0 dB" })));
+        row.removeFromRight (gap);
+
+        // The Scale control (gain scale, a real sound parameter) now lives in the toolbox beside the other
+        // gain controls, and the band count sits next to it when there is room (both moved out of the header).
+        scaleSlider.setBounds (row.removeFromRight (barWidth ({ "Scale -100%", "Scale 200%" })));
+        row.removeFromRight (gap);
+        const int countWidth = (int) std::ceil (textWidth ("24 / 24 bands", EQColours::numbers (EQColours::Type::control))) + 8;
+        const bool countFits = row.getWidth() >= countWidth + guidanceInRowTwo.getWidth() + gap * 2;
+        bandCountLabel.setVisible (countFits);
+        if (countFits)
+            bandCountLabel.setBounds (row.removeFromRight (countWidth));
     }
 
     {

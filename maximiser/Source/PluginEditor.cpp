@@ -122,20 +122,37 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     // Factory starting points: loading one sets the parameters (Bypass and Link stay as they are).
     for (size_t i = 0; i < Max::getStartingPoints().size(); ++i)
         startingPointBox.addItem (Max::getStartingPoints()[i].name, (int) i + 1);
-    startingPointBox.setTextWhenNothingSelected ("Starting point");
-    startingPointBox.setTooltip ("Conservative starting points. Dither stays off in all of them");
+    // SUI-18: the preset selector sits in the title bar after the product name, as in the other plugins.
+    startingPointBox.setTextWhenNothingSelected ("Preset");
+    startingPointBox.setTitle ("Preset");
+    startingPointBox.setTooltip ("Preset: choose a conservative starting point. Dither stays off in all of them. Loading one keeps the window size.");
     startingPointBox.onChange = [this]
     {
         const int index = startingPointBox.getSelectedItemIndex();
         if (index < 0)
             return;
-        proc.applyStartingPoint (index);
+        proc.history.runStep ("preset load", [&] { proc.applyStartingPoint (index); });
         startingPointBox.setTooltip (Max::getStartingPoints()[(size_t) index].hint);
         startingPointBox.setSelectedId (0, juce::dontSendNotification);
-        startingPointBox.setTextWhenNothingSelected (juce::String ("Loaded: ") + Max::getStartingPoints()[(size_t) index].name);
+        startingPointBox.setTextWhenNothingSelected (Max::getStartingPoints()[(size_t) index].name);
         syncFromParameters();
+        refreshHistoryButtons();
     };
     content.addAndMakeVisible (startingPointBox);
+
+    setWantsKeyboardFocus (true);
+    undoButton.setTitle ("Undo");
+    redoButton.setTitle ("Redo");
+    undoButton.onClick = [this] { proc.history.undo(); syncFromParameters(); refreshHistoryButtons(); };
+    redoButton.onClick = [this] { proc.history.redo(); syncFromParameters(); refreshHistoryButtons(); };
+    content.addAndMakeVisible (undoButton);
+    content.addAndMakeVisible (redoButton);
+    refreshHistoryButtons();
+    // Keyboard order follows the title bar, left to right: preset, Undo, Redo, Bypass.
+    startingPointBox.setExplicitFocusOrder (1);
+    undoButton.setExplicitFocusOrder (2);
+    redoButton.setExplicitFocusOrder (3);
+    bypassButton.setExplicitFocusOrder (4);
 
     inputMeter.setTooltip ("Input peak (click to reset)");
     reductionMeter.setTooltip ("Gain Reduction: how much the limiter is turning the level down, 0 to 24 dB");
@@ -226,12 +243,18 @@ void SongsmithMaximiserAudioProcessorEditor::resized()
 //==============================================================================
 void SongsmithMaximiserAudioProcessorEditor::layoutContent()
 {
-    // Top bar.
-    bypassButton.setBounds (designW - 16 - 84, 12, 84, 26);
-    ditherBox.setBounds (bypassButton.getX() - 12 - 96, 12, 96, 26);
-    ditherLabel.setBounds (ditherBox.getX() - 56, 12, 52, 26);
-    peakModeBox.setBounds (ditherLabel.getX() - 12 - 116, 12, 116, 26);
-    peakLabel.setBounds (peakModeBox.getX() - 44, 12, 40, 26);
+    // Title bar (SUI-18, the same in every plugin): name | preset | Undo | Redo ... Bypass (far right).
+    {
+        const auto header = Songsmith::UI::Header::layout (
+            Songsmith::UI::Header::rowIn ((int) Songsmith::UI::titleInset, designW - 16 - (int) Songsmith::UI::titleInset,
+                                          (int) Songsmith::UI::titleBarHeight),
+            JucePlugin_Name);
+        titleBounds = header.title;
+        startingPointBox.setBounds (header.preset);
+        undoButton.setBounds (header.undo);
+        redoButton.setBounds (header.redo);
+        bypassButton.setBounds (header.bypass);
+    }
 
     // Main row: Input | Threshold | Link | Output Ceiling | Gain Reduction | Output | Release.
     // The meter and fader captions have room for two lines ("Gain Reduction"), so no word is shortened.
@@ -260,7 +283,14 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
     releaseSlider.setBounds (515, releaseTop + 4, 150, 150);
     autoReleaseButton.setBounds (530, releaseSlider.getBottom() + 14, 120, 28);
     gainLabel.setBounds (490, autoReleaseButton.getBottom() + 22, 200, 22);
-    startingPointBox.setBounds (500, gainLabel.getBottom() + 18, 180, 26);
+
+    // Output settings, under Release and the gain readout: Peak Mode decides what the Output Ceiling measures,
+    // and Dither is applied to the output (both moved out of the title bar).
+    const int boxX = 556, boxW = 124, rowY = gainLabel.getBottom() + 12;
+    peakLabel.setBounds (500, rowY, boxX - 500 - 4, 26);
+    peakModeBox.setBounds (boxX, rowY, boxW, 26);
+    ditherLabel.setBounds (500, rowY + 32, boxX - 500 - 4, 26);
+    ditherBox.setBounds (boxX, rowY + 32, boxW, 26);
 
     // Loudness section: its own band below the controls, above the diagnostics strip.
     const int ly = designH;
@@ -287,8 +317,7 @@ void SongsmithMaximiserAudioProcessorEditor::paintContent (juce::Graphics& g)
     Songsmith::UI::LookAndFeelBase::drawPanel (g, area);
     Songsmith::UI::LookAndFeelBase::drawTitleBar (g, area.withHeight (Songsmith::UI::titleBarHeight));
 
-    Songsmith::UI::drawTitle (g, { Songsmith::UI::titleInset, 0.0f, 360.0f, Songsmith::UI::titleBarHeight },
-                              JucePlugin_Name, MaxColours::text, MaxColours::accent);
+    Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, MaxColours::text, MaxColours::accent);
 
     // A fine line sets the loudness section apart from the controls above it.
     g.setColour (MaxColours::panelEdge);
@@ -399,8 +428,25 @@ void SongsmithMaximiserAudioProcessorEditor::resetLoudness()
     showLoudness();
 }
 
+void SongsmithMaximiserAudioProcessorEditor::refreshHistoryButtons()
+{
+    Songsmith::UI::Header::refreshHistoryButtons (undoButton, redoButton, proc.history);
+}
+
+bool SongsmithMaximiserAudioProcessorEditor::keyPressed (const juce::KeyPress& key)
+{
+    const bool used = Songsmith::UI::Header::handleHistoryKey (key, proc.history);
+    if (used)
+    {
+        syncFromParameters();
+        refreshHistoryButtons();
+    }
+    return used;
+}
+
 void SongsmithMaximiserAudioProcessorEditor::timerCallback()
 {
+    refreshHistoryButtons();
     const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
     updateMeters (juce::jlimit (0.0, 0.5, now - lastTimerTime));
     lastTimerTime = now;

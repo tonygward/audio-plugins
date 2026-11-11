@@ -8,6 +8,7 @@
 #include "EditorLogic.h"
 #include "StartingPoints.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
+#include "../../shared/Source/SongsmithHeader.h"
 
 class SongsmithMaximiserAudioProcessor : public juce::AudioProcessor
 {
@@ -62,6 +63,10 @@ public:
     Max::Dither::Depth getDitherDepth() const noexcept { return (Max::Dither::Depth) juce::jlimit (0, 2, ditherParam->getIndex()); }
 
     juce::AudioProcessorValueTreeState apvts;
+
+    // SUI-18: Undo and Redo for what the musician changes in the window (never host automation).
+    // Message thread only; nothing here is touched by processBlock.
+    Songsmith::UI::Header::ParameterHistory history { *this };
 
     // UI state, saved with the session (not automatable).
     std::atomic<bool> linkThresholdCeiling { false };

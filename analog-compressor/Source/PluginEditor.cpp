@@ -241,12 +241,21 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     ignoreBelow.slider.setTooltip ("Ignore bass below this frequency when deciding how much to compress. The bass you hear stays unchanged.");
     content.addAndMakeVisible (ignoreBelow);
 
-    for (int i = 0; i < (int) std::size (uiScales); ++i)
-        sizeBox.addItem ("Interface size: " + juce::String (juce::roundToInt (uiScales[i] * 100.0f)) + " %", i + 1);
-    sizeBox.setTooltip ("Interface size: makes the whole window larger or smaller. You can also drag the bottom-right corner of the window.");
-    sizeBox.setTitle ("Interface size");
-    sizeBox.onChange = [this] { setUiScale (uiScales[(size_t) juce::jmax (0, sizeBox.getSelectedId() - 1)]); };
-    content.addAndMakeVisible (sizeBox);
+    // SUI-18: the Interface size menu is gone from the title bar. Drag the bottom-right corner to resize;
+    // the window size is still saved with the session and the host's display scaling still applies.
+    setWantsKeyboardFocus (true);
+    undoButton.setTitle ("Undo");
+    redoButton.setTitle ("Redo");
+    undoButton.onClick = [this] { proc.history.undo(); refreshHistoryButtons(); };
+    redoButton.onClick = [this] { proc.history.redo(); refreshHistoryButtons(); };
+    content.addAndMakeVisible (undoButton);
+    content.addAndMakeVisible (redoButton);
+    refreshHistoryButtons();
+    // Keyboard order follows the title bar, left to right: preset, Undo, Redo, Bypass.
+    presetBox.setExplicitFocusOrder (1);
+    undoButton.setExplicitFocusOrder (2);
+    redoButton.setExplicitFocusOrder (3);
+    bypassButton.setExplicitFocusOrder (4);
 
     presetBox.setTooltip ("Preset: choose a starting point or one of your own, or save the current settings. Loading a preset keeps the window size.");
     presetBox.setTitle ("Preset");
@@ -319,9 +328,19 @@ void SongsmithAnalogCompressorEditor::syncSizeFromWidth()
     proc.editorWidth.store (getWidth());
     uiScale = snapUiScale ((float) getWidth() / (float) designWidth);
     proc.uiScale.store (uiScale);
-    for (int i = 0; i < (int) std::size (uiScales); ++i)
-        if (uiScales[i] == uiScale)
-            sizeBox.setSelectedId (i + 1, juce::dontSendNotification);
+}
+
+void SongsmithAnalogCompressorEditor::refreshHistoryButtons()
+{
+    Songsmith::UI::Header::refreshHistoryButtons (undoButton, redoButton, proc.history);
+}
+
+bool SongsmithAnalogCompressorEditor::keyPressed (const juce::KeyPress& key)
+{
+    const bool used = Songsmith::UI::Header::handleHistoryKey (key, proc.history);
+    if (used)
+        refreshHistoryButtons();
+    return used;
 }
 
 void SongsmithAnalogCompressorEditor::resized()
@@ -367,11 +386,21 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     // directly under the Gain Reduction meter, clear of the readout above it and the hint below it.
     ignoreBelow.setBounds (lowCutX, lowCutY, lowCutWidth, lowCutHeight);
 
-    // Top bar: global Bypass at the top-right, in the same place and size as in the other plugins (SUI-13).
-    bypassButton.setBounds (designWidth - 16 - 84, 14, 84, 26);
-    presetBox.setBounds (292, 14, 170, 26);
-    oversampling.setBounds (presetBox.getRight() + 8, 14, 160, 26);
-    sizeBox.setBounds (oversampling.getRight() + 8, 14, 156, 26);
+    // Title bar (SUI-18, the same in every plugin): name | preset | Undo | Redo ... Bypass (far right).
+    {
+        const auto header = Songsmith::UI::Header::layout (
+            Songsmith::UI::Header::rowIn ((int) Songsmith::UI::titleInset, designWidth - 16 - (int) Songsmith::UI::titleInset,
+                                          (int) Songsmith::UI::titleBarHeight),
+            JucePlugin_Name);
+        titleBounds = header.title;
+        presetBox.setBounds (header.preset);
+        undoButton.setBounds (header.undo);
+        redoButton.setBounds (header.redo);
+        bypassButton.setBounds (header.bypass);
+    }
+
+    // Oversampling is a processing setting, so it sits with the other processing controls, under Ignore Below.
+    oversampling.setBounds (lowCutX, lowCutY + lowCutHeight + 4, lowCutWidth, 26);
 
     diagnostics->setBounds (0, FET::contentHeight, FET::designWidth, FET::footerHeight);
 }
@@ -407,8 +436,7 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
         drawScrew (g, { plate.getRight() - inset, plate.getBottom() - inset }, 0.9f);
     }
     Songsmith::UI::LookAndFeelBase::drawTitleBar (g, r.withHeight (Songsmith::UI::titleBarHeight));
-    Songsmith::UI::drawTitle (g, { Songsmith::UI::titleInset, 0.0f, 360.0f, Songsmith::UI::titleBarHeight },
-                              JucePlugin_Name, Colours::text, Colours::accent);
+    Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, Colours::text, Colours::accent);
 
     // Section rules and captions.
     g.setColour (Colours::panelLight.brighter (0.1f));
@@ -440,7 +468,8 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
     g.setFont (font (Type::hint));
     const auto hint = proc.presets.currentHint.isNotEmpty() ? proc.presets.currentHint
                                                              : juce::String ("Double-click a knob for its default.");
-    g.drawFittedText (hint, juce::Rectangle<int> (24, 356, designWidth - 48, 36), juce::Justification::centredLeft, 2);
+    // Stops before the Oversampling menu at the right (lowCutX).
+    g.drawFittedText (hint, juce::Rectangle<int> (24, 356, lowCutX - 24 - 16, 36), juce::Justification::centredLeft, 2);
 }
 
 juce::String SongsmithAnalogCompressorEditor::gainReductionText (float db)
@@ -562,14 +591,17 @@ void SongsmithAnalogCompressorEditor::presetChosen()
     else if (id >= firstUserId && id - firstUserId < userPresetFiles.size())
     {
         juce::String error;
-        if (! proc.presets.loadFile (userPresetFiles[id - firstUserId], error))
+        bool loaded = false;
+        proc.history.runStep ("preset load", [&] { loaded = proc.presets.loadFile (userPresetFiles[id - firstUserId], error); });
+        if (! loaded)
             juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Preset", error);
     }
     else if (id >= 1 && id <= (int) Presets::factory().size())
     {
-        proc.presets.loadFactory (id - 1);
+        proc.history.runStep ("preset load", [&] { proc.presets.loadFactory (id - 1); });
     }
 
+    refreshHistoryButtons();
     rebuildPresetMenu();
     content.repaint();
 }

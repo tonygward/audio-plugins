@@ -8,6 +8,7 @@
 #include "PresetBar.h"
 #include "FrequencyGuide.h"
 #include "../../shared/Source/SongsmithGuidance.h"
+#include "../../shared/Source/SongsmithHeader.h"
 
 class SongsmithEQAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
@@ -35,6 +36,7 @@ public:
     juce::Component& getContent() noexcept   { return content; }
     EQDisplay& getDisplay() noexcept         { return display; }
     OutputMeterDisplay& getOutputMeter() noexcept { return outputMeter; }
+    juce::Slider& getScaleSlider() noexcept  { return scaleSlider; }   // Gain Scale, in the toolbox (SUI-18)
     float getContentScale() const noexcept   { return contentScale; }   // design units -> window pixels
     float getLayoutStep() const noexcept     { return layoutStep; }
 

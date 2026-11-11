@@ -103,7 +103,7 @@ A **Guidance** button at the top right of the Loudness band opens a short card: 
 
 ## Starting points, validation and packaging (step 05)
 
-- **Starting points** (`Source/StartingPoints.h`, the editor's "Starting point" menu): all conservative, all with a ceiling at or below −1 dB, and Dither always off. Loading one leaves Bypass and Link alone.
+- **Starting points** (`Source/StartingPoints.h`, the editor's **Preset** menu in the title bar, which reads: name, Preset, Undo, Redo, Bypass; Peak Mode and Dither sit under the Release knob): all conservative, all with a ceiling at or below −1 dB, and Dither always off. Loading one leaves Bypass and Link alone.
 
   | Starting point | Threshold | Output Ceiling | Gain | Release | Peak | Auto Release |
   |---|---|---|---|---|---|---|

@@ -8,6 +8,7 @@
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
 #include "../../shared/Tests/SongsmithUITests.h"
+#include "../../shared/Tests/SongsmithHeaderTests.h"
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "EngineMeasure.h"
 #include "ColourMeasure.h"
@@ -346,6 +347,21 @@ struct EditorTests final : juce::UnitTest
         beginTest ("global Bypass is top-right and uses the suite's Bypass red (SUI-13)");
         std::unique_ptr<juce::AudioProcessorEditor> ed (p.createEditor());
         Songsmith::UI::Testing::checkGlobalBypass (*this, *ed, *p.apvts.getParameter (ID::bypass), "Analog Compressor");
+
+        beginTest ("title bar reads name, preset, Undo, Redo, Bypass; Interface size and Oversampling are not in it (SUI-18)");
+        Songsmith::UI::Testing::checkSuiteHeader (*this, *ed, "Analog Compressor");
+        if (auto* ac = dynamic_cast<SongsmithAnalogCompressorEditor*> (ed.get()))
+        {
+            expect (ac->getOversamplingBox().getBottom() > 50, "Oversampling sits with the processing controls, below the title bar");
+            expect (ac->getOversamplingBox().getY() > ac->getIgnoreBelowKnob().getY(), "Oversampling is under Ignore Below");
+            expect (ac->getTitleBounds().getRight() < ac->getPresetBox().getX(), "the title does not overlap the preset selector");
+        }
+
+        beginTest ("Undo and Redo reverse user edits and preset loads, never host automation (SUI-18)");
+        {
+            SongsmithAnalogCompressorProcessor q;
+            Songsmith::UI::Testing::checkParameterHistory (*this, q, ID::input, ID::output, "Analog Compressor");
+        }
     }
 };
 
