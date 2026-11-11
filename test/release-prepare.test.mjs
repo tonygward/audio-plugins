@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {releaseVersion,releaseNotes,validateRun,validateInstallerFiles} from '../scripts/release/prepare.mjs';
+import {releaseVersion,releaseNotes,validateRun,validateInstallerFiles,isSkippedBuild} from '../scripts/release/prepare.mjs';
 const sha='a'.repeat(40),version='1.4.0';
 const run={head_sha:sha,head_branch:'main',event:'push',status:'completed',conclusion:'success',run_attempt:1,repository:{full_name:'tonygward/audio-plugins'},head_repository:{full_name:'tonygward/audio-plugins'},path:'.github/workflows/build.yml@refs/heads/main'};
 const jobs=['One version number','Songsmith Plugins installer - Windows','Songsmith Plugins installer - macOS',...['EQ','Analog Compressor','Maximiser'].flatMap(n=>[`${n} - Windows (VS, x64)`,`${n} - macOS (Xcode, universal)`])].map(name=>({name,status:'completed',conclusion:'success'}));
@@ -23,4 +23,13 @@ test('currentMainFor accepts docs-only drift and rejects source drift',async()=>
   assert.equal(await currentMainFor(make('ahead',['eq/prompts/README.md']),sha),tip);
   await assert.rejects(currentMainFor(make('ahead',['maximiser/Source/X.cpp']),sha),/no longer current main/);
   await assert.rejects(currentMainFor(make('diverged',['README.md']),sha),/no longer current main/);
+});
+
+test('a source merge that deliberately built nothing is recognised, and a real packaging build is not',()=>{
+  const win='Songsmith Plugins installer - Windows',mac='Songsmith Plugins installer - macOS';
+  assert.equal(isSkippedBuild([{name:'One version number',conclusion:'success'},{name:win,conclusion:'skipped'},{name:mac,conclusion:'skipped'}]),true);
+  assert.equal(isSkippedBuild(jobs),false,'a full successful build is not skipped');
+  assert.equal(isSkippedBuild([{name:win,conclusion:'skipped'},{name:mac,conclusion:'success'}]),false,'only one installer skipped');
+  assert.equal(isSkippedBuild([{name:win,conclusion:'failure'},{name:mac,conclusion:'failure'}]),false,'a failure is never treated as intentional');
+  assert.equal(isSkippedBuild([]),false,'no jobs at all');
 });

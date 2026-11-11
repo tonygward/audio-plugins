@@ -1,8 +1,8 @@
 name: CI - Build and test
 
-# Build each change once: PRs build on pull_request, and main builds on push
-# (merges, which the release files come from). Branches without a PR can be
-# built by hand from the Actions tab (workflow_dispatch).
+# Two builds per release: a pull request builds only the plugins it changed, and one packaging build (everything, plus both installers) runs on
+# the version bump commit, which the release files come from. A plain merge to main builds nothing: see scripts/release/plan.mjs.
+# Branches without a PR can be built by hand from the Actions tab (workflow_dispatch).
 # macOS builds are universal (Apple Silicon and Intel) on main and manual runs, which
 # is what the release installers come from. Pull requests build Apple Silicon only
 # (arm64), which halves the compile time; an Intel-only compile problem would show
@@ -75,6 +75,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Work out which plugins changed
         id: pick
         shell: bash
@@ -82,11 +85,21 @@ jobs:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          BUMP_ENABLED: ${{ vars.AUTO_BETA_VERSION_ENABLED }}
         run: |
           set -euo pipefail
           eq=false; analog=false; max=false; all=false
-          if [ "$EVENT" != "pull_request" ]; then
-            all=true   # main and manual runs build everything
+          if [ "$EVENT" = "push" ]; then
+            # Two builds per release: this pull request's changed plugins were built when it was reviewed, and the version bump follows the merge.
+            # So a plain source merge builds nothing; the bump commit is the one packaging build (everything, plus both installers) the release is made from.
+            # scripts/release/plan.mjs decides; anything uncertain builds.
+            # Only an explicit "build=false" skips; if the planner fails for any reason the push builds.
+            plan=$(mktemp); GITHUB_OUTPUT="$plan" node scripts/release/plan.mjs || true
+            if ! grep -q '^build=false$' "$plan"; then all=true; fi
+          elif [ "$EVENT" != "pull_request" ]; then
+            all=true   # manual runs build everything
           else
             files=$(git diff --name-only "$BASE...$HEAD" | grep -v -E '\.md$|\.png$|/prompts/|/docs/|\.gitignore$' || true)
             echo "Changed source files:"; echo "$files"

@@ -66,6 +66,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 ### 8. Automatic beta build numbers
 - Follow [the current execution and delivery policy](docs/songsmith-execution-policy.md). Root VERSION is shared by all plugins and installers.
 - Automatically increment the third beta version component for each successful qualifying development build/merge on main, through the trusted beta pipeline (for example 0.5.2 → 0.5.3). Retain CI run ID and commit SHA as provenance; prevent recursive bumps, retries and PR-only/docs-only releases.
+- **Two builds per release:** the pull request build (changed plugins only) and one packaging build of everything on the version bump commit, which the release is made from. A plain merge to `main` builds nothing; the bump follows it directly. See [docs/pipelines.md](docs/pipelines.md).
 - Major and minor increments are deferred until a new owner decision. Do not assign feature milestones new major/minor versions or reset VERSION.
 - User-visible changes add musician-facing notes under CHANGELOG.md's Unreleased section; trusted automation moves them into the incremented release.
 - Automatic PR approval/merge follows passing current-head required checks. Delivery is complete only after verified beta deployment, installer downloads and the final tracking-issue comment, then issue close and board Done.

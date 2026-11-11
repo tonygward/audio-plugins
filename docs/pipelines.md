@@ -11,18 +11,18 @@ Every GitHub Actions workflow in this repository starts its name with what it is
 
 | Workflow (as shown in Actions) | File | Runs when | What it does |
 |---|---|---|---|
-| **CI - Build and test** | `build.yml` | Pull requests, and pushes to `main` that change plugin, installer or workflow files | Builds and tests every plugin and both suite installers on Windows and macOS. On `main` it also produces the installers a release is made from. |
+| **CI - Build and test** | `build.yml` | Pull requests, and the version bump commit on `main` | On a pull request: builds and tests only the plugins the change touches. On the bump commit: the one packaging build of all three plugins and both suite installers on Windows and macOS, which the release is made from. A plain merge builds nothing. |
 | **CI - Matrix orchestration tests** | `matrix-tests.yml` | Changes to Matrix's own code | Runs Matrix's unit tests on Windows, macOS and Linux. |
 | **CI - Release policy tests** | `auto-release-policy-checks.yml` | Changes to the release scripts or workflows | Tests the version and release rules. |
 | **Gate - Matrix auto-merge** | `matrix-auto-merge.yml` | After a CI run completes | Merges a Matrix pull request once its CI passed for the exact head commit and every rule holds. Matrix's own code uses the core lane (see the [Matrix README](../tools/matrix/README.md)). |
-| **CD - Increment beta version after a successful build** | `auto-beta-version.yml` | After a successful CI build on `main` | Increases the third part of `VERSION` and moves the changelog notes into the new release. |
-| **CD - Publish validated suite release** | `auto-publish-release.yml` | After the build for that version passes | Creates the GitHub release with exactly the two installers. |
+| **CD - Increment beta version after a source merge** | `auto-beta-version.yml` | Straight after a source merge to `main` | Checks the pull request build passed at the merged head, then increases the third part of `VERSION` and moves the changelog notes into the new release. |
+| **CD - Publish validated suite release** | `auto-publish-release.yml` | After a build on `main` completes | Creates the GitHub release with exactly the two installers when the packaging build passed. A build that deliberately built nothing is a quiet no-op. |
 | **CD - Distribute published beta release to R2** | `distribute-beta-r2.yml` | When a release is published | Copies the release to private storage for the beta website. The website deploy itself is in the website repository. |
 | **Housekeeping - Archive merged prompt** | `matrix-archive-prompt.yml` | After a Matrix pull request merges | Moves the finished prompt into its `done/` folder. |
 
 ## The two paths
 
-- **A plugin change:** CI - Build and test, then Gate - Matrix auto-merge, then (on `main`) CI - Build and test again, then CD - Increment beta version, then CD - Publish validated suite release, then CD - Distribute to R2. See [automatic release checkpoints](automatic-release-checkpoints.md).
+- **A plugin change** has **two builds**: CI - Build and test on the pull request (changed plugins only), then Gate - Matrix auto-merge, then CD - Increment beta version straight after the merge, then CI - Build and test once more on the bump commit (the packaging build of everything), then CD - Publish validated suite release, then CD - Distribute to R2. See [automatic release checkpoints](automatic-release-checkpoints.md).
 - **A change to Matrix's own code:** CI - Matrix orchestration tests, then Gate - Matrix auto-merge. There is no release.
 
 ## Names other things depend on
