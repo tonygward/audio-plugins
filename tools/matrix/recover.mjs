@@ -3,6 +3,7 @@
 // again from GitHub, using the branch and the exact head commit, and either hands it back to the gate (awaiting-review) or
 // leaves it interrupted so it is reported and parked in Blocked. It never starts the agent and never pushes.
 import path from 'node:path';
+import { postCiPassedComment } from './ci-comment.mjs';
 import { atomic, lockedAsync, readState, record } from './state.mjs';
 
 export const CI_TIMEOUT_MS = 5400 * 1000;
@@ -43,6 +44,8 @@ export async function recoverInFlight(stateDirectory, pulls, io, { now = () => D
           else if (verdict === 'success' || !task.recoveredAt) {
             if (task.state !== 'awaiting-review') { Object.assign(task, { state: 'awaiting-review', pr: pull.url ?? `https://github.com/${pull.repository}/pull/${pull.number}`, recoveredAt: new Date(now()).toISOString() }); delete task.reason; record(state, { event: 'recovered', task: task.id, pr: pull.number, ci: verdict }); recovered.push(task.id); }
           }
+          // AUTO-13: the build passed for the exact pushed commit; the one-time CI note goes on the issue (idempotent, never blocks).
+          if (verdict === 'success' && task.state === 'awaiting-review' && io.comment) await postCiPassedComment(task, { sha: headSha, pr: task.pr ?? pull.url, runUrl: null }, io, () => new Date(now()).toISOString());
         }
       } catch (error) { record(state, { event: 'recovery-failed', task: task.id, reason: String(error.message).slice(0, 200) }); }
     }

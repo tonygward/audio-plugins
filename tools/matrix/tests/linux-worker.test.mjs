@@ -9,6 +9,8 @@ import { runProcess } from '../process.mjs';
 import { readState, atomic } from '../state.mjs';
 import { blockStopped, resumeBlocked } from '../blocked.mjs';
 import { TELEMETRY_SOURCE } from '../policy.mjs';
+import { githubIo } from '../github-io.mjs';
+import { recoverCiComments } from '../ci-comment.mjs';
 const gitExecutable = execFileSync(process.platform === 'win32' ? 'where.exe' : 'which', ['git'], { encoding: 'utf8' }).trim().split(/\r?\n/)[0];
 const now = Date.now();
 const goodUsage = () => ({ allowed: true, reason: 'ok', extraUsageEnabled: false, snapshot: { source: TELEMETRY_SOURCE, percentage: 20, observedAt: new Date(now).toISOString(), resetsAt: new Date(now + 3600000).toISOString() } });
@@ -233,7 +235,10 @@ test('board mode builds the chosen task, claims it, and comments on the issue wi
   const task = readState(f.config.stateDirectory).tasks['EQ-41'];
   assert.equal(task.state, 'awaiting-review'); assert.equal(task.job, 'matrix-test-1'); assert.equal(task.issue, 41); assert.equal(task.itemId, 'item-41');
   assert.ok(task.pickupCommentAt);
-  assert.equal(a.comments.length, 1); assert.match(a.comments[0], /Matrix has picked up \*\*EQ-41\*\*/); assert.match(a.comments[0], /matrix-test-1/);
+  assert.equal(a.comments.length, 2, 'the starting comment, then one CI-passed note');
+  assert.match(a.comments[0], /Matrix has picked up \*\*EQ-41\*\*/); assert.match(a.comments[0], /matrix-test-1/);
+  assert.match(a.comments[1], /CI passed for \*\*EQ-41\*\*/); assert.match(a.comments[1], /pull\/7/); assert.match(a.comments[1], /actions\/runs\/\d+/); assert.match(a.comments[1], /matrix-ci-passed:EQ-41:7:/);
+  assert.match(a.comments[1], /not delivered yet/); assert.match(a.comments[1], /stays in Doing/);
   assert.equal(readHandoff(f.config.stateDirectory, { now }), null, 'hand-off is consumed');
 });
 
@@ -412,7 +417,7 @@ test('an explicit resume carries on from the saved branch and pull request: one 
   assert.equal(task.state, 'awaiting-review'); assert.equal(task.pr, stopped.pr); assert.equal(task.resumeWork, undefined); assert.equal(task.branch, stopped.branch);
   const subjects = execFileSync(gitExecutable, ['--git-dir', f.remote, 'log', '--format=%s', stopped.branch], { encoding: 'utf8' });
   assert.match(subjects, /Matrix resumed implementation/);
-  assert.match(a.comments.at(-1), /Pickup reason: Resumed \(Doing\)/); assert.match(a.comments.at(-1), /Resumed from: job `matrix-test-1`/);
+  const pickups = a.comments.filter(c => /Matrix has picked up/.test(c)); assert.match(pickups.at(-1), /Pickup reason: Resumed \(Doing\)/); assert.match(pickups.at(-1), /Resumed from: job `matrix-test-1`/);
 });
 
 test('a resume whose pushed commit now has a green Build starts no agent, even after the worktree was lost', async t => {
@@ -437,4 +442,31 @@ test('a resume refuses a saved worktree that is not where Matrix keeps them, and
   const report = await runLinuxWorker(config, options(f, a, { trigger: 'timer' }));
   assert.equal(report.outcomes[0].interrupted, true); assert.equal(base.seen.claude.length, before);
   assert.match(readState(dir).tasks['EQ-41'].reason, /not where Matrix keeps them/);
+});
+
+// ---- AUTO-13: CI-passed note on the tracking issue ----
+test('a failing hosted Build posts no CI-passed note; only the repaired head that passes does', async t => {
+  const f = fixture(t), a = withIssues(adapter({ builds: ['failure'] })); handoffFor(f);
+  await runLinuxWorker(boardConfig(f), options(f, a, { trigger: 'timer' }));
+  assert.equal(a.comments.filter(c => /CI passed for/.test(c)).length, 0, 'a failed Build is not announced as passed');
+  const g = fixture(t), b = withIssues(adapter({ builds: ['failure', 'success'] })); handoffFor(g);
+  await runLinuxWorker(boardConfig(g), options(g, b, { trigger: 'timer' }));
+  const notes = b.comments.filter(c => /CI passed for/.test(c));
+  assert.equal(notes.length, 1, 'one note, for the repaired head commit'); assert.match(notes[0], /matrix-ci-passed:EQ-41:7:/);
+});
+
+test('a failed CI note is kept as retry state, never blocks the work, and is posted once on a later poll', async t => {
+  const f = fixture(t), base = adapter(), a = withIssues(base); handoffFor(f);
+  const stateDir = f.config.stateDirectory;
+  let calls = 0; const real = a.run;
+  const flaky = { ...a, run: async (exe, args, o) => { if (exe === GH && args[0] === 'issue' && args[1] === 'comment' && /matrix-ci-passed/.test(args[args.indexOf('--body') + 1]) && calls++ === 0) throw Error('GitHub down'); return real(exe, args, o); } };
+  const report = await runLinuxWorker(boardConfig(f), options(f, flaky, { trigger: 'timer' }));
+  assert.equal(report.outcomes[0].blocked, false, 'the pull request still goes forward');
+  const task = readState(stateDir).tasks['EQ-41'], entry = Object.values(task.ciComments)[0];
+  assert.equal(entry.pending, true); assert.match(entry.error, /GitHub down/);
+  assert.equal(a.comments.filter(c => /CI passed for/.test(c)).length, 0);
+  const io = githubIo(async args => (await real(GH, args, {})).stdout);
+  const first = await recoverCiComments(stateDir, { io }); assert.equal(Object.values(first)[0].posted, true);
+  const second = await recoverCiComments(stateDir, { io }); assert.deepEqual(second, {}, 'nothing left to retry');
+  assert.equal(a.comments.filter(c => /CI passed for/.test(c)).length, 1, 'exactly one note after the retry');
 });

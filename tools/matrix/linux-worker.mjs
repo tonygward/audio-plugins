@@ -20,6 +20,7 @@ import { betaVerifiers } from './verifiers.mjs';
 import { boardTick, ghGraphql, promptLoader } from './board-run.mjs';
 import { readHandoff, adoptHandoff, boardFields, clearHandoff } from './handoff.mjs';
 import { postPickupComment } from './pickup.mjs';
+import { postCiPassedComment } from './ci-comment.mjs';
 import { budgetStop, runMinutes } from './budget.mjs';
 import { parsePrompt } from './backlog.mjs';
 
@@ -309,6 +310,14 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
             log(p.id, 'changelog-conflict-resolved'); return true;
           }
         };
+        // AUTO-13: a one-time progress note on the tracking issue once the hosted Build has passed for this exact head commit. It never blocks
+        // the merge: a failed post is kept as retry state and retried by the board tick.
+        const announceCi = async (sha, runId) => {
+          if (config.boardPickup?.enabled !== true) return;
+          const runUrl = runId ? `https://github.com/${w.repositorySlug}/actions/runs/${runId}` : null;
+          const result = await postCiPassedComment(task, { sha, pr: url, runUrl }, boardIo(boardGh, config), () => new Date(clock()).toISOString());
+          save(); log(p.id, 'ci-comment', { sha, posted: result.posted, ...(result.reason ? { reason: result.reason } : {}) });
+        };
         const waitForBuild = async sha => {
           const start = clock(); let seen = false;
           for (;;) {
@@ -373,10 +382,10 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
           if (verdict.state === 'success') {
             // The merge gate can merge the moment Build passes. Never push to a branch whose pull request has already merged.
             const current = JSON.parse(await gh(['pr', 'view', url, '--repo', w.repositorySlug, '--json', 'state'])).state;
-            if (current === 'MERGED') { log(p.id, 'ci-passed', { sha: task.commit, merged: true }); break; }
+            if (current === 'MERGED') { await announceCi(task.commit, verdict.id); log(p.id, 'ci-passed', { sha: task.commit, merged: true }); break; }
             // Main may have moved during the build (a release bump moves the changelog); merge it and re-check once.
             if (repair <= w.maximumRepairs && await integrate()) { task.commit = await git(['rev-parse', 'HEAD'], plan.directory); await gitRemote(['push', 'origin', plan.branch], plan.directory); log(p.id, 'main-merged', { sha: task.commit }); continue; }
-            log(p.id, 'ci-passed', { sha: task.commit }); break;
+            await announceCi(task.commit, verdict.id); log(p.id, 'ci-passed', { sha: task.commit }); break;
           }
           if (verdict.state !== 'failure' || repair >= w.maximumRepairs) { blocked = `Hosted Build ${verdict.state === 'failure' ? 'failed' : verdict.state === 'timeout' ? 'did not finish in time' : 'did not start'}; the worker stopped after ${repair} repair${repair === 1 ? '' : 's'}`; break; }
           log(p.id, 'ci-failed', { sha: task.commit, repair: repair + 1 });

@@ -103,6 +103,19 @@ The starting comment says why. The reason is captured at selection, before the c
 never changes it. Labels: `Scheduled (Todo)` (with the London schedule date; uses the day's slot), `Run now (Doing)` (does not), `Resumed (Todo|Doing)` (with the earlier job, reason and branch or pull request),
 and `Unknown (provenance unavailable)` (with a `pickup-provenance-unknown` diagnostic). The initiator is always labelled Unknown for Doing and resumes: a Doing card never proves who moved it.
 
+## CI-passed note on the issue (AUTO-13)
+
+When the hosted Windows and macOS Build passes for the exact head commit of a task's pull request, the worker posts one progress note on the original tracking issue
+(`ci-comment.mjs`): the task, the pull request, the Build run link, the checked commit and what comes next. It says the work is **not delivered yet** and the card stays in Doing.
+
+- **Once per task + pull request + head commit.** A hidden marker (`matrix-ci-passed:<task>:<pr>:<commit>:success`) is checked on the issue before posting, so reruns, repeated
+  polls and restarts never repeat it. If the head changes and a new commit passes, that commit gets its own note.
+- **Right issue only.** It goes to the tracking issue saved with the claim (in its own repository, even when the pull request is elsewhere), never the pull request and never a guess from a branch name.
+- **Never blocks the work.** A failed post is saved on the task (`ciComments`, pending with the reason) and retried by the board tick (`recoverCiComments`); it is not reported as posted, and it does not stop the merge.
+- **Same path after a restart.** In-flight recovery (`recover.mjs`) posts the note too when it finds the Build passed on the pushed commit.
+- **Least access.** The trusted controller writes it with the board token; the Claude coding process has no comment access.
+- **Not a final comment.** Merge, release, the final evidence comment, issue close and board Done stay with delivery.
+
 ## Issues without a prompt file (issue-as-prompt)
 
 `issue-prompt.mjs`. A Doing card (or a Todo card on the day's slot) whose task has no prompt file, in an execution repository, with no merged or open pull request and no
