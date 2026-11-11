@@ -1,6 +1,6 @@
 ---
 id: SUI-18
-status: planned
+status: done
 execution: scheduled
 model: sonnet
 effort: medium
