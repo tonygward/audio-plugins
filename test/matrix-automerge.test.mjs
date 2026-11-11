@@ -77,10 +77,10 @@ test('branch names map to prompt ids and prompts to the done folder', () => {
   assert.equal(archivePath('docs/x.md'), null);
 });
 
-test('markDone changes only the status line and keeps line endings', () => {
-  assert.equal(markDone('---\nid: A-1\nstatus: ready\nexecution: build-now\n---\n\n# Title\n'), '---\nid: A-1\nstatus: done\nexecution: build-now\n---\n\n# Title\n');
-  assert.equal(markDone('---\r\nid: A-1\r\nstatus: ready\r\n---\r\nbody\r\n'), '---\r\nid: A-1\r\nstatus: done\r\n---\r\nbody\r\n');
-  assert.equal(markDone('---\nid: A-1\n---\nbody\n'), '---\nstatus: done\nid: A-1\n---\nbody\n');
+test('markDone removes status and execution (the board owns them), keeps the rest and the line endings', () => {
+  assert.equal(markDone('---\nid: A-1\nstatus: ready\nexecution: build-now\n---\n\n# Title\n'), '---\nid: A-1\n---\n\n# Title\n');
+  assert.equal(markDone('---\r\nid: A-1\r\nstatus: ready\r\n---\r\nbody\r\n'), '---\r\nid: A-1\r\n---\r\nbody\r\n');
+  assert.equal(markDone('---\nid: A-1\n---\nbody\n'), '---\nid: A-1\n---\nbody\n');
   assert.equal(markDone('# No metadata\n'), '# No metadata\n');
 });
 

@@ -1,5 +1,4 @@
 ---
-status: done
 id: MAX-08
 priority: medium
 model: sonnet

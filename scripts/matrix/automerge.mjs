@@ -85,15 +85,14 @@ export function archivePath(file) {
   return match ? `${match[1]}/done/${match[2]}` : null;
 }
 
-// Mark a prompt done in its front matter; files without front matter are only moved.
+// The done/ folder is the completion record and the project board owns status and execution, so archiving removes any
+// status or execution line from the front matter instead of writing one. Files without front matter are only moved.
 export function markDone(text) {
   const eol = text.includes('\r\n') ? '\r\n' : '\n';
   const normal = text.replace(/\r\n/g, '\n');
   if (!normal.startsWith('---\n')) return text;
   const end = normal.indexOf('\n---\n', 4);
   if (end < 0) return text;
-  const head = normal.slice(4, end).split('\n');
-  const index = head.findIndex(line => /^status:/.test(line));
-  if (index >= 0) head[index] = 'status: done'; else head.unshift('status: done');
+  const head = normal.slice(4, end).split('\n').filter(line => !/^(status|execution):/.test(line));
   return (`---\n${head.join('\n')}` + normal.slice(end)).replace(/\n/g, eol);
 }

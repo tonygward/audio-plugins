@@ -6,7 +6,7 @@ priority: medium
 model: sonnet
 effort: low
 dependencies: []
-conflicts: [MAX-08, SUI-18]
+conflicts: ["MAX-08", "SUI-18"]
 ---
 
 # MAX-09 — Single Integrated LUFS readout beside the main dial
