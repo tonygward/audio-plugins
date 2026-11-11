@@ -1,12 +1,10 @@
 ---
 id: MAX-08
-status: backlog
-execution: scheduled
 priority: medium
 model: sonnet
 effort: medium
 dependencies: []
-conflicts: [SUI-18]
+conflicts: ["SUI-18"]
 ---
 
 # MAX-08 — Maximiser textured faceplate and refined meters
@@ -14,7 +12,6 @@ conflicts: [SUI-18]
 **Tracking issue:** https://github.com/tonygward/audio-plugins/issues/224  
 **Reference:** Analog Compressor faceplate in `analog-compressor/Source/PluginEditor.cpp`.  
 **Related:** SUI-18 #202 title-bar standardisation; MAX-07 #161 loudness-meter work.  
-**Execution:** Backlog only. Moving to Todo schedules it according to board ordering; Doing requests run-now subject to gates. Creating this prompt does not start Matrix.
 
 ## Objective
 Make the Maximiser look as polished as Analog Compressor by adopting its subtle brushed-metal texture and improving the housing/readability of Input, Gain Reduction and Output meters. This is visual polish only: no DSP, parameter, meter-ballistics or host-state changes.

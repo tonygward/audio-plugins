@@ -1,7 +1,5 @@
 ---
 id: SUI-18
-status: done
-execution: scheduled
 model: sonnet
 effort: medium
 dependencies: []

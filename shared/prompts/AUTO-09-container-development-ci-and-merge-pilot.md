@@ -1,7 +1,5 @@
 ---
 id: AUTO-09
-status: planned
-execution: deferred
 priority: high
 model: sonnet
 effort: high

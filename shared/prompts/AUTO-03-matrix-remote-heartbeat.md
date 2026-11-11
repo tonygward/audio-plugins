@@ -1,7 +1,5 @@
 ---
 id: AUTO-03
-status: planned
-execution: deferred
 priority: high
 model: sonnet
 effort: medium
@@ -24,7 +22,7 @@ Implement and test against the deployed Linux container's timer/process lifecycl
 
 # AUTO-03 — Matrix remote heartbeat and backlog observability
 
-**Status:** Planned; backlog specification only. **Priority:** High — enable remote diagnostics while AUTO-01 remains in dry-run mode. **Recommended model:** Sonnet. **Effort:** Medium. **Dependency:** Existing [AUTO-01 infrastructure](AUTO-01-matrix-autonomous-development.md); heartbeat must be usable before live execution is enabled.
+**Priority:** High — enable remote diagnostics while AUTO-01 remains in dry-run mode. **Recommended model:** Sonnet. **Effort:** Medium. **Dependency:** Existing [AUTO-01 infrastructure](AUTO-01-matrix-autonomous-development.md); heartbeat must be usable before live execution is enabled.
 
 ## Motivation
 The previous Windows Task Scheduler prototype ran roughly every five minutes, but its successful exit codes did not prove that it fetched the latest GitHub backlog. The latest local `status` report may reflect the last daily reconciliation (02:00 Europe/London); the optional GitHub `Notify Matrix backlog` workflow can be skipped. ChatGPT's connected GitHub integration cannot read local `C:/Scheduled/Songsmith-Matrix/state` files. Provide a safe GitHub-visible heartbeat so an owner or remotely connected assistant can tell **scheduler alive**, **new GitHub revision fetched**, **task queued**, and **development blocked** apart.

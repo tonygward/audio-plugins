@@ -1,7 +1,5 @@
 ---
 id: AUTO-08
-status: planned
-execution: deferred
 priority: high
 model: sonnet
 effort: medium

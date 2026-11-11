@@ -1,7 +1,5 @@
 ---
 id: SUI-15
-status: done
-execution: build-now
 priority: 2
 model: sonnet
 effort: low

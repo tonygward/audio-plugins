@@ -1,7 +1,5 @@
 ---
 id: AUTO-05
-status: blocked
-execution: deferred
 priority: high
 model: sonnet
 effort: high
@@ -12,7 +10,6 @@ conflicts: []
 # AUTO-05 — Isolated Linux development agent and hosted native builds
 
 **Tracking issue:** [#166](https://github.com/tonygward/audio-plugins/issues/166)
-**Status:** Parent tracking epic, not a duplicate implementation job. Its child milestones own the remaining acceptance evidence.
 **Model:** Sonnet for implementation/review; Opus only for unresolved isolation or orchestration architecture, with the reason recorded and a return to Sonnet.
 **Policy:** [Current execution and delivery policy](../../docs/songsmith-execution-policy.md).
 

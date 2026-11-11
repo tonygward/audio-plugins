@@ -1,7 +1,5 @@
 ---
 id: AUTO-12
-status: done
-execution: deferred
 model: sonnet
 effort: high
 dependencies: ["AUTO-08"]
