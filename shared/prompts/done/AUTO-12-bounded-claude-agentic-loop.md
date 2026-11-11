@@ -1,6 +1,6 @@
 ---
 id: AUTO-12
-status: planned
+status: done
 execution: deferred
 model: sonnet
 effort: high
@@ -11,9 +11,9 @@ conflicts: []
 # AUTO-12 — Bounded Claude agentic loop and resumable issue lifecycle
 
 **Tracking issue:** [#180](https://github.com/tonygward/audio-plugins/issues/180)
-**Split from:** [AUTO-11](done/AUTO-11-board-driven-pickup.md)
-**Policy:** [Execution and delivery](../../docs/songsmith-execution-policy.md)
-**Status:** Partially implemented in merged PR #193 (Blocked checkpoint, basic explicit resume, elapsed-run budget). Committed/pushed-work resumption, in-flight CI recovery, turn/token budget and controlled end-to-end pilot remain open; live runtime not proven.
+**Split from:** [AUTO-11](AUTO-11-board-driven-pickup.md)
+**Policy:** [Execution and delivery](../../../docs/songsmith-execution-policy.md)
+**Status:** Done (11 November 2026). Merged in PRs #193 (Blocked checkpoint, explicit resume, run budget), #209 (in-flight CI recovery after a restart), #218 (resume of committed work, named limits, board Execution releases deferred-looking prompts) and #221 (a resumed task rebuilds its issue-generated prompt). Live evidence: ACOMP-12 (job `matrix-20261111081822`) ran from a Doing card through the starting comment, an agent run, pull request #215, hosted CI, merge and verified beta delivery, and Matrix posted the final comment and closed the issue itself. A controlled test card (TEST-01, #219, pull request #220, closed without merging) then proved on the real board: a Claude turn limit stops the task with one Blocked comment that names the limit and the card moves to Blocked; moving it back to Doing resumes from a clean worktree with a fresh budget; a hosted Build that never starts parks the task as Blocked with the pull request and commit kept; and moving that card back to Doing resumes on the saved branch and the same pull request with no agent run and no second pull request. One Blocked comment attempt failed once (`Process failed`) and succeeded on the next tick with no duplicate. Not exercised live: a kill with a job in flight (covered by the recovery tests, #209) and an agent repair on a resumed failed Build (covered by tests only).
 
 ## Objective and user value
 One immediate Doing request is first claimed with durable evidence, then enters the standard Claude loop and reaches verified delivery or a clear Blocked outcome. The board remains a truthful high-level view.

@@ -1,6 +1,6 @@
 ---
 id: AUTO-14
-status: deferred
+status: done
 execution: deferred
 priority: medium
 model: sonnet
@@ -14,8 +14,9 @@ conflicts: []
 **Tracking issue:** https://github.com/tonygward/audio-plugins/issues/208  
 **Related:** [AUTO-11 board selection/claim](https://github.com/tonygward/audio-plugins/issues/175), [AUTO-12 issue lifecycle](https://github.com/tonygward/audio-plugins/issues/180).  
 **Example:** [ACOMP-11 issue #199](https://github.com/tonygward/audio-plugins/issues/199), pickup job `matrix-20261110213641`.  
-**Policy:** [Songsmith execution policy](../../docs/songsmith-execution-policy.md).  
-**Workstream:** Matrix infrastructure. **Execution:** Deferred; this prompt does not queue or start work.
+**Policy:** [Songsmith execution policy](../../../docs/songsmith-execution-policy.md).  
+**Workstream:** Matrix infrastructure. **Execution:** Infrastructure only; completed.
+**Status:** Done (11 November 2026). Merged in PR #213. The first live pickup after merge (ACOMP-12) ran on a worker image built before the merge, so its comment had no pickup reason; that is not counted. After the image was rebuilt, the controlled test card TEST-01 (#219) showed three live pickups whose comments matched the persisted job record field for field: `Run now (Doing)` (job `matrix-20261111104040`, before claim Doing, initiator Unknown), `Resumed (Doing)` after a limit stop (job `matrix-20261111105604`, resumed from the earlier job, its reason and branch) and `Resumed (Doing)` after a committed-work stop (job `matrix-20261111113213`, resumed from the earlier job, its reason, pull request and branch). The initiator was never claimed as a person. `Scheduled (Todo)` with its London schedule date and the unknown-provenance label are covered by tests only and were not exercised live. No plugin version bump, installer or beta release, as this is infrastructure only.
 
 ## Objective and user value
 
