@@ -87,12 +87,13 @@ export function archivePath(file) {
 
 // The done/ folder is the completion record and the project board owns status and execution, so archiving removes any
 // status or execution line from the front matter instead of writing one. Files without front matter are only moved.
+// The file also moves one folder deeper, so relative links that climb out of the prompts folder (](../x)) gain one more ../ and keep working.
 export function markDone(text) {
   const eol = text.includes('\r\n') ? '\r\n' : '\n';
-  const normal = text.replace(/\r\n/g, '\n');
-  if (!normal.startsWith('---\n')) return text;
+  const normal = text.replace(/\r\n/g, '\n').replace(/\]\((\.\.\/)/g, '](../$1');
+  if (!normal.startsWith('---\n')) return normal.replace(/\n/g, eol);
   const end = normal.indexOf('\n---\n', 4);
-  if (end < 0) return text;
+  if (end < 0) return normal.replace(/\n/g, eol);
   const head = normal.slice(4, end).split('\n').filter(line => !/^(status|execution):/.test(line));
   return (`---\n${head.join('\n')}` + normal.slice(end)).replace(/\n/g, eol);
 }

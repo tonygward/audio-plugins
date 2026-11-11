@@ -11,7 +11,7 @@ conflicts: []
 **Tracking issue:** [ACOMP-11 #199](https://github.com/tonygward/audio-plugins/issues/199)
 **Repository:** `tonygward/audio-plugins`
 **Status:** Backlog only, not picked up or implemented. This prompt does not queue Matrix.
-**Policy:** [Songsmith execution and delivery policy](../../docs/songsmith-execution-policy.md).
+**Policy:** [Songsmith execution and delivery policy](../../../docs/songsmith-execution-policy.md).
 
 ## Objective and user value
 

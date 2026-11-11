@@ -30,7 +30,6 @@ Order below is an index, not the execution queue. The board decides order.
 | ARCH-01 | [Future monorepo migration — plugins, Matrix and two websites](future/ARCH-01-songsmith-monorepo-migration.md) | [#194](https://github.com/tonygward/audio-plugins/issues/194) |
 | REC-01 | [Standalone file Recording and Streaming Advisor](future/REC-01-file-recording-advisor.md) | [#173](https://github.com/tonygward/audio-plugins/issues/173) |
 | ADV-02 | [Reference-mix guided review](future/ADV-02-reference-mix-guided-review.md) | [#172](https://github.com/tonygward/audio-plugins/issues/172) |
-| ADV-01 | [Musician-friendly guidance across Songsmith plugins](done/ADV-01-musician-guidance.md) | [#171](https://github.com/tonygward/audio-plugins/issues/171) |
 | PEQ-01 | [Pultec-style EQ](classics/PEQ-01-pultec-eq.md) | [#170](https://github.com/tonygward/audio-plugins/issues/170) |
 | OPT-01 | [Optical Leveller](classics/OPT-01-optical-leveller.md) | [#169](https://github.com/tonygward/audio-plugins/issues/169) |
 | CLN-01 | [Clean Compressor](classics/CLN-01-clean-compressor.md) | [#168](https://github.com/tonygward/audio-plugins/issues/168) |
@@ -40,12 +39,7 @@ Order below is an index, not the execution queue. The board decides order.
 | AUTO-03 | [Matrix remote heartbeat and backlog observability](AUTO-03-matrix-remote-heartbeat.md) | [#164](https://github.com/tonygward/audio-plugins/issues/164) |
 | AUTO-02 | [Codex fallback when Claude allowance is exhausted](AUTO-02-codex-fallback.md) | [#163](https://github.com/tonygward/audio-plugins/issues/163) |
 | AUTO-01 | [Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) | [#162](https://github.com/tonygward/audio-plugins/issues/162) |
-| MAX-07 | [Loudness meter (LUFS)](../../maximiser/prompts/done/07-loudness-meter.md) | [#161](https://github.com/tonygward/audio-plugins/issues/161) |
-| ACOMP-07 | [Low Cut for the compressor detector](../../analog-compressor/prompts/07-detector-low-cut.md) | [#160](https://github.com/tonygward/audio-plugins/issues/160) |
-| ACOMP-11 | [Add 2:1 ratio to Analog Compressor](../../analog-compressor/prompts/11-two-to-one-ratio.md) | [#199](https://github.com/tonygward/audio-plugins/issues/199) |
-| ACOMP-12 | [Ignore Below rotary Hz control](../../analog-compressor/prompts/12-ignore-below-rotary-hz.md) | [#200](https://github.com/tonygward/audio-plugins/issues/200) |
-| SUI-17 | [Replace Guidance button with plugin-title tooltip](SUI-17-title-tooltip-replaces-guidance.md) | [#201](https://github.com/tonygward/audio-plugins/issues/201) |
-| SUI-18 | [Consistent EQ-style title bars](SUI-18-consistent-plugin-title-bars.md) | [#202](https://github.com/tonygward/audio-plugins/issues/202) |
+| MAX-09 | [Integrated LUFS beside the Maximiser dial](../../maximiser/prompts/09-integrated-lufs-beside-dial.md) | [#229](https://github.com/tonygward/audio-plugins/issues/229) |
 | EQ-41 | [Move Gain Scale into EQ main toolbox](../../eq/prompts/41-gain-scale-main-toolbox.md) | [#203](https://github.com/tonygward/audio-plugins/issues/203) |
 | AUTO-10 | [Verify beta release distribution end to end](AUTO-10-verified-beta-distribution-e2e.md) | [#157](https://github.com/tonygward/audio-plugins/issues/157) |
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
@@ -60,6 +54,7 @@ ARCH-01 is a deferred parent architecture epic requiring an approved, staged mig
 These links prevent completed features being selected again. Verify each ticket's delivery separately; the archive is not board Done.
 
 ### shared
+- [ADV-01-musician-guidance](done/ADV-01-musician-guidance.md)
 - [AUTO-06-matrix-queue-and-usage-foundation](done/AUTO-06-matrix-queue-and-usage-foundation.md)
 - [AUTO-07-linux-ci-worker-code-foundation](done/AUTO-07-linux-ci-worker-code-foundation.md)
 - [AUTO-11-board-driven-pickup](done/AUTO-11-board-driven-pickup.md)
@@ -82,6 +77,8 @@ These links prevent completed features being selected again. Verify each ticket'
 - [SUI-14-neutral-tooltips-and-tonal-language](done/SUI-14-neutral-tooltips-and-tonal-language.md)
 - [SUI-15-footer-version-before-processing-load](done/SUI-15-footer-version-before-processing-load.md)
 - [SUI-16-version-label-fully-visible](done/SUI-16-version-label-fully-visible.md)
+- [SUI-17-title-tooltip-replaces-guidance](done/SUI-17-title-tooltip-replaces-guidance.md)
+- [SUI-18-consistent-plugin-title-bars](done/SUI-18-consistent-plugin-title-bars.md)
 - [VER-01-standardise-suite-version-0.5.0](done/VER-01-standardise-suite-version-0.5.0.md)
 
 ### eq
@@ -132,7 +129,10 @@ These links prevent completed features being selected again. Verify each ticket'
 - [04-all-buttons-and-editor](../../analog-compressor/prompts/done/04-all-buttons-and-editor.md)
 - [05-presets-validation-packaging](../../analog-compressor/prompts/done/05-presets-validation-packaging.md)
 - [06-oversampling-off-by-default](../../analog-compressor/prompts/done/06-oversampling-off-by-default.md)
+- [07-detector-low-cut](../../analog-compressor/prompts/done/07-detector-low-cut.md)
 - [08-1176-editor](../../analog-compressor/prompts/done/08-1176-editor.md)
+- [11-two-to-one-ratio](../../analog-compressor/prompts/done/11-two-to-one-ratio.md)
+- [12-ignore-below-rotary-hz](../../analog-compressor/prompts/done/12-ignore-below-rotary-hz.md)
 
 ### maximiser
 - [01-maximiser-shell](../../maximiser/prompts/done/01-maximiser-shell.md)
@@ -141,6 +141,8 @@ These links prevent completed features being selected again. Verify each ticket'
 - [04-editor-and-dither](../../maximiser/prompts/done/04-editor-and-dither.md)
 - [05-validation-and-packaging](../../maximiser/prompts/done/05-validation-and-packaging.md)
 - [06-true-peak-by-default](../../maximiser/prompts/done/06-true-peak-by-default.md)
+- [07-loudness-meter](../../maximiser/prompts/done/07-loudness-meter.md)
+- [08-faceplate-and-meter-polish](../../maximiser/prompts/done/08-faceplate-and-meter-polish.md)
 - [overnight-prompt](../../maximiser/prompts/done/overnight-prompt.md)
 
 ## Product direction

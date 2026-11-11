@@ -12,7 +12,7 @@ Every task has a stable **ACOMP-##** reference (for example ACOMP-05), distinct 
 | [04 All Buttons and editor](done/04-all-buttons-and-editor.md) | Done | #47 |
 | [05 presets, validation and packaging](done/05-presets-validation-packaging.md) | Done | #50 |
 | [08 1176-inspired editor](done/08-1176-editor.md) | Done · Sonnet | #88 (shipped in 1.3.0) |
-| [06 oversampling off by default](done/06-oversampling-off-by-default.md) | To do · **Sonnet · Priority 3** | |
+| [06 oversampling off by default](done/06-oversampling-off-by-default.md) | Done · Sonnet | |
 | [07 detector Low Cut](done/07-detector-low-cut.md) | Done · Sonnet | [#160](https://github.com/tonygward/audio-plugins/issues/160) (closed) |
 | 09 Guided compressor calibration | To do · **Sonnet** | |
 | 10 Switchable FET compressor models | To do · **Opus for DSP design, Sonnet for implementation** | |

@@ -82,6 +82,9 @@ test('markDone removes status and execution (the board owns them), keeps the res
   assert.equal(markDone('---\r\nid: A-1\r\nstatus: ready\r\n---\r\nbody\r\n'), '---\r\nid: A-1\r\n---\r\nbody\r\n');
   assert.equal(markDone('---\nid: A-1\n---\nbody\n'), '---\nid: A-1\n---\nbody\n');
   assert.equal(markDone('# No metadata\n'), '# No metadata\n');
+  // The file moves one folder deeper, so links that climb out of the prompts folder gain a ../ and sibling links are untouched.
+  assert.equal(markDone('---\nid: A-1\n---\nSee [policy](../../docs/p.md) and [sibling](x.md).\n'), '---\nid: A-1\n---\nSee [policy](../../../docs/p.md) and [sibling](x.md).\n');
+  assert.equal(markDone('See [policy](../../docs/p.md).\n'), 'See [policy](../../../docs/p.md).\n');
 });
 
 test('the Linux worker hosted-build validation line is accepted, and an unknown one is not', () => {
