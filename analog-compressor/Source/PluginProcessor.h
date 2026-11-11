@@ -8,6 +8,7 @@
 #include "FETColour.h"
 #include "FETPresets.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
+#include "../../shared/Source/SongsmithHeader.h"
 
 class SongsmithAnalogCompressorProcessor : public juce::AudioProcessor, private juce::Timer
 {
@@ -54,6 +55,10 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
     FET::Presets presets { apvts };
+
+    // SUI-18: Undo and Redo for what the musician changes in the window (never host automation).
+    // Message thread only; nothing here is touched by processBlock.
+    Songsmith::UI::Header::ParameterHistory history { *this };
 
     // Gain reduction for the meter: the largest GR (dB, positive) since the last call.
     float takeGainReductionDb() noexcept { return engine.takePeakGainReductionDb(); }

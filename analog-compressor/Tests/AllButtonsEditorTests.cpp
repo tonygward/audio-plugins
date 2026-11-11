@@ -306,7 +306,7 @@ struct EditorTests4 final : juce::UnitTest
             expectGreaterThan (texts.size(), 40, context + ": found the text");
             Songsmith::UI::Wording::expectPlainWords (*this, texts, context);
 
-            for (auto* t : { "Gain Reduction Off", "All", "Gain Reduction", "Output +4", "Gain Reduction 3.2 dB", "Oversampling: off", "Interface size: 100 %" })
+            for (auto* t : { "Gain Reduction Off", "All", "Gain Reduction", "Output +4", "Gain Reduction 3.2 dB", "Oversampling: off", "Undo", "Redo" })
                 expect (texts.contains (t), context + ": shows \"" + juce::String (t) + "\"");
 
             auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (editor.get());

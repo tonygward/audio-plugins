@@ -279,6 +279,7 @@ void SongsmithMaximiserAudioProcessor::restoreFromValueTree (const juce::ValueTr
     }
 
     apvts.replaceState (fresh);
+    history.clear();   // a loaded session starts with a clean Undo history
 
     // UI state (version 3 on). Older sessions: link off, default size.
     const auto ui = saved.getChildWithName (uiId);

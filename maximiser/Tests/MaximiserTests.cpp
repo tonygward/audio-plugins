@@ -11,6 +11,7 @@
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
 #include "../../shared/Tests/SongsmithUITests.h"
+#include "../../shared/Tests/SongsmithHeaderTests.h"
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
 #include "SongsmithWording.h"
@@ -386,6 +387,28 @@ public:
             SongsmithMaximiserAudioProcessor p;
             std::unique_ptr<juce::AudioProcessorEditor> ed (p.createEditor());
             Songsmith::UI::Testing::checkGlobalBypass (*this, *ed, *p.apvts.getParameter (Max::bypassId), "Maximiser");
+        }
+
+        beginTest ("Title bar reads name, preset, Undo, Redo, Bypass; Peak Mode and Dither moved to the output settings (SUI-18)");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            std::unique_ptr<juce::AudioProcessorEditor> ed (p.createEditor());
+            Songsmith::UI::Testing::checkSuiteHeader (*this, *ed, "Maximiser");
+            if (auto* me = dynamic_cast<SongsmithMaximiserAudioProcessorEditor*> (ed.get()))
+            {
+                expect (me->getPeakModeBox().getY() > 50 && me->getDitherBox().getY() > 50, "Peak Mode and Dither are below the title bar");
+                expect (me->getTitleBounds().getRight() < me->getStartingPointBox().getX(), "the title does not overlap the preset selector");
+
+                // Saved values still recall: the moved boxes stay bound to their parameters.
+                p.apvts.getParameter (Max::ditherId)->setValueNotifyingHost (1.0f);
+                expectEquals (me->getDitherBox().getSelectedItemIndex(), (int) std::round (p.apvts.getRawParameterValue (Max::ditherId)->load()));
+            }
+        }
+
+        beginTest ("Undo and Redo reverse user edits and preset loads, never host automation (SUI-18)");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            Songsmith::UI::Testing::checkParameterHistory (*this, p, Max::thresholdId, Max::releaseId, "Maximiser");
         }
     }
 };

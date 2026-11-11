@@ -17,6 +17,13 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    bool keyPressed (const juce::KeyPress&) override;
+
+    // For the tests: the title bar (SUI-18).
+    juce::Button& getUndoButton() noexcept      { return undoButton; }
+    juce::Button& getRedoButton() noexcept      { return redoButton; }
+    juce::Button& getBypassButton() noexcept    { return bypassButton; }
+    juce::Rectangle<int> getTitleBounds() const noexcept { return titleBounds; }
 
     // For the tests.
     juce::Slider& getThresholdSlider() noexcept { return thresholdSlider; }
@@ -72,6 +79,9 @@ private:
     juce::Slider ceilingSlider   { juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
     juce::Slider releaseSlider   { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
     juce::TextButton linkButton { "Link" }, autoReleaseButton { "Auto Release" }, bypassButton { "Bypass" };
+    juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
+    juce::Rectangle<int> titleBounds;   // the product name, painted
+    void refreshHistoryButtons();
     juce::ComboBox peakModeBox, ditherBox, startingPointBox;
     juce::Label thresholdLabel, ceilingLabel, releaseLabel, inLabel, grLabel, outLabel, peakLabel, ditherLabel, gainLabel;
 

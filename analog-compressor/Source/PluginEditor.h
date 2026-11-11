@@ -38,6 +38,14 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    bool keyPressed (const juce::KeyPress&) override;
+
+    // For tests: the title bar controls, in reading order (SUI-18).
+    juce::Button& getUndoButton() noexcept { return undoButton; }
+    juce::Button& getRedoButton() noexcept { return redoButton; }
+    juce::Button& getBypassButton() noexcept { return bypassButton; }
+    juce::ComboBox& getOversamplingBox() noexcept { return oversampling; }
+    juce::Rectangle<int> getTitleBounds() const noexcept { return titleBounds; }
 
     void setUiScale (float scale);
     float getUiScale() const noexcept { return uiScale; }
@@ -61,7 +69,9 @@ public:
 
 private:
     void syncSizeFromWidth();
-    void timerCallback() override { advanceMeter (1.0f / 30.0f); }
+    void timerCallback() override { advanceMeter (1.0f / 30.0f); refreshHistoryButtons(); }
+    void refreshHistoryButtons();
+    juce::Rectangle<int> titleBounds;   // the product name, painted (SUI-18)
     void refreshButtons();
     void setMeterMode (int mode);
     void rebuildPresetMenu();
@@ -96,7 +106,8 @@ private:
     FET::UI::NeedleMeter meter;
     float grDisplayDb = 0.0f;
 
-    juce::ComboBox oversampling, sizeBox;
+    juce::ComboBox oversampling;
+    juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
     FETKnob ignoreBelow;   // detector low cut as a stepped rotary, beside Gain Reduction Off, under the meter it affects
     juce::ComboBox presetBox;
     juce::TooltipWindow tooltips { this, 600 };

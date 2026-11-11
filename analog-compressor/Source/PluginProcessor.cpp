@@ -389,6 +389,7 @@ void SongsmithAnalogCompressorProcessor::restoreFromValueTree (const juce::Value
     }
 
     apvts.replaceState (fresh);
+    history.clear();   // a loaded session starts with a clean Undo history
 
     const auto ui = saved.getChildWithName (uiId);
     uiScale.store (FET::snapUiScale ((float) ui.getProperty ("uiScale", 1.0f)));
