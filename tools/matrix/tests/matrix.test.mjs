@@ -11,8 +11,16 @@ import { usageGate, TELEMETRY_SOURCE, dailyDue, londonDay, claudePlan, releaseAs
 import { tick, notify, snapshot, readConfig } from '../matrix.mjs';
 
 const prose = '# EQ-41 — Example\n\n**Recommended model:** Sonnet. **Estimated effort / usage:** Low.\n';
+// Status and execution belong to the board, so the parser ignores them. The legacy selector still understands both,
+// and these tests set them on the parsed prompt directly.
 function prompt(mode, extra = '', file = 'eq/prompts/41-example.md') {
-  return parsePrompt(file, mode === undefined ? prose + extra : `---\nexecution: ${mode}\n${extra}---\n${prose}`);
+  const lines = extra.split('\n'), meta = lines.filter(l => /^[a-z]+:/.test(l) && !/^(status|execution):/.test(l));
+  const p = { ...parsePrompt(file, meta.length ? `---\n${meta.join('\n')}\n---\n${prose}` : prose) };
+  p.body += lines.filter(l => !/^[a-z]+:/.test(l)).join('\n');
+  if (mode) p.execution = mode;
+  if (mode === 'deferred') p.deferred = true;
+  if (lines.includes('status: blocked')) p.blocked = true;
+  return p;
 }
 function temp(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'matrix-test-'));
@@ -33,25 +41,26 @@ for (const mode of ['scheduled', 'build-now', 'deferred']) test(`Explicit ${mode
   assert.equal(select([p], {}, 'notify').selected.length, mode === 'build-now' ? 1 : 0);
   assert.equal(select([p], {}, 'daily').selected.length, mode === 'deferred' ? 0 : 1);
 });
-for (const value of ['', 'now', 'null', '[build-now]', '&alias', 'BUILD-NOW']) test(`Invalid explicit execution ${value} fails closed`, () => assert.throws(() => prompt(value)));
-test('Duplicate metadata and malformed front matter rejected', () => {
-  assert.throws(() => prompt('scheduled', 'execution: build-now\n'));
-  assert.throws(() => parsePrompt('eq/prompts/41-x.md', '---\nexecution: build-now'));
-  assert.throws(() => prompt('scheduled', 'unknown: value\n'));
+test('Status and execution in a prompt are ignored, because the board owns them', () => {
+  for (const meta of ['execution: build-now', 'execution: deferred', 'execution: nonsense', 'status: blocked', 'status: deferred', 'status: done', 'status: whatever']) {
+    const p = parsePrompt('eq/prompts/41-x.md', `---\n${meta}\n---\n${prose}`);
+    assert.equal(p.execution, 'scheduled', meta); assert.equal(p.deferred, false, meta); assert.equal(p.blocked, false, meta);
+  }
+  const wording = parsePrompt('eq/prompts/41-x.md', '**Status:** Deferred, DO NOT IMPLEMENT YET, not queued.\n' + prose);
+  assert.equal(wording.deferred, false); assert.equal(wording.blocked, false);
+  assert.equal(select([wording], {}, 'daily').selected.length, 1);
 });
-test('Deferred prose overrides missing execution and build-now', () => {
-  const p = prompt(undefined, '**Status:** Deferred / planned only — DO NOT IMPLEMENT YET.');
-  assert.equal(select([p], {}, 'daily').selected.length, 0);
-  const q = parsePrompt('shared/prompts/AUTO-02-example.md', '---\nexecution: build-now\n---\n**Status:** Deferred\n' + prose);
-  assert.equal(select([q], {}, 'notify').selected.length, 0);
+test('Duplicate metadata and malformed front matter rejected', () => {
+  assert.throws(() => prompt('scheduled', 'priority: 1\npriority: 2\n'));
+  assert.throws(() => parsePrompt('eq/prompts/41-x.md', '---\nid: EQ-41'));
+  assert.throws(() => prompt('scheduled', 'unknown: value\n'));
 });
 test('Future, completed and blocked prompts excluded', () => {
   for (const file of ['shared/prompts/future/ADV-01-x.md', 'eq/prompts/done/41-x.md']) assert.equal(select([parsePrompt(file, prose)], {}, 'daily').selected.length, 0);
   assert.equal(select([prompt('build-now', 'status: blocked\n')], {}, 'daily').selected.length, 0);
 });
-test('Identity mismatch and unmerged done status rejected', () => {
+test('Identity mismatch rejected', () => {
   assert.throws(() => prompt('scheduled', 'id: EQ-42\n'));
-  assert.throws(() => prompt('scheduled', 'status: done\n'));
 });
 test('Unknown and circular dependencies block; only canonical merged archive unblocks', () => {
   const p = prompt('build-now', 'dependencies: ["EQ-40"]\n');
@@ -63,7 +72,7 @@ test('Unknown and circular dependencies block; only canonical merged archive unb
   assert.throws(() => prompt('build-now', 'dependencies: EQ-40\n'));
 });
 test('Legacy labelled dependency links are recognised', () => {
-  const p = prompt(undefined, '**Depends on:** Shipped [EQ-32](done/32-frequency-guide.md).');
+  const p = parsePrompt('eq/prompts/41-example.md', prose + '**Depends on:** Shipped [EQ-32](done/32-frequency-guide.md).');
   assert.deepEqual(p.dependencies, ['EQ-32']);
 });
 test('Duplicate active stable IDs produce visible error', () => {
@@ -194,7 +203,7 @@ test('Notification duplicate, offline/missed and busy recovery use canonical dai
   const files = load(['eq/prompts/41-x.md', '---\nexecution: build-now\n---\n' + prose]);
   notify(config.stateDirectory, revision); notify(config.stateDirectory, revision);
   assert.equal(fs.readdirSync(path.join(config.stateDirectory, 'inbox')).length, 1);
-  let result = tick(config, { trigger: 'notify', loadSnapshot: files }); assert.equal(result.candidates.length, 1);
+  let result = tick(config, { trigger: 'notify', loadSnapshot: files }); assert.equal(result.candidates.length, 0, 'a notification never runs work: the board decides');
   const saved = readState(config.stateDirectory); assert.equal(saved.tasks['EQ-41'].attempts, 0); assert.equal(saved.events.length, 1);
   locked(config.stateDirectory, () => assert.throws(() => tick(config, { trigger: 'notify', loadSnapshot: files })));
   result = tick(config, { trigger: 'daily', loadSnapshot: files }); assert.equal(result.candidates.length, 1);
@@ -216,7 +225,7 @@ test('Failed fetch retains pending event and does not mark day completed', t => 
 });
 test('Malformed active metadata blocks full batch, dry run never claims', t => {
   const config = configuration(temp(t));
-  const report = tick(config, { loadSnapshot: load(['eq/prompts/41-x.md', prose], ['eq/prompts/42-x.md', '---\nexecution: invalid\n---\n' + prose]) });
+  const report = tick(config, { loadSnapshot: load(['eq/prompts/41-x.md', prose], ['eq/prompts/42-x.md', '---\nbogus: invalid\n---\n' + prose]) });
   assert.equal(report.errors.length, 1); assert.equal(report.candidates.length, 0); assert.equal(report.liveExecution, false);
   assert.equal(readState(config.stateDirectory).tasks['EQ-41'].state, 'pending');
 });
@@ -242,9 +251,14 @@ test('Actual repository backlog parses legacy files and preserves AUTO-02 deferr
   const repo = fileURLToPath(new URL('../../../', import.meta.url));
   const result = scan(snapshot(repo, { local: true }).files);
   assert.deepEqual(result.errors, []);
-  assert.equal(result.prompts.find(p => p.id === 'AUTO-02').deferred, true);
-  assert.equal(result.prompts.find(p => p.id === 'EQ-38').execution, 'build-now');
-  assert.equal(result.prompts.find(p => p.id === 'EQ-38').defaulted, false);
+  // The board owns status and execution: no prompt may carry them, and none is held back by its own wording.
+  assert.deepEqual(result.prompts.filter(p => p.deferred || p.blocked).map(p => p.id), []);
+  for (const [file, text] of snapshot(repo, { local: true }).files) {
+    if (/^(eq|analog-compressor|maximiser|shared)\/prompts\/.+\.md$/.test(file) && !/README/.test(file) && text.startsWith('---')) {
+      const front = text.slice(0, text.indexOf('\n---', 3));
+      assert.doesNotMatch(front, /^(status|execution):/m, `${file} still has status or execution metadata`);
+    }
+  }
   assert.equal(result.prompts.find(p => p.id === 'ACOMP-07').dependencies.includes('ACOMP-06'), true);
 });
 test('Timer acknowledges notification only after reconciliation and does one daily scan per London date', t => {

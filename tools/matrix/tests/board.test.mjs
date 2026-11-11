@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchBoard, fetchPulls, pullTaskState, normaliseCard, selectFromBoard, BOARD_STALE_MS } from '../board.mjs';
+import { fetchBoard, fetchPulls, pullTaskState, normaliseCard, selectFromBoard, isDeferred, BOARD_STALE_MS } from '../board.mjs';
 import { TELEMETRY_SOURCE } from '../policy.mjs';
 
 const now = Date.parse('2026-11-10T02:00:00Z');
@@ -199,4 +199,14 @@ test('a task resumed with committed work is selected even though its pull reques
   assert.equal(blocked.selected, null); assert.match(blocked.decisions[0].reason, /open pull request already exists/);
   const resumed = selectFromBoard(cards, ps, base({ openPullTaskIds: new Set(['A-01']), tasks: { 'A-01': { state: 'pending', resumeWork: true } } }));
   assert.equal(resumed.selected?.taskId, 'A-01');
+});
+
+test('boilerplate "not queued" wording releases a Todo or Doing card; explicit deferral and Deferred still hold', () => {
+  const prose = { proseOnlyDeferred: true, deferred: true, execution: 'scheduled' };
+  assert.equal(isDeferred({ status: 'Doing', execution: null }, prose), false);
+  assert.equal(isDeferred({ status: 'Todo', execution: null }, prose), false);
+  assert.equal(isDeferred({ status: 'Backlog', execution: null }, prose), true);
+  assert.equal(isDeferred({ status: 'Doing', execution: 'Deferred' }, prose), true);
+  assert.equal(isDeferred({ status: 'Doing', execution: null }, { deferred: true, execution: 'deferred' }), true);
+  assert.equal(isDeferred({ status: 'Doing', execution: null }, { deferred: true, proseOnlyDeferred: false }), true);
 });

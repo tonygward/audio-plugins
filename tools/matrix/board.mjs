@@ -102,6 +102,8 @@ export function pullTaskState(pulls) {
 export function isDeferred(card, prompt) {
   if (card?.execution === 'Deferred') return true;
   if (['Run Now', 'Scheduled'].includes(card?.execution)) return false;
+  // Boilerplate wording such as "not queued by this prompt" is not a hold: a card the owner put in Todo or Doing is released.
+  if (prompt?.proseOnlyDeferred && prompt.execution !== 'deferred' && ['Todo', 'Doing'].includes(card?.status)) return false;
   return Boolean(prompt?.deferred || prompt?.execution === 'deferred');
 }
 
