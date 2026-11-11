@@ -56,6 +56,7 @@ public:
         {
             juce::Component parent;
             parent.setSize (600, 40);
+            parent.setVisible (true);   // components start hidden, and getComponentAt skips hidden ones
             TitleHint hint (names[0]);
             parent.addAndMakeVisible (hint);
             hint.setBounds (16, 7, 120, 26);

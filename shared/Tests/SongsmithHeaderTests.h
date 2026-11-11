@@ -6,6 +6,7 @@
 
 #include "SongsmithUITests.h"
 #include "../Source/SongsmithHeader.h"
+#include "../Source/SongsmithGuidance.h"
 
 namespace Songsmith::UI::Testing
 {
@@ -32,7 +33,9 @@ namespace Songsmith::UI::Testing
         // Everything else that sits in the title bar: exactly one thing, the preset selector, before Undo.
         int others = 0;
         for (auto* c : content.getChildren())
-            if (c->isVisible() && c != undo && c != redo && c != bypass && c->getBottom() <= 50)
+            // The invisible title hint (SUI-17) sits over the painted name; it is not a control.
+            if (c->isVisible() && c != undo && c != redo && c != bypass && c->getBottom() <= 50
+                && dynamic_cast<Songsmith::Guidance::TitleHint*> (c) == nullptr)
             {
                 ++others;
                 t.expect (c->getRight() <= undo->getX(), context + ": the preset selector comes before Undo");
