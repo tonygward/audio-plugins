@@ -10,12 +10,14 @@ namespace Max
     // so every size looks the same. The window keeps the design aspect ratio.
     namespace EditorLayout
     {
-        constexpr int designWidth = 720, contentHeight = 420;   // the controls sit in the top 420
-        constexpr int loudnessHeight = 104;                   // the loudness section, below the controls
-        constexpr int footerHeight = 28;                      // the latency and Processing Load strip below that
-        constexpr int designHeight = contentHeight + loudnessHeight + footerHeight;
+        // MAX-09: the Integrated LUFS readout sits in its own column to the right of the Release dial
+        // (never below it), so the controls keep their 720 units and the column adds loudnessWidth.
+        constexpr int controlsWidth = 720, loudnessWidth = 140;
+        constexpr int designWidth = controlsWidth + loudnessWidth, contentHeight = 420;   // the controls sit in the top 420
+        constexpr int footerHeight = 28;                      // the latency and Processing Load strip below them
+        constexpr int designHeight = contentHeight + footerHeight;
         constexpr int defaultWidth = designWidth;
-        constexpr int minWidth = 540, maxWidth = 2160;   // 75 % to 300 %
+        constexpr int minWidth = 645, maxWidth = 2580;   // 75 % to 300 %
 
         inline int constrainWidth (int width) noexcept { return juce::jlimit (minWidth, maxWidth, width); }
         inline int heightFor (int width) noexcept      { return juce::roundToInt ((double) width * designHeight / designWidth); }

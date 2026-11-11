@@ -1277,23 +1277,58 @@ public:
             expectEquals (ed->getWidth(), Max::EditorLayout::designWidth);
             expectEquals (ed->getHeight(), Max::EditorLayout::designHeight);
 
-            ed->setSize (1080, Max::EditorLayout::heightFor (1080));
+            const int scaledWidth = Max::EditorLayout::designWidth * 3 / 2;   // 150 %
+            ed->setSize (scaledWidth, Max::EditorLayout::heightFor (scaledWidth));
             expectWithinAbsoluteError (ed->getContentScale(), 1.5f, 1.0e-4f, "content scales with the window");
-            expectEquals (p.editorWidth.load(), 1080);
+            expectEquals (p.editorWidth.load(), scaledWidth);
 
             juce::MemoryBlock mb;
             p.getStateInformation (mb);
             SongsmithMaximiserAudioProcessor q;
             q.setStateInformation (mb.getData(), (int) mb.getSize());
-            expectEquals (q.editorWidth.load(), 1080, "size saved with the session");
+            expectEquals (q.editorWidth.load(), scaledWidth, "size saved with the session");
             std::unique_ptr<juce::AudioProcessorEditor> ed2 (q.createEditor());
-            expectEquals (ed2->getWidth(), 1080, "reopens at that size");
+            expectEquals (ed2->getWidth(), scaledWidth, "reopens at that size");
 
             // Every control fits inside the design area.
             bool inside = true;
             for (auto* child : ed->getContent().getChildren())
                 inside = inside && ed->getContent().getLocalBounds().contains (child->getBounds());
             expect (inside, "all controls inside the content area");
+        }
+
+        beginTest ("MAX-09: Integrated LUFS sits right of the Release dial, alone, at every size");
+        for (int width : { Max::EditorLayout::minWidth, Max::EditorLayout::defaultWidth, Max::EditorLayout::maxWidth })
+        {
+            SongsmithMaximiserAudioProcessor p;
+            p.editorWidth = width;
+            std::unique_ptr<SongsmithMaximiserAudioProcessorEditor> ed (dynamic_cast<SongsmithMaximiserAudioProcessorEditor*> (p.createEditor()));
+            const auto context = "at " + juce::String (width) + " px";
+            auto& content = ed->getContent();
+
+            const auto dial = ed->getReleaseDialBounds();
+            const auto value = ed->getIntegratedLabel().getBounds();
+            const auto unit = ed->getIntegratedUnit().getBounds();
+            const auto reset = ed->getLoudnessResetButton().getBounds();
+            expect (value.getX() >= dial.getRight(), context + ": the reading is right of the dial");
+            expect (value.getY() < dial.getBottom() && value.getBottom() > dial.getY(), context + ": level with the dial, not below it");
+            for (auto r : { value, unit, reset, ed->getIntegratedCaption().getBounds() })
+                expect (content.getLocalBounds().contains (r) && r.getX() >= Max::EditorLayout::controlsWidth,
+                        context + ": inside the loudness column");
+            expect (! value.intersects (unit) && ! value.intersects (reset), context + ": no overlap");
+            expect (ed->getBypassButton().getBottom() < ed->getIntegratedCaption().getY(), context + ": clear of the title bar");
+
+            // Only Integrated is shown, in LUFS.
+            juce::StringArray texts;
+            Songsmith::UI::Wording::collect (*ed, texts);
+            for (auto& t : texts)
+                expect (! t.containsIgnoreCase ("Short Term") && ! t.containsIgnoreCase ("Momentary"), context + ": no extra readings: " + t);
+            expectEquals (ed->getIntegratedUnit().getText(), juce::String ("LUFS"));
+
+            // The tooltip covers the meaning, the whole song, reset and a qualified reference.
+            const auto tip = ed->getIntegratedLabel().getTooltip();
+            for (auto* word : { "average perceived loudness", "whole song", "reset", "14 LUFS", "not a rule", "judge by ear" })
+                expect (tip.containsIgnoreCase (word), context + ": tooltip mentions " + juce::String (word));
         }
 
         beginTest ("Link follows the user, not host automation");
@@ -1939,8 +1974,6 @@ public:
             run (p, { t, t }, { 512 });
             ed.updateMeters (0.03);
             expectEquals (ed.getIntegratedLabel().getText(), juce::String ("-23.0"));
-            expectEquals (ed.getShortTermLabel().getText(), juce::String ("-23.0"));
-            expectEquals (ed.getMomentaryLabel().getText(), juce::String ("-23.0"));
 
             ed.getLoudnessResetButton().onClick();   // what pressing Reset runs
             expectEquals (ed.getIntegratedLabel().getText(), dash, "Reset clears the readout");
