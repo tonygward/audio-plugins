@@ -291,6 +291,7 @@ test('a bare ID list in dependencies or conflicts is accepted; anything else sti
   assert.throws(() => parsePrompt('eq/prompts/41-x.md', '---\nconflicts: [not an id]\n---\n' + prose));
   assert.throws(() => parsePrompt('eq/prompts/41-x.md', '---\nconflicts: [eq-1]\n---\n' + prose));
   assert.throws(() => parsePrompt('eq/prompts/41-x.md', '---\nconflicts: EQ-1\n---\n' + prose));
+});
 
 test('words such as "in progress" or "deferred" in a prompt README row hold nothing', () => {
   const files = new Map([
