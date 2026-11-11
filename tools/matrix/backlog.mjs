@@ -103,8 +103,8 @@ export function scan(files) {
     // Recognise explicit “after ID” ordering in the prompt's own README row.
     const readme = files.get(`${p.file.slice(0, p.file.indexOf('/prompts/'))}/prompts/README.md`) ?? '';
     for (const line of readme.split('\n').filter(line => line.includes(path.posix.basename(p.file)))) {
+      // Only an explicit dependency is read from a README row. Words such as "blocked" or "deferred" there hold nothing: the board decides.
       for (const match of line.matchAll(/\bafter\s+([A-Z][A-Z0-9]*-\d{2,})/gi)) p.dependencies.push(match[1]);
-      if (/\b(blocked|in.progress|claimed|deferred)\b/i.test(line)) p.blocked = true;
     }
     p.dependencies = [...new Set(p.dependencies)];
   }

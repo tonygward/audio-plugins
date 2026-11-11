@@ -292,3 +292,14 @@ test('a bare ID list in dependencies or conflicts is accepted; anything else sti
   assert.throws(() => parsePrompt('eq/prompts/41-x.md', '---\nconflicts: [eq-1]\n---\n' + prose));
   assert.throws(() => parsePrompt('eq/prompts/41-x.md', '---\nconflicts: EQ-1\n---\n' + prose));
 });
+
+test('words such as "in progress" or "deferred" in a prompt README row hold nothing', () => {
+  const files = new Map([
+    ['eq/prompts/41-x.md', prose],
+    ['eq/prompts/README.md', '| Prompt | Status |\n| [41](41-x.md) | In progress, deferred, claimed, blocked, after EQ-40 |\n'],
+    ['eq/prompts/done/40-y.md', '# EQ-40 — Y\n']
+  ]);
+  const { prompts } = scan(files);
+  const p = prompts.find(x => x.id === 'EQ-41');
+  assert.equal(p.blocked, false); assert.deepEqual(p.dependencies, ['EQ-40']);
+});
