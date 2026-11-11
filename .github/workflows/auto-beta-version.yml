@@ -1,13 +1,30 @@
-name: CD - Increment beta version after a successful build
-# Trigger: a successful first-attempt Build push on main (source changes only; see
-# docs/automatic-release-checkpoints.md). Gated by AUTO_BETA_VERSION_ENABLED.
+name: CD - Increment beta version after a source merge
+# Two builds per release: this runs straight after a source merge to main (no main build in between), commits the next beta version, and that
+# bump commit is the one packaging build the release is made from (build.yml, then auto-publish-release.yml).
+# It bumps only when a merged pull request for the commit had a successful pull request Build at the exact head it merged, and only when the
+# current VERSION is already released. See docs/automatic-release-checkpoints.md. Gated by AUTO_BETA_VERSION_ENABLED.
+# Keep the paths the same as the push paths in build.yml (a test checks it).
 on:
-  workflow_run:
-    workflows: ["CI - Build and test"]
-    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - 'eq/**'
+      - 'analog-compressor/**'
+      - 'maximiser/**'
+      - 'shared/**'
+      - 'installer/**'
+      - 'VERSION'
+      - '.github/workflows/**'
+      - '.gitattributes'
+      - '!**.md'
+      - '!**.png'
+      - '!**/prompts/**'
+      - '!**/docs/**'
+      - '!**/.gitignore'
 permissions:
   contents: read
   actions: read
+  pull-requests: read
 concurrency:
   group: songsmith-auto-beta-version
   cancel-in-progress: false
@@ -15,17 +32,14 @@ jobs:
   bump:
     if: >-
       vars.AUTO_BETA_VERSION_ENABLED == 'true' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.run_attempt == 1 &&
-      github.event.workflow_run.head_repository.full_name == 'tonygward/audio-plugins'
+      github.repository == 'tonygward/audio-plugins' &&
+      !startsWith(github.event.head_commit.message, '[beta-version]')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
           fetch-depth: 0
       - uses: actions/setup-node@v4
@@ -35,7 +49,8 @@ jobs:
         run: node --test test/bump-beta.test.mjs
       - name: Bump patch for a new source update only when prior version is already tagged
         env:
+          # The publishing token pushes the bump (so the bump commit starts its build). Read-only lookups use the built-in token, which this workflow grants.
           GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
-          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
-          BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
+          READ_TOKEN: ${{ github.token }}
+          BUILD_SHA: ${{ github.sha }}
         run: node scripts/release/bump-beta.mjs

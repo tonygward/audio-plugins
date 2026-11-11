@@ -56,6 +56,12 @@ export function validateRun(run,jobs,sha) {
       throw Error(`Full Build job missing, skipped or failed: ${name}`);
   }
 }
+// A push to main that is a plain source merge deliberately builds nothing (the bump commit is the packaging build; see plan.mjs). Its Build run
+// shows both installer jobs skipped, which is not a failure: publishing treats it as "nothing to release from this run".
+export function isSkippedBuild(jobs) {
+  const installers=['Songsmith Plugins installer - Windows','Songsmith Plugins installer - macOS'];
+  return installers.every(name=>{const found=jobs.filter(job=>job.name===name);return found.length===1&&found[0].conclusion==='skipped';});
+}
 export function validateInstallerFiles(files,version) {
   const expected=[`Songsmith-Plugins-${version}-win64-setup.exe`,`Songsmith-Plugins-${version}-macOS.pkg`].sort();
   if(files.length!==2||JSON.stringify(files.map(p=>p.split('/').at(-1)).sort())!==JSON.stringify(expected))
@@ -79,6 +85,11 @@ async function main() {
     jobs.push(...batch);
     if(batch.length<100)break;
     if(page===10)throw Error('Too many Build jobs');
+  }
+  if(run?.conclusion==='success'&&isSkippedBuild(jobs)) {
+    console.log('This Build deliberately built nothing (a source merge: the version bump commit is the packaging build). No release from this run.');
+    await writeFile(env.GITHUB_OUTPUT,'publish=false\n',{flag:'a'});
+    return;
   }
   validateRun(run,jobs,env.BUILD_SHA);
   const version=releaseVersion(await readFile('VERSION','utf8'));

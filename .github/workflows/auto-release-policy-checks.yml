@@ -4,17 +4,23 @@ on:
     paths:
       - '.github/workflows/auto-publish-release.yml'
       - '.github/workflows/auto-beta-version.yml'
+      - '.github/workflows/build.yml'
       - '.github/workflows/auto-release-policy-checks.yml'
       - 'scripts/release/**'
       - 'test/release-prepare.test.mjs'
       - 'test/bump-beta.test.mjs'
+      - 'test/release-plan.test.mjs'
   push:
     branches: [main]
     paths:
       - '.github/workflows/auto-publish-release.yml'
+      - '.github/workflows/auto-beta-version.yml'
+      - '.github/workflows/build.yml'
       - '.github/workflows/auto-release-policy-checks.yml'
       - 'scripts/release/**'
       - 'test/release-prepare.test.mjs'
+      - 'test/bump-beta.test.mjs'
+      - 'test/release-plan.test.mjs'
 permissions:
   contents: read
 jobs:
@@ -26,4 +32,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test test/release-prepare.test.mjs test/bump-beta.test.mjs
+      - run: node --test test/release-prepare.test.mjs test/bump-beta.test.mjs test/release-plan.test.mjs

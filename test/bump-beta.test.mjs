@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {nextBetaVersion,betaChangelog,shouldBump} from '../scripts/release/bump-beta.mjs';
+import {nextBetaVersion,betaChangelog,shouldBump,pullRequestBuilt} from '../scripts/release/bump-beta.mjs';
 test('increments only beta patch',()=>{
   assert.equal(nextBetaVersion('1.3.0\n'),'1.3.1');
   assert.equal(nextBetaVersion('1.3.9'),'1.3.10');
@@ -26,4 +26,24 @@ test('notes are plain feature text with no hashes or pull request titles',()=>{
   assert.ok(!result.includes('Unreleased')&&!result.includes(sha.slice(0,12))&&!/pull request/i.test(result));
   assert.match(betaChangelog('# T\n\n## 1.3.0\n\n- Old\n','1.3.1',sha),/## 1\.3\.1\n\nBehind-the-scenes improvements/);
   assert.match(betaChangelog('# T\n\n## Unreleased\n\n## 1.3.0\n\n- Old\n','1.3.1',sha),/Behind-the-scenes/);
+});
+
+// ---- Two builds per release: the pull request build vouches for the bump ----
+const repo='tonygward/audio-plugins',head='b'.repeat(40);
+const mergedPr={merged_at:'2026-11-12T01:00:00Z',base:{ref:'main'},head:{sha:head}};
+const goodRun={head_sha:head,event:'pull_request',status:'completed',conclusion:'success',path:'.github/workflows/build.yml@refs/pull/9/merge',repository:{full_name:repo},head_repository:{full_name:repo}};
+test('a bump needs a successful pull request Build at the exact head that merged',()=>{
+  assert.equal(pullRequestBuilt({prs:[mergedPr],runs:[goodRun]}),true);
+  assert.equal(pullRequestBuilt({prs:[mergedPr],runs:[{...goodRun,conclusion:'failure'}]}),false,'a failed build');
+  assert.equal(pullRequestBuilt({prs:[mergedPr],runs:[{...goodRun,head_sha:'c'.repeat(40)}]}),false,'a build of a different head');
+  assert.equal(pullRequestBuilt({prs:[mergedPr],runs:[{...goodRun,event:'push'}]}),false,'not a pull request build');
+  assert.equal(pullRequestBuilt({prs:[mergedPr],runs:[{...goodRun,path:'.github/workflows/other.yml@main'}]}),false,'a different workflow');
+  assert.equal(pullRequestBuilt({prs:[mergedPr],runs:[{...goodRun,head_repository:{full_name:'someone/else'}}]}),false,'a fork');
+  assert.equal(pullRequestBuilt({prs:[mergedPr],runs:[{...goodRun,status:'in_progress',conclusion:null}]}),false,'not finished');
+});
+test('no merged pull request, an unmerged one or a base other than main never vouches',()=>{
+  assert.equal(pullRequestBuilt({prs:[],runs:[goodRun]}),false);
+  assert.equal(pullRequestBuilt({prs:[{...mergedPr,merged_at:null}],runs:[goodRun]}),false);
+  assert.equal(pullRequestBuilt({prs:[{...mergedPr,base:{ref:'dev'}}],runs:[goodRun]}),false);
+  assert.equal(pullRequestBuilt({prs:null,runs:[goodRun]}),false);
 });

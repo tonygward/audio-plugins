@@ -4,10 +4,16 @@ Which workflows are CI and which are CD: see [pipelines](pipelines.md).
 
 ## How it works
 
-A successful source merge to `main` starts the existing full Windows/macOS
-`CI - Build and test` workflow (`build.yml`) when the changed paths match its build filters. Once **all**
-platform/plugin/suite jobs succeed, the new `auto-publish-release.yml`
-workflow examines the exact Build run.
+**Two builds per release.**
+
+1. **The pull request build** (`CI - Build and test`, `build.yml`) builds and tests only the plugins the pull request changed. A change to shared code, the installers or the workflows builds everything.
+2. **The packaging build** is one full build of everything (all three plugins on Windows and macOS, plus both suite installers). It runs on the version bump commit, and the release is made from it.
+
+A plain merge to `main` builds nothing. The version bump follows the merge directly (see below), and the bump commit is the packaging build. Once **all**
+platform/plugin/suite jobs of that build succeed, `auto-publish-release.yml`
+examines the exact Build run. `scripts/release/plan.mjs` makes the call on each push to `main`:
+a bump commit builds; a merge builds only when the current `VERSION` is not released yet (a failed or superseded release recovers on the next merge) or when anything is uncertain; otherwise it builds nothing.
+When `AUTO_BETA_VERSION_ENABLED` is off, every source push builds in full, as before.
 
 **A new canonical version in root `VERSION` and a nonempty, unique matching
 `## X.Y.Z` section in root `CHANGELOG.md` constitute the release checkpoint.**
@@ -70,7 +76,9 @@ approved merge/version checkpoint and GitHub Release publishing.
 
 ## Automatic beta version bump
 
-When `AUTO_BETA_VERSION_ENABLED=true`, every successful first-attempt `CI - Build and test` push on `main` whose current `VERSION` is already tagged is followed by a `[beta-version]` commit that raises the patch number and adds a changelog entry. That commit builds again, and the publish workflow then releases it. Commits that only change documentation, prompts or screenshots (the paths `build.yml` ignores) landing after a successful build no longer make that build "stale": the bump is applied on top of them and a release is still published. A later *source* commit still supersedes the build, and its own build takes over. Pause with `AUTO_BETA_VERSION_ENABLED=false`.
+When `AUTO_BETA_VERSION_ENABLED=true`, every source merge to `main` whose current `VERSION` is already released is followed straight away (`auto-beta-version.yml`, on the push itself) by a `[beta-version]` commit that raises the patch number and moves the changelog notes into the new version. It bumps only if a merged pull request for that commit had a **successful pull request Build at exactly the head that merged**, and only if `main` has not moved on to a later source commit. That commit then runs the packaging build, and the release is published from it.
+
+The trade-off: the version number is committed before the packaging build proves the combined result. If that build fails, the version is used up with no release; the next source merge (or a manual run) builds the same `VERSION` again and publishes it.
 
 ### Release notes are for musicians
 
