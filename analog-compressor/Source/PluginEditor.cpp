@@ -285,8 +285,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (proc, proc.loadMeter, JucePlugin_Name);
     content.addAndMakeVisible (*diagnostics);
 
-    guidanceButton = std::make_unique<Songsmith::Guidance::Button> (JucePlugin_Name, [this] { return currentGuidance(); });
-    content.addAndMakeVisible (*guidanceButton);
+    content.addAndMakeVisible (titleHint);   // SUI-17: the plugin name explains the plugin
 
     layoutContent();
 
@@ -378,9 +377,6 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     modes.removeFromLeft (modeGap);
     meterButtons[2].setBounds (modes);
 
-    // Beside the Gain Reduction readout it talks about, at its left. The centred readout text never reaches
-    // this far left.
-    guidanceButton->setBounds (meterArea.getX(), meterModes.getBottom() + 4, 88, 26);
     grOffButton.setBounds (grOffArea);
     // Ignore Below sits right of Gain Reduction Off: both are about what the compressor reacts to,
     // directly under the Gain Reduction meter, clear of the readout above it and the hint below it.
@@ -393,6 +389,7 @@ void SongsmithAnalogCompressorEditor::layoutContent()
                                           (int) Songsmith::UI::titleBarHeight),
             JucePlugin_Name);
         titleBounds = header.title;
+        titleHint.setBounds (header.title);   // SUI-17: exactly over the painted name
         presetBox.setBounds (header.preset);
         undoButton.setBounds (header.undo);
         redoButton.setBounds (header.redo);
@@ -521,22 +518,7 @@ void SongsmithAnalogCompressorEditor::advanceMeter (float seconds)
     // The numeric readout: instant rise, ~300 ms fall.
     grDisplayDb = gr > grDisplayDb ? gr : grDisplayDb * 0.9f + gr * 0.1f;
 
-    // Guidance only needs to know whether audio is playing and how much the compressor has been doing lately.
-    if (outDb > -60.0f)
-        lastSignalSeconds = juce::Time::getMillisecondCounterHiRes() * 0.001;
-    recentReductionDb = gr > recentReductionDb ? gr : recentReductionDb * std::exp (-seconds / 2.0f);
     content.repaint (meterArea.getX(), meterArea.getY(), meterArea.getWidth(), meterModes.getBottom() + 50 - meterArea.getY());
-}
-
-Songsmith::Guidance::Message SongsmithAnalogCompressorEditor::currentGuidance() const
-{
-    Songsmith::Guidance::CompressorInput in;
-    in.hasSignal = (juce::Time::getMillisecondCounterHiRes() * 0.001 - lastSignalSeconds) < 3.0;   // audio in the last three seconds
-    in.gainReductionDb = recentReductionDb;
-    in.ratio = gentleOn ? FET::gentleRatioValue : FET::ratioValues[juce::jlimit (0, FET::numRatios - 1, ratioIndex)];
-    in.allButtons = allButtonsOn;
-    in.bypassed = proc.apvts.getRawParameterValue (ID::bypass)->load() > 0.5f;
-    return Songsmith::Guidance::compressorMessage (in);
 }
 
 FETKnob& SongsmithAnalogCompressorEditor::getKnob (const juce::String& id)
