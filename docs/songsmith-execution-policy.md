@@ -37,4 +37,4 @@ Owner decisions: 10 November 2026; Doing amended the same day. Applies to issues
 5. Post final evidence comment, close issue as completed, then mark board Done. A failed final comment blocks closure/Done. If close succeeds but board update fails, retry only finalisation idempotently.
 6. If a comment/status API fails, persist pending reconciliation and expose controller failure; never report Done or silently restart the task.
 
-Archived done/ prompts establish merged implementation, not delivered completion. AUTO-03 heartbeat remains a separate stale-aware controller liveness signal even when Claude is idle or usage-gated; issue comments are the task audit trail.
+Archived done/ prompts establish merged implementation, not delivered completion. Issue comments are the task audit trail. (A separate remote heartbeat, AUTO-03, was considered and withdrawn on 12 November 2026 as not worth building.)
