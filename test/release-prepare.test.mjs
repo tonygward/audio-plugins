@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {releaseVersion,releaseNotes,validateRun,validateInstallerFiles,isSkippedBuild} from '../scripts/release/prepare.mjs';
+import {releaseVersion,releaseNotes,validateRun,validateInstallerFiles,isSkippedBuild,supersededByLaterVersion} from '../scripts/release/prepare.mjs';
 const sha='a'.repeat(40),version='1.4.0';
 const run={head_sha:sha,head_branch:'main',event:'push',status:'completed',conclusion:'success',run_attempt:1,repository:{full_name:'tonygward/audio-plugins'},head_repository:{full_name:'tonygward/audio-plugins'},path:'.github/workflows/build.yml@refs/heads/main'};
 const jobs=['One version number','Songsmith Plugins installer - Windows','Songsmith Plugins installer - macOS',...['EQ','Analog Compressor','Maximiser'].flatMap(n=>[`${n} - Windows (VS, x64)`,`${n} - macOS (Xcode, universal)`])].map(name=>({name,status:'completed',conclusion:'success'}));
@@ -32,4 +32,11 @@ test('a source merge that deliberately built nothing is recognised, and a real p
   assert.equal(isSkippedBuild([{name:win,conclusion:'skipped'},{name:mac,conclusion:'success'}]),false,'only one installer skipped');
   assert.equal(isSkippedBuild([{name:win,conclusion:'failure'},{name:mac,conclusion:'failure'}]),false,'a failure is never treated as intentional');
   assert.equal(isSkippedBuild([]),false,'no jobs at all');
+});
+test('a build superseded by a later bump is a quiet no-op; anything else superseding it is still a failure',()=>{
+  assert.equal(supersededByLaterVersion('0.5.15','0.5.16\n'),true);
+  assert.equal(supersededByLaterVersion('0.5.15','0.6.0'),true);
+  assert.equal(supersededByLaterVersion('0.5.15','0.5.15'),false,'same version: a later source commit without a bump');
+  assert.equal(supersededByLaterVersion('0.5.15','0.5.14'),false);
+  assert.throws(()=>supersededByLaterVersion('0.5.15','garbage'));
 });

@@ -12,7 +12,7 @@ Which workflows are CI and which are CD: see [pipelines](pipelines.md).
 A plain merge to `main` builds nothing. The version bump follows the merge directly (see below), and the bump commit is the packaging build. Once **all**
 platform/plugin/suite jobs of that build succeed, `auto-publish-release.yml`
 examines the exact Build run. `scripts/release/plan.mjs` makes the call on each push to `main`:
-a bump commit builds; a merge builds only when the current `VERSION` is not released yet (a failed or superseded release recovers on the next merge) or when anything is uncertain; otherwise it builds nothing.
+a bump commit builds; a source merge builds nothing, because its bump always follows (the planner still builds when it cannot tell whether `VERSION` is released).
 When `AUTO_BETA_VERSION_ENABLED` is off, every source push builds in full, as before.
 
 **A new canonical version in root `VERSION` and a nonempty, unique matching
@@ -76,9 +76,11 @@ approved merge/version checkpoint and GitHub Release publishing.
 
 ## Automatic beta version bump
 
-When `AUTO_BETA_VERSION_ENABLED=true`, every source merge to `main` whose current `VERSION` is already released is followed straight away (`auto-beta-version.yml`, on the push itself) by a `[beta-version]` commit that raises the patch number and moves the changelog notes into the new version. It bumps only if a merged pull request for that commit had a **successful pull request Build at exactly the head that merged**, and only if `main` has not moved on to a later source commit. That commit then runs the packaging build, and the release is published from it.
+When `AUTO_BETA_VERSION_ENABLED=true`, every source merge to `main` is followed straight away (`auto-beta-version.yml`, on the push itself) by a `[beta-version]` commit that raises the patch number and moves the changelog notes into the new version. It bumps only if a merged pull request for that commit had a **successful pull request Build at exactly the head that merged**, and only if `main` has not moved on to a later source commit. That commit then runs the packaging build, and the release is published from it.
 
-The trade-off: the version number is committed before the packaging build proves the combined result. If that build fails, the version is used up with no release; the next source merge (or a manual run) builds the same `VERSION` again and publishes it.
+**A merge while the previous version is still unreleased** (its packaging build is running, or it failed) is bumped too. The bump folds that version's changelog section into the new one, so every note ships in the release that actually contains the change, and that version is never published: its build is superseded, and publishing treats a build whose `VERSION` `main` has moved past as a quiet no-op. Version numbers can therefore skip (0.5.15 to 0.5.17), which is expected. Before 13 November 2026 such a merge was not bumped: it shipped inside the unreleased version while its notes stayed under Unreleased (this is how ACOMP-14 and ACOMP-15 went out in 0.5.15 with the wrong notes).
+
+The trade-off: the version number is committed before the packaging build proves the combined result. If that build fails, the version is used up with no release; the next source merge bumps past it and carries its notes forward.
 
 ### Release notes are for musicians
 

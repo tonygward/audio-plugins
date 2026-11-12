@@ -1,8 +1,9 @@
 name: CD - Increment beta version after a source merge
 # Two builds per release: this runs straight after a source merge to main (no main build in between), commits the next beta version, and that
 # bump commit is the one packaging build the release is made from (build.yml, then auto-publish-release.yml).
-# It bumps only when a merged pull request for the commit had a successful pull request Build at the exact head it merged, and only when the
-# current VERSION is already released. See docs/automatic-release-checkpoints.md. Gated by AUTO_BETA_VERSION_ENABLED.
+# It bumps only when a merged pull request for the commit had a successful pull request Build at the exact head it merged. If the current
+# VERSION is not released yet (still being packaged), it bumps anyway and folds that version's notes into the new one; that version is then
+# never published. See docs/automatic-release-checkpoints.md. Gated by AUTO_BETA_VERSION_ENABLED.
 # Keep the paths the same as the push paths in build.yml (a test checks it).
 on:
   push:
@@ -47,7 +48,7 @@ jobs:
           node-version: '22'
       - name: Validate beta version bump policy
         run: node --test test/bump-beta.test.mjs
-      - name: Bump patch for a new source update only when prior version is already tagged
+      - name: Bump patch for every source merge
         env:
           # The publishing token pushes the bump (so the bump commit starts its build). Read-only lookups use the built-in token, which this workflow grants.
           GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
