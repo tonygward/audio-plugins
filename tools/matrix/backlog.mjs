@@ -3,13 +3,15 @@ import { createHash } from 'node:crypto';
 
 const fields = new Set(['id', 'status', 'execution', 'priority', 'model', 'effort', 'dependencies', 'conflicts']);
 const idPattern = /^[A-Z][A-Z0-9]*-\d{2,}$/;
-const scopes = { eq: 'EQ', 'analog-compressor': 'ACOMP', maximiser: 'MAX' };
+const scopes = { eq: 'EQ', 'analog-compressor': 'ACOMP', maximiser: 'MAX', compressor: 'COMP' };
+// Every folder whose prompts/ Matrix reads. compressor/ holds the planned Songsmith Compressor (COMP) before it has source.
+export const PROMPT_FILE = /^(eq|analog-compressor|maximiser|compressor|shared)\/prompts\/.+\.md$/;
 export const digest = text => createHash('sha256').update(text).digest('hex');
 
 // Overnight/notification agent selection is for functional audio-product changes only.
 // Infrastructure (AUTO), portal operations (WEB), and any unknown shared scope are
 // always routed to a separate explicitly authorised maintenance workflow.
-const functionalTopLevel = { eq: 'EQ', 'analog-compressor': 'ACOMP', maximiser: 'MAX' };
+const functionalTopLevel = { eq: 'EQ', 'analog-compressor': 'ACOMP', maximiser: 'MAX', compressor: 'COMP' };
 const functionalShared = new Set(['SUI', 'OPT', 'PEQ', 'BUS', 'CLN', 'ADV', 'REC']);
 export function isFunctionalPrompt(prompt) {
   const parts = prompt.file.split('/');
@@ -81,7 +83,7 @@ export function parsePrompt(file, text) {
 export function scan(files) {
   const prompts = [], errors = [], warnings = [], seen = new Set();
   for (const [file, text] of files) {
-    if (!/^(eq|analog-compressor|maximiser|shared)\/prompts\/.+\.md$/.test(file)) continue;
+    if (!PROMPT_FILE.test(file)) continue;
     if (['README.md', 'overnight-prompt.md'].includes(path.posix.basename(file))) continue;
     try {
       const prompt = parsePrompt(file, text);

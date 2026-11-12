@@ -83,7 +83,7 @@ export function promptIdFromBranch(branch) {
 
 // dir/prompts/x.md -> dir/prompts/done/x.md. Refuses anything already archived or outside a prompts folder.
 export function archivePath(file) {
-  const match = /^((?:eq|analog-compressor|maximiser|shared)\/prompts)\/([^/]+\.md)$/.exec(file ?? '');
+  const match = /^((?:eq|analog-compressor|maximiser|compressor|shared)\/prompts)\/([^/]+\.md)$/.exec(file ?? '');
   return match ? `${match[1]}/done/${match[2]}` : null;
 }
 

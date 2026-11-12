@@ -56,6 +56,6 @@ Loading a preset never changes the window size.
 
 ## Resizing (SUI-10)
 
-Drag the window corner where the host allows it. The window keeps the design proportions (960 × 428) between 100 % (the minimum, so text stays at least 12 px) and 200 %. The whole editor is drawn in design units and scaled as one, so it stays sharp. The Interface size menu jumps to 100, 125, 150, 175 or 200 % and shows the nearest step after a drag.
+Drag the window corner where the host allows it. The window keeps the design proportions (960 × 428) between 100 % (the minimum, so text stays at least 12 px) and 200 %. The whole editor is drawn in design units and scaled as one, so it stays sharp. There is no Interface size menu (removed in 0.5.10); dragging the corner is the only way to resize.
 
 Out-of-range values are snapped or clamped (tested). Every control's value is a host parameter and is recalled with it.

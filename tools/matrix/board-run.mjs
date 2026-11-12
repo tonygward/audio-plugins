@@ -6,6 +6,7 @@ import path from 'node:path';
 import { atomic, lockedAsync, readState } from './state.mjs';
 import { fetchBoard, fetchPulls, selectFromBoard, pullTaskState, matrixBranchTask, isDeferred } from './board.mjs';
 import { reconcileDoing } from './doing.mjs';
+import { PROMPT_FILE } from './backlog.mjs';
 import { pickUp, recoverPickupComments } from './pickup.mjs';
 import { recoverCiComments } from './ci-comment.mjs';
 import { advanceDelivery, recordMerge } from './delivery.mjs';
@@ -133,7 +134,7 @@ export function promptLoader(git) {
     if (!/^[a-f0-9]{40,64}$/.test(revision)) throw new Error('Invalid main revision');
     const files = new Map();
     for (const file of (await git(['ls-tree', '-r', '--name-only', revision])).split(String.fromCharCode(10))) {
-      if (/^(eq|analog-compressor|maximiser|shared)\/prompts\/.+\.md$/.test(file)) files.set(file, await git(['show', `${revision}:${file}`]));
+      if (PROMPT_FILE.test(file)) files.set(file, await git(['show', `${revision}:${file}`]));
     }
     const backlog = scan(files);
     // One malformed prompt is skipped (it cannot be picked up) and reported; it must not stop every other task.

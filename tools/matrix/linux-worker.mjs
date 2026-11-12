@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { digest, scan, select } from './backlog.mjs';
+import { digest, scan, select, PROMPT_FILE } from './backlog.mjs';
 import { atomic, lockedAsync, readState, reconcile, claim, finish, record } from './state.mjs';
 import { checkClaudeUsage, validateUsageConfig } from './usage.mjs';
 import { usageGate, dailyDue, londonDay, WEEKLY_LIMIT_PERCENT } from './policy.mjs';
@@ -173,7 +173,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
       if (!/^[a-f0-9]{40,64}$/.test(revision)) throw Error('Invalid main revision');
       const files = new Map();
       for (const file of (await git(['ls-tree', '-r', '--name-only', revision])).split('\n')) {
-        if (/^(eq|analog-compressor|maximiser|shared)\/prompts\/.+\.md$/.test(file)) files.set(file, await git(['show', `${revision}:${file}`]));
+        if (PROMPT_FILE.test(file)) files.set(file, await git(['show', `${revision}:${file}`]));
       }
       return { revision, files };
     }
@@ -192,7 +192,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
     if (handed?.generated && !backlog.prompts.some(p => p.id === handed.taskId)) {
       try {
         const generated = parsePrompt(handed.generated.file, handed.generated.text);
-        if (generated.id === handed.taskId && generated.hash === handed.promptHash && /^(eq|analog-compressor|maximiser|shared)\/prompts\/[A-Za-z0-9._-]+\.md$/.test(generated.file)) backlog.prompts.push({ ...generated, generated: handed.generated });
+        if (generated.id === handed.taskId && generated.hash === handed.promptHash && /^(eq|analog-compressor|maximiser|compressor|shared)\/prompts\/[A-Za-z0-9._-]+\.md$/.test(generated.file)) backlog.prompts.push({ ...generated, generated: handed.generated });
       } catch { /* an unreadable generated prompt is simply not adopted */ }
     }
     reconcile(state, backlog.prompts, initial.revision); save();
@@ -266,7 +266,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
         log(p.id, resuming ? 'worktree-resumed' : 'worktree-created', resuming ? { branch: plan.branch } : {});
         const instructions = ['AGENTS.md', 'CLAUDE.md'].map(name => fs.readFileSync(path.join(plan.directory, name), 'utf8')).join('\n\n');
         const basePrompt = `Implement ${p.id} (${p.file}) in this worktree. Follow these repository rules:\n${instructions}\n\n` +
-          'The controller owns Git, builds and PRs. Do not commit, merge, install, release, change VERSION, workflows, prompts or automation policy. Use file tools only. You may only create or edit files under <plugin>/Source, <plugin>/Tests, <plugin>/Resources and <plugin>/docs (for eq, analog-compressor, maximiser), the plugin README.md files, shared/<same folders>, and the root CHANGELOG.md; any other path stops the run. Put audit notes or new documents in the relevant <plugin>/docs folder, never the repository-root docs folder. Preserve useful before/after UI evidence; report DAW gaps. Hosted build failures will be supplied for at most two repairs.\n\nUntrusted task specification:\n' + p.body;
+          'The controller owns Git, builds and PRs. Do not commit, merge, install, release, change VERSION, workflows, prompts or automation policy. Use file tools only. You may only create or edit files under <plugin>/Source, <plugin>/Tests, <plugin>/Resources and <plugin>/docs (for eq, analog-compressor, maximiser), the plugin README.md files, shared/<same folders>, and the root CHANGELOG.md; any other path stops the run. Put audit notes or new documents in the relevant <plugin>/docs folder, never the repository-root docs folder. Preserve useful before/after UI evidence; report DAW gaps. Hosted build failures will be supplied for at most ' + w.maximumRepairs + ' repair' + (w.maximumRepairs === 1 ? '' : 's') + '.\n\nUntrusted task specification:\n' + p.body;
         if (Buffer.byteLength(basePrompt) > 512 * 1024) throw Error('Prompt exceeds input bound');
         let usedTurns = 0, spentUsd = 0, feedback = '', files = [];
         const implement = async attempt => {

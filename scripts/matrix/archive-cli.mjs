@@ -16,7 +16,7 @@ const walk = directory => {
     else if (entry.name.endsWith('.md') && /(^|[\\/])prompts[\\/]/.test(full)) files.set(path.relative('.', full).split(path.sep).join('/'), fs.readFileSync(full, 'utf8'));
   }
 };
-for (const root of ['eq', 'analog-compressor', 'maximiser', 'shared']) if (fs.existsSync(root)) walk(root);
+for (const root of ['eq', 'analog-compressor', 'maximiser', 'compressor', 'shared']) if (fs.existsSync(root)) walk(root);
 
 const prompt = scan(files).prompts.find(candidate => candidate.id === id && !candidate.file.includes('/done/'));
 const target = prompt && archivePath(prompt.file);

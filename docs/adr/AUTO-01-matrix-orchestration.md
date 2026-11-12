@@ -49,7 +49,7 @@ unknown limits and paid extra usage, and retain the 85% threshold. Cache detecti
 depends on the CLI's notices because the experimental schema lacks a server fetch
 timestamp; version changes and real provider failure behaviour need revalidation.
 The check is optional and read-only; live execution stays disabled. No manual or API
-billing override is provided. See the [runbook and official sources](../../tools/matrix/README.md#usage-check-and-remaining-activation-blockers).
+billing override is provided. See the [runbook and official sources](../../tools/matrix/README.md#board-pickup-auto-11).
 
 Future agent execution belongs in an isolated VM/account without personal secrets,
 LAN or release credentials. Only trusted orchestration may run allowlisted commands

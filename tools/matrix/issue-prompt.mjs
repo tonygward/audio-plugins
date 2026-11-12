@@ -38,7 +38,7 @@ export function assessIssue(body) {
   return { ok: missing.length === 0, missing };
 }
 
-const FOLDERS = { EQ: 'eq/prompts', ACOMP: 'analog-compressor/prompts', MAX: 'maximiser/prompts' };
+const FOLDERS = { EQ: 'eq/prompts', ACOMP: 'analog-compressor/prompts', MAX: 'maximiser/prompts', COMP: 'compressor/prompts' };
 const slug = (title, id) => title.replace(new RegExp('^' + id + '\\s*[—–:-]\\s*', 'i'), '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'task';
 
 /** Canonical prompt path for a task ID and issue title. Plugin prompts are numbered; everything else is ID-prefixed under shared/. */
