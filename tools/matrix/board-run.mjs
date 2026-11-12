@@ -18,15 +18,14 @@ import { dailyDue, londonDay } from './policy.mjs';
 
 // Unlike state.reconcile (a worker restart marks claimed tasks interrupted), a board tick must keep an
 // active claim intact: it only adds or refreshes tasks that are still unclaimed.
-// The board's Execution field decides deferral where it is set: Run Now or Scheduled releases a prompt whose own wording reads as
-// deferred (every backlog prompt says "not queued"), and Deferred holds one back. Prompts in excluded folders or marked blocked
-// stay withdrawn whatever the board says.
+// Only the board's Execution value Deferred holds a task back; wording inside a prompt never does. Prompts in excluded folders or
+// marked blocked stay withdrawn whatever the board says.
 export function refreshTasks(state, prompts, revision, now = new Date().toISOString(), cards = []) {
   for (const p of prompts) {
     const task = state.tasks[p.id] ??= { id: p.id, state: 'pending', attempts: 0, created: now };
     const card = cards.find(c => c.taskId === p.id && c.issue);
     if (p.complete && ['pending', 'withdrawn'].includes(task.state)) task.state = 'complete';
-    else if (['pending', 'withdrawn'].includes(task.state)) task.state = isDeferred(card, p) || p.excluded || p.blocked ? 'withdrawn' : 'pending';
+    else if (['pending', 'withdrawn'].includes(task.state)) task.state = isDeferred(card) || p.excluded || p.blocked ? 'withdrawn' : 'pending';
     if (['pending', 'withdrawn', 'complete'].includes(task.state)) Object.assign(task, { file: p.file, hash: p.hash, execution: p.execution, revision, updated: now });
   }
 }

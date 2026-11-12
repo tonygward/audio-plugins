@@ -15,8 +15,8 @@ test('a Doing card with no claim is a run-now request and does not block enablin
   assert.equal(r.enableAllowed, true);
 });
 
-test('a Doing card whose prompt is deferred is left alone and does not block enabling', () => {
-  const r = reconcileDoing(snap(card(1, 'A-01'), card(2, 'B-01')), [prompt('A-01', { deferred: true }), prompt('B-01', { execution: 'deferred' })], [], {});
+test('a Doing card marked Deferred on the board is left alone and does not block enabling', () => {
+  const r = reconcileDoing(snap(card(1, 'A-01', { execution: 'Deferred' }), card(2, 'B-01', { execution: 'Deferred' })), [prompt('A-01'), prompt('B-01')], [], {});
   assert.deepEqual(kinds(r), [['A-01', 'deferred'], ['B-01', 'deferred']]);
   assert.equal(r.enableAllowed, true);
 });
@@ -84,10 +84,10 @@ test('does not modify the worker state it inspects', () => {
   assert.equal(JSON.stringify(tasks), before);
 });
 
-test('the board Execution field marks a Doing card deferred or releases it', () => {
+test('only the board Execution field marks a Doing card deferred', () => {
   const held = reconcileDoing(snap(card(1, 'A-01', { execution: 'Deferred' })), [prompt('A-01')], [], {});
   assert.deepEqual(kinds(held), [['A-01', 'deferred']]);
-  const released = reconcileDoing(snap(card(1, 'A-01', { execution: 'Run Now' })), [prompt('A-01', { deferred: true })], [], {});
+  const released = reconcileDoing(snap(card(1, 'A-01', { execution: 'Run Now' })), [prompt('A-01')], [], {});
   assert.deepEqual(kinds(released), [['A-01', 'requested']]);
 });
 

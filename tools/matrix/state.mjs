@@ -43,7 +43,7 @@ export function reconcile(state, prompts, revision, now = new Date().toISOString
     let task = state.tasks[p.id];
     if (!task) task = state.tasks[p.id] = { id: p.id, state: 'pending', attempts: 0, created: now };
     if (p.complete) task.state = 'complete';
-    else if (['pending', 'withdrawn'].includes(task.state)) task.state = p.deferred || p.excluded || p.blocked ? 'withdrawn' : 'pending';
+    else if (['pending', 'withdrawn'].includes(task.state)) task.state = p.excluded || p.blocked ? 'withdrawn' : 'pending';
     task.file = p.file; task.hash = p.hash; task.execution = p.execution; task.revision = revision; task.updated = now;
   }
 }

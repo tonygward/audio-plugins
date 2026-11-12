@@ -34,7 +34,8 @@ correctness. No runner is activated until workflow-level isolation and the prote
 environment are verified. Accounts lacking that capability use daily fetch alone.
 
 Prompt speed is not authority. Default scheduling supports legacy files. Explicit
-deferred policy beats omitted/default execution; malformed explicit metadata blocks
+deferred policy beats omitted/default execution (superseded on 10 November 2026: prompts
+carry no execution, and only the board's Execution value Deferred holds a card back); malformed explicit metadata blocks
 selection. Conservative plugin footprints limit overlap; dependencies need merged
 archives. Free-form requirements cannot be completely interpreted by regex and need
 owner review/explicit metadata before live development. This implementation selects
