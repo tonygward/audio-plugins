@@ -37,3 +37,8 @@ test('build.yml asks the planner on a push, and never builds a plain merge by de
   assert.match(text,/node scripts\/release\/plan\.mjs/);
   assert.match(text,/BUMP_ENABLED: \$\{\{ vars\.AUTO_BETA_VERSION_ENABLED \}\}/);
 });
+test('every pull request starts a Build run (docs-only ones build nothing), so Matrix and the merge gate always have a result',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const text=(await readFile(new URL('../.github/workflows/build.yml',import.meta.url),'utf8')).replace(/\r\n/g,'\n');
+  assert.match(text,/^  pull_request:\n(?!    paths:)/m,'pull_request must not have a paths filter');
+});

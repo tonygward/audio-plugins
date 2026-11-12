@@ -35,7 +35,7 @@ jobs:
       github.repository == 'tonygward/audio-plugins' &&
       !startsWith(github.event.head_commit.message, '[beta-version]')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
