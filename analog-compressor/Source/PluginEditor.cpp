@@ -181,7 +181,7 @@ IgnoreBelowControl::IgnoreBelowControl (juce::AudioProcessorValueTreeState& stat
     addAndMakeVisible (slider);
 
     readout.setTitle ("Ignore Below value");
-    readout.setFont (numbers (Type::control));
+    readout.setFont (juce::Font (numbers (Type::control)));
     readout.setColour (juce::Label::textColourId, Colours::text);
     readout.setJustificationType (juce::Justification::centredRight);
     readout.setEditable (true, true, false);   // click (or double-click) to type a whole number of Hz
