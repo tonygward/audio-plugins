@@ -102,6 +102,7 @@ float SongsmithAnalogCompressorProcessor::currentIgnoreBelowHz() noexcept
             seenLegacy = legacy;
             legacyWins = true;
             legacySyncHz.store (ignoreBelowFromLegacyIndex ((int) legacy), std::memory_order_relaxed);
+            legacySyncFromHz.store (seenIgnoreBelow, std::memory_order_relaxed);   // before any slider move in this block
             legacySyncPending.store (true, std::memory_order_release);
         }
         if (hz != seenIgnoreBelow)  // the new control moved (in the same block as the old one, the new one wins)
@@ -113,11 +114,18 @@ float SongsmithAnalogCompressorProcessor::currentIgnoreBelowHz() noexcept
     return legacyWins ? ignoreBelowFromLegacyIndex ((int) legacy) : ignoreBelowSnap (hz);
 }
 
+// Old automation moved the six-step choice, but the slider has moved since (the newest change wins): do not
+// copy the old cutoff over it, and do not save it in its place.
+bool SongsmithAnalogCompressorProcessor::legacySyncStillApplies() const noexcept
+{
+    return std::abs (ignoreBelowParam->load() - legacySyncFromHz.load (std::memory_order_relaxed)) < 0.5f;
+}
+
 // The window shows `ignoreBelowHz`. When the old six-step parameter was automated instead, copy its cutoff across
 // so the slider follows; the audio thread has already used it, so nothing waits for this.
 void SongsmithAnalogCompressorProcessor::syncIgnoreBelowFromLegacy()
 {
-    if (! legacySyncPending.exchange (false, std::memory_order_acquire))
+    if (! legacySyncPending.exchange (false, std::memory_order_acquire) || ! legacySyncStillApplies())
         return;
     auto* p = apvts.getParameter (ID::ignoreBelowHz);
     const float hz = legacySyncHz.load (std::memory_order_relaxed);
@@ -400,7 +408,7 @@ void SongsmithAnalogCompressorProcessor::getStateInformation (juce::MemoryBlock&
     state.setProperty (versionId, stateVersion, nullptr);
 
     // Old automation moved the six-step choice but the slider has not caught up yet: save what is playing.
-    if (legacySyncPending.load (std::memory_order_acquire))
+    if (legacySyncPending.load (std::memory_order_acquire) && legacySyncStillApplies())
     {
         auto child = state.getChildWithProperty ("id", ID::ignoreBelowHz);
         if (child.isValid())

@@ -726,9 +726,10 @@ struct EditorRefinementTests final : juce::UnitTest
 
             // The track position is logarithmic: 100 Hz sits left of the middle... and each whole Hz is reachable by position.
             ib.slider.setValue (0.0, juce::sendNotificationSync);
-            expectLessThan (ib.slider.getPositionOfValue (0.0), ib.slider.getPositionOfValue (20.0) + 0.5, "Off is at the very start");
+            // getPositionOfValue returns float; compare as double so expectLessThan has one ValueType.
+            expectLessThan ((double) ib.slider.getPositionOfValue (0.0), (double) ib.slider.getPositionOfValue (20.0) + 0.5, "Off is at the very start");
             expectLessThan (ib.slider.getPositionOfValue (20.0), ib.slider.getPositionOfValue (60.0));
-            expectLessThan (ib.slider.getPositionOfValue (60.0), ib.slider.getPositionOfValue (61.0) + 0.001);
+            expectLessThan ((double) ib.slider.getPositionOfValue (60.0), (double) ib.slider.getPositionOfValue (61.0) + 0.001);
             expectLessThan (ib.slider.getPositionOfValue (200.0), ib.slider.getPositionOfValue (500.0));
             const double mid = ib.slider.getPositionOfValue (100.0), a = ib.slider.getPositionOfValue (20.0), b = ib.slider.getPositionOfValue (500.0);
             expect (mid > a + 0.4 * (b - a) && mid < a + 0.6 * (b - a), "100 Hz sits about halfway along (logarithmic)");

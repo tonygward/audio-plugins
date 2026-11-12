@@ -124,6 +124,8 @@ private:
     std::atomic<bool> detectorResync { false };      // set after a session loads: take the loaded values as the baseline
     std::atomic<bool> legacySyncPending { false };
     std::atomic<float> legacySyncHz { 0.0f };
+    std::atomic<float> legacySyncFromHz { 0.0f };    // the slider's value when the old choice moved: a newer slider move cancels the sync
+    bool legacySyncStillApplies() const noexcept;
     std::atomic<float> outputMs { 0.0f };
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> fetFactor { 1.0f };
 
