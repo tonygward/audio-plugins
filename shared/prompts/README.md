@@ -40,6 +40,7 @@ Order below is an index, not the execution queue. The board decides order.
 | EQ-41 | [Label the Gain Scale control](../../eq/prompts/41-gain-scale-main-toolbox.md) (the move itself shipped with SUI-18) | [#203](https://github.com/tonygward/audio-plugins/issues/203) |
 | EQ-42 | [Accurate clipping indication and peak readout](../../eq/prompts/42-clip-meter-readout.md) | [#232](https://github.com/tonygward/audio-plugins/issues/232) |
 | ACOMP-16 | [Continuous Ignore Below up to 500 Hz](../../analog-compressor/prompts/16-ignore-below-continuous-500hz.md) | [#237](https://github.com/tonygward/audio-plugins/issues/237) |
+| ACOMP-17 | [Let the window shrink to 75 %](../../analog-compressor/prompts/17-shrink-to-75-percent.md) | [#255](https://github.com/tonygward/audio-plugins/issues/255) |
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
 

@@ -143,7 +143,7 @@ The check (`Songsmith::UI::Wording::findBanned`) fails on a banned word (`SC`, `
 | Oversampling | OS | Running at a higher sample rate inside the plugin, for cleaner distortion and filters |
 | Dither | TPDF | A very quiet noise added before the output is rounded to fewer bits |
 | Bypass | Byp | The sound passes through untouched |
-| Interface size | Size, UI size | How large the window is drawn (75 % to 300 %) |
+| Interface size | Size, UI size | How large the window is drawn: from 75 % (never smaller) up to at least 200 % |
 | Starting point | | A factory setting to start from, with a listening hint |
 | Preset | | A saved setting, yours or a factory one |
 

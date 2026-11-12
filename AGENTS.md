@@ -32,7 +32,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 - Hierarchy comes from weight and size, not capitals.
 - Controls use the **slightly bevelled** look from the compressor: raised buttons and knob caps lit from the top left, recessed wells for value fields, pushed-in look when on. Subtle, not chrome.
 - Shared neutral colours. Each plugin has one accent colour.
-- Every editor is vector-drawn, scales as a whole (interface size 75–200 % or more), and stays crisp on Retina and Windows display scaling.
+- Every editor is vector-drawn, scales as a whole (interface size from 75 %, never smaller, up to at least 200 %), and stays crisp on Retina and Windows display scaling.
 - New plugins link the shared UI library; they don't copy fonts or look-and-feel code.
 
 ### 4. Controls belong beside what they affect
