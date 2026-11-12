@@ -53,8 +53,8 @@ Duplicate active IDs or malformed active metadata block **all** selection.
 Done/future/archive folders and durable non-pending states are excluded. Wording in a prompt such as "not queued" or "deferred" holds nothing: a card the owner puts in Todo or Doing runs, and the board Execution value `Deferred` is the only hold.
 
 Labelled dependency links and `Build after 06` / `Run this after task 06` prose are
-normalised. Explicit `after ID` in a linked local README row adds a dependency; other words in a README row (such as "blocked" or "deferred") hold nothing. The shared README Delivery
-priority table supplies roadmap priority. Other free-form prose is **not a complete
+normalised. Explicit `after ID` in a linked local README row adds a dependency; other words in a README row (such as "blocked" or "deferred") hold nothing. Board order decides
+priority (the shared README no longer has a Delivery priority table). Other free-form prose is **not a complete
 dependency language**; review it and add explicit metadata before live activation.
 README-embedded tasks without canonical prompt files are not invented as jobs.
 Missing/circular/unmerged dependencies skip work. Only tracked `done/` files on
@@ -86,8 +86,8 @@ plugin source always need a person. The worker's own scope is unchanged, so it c
     The existing pull request is reused and its description rewritten, so an old Blocked section does not linger. Selection exempts a resumed task from the
     "open pull request already exists" rule.
   - A task whose pull request has merged is never resumed: delivery owns it. A task whose pull request was closed without merging is held (one comment, card back in Blocked).
-- **The board decides deferral where it is set.** `Run Now` or `Scheduled` in the card's Execution field releases a prompt whose own wording reads as deferred (every backlog
-  prompt says "not queued"); `Deferred` holds one back. Prompts in excluded folders or marked blocked stay withdrawn whatever the board says (`refreshTasks`).
+- **Only the board defers.** `Deferred` in the card's Execution field holds a task back; any other value, or none, leaves it eligible. Wording in a prompt or
+  issue (such as "deferred" or "not queued") never holds a card. Prompts in excluded folders stay withdrawn whatever the board says (`refreshTasks`).
 - **Run budget.** `worker.maximumRunMinutes` (default 120) counts from the first claim, includes CI waiting and is saved in the state, so a restart cannot reset it.
   At the limit no further agent call starts and the run stops with the reason. `maximumRepairs` is 3 (up to 3 allowed). Per-attempt limits (turns, cost,
   minutes) still apply. There is no separate token budget: the Claude CLI's turn and cost limits are the finite budget.
@@ -106,7 +106,7 @@ and `Unknown (provenance unavailable)` (with a `pickup-provenance-unknown` diagn
 ## CI-passed note on the issue (AUTO-13)
 
 When the hosted Windows and macOS Build passes for the exact head commit of a task's pull request, the worker posts one progress note on the original tracking issue
-(`ci-comment.mjs`): the task, the pull request, the Build run link, the checked commit and what comes next. It says the work is **not delivered yet** and the card stays in Doing.
+(`ci-comment.mjs`): the task, the pull request, the CI - Build and test run link, the checked commit and what comes next. It says the work is **not delivered yet** and the card stays in Doing.
 
 - **Once per task + pull request + head commit.** A hidden marker (`matrix-ci-passed:<task>:<pr>:<commit>:success`) is checked on the issue before posting, so reruns, repeated
   polls and restarts never repeat it. If the head changes and a new commit passes, that commit gets its own note.
@@ -123,8 +123,8 @@ existing task state, has its issue read. **Enough detail** means the body has he
 (a combined "Acceptance criteria and tests" heading counts for both; each section needs real text). Then the tick generates a canonical prompt
 (`<plugin>/prompts/NN-slug.md` for EQ, ACOMP and MAX, otherwise `shared/prompts/ID-slug.md`; Sonnet, medium; no status or execution, which the board owns) from the issue, hands it to the worker in the
 hand-off (the worker checks it parses and matches the hand-off hash), and the worker **saves it in the same pull request**. **Not enough detail:** one comment lists what is
-missing (marker includes a hash of the missing list and the issue text, so it is not repeated until the issue changes) and the card moves to Blocked. Issues that say they are deferred,
-and cards marked Deferred or Separate, are left alone. A dry run assesses but writes nothing.
+missing (marker includes a hash of the missing list and the issue text, so it is not repeated until the issue changes) and the card moves to Blocked. Cards marked Deferred or Separate
+are left alone; wording in the issue never defers a card. A dry run assesses but writes nothing.
 
 ## Board pickup (AUTO-11)
 
@@ -136,7 +136,7 @@ Each run is two steps in one process, run by `linux-worker.mjs`:
 1. **Board tick** (`board-run.mjs`). Reads the *Songsmith Development* board in its manual order and the open and merged pull requests in
    each repository, then resumes unfinished work: a lost pickup comment, or a merged task still waiting for beta delivery. It checks the Doing
    cards against pull requests and worker state, applies the 60% weekly usage stop, and picks **one** task. **Todo** is the overnight queue, in board order: one task per London day, on the first run after `dailyTime`.
-   **Doing** is a run-now request: a Doing card with no claim is picked up ahead of Todo. A card marked Separate on the board is never picked up. A deferred card is left alone and blocks nothing: set the board **Execution** field to Deferred (Run Now or Scheduled releases it); with any other value the prompt's own deferred status decides.
+   **Doing** is a run-now request: a Doing card with no claim is picked up ahead of Todo. A card marked Separate on the board is never picked up. A card whose board **Execution** field is Deferred is left alone and blocks nothing; that field is the only way to defer a card, and a prompt or issue cannot.
    The choice goes to `board-handoff.json` in the state folder.
 2. **Worker** (`linux-worker.mjs`). Under its own lock it re-checks the hand-off against a fresh copy of `main`, claims through its normal path,
    moves the card to Doing, posts the starting comment (task, Matrix job, prompt revision, repository, limits), then builds. If either step fails it writes

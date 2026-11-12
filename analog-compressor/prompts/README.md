@@ -18,8 +18,12 @@ Every task has a stable **ACOMP-##** reference (for example ACOMP-05), distinct 
 | 10 Switchable FET compressor models | To do · **Opus for DSP design, Sonnet for implementation** | |
 | [11 Add 2:1 compression ratio](done/11-two-to-one-ratio.md) | Done · Sonnet | [#199](https://github.com/tonygward/audio-plugins/issues/199), PR #207 (shipped in 0.5.8) |
 | [12 Ignore Below rotary Hz control](done/12-ignore-below-rotary-hz.md) | Done · Sonnet | [#200](https://github.com/tonygward/audio-plugins/issues/200), PR #215 (shipped in 0.5.9) |
+| [13 Preset research for the Songsmith Compressor](done/13-joe-gilder-grounded-presets.md) | Done | [#233](https://github.com/tonygward/audio-plugins/issues/233), PR #245 (in 0.5.15) |
+| [14 Ratio descriptions in per-button tooltips](done/14-ratio-button-tooltips.md) | Done | [#234](https://github.com/tonygward/audio-plugins/issues/234), PR #247 (in 0.5.15) |
+| [15 Oversampling at the far left](done/15-oversampling-far-left.md) | Done | [#236](https://github.com/tonygward/audio-plugins/issues/236), PR #248 (in 0.5.15) |
+| [16 Continuous Ignore Below up to 500 Hz](16-ignore-below-continuous-500hz.md) | To do | [#237](https://github.com/tonygward/audio-plugins/issues/237) |
 
-**Execution order update (5 November 2026):** Run **ACOMP-08 → ACOMP-06 → ACOMP-07**, retaining the permanent IDs and original filenames. ACOMP-08 must not depend on Low Cut existing: reserve layout space, then wire the actual Low Cut control when ACOMP-07 is implemented. Coordinate footer changes with SUI-12 and UI scaling with SUI-10. The suite [priority matrix](../../shared/prompts/README.md#delivery-priority) is canonical.
+The board decides the order of the remaining prompts; see the [execution policy](../../docs/songsmith-execution-policy.md). (ACOMP-08, 06 and 07 ran in that order on 5 November 2026, keeping their original IDs and filenames.)
 
 Still to do by hand before a release: the Studio One and Logic checks in [`analog-compressor/docs/daw-checks.md`](../docs/daw-checks.md), and the listening checklists in `analog-compressor/docs`.
 

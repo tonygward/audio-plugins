@@ -3,7 +3,7 @@
   "stateDirectory": "C:/Matrix/state",
   "enabled": true,
   "dailyTime": "02:00",
-  "batchLimit": 6,
+  "batchLimit": 1,
   "liveExecution": false,
   "autoMerge": false,
   "releasePublication": false,

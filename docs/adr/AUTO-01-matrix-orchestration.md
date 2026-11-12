@@ -34,7 +34,8 @@ correctness. No runner is activated until workflow-level isolation and the prote
 environment are verified. Accounts lacking that capability use daily fetch alone.
 
 Prompt speed is not authority. Default scheduling supports legacy files. Explicit
-deferred policy beats omitted/default execution; malformed explicit metadata blocks
+deferred policy beats omitted/default execution (superseded on 10 November 2026: prompts
+carry no execution, and only the board's Execution value Deferred holds a card back); malformed explicit metadata blocks
 selection. Conservative plugin footprints limit overlap; dependencies need merged
 archives. Free-form requirements cannot be completely interpreted by regex and need
 owner review/explicit metadata before live development. This implementation selects
@@ -48,7 +49,7 @@ unknown limits and paid extra usage, and retain the 85% threshold. Cache detecti
 depends on the CLI's notices because the experimental schema lacks a server fetch
 timestamp; version changes and real provider failure behaviour need revalidation.
 The check is optional and read-only; live execution stays disabled. No manual or API
-billing override is provided. See the [runbook and official sources](../../tools/matrix/README.md#usage-check-and-remaining-activation-blockers).
+billing override is provided. See the [runbook and official sources](../../tools/matrix/README.md#board-pickup-auto-11).
 
 Future agent execution belongs in an isolated VM/account without personal secrets,
 LAN or release credentials. Only trusted orchestration may run allowlisted commands

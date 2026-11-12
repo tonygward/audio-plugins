@@ -6,6 +6,7 @@ import path from 'node:path';
 import { atomic, lockedAsync, readState } from './state.mjs';
 import { fetchBoard, fetchPulls, selectFromBoard, pullTaskState, matrixBranchTask, isDeferred } from './board.mjs';
 import { reconcileDoing } from './doing.mjs';
+import { PROMPT_FILE } from './backlog.mjs';
 import { pickUp, recoverPickupComments } from './pickup.mjs';
 import { recoverCiComments } from './ci-comment.mjs';
 import { advanceDelivery, recordMerge } from './delivery.mjs';
@@ -18,15 +19,14 @@ import { dailyDue, londonDay } from './policy.mjs';
 
 // Unlike state.reconcile (a worker restart marks claimed tasks interrupted), a board tick must keep an
 // active claim intact: it only adds or refreshes tasks that are still unclaimed.
-// The board's Execution field decides deferral where it is set: Run Now or Scheduled releases a prompt whose own wording reads as
-// deferred (every backlog prompt says "not queued"), and Deferred holds one back. Prompts in excluded folders or marked blocked
-// stay withdrawn whatever the board says.
+// Only the board's Execution value Deferred holds a task back; wording inside a prompt never does. Prompts in excluded folders or
+// marked blocked stay withdrawn whatever the board says.
 export function refreshTasks(state, prompts, revision, now = new Date().toISOString(), cards = []) {
   for (const p of prompts) {
     const task = state.tasks[p.id] ??= { id: p.id, state: 'pending', attempts: 0, created: now };
     const card = cards.find(c => c.taskId === p.id && c.issue);
     if (p.complete && ['pending', 'withdrawn'].includes(task.state)) task.state = 'complete';
-    else if (['pending', 'withdrawn'].includes(task.state)) task.state = isDeferred(card, p) || p.excluded || p.blocked ? 'withdrawn' : 'pending';
+    else if (['pending', 'withdrawn'].includes(task.state)) task.state = isDeferred(card) || p.excluded || p.blocked ? 'withdrawn' : 'pending';
     if (['pending', 'withdrawn', 'complete'].includes(task.state)) Object.assign(task, { file: p.file, hash: p.hash, execution: p.execution, revision, updated: now });
   }
 }
@@ -134,7 +134,7 @@ export function promptLoader(git) {
     if (!/^[a-f0-9]{40,64}$/.test(revision)) throw new Error('Invalid main revision');
     const files = new Map();
     for (const file of (await git(['ls-tree', '-r', '--name-only', revision])).split(String.fromCharCode(10))) {
-      if (/^(eq|analog-compressor|maximiser|shared)\/prompts\/.+\.md$/.test(file)) files.set(file, await git(['show', `${revision}:${file}`]));
+      if (PROMPT_FILE.test(file)) files.set(file, await git(['show', `${revision}:${file}`]));
     }
     const backlog = scan(files);
     // One malformed prompt is skipped (it cannot be picked up) and reported; it must not stop every other task.

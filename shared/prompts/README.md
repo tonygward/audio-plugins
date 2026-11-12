@@ -3,7 +3,7 @@
 ## Current rules — 9 November 2026
 [Execution and delivery policy](../../docs/songsmith-execution-policy.md) is authoritative.
 
-- Board Todo order decides overnight pickup; Doing requests immediate work behind the active job, unless the prompt is deferred (a deferred prompt is never picked up, wherever its card sits). Never reject due to issue repository, prompt location or ID prefix. Validate the actual view order; no priority/ID fallback.
+- Board Todo order decides overnight pickup; Doing requests immediate work behind the active job. Only the board's Execution value Deferred holds a card back; a prompt or issue cannot defer it, whatever it says. Never reject due to issue repository, prompt location or ID prefix. Validate the actual view order; no priority/ID fallback.
 - One task per invocation and one active job. Stop new work at >=60% verified weekly Claude usage, including scoped meters; unknown usage blocks pickup.
 - Automatically approve/merge only after current-head required CI/tests pass. Trusted workflows automatically increment the beta third-component build/patch number; major/minor increments are deferred.
 - Comment on actual pickup, progress, failure, merge and deployment. Verify matching beta website deployment and both installer downloads, post the final completion comment, then close the issue and finally set its board card Done.
@@ -32,18 +32,20 @@ Order below is an index, not the execution queue. The board decides order.
 | ADV-02 | [Reference-mix guided review](future/ADV-02-reference-mix-guided-review.md) | [#172](https://github.com/tonygward/audio-plugins/issues/172) |
 | PEQ-01 | [Pultec-style EQ](classics/PEQ-01-pultec-eq.md) | [#170](https://github.com/tonygward/audio-plugins/issues/170) |
 | OPT-01 | [Optical Leveller](classics/OPT-01-optical-leveller.md) | [#169](https://github.com/tonygward/audio-plugins/issues/169) |
-| CLN-01 | [Clean Compressor](classics/CLN-01-clean-compressor.md) | [#168](https://github.com/tonygward/audio-plugins/issues/168) |
+| COMP-01 | [Songsmith Compressor](../../compressor/prompts/01-songsmith-compressor.md) (supersedes CLN-01, #168, withdrawn) | [#235](https://github.com/tonygward/audio-plugins/issues/235) |
 | BUS-01 | [SSL-style bus compressor](classics/BUS-01-ssl.md) | [#167](https://github.com/tonygward/audio-plugins/issues/167) |
 | AUTO-04 | [Independent test-writing agent and TDD workflow](AUTO-04-independent-tdd-test-agent.md) | [#165](https://github.com/tonygward/audio-plugins/issues/165) |
 | AUTO-02 | [Codex fallback when Claude allowance is exhausted](AUTO-02-codex-fallback.md) | [#163](https://github.com/tonygward/audio-plugins/issues/163) |
 | AUTO-01 | [Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) | [#162](https://github.com/tonygward/audio-plugins/issues/162) |
-| EQ-41 | [Move Gain Scale into EQ main toolbox](../../eq/prompts/41-gain-scale-main-toolbox.md) | [#203](https://github.com/tonygward/audio-plugins/issues/203) |
+| EQ-41 | [Label the Gain Scale control](../../eq/prompts/41-gain-scale-main-toolbox.md) (the move itself shipped with SUI-18) | [#203](https://github.com/tonygward/audio-plugins/issues/203) |
+| EQ-42 | [Accurate clipping indication and peak readout](../../eq/prompts/42-clip-meter-readout.md) | [#232](https://github.com/tonygward/audio-plugins/issues/232) |
+| ACOMP-16 | [Continuous Ignore Below up to 500 Hz](../../analog-compressor/prompts/16-ignore-below-continuous-500hz.md) | [#237](https://github.com/tonygward/audio-plugins/issues/237) |
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
 
 AUTO-01 is a parent tracking epic (AUTO-05, the Linux agent container, is built and withdrawn as an epic). AUTO-06/07 are archived code foundations. AUTO-08/09 retain runtime and development/CI evidence respectively (AUTO-10, distribution, was proven and withdrawn). Real Matrix PRs #174/#177 show execution has occurred; they do not prove every isolation/recovery/distribution acceptance criterion.
 
-ARCH-01 is a deferred parent architecture epic requiring an approved, staged migration after the current SDLC proves end-to-end. It is not an executable Matrix job. AUTO-02 provider fallback and future/classic plugin designs remain deferred until intentionally promoted. A board card cannot bypass unmet dependencies or execution permissions.
+ARCH-01 is a parent architecture epic requiring an approved, staged migration after the current SDLC proves end-to-end. It is not an executable Matrix job. Keep AUTO-02 provider fallback and the classic plugin designs held back with the board's Execution value Deferred until they are intentionally promoted; prompts in `future/` are excluded from pickup. A board card cannot bypass unmet dependencies or execution permissions.
 
 ## Merged implementation archive
 These links prevent completed features being selected again. Verify each ticket's delivery separately; the archive is not board Done.
@@ -129,6 +131,9 @@ These links prevent completed features being selected again. Verify each ticket'
 - [08-1176-editor](../../analog-compressor/prompts/done/08-1176-editor.md)
 - [11-two-to-one-ratio](../../analog-compressor/prompts/done/11-two-to-one-ratio.md)
 - [12-ignore-below-rotary-hz](../../analog-compressor/prompts/done/12-ignore-below-rotary-hz.md)
+- [13-joe-gilder-grounded-presets](../../analog-compressor/prompts/done/13-joe-gilder-grounded-presets.md)
+- [14-ratio-button-tooltips](../../analog-compressor/prompts/done/14-ratio-button-tooltips.md)
+- [15-oversampling-far-left](../../analog-compressor/prompts/done/15-oversampling-far-left.md)
 
 ### maximiser
 - [01-maximiser-shell](../../maximiser/prompts/done/01-maximiser-shell.md)
@@ -143,7 +148,7 @@ These links prevent completed features being selected again. Verify each ticket'
 - [overnight-prompt](../../maximiser/prompts/done/overnight-prompt.md)
 
 ## Product direction
-The current suite comprises EQ, Analog Compressor and Maximiser. Planned classics, guidance tools and Channel Strip remain future work until implemented and released. Keep [the EQ roadmap](../../eq/ROADMAP.md) for product direction, not current queue order or software versions.
+The current suite comprises EQ, Analog Compressor and Maximiser. The planned Songsmith Compressor (COMP-01) has its own `compressor/prompts/` folder until it has source. Planned classics, guidance tools and Channel Strip remain future work until implemented and released. Keep [the EQ roadmap](../../eq/ROADMAP.md) for product direction, not current queue order or software versions.
 
 ## Prompt identity and traceability
 Keep IDs stable when archiving. Repair relative links and issue links at the same time; record implementation PRs and verified release/deployment evidence. Preserve historical acceptance requirements but clearly label superseded policy and merged implementation status. Use Sonnet by default and explicitly scope any Opus design escalation.

@@ -10,8 +10,9 @@ test('the version bump commit is the packaging build',()=>{
   assert.equal(planPush({bumpEnabled:true,message:'[beta-version] 0.5.14: Something',versionTagged:false}).build,true);
   assert.equal(planPush({bumpEnabled:true,message:'[beta-version] 0.5.14: Something',versionTagged:true}).build,true);
 });
-test('an unreleased VERSION means this push is the packaging build for it (a failed or superseded release recovers)',()=>{
-  assert.equal(planPush({bumpEnabled:true,message:'Fix something',versionTagged:false}).build,true);
+test('a source merge while VERSION is unreleased builds nothing either: its bump supersedes that version',()=>{
+  const plan=planPush({bumpEnabled:true,message:'Fix something',versionTagged:false});
+  assert.equal(plan.build,false); assert.match(plan.reason,/supersedes/);
 });
 test('when bumps are off, every source push builds as before',()=>{
   assert.equal(planPush({bumpEnabled:false,message:'Fix something',versionTagged:true}).build,true);

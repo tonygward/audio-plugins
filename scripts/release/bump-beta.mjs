@@ -14,16 +14,28 @@ export function nextBetaVersion(current) {
 // never commit hashes or pull request titles. Authors add them under
 // "## Unreleased"; the bump moves that text into the new version's section.
 export const QUIET_RELEASE_NOTE='Behind-the-scenes improvements and fixes. There is nothing you need to do.';
-export function betaChangelog(changelog,version,sha) {
+// Takes one "## heading" section out of the changelog: { rest, notes } with the quiet note dropped, or null when it is absent.
+function takeSection(changelog,heading) {
+  const escaped=heading.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const found=new RegExp(`^## ${escaped}[ \\t]*\\r?\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))`,'m').exec(changelog);
+  if(!found)return null;
+  const notes=found[1].replace(QUIET_RELEASE_NOTE,'').trim();
+  return {rest:changelog.slice(0,found.index)+changelog.slice(found.index+found[0].length),notes:/[\p{L}\p{N}]/u.test(notes)?notes:''};
+}
+// unreleasedVersion: the current VERSION when it was never published (a later merge landed while it was still being packaged). Its section is
+// folded into the new version, so its notes reach musicians in the release that actually ships them, and no note is announced twice.
+export function betaChangelog(changelog,version,sha,unreleasedVersion=null) {
   assert(/^([a-f0-9]{40})$/.test(sha),'Invalid source revision');
   assert(/^\d+\.\d+\.\d+$/.test(version),'Invalid beta version');
   assert(!new RegExp('^## '+version.replaceAll('.','\\.')+'\\s*$','m').test(changelog),'Changelog version already exists');
-  let rest=changelog,notes=QUIET_RELEASE_NOTE;
-  const unreleased=/^## Unreleased[ \t]*\r?\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(changelog);
-  if(unreleased) {
-    rest=changelog.slice(0,unreleased.index)+changelog.slice(unreleased.index+unreleased[0].length);
-    if(/[\p{L}\p{N}]/u.test(unreleased[1]))notes=unreleased[1].trim();
+  assert(unreleasedVersion===null||/^\d+\.\d+\.\d+$/.test(unreleasedVersion),'Invalid unreleased version');
+  let rest=changelog;
+  const parts=[];
+  for(const heading of ['Unreleased',...(unreleasedVersion?[unreleasedVersion]:[])]) {
+    const section=takeSection(rest,heading);
+    if(section){rest=section.rest;if(section.notes)parts.push(section.notes);}
   }
+  const notes=parts.length?parts.join('\n\n'):QUIET_RELEASE_NOTE;
   const pos=rest.indexOf('## ');
   assert(pos!==-1,'Changelog missing version sections');
   return rest.slice(0,pos)+`## ${version}\n\n${notes}\n\n`+rest.slice(pos);
@@ -44,8 +56,10 @@ export function pullRequestBuilding({prs,runs}) {
     runs.some(run=>run?.head_sha===pr.head.sha&&run?.event==='pull_request'&&run?.status!=='completed'&&
       run?.path?.split('@')[0]==='.github/workflows/build.yml'&&run?.repository?.full_name===repository&&run?.head_repository?.full_name===repository));
 }
-export function shouldBump({message,tagFound}) {
-  return tagFound && !String(message).startsWith('[beta-version]');
+// Every source merge bumps, including one that lands while the previous version is still being packaged: that version is then never
+// published (its build is superseded) and its notes move into the new one. Only the bump commit itself never bumps again.
+export function shouldBump({message}) {
+  return !String(message).startsWith('[beta-version]');
 }
 const git=(args,options={})=>execFileSync('git',args,{encoding:'utf8',stdio:['pipe','pipe','pipe'],...options}).trim();
 async function main() {
@@ -93,17 +107,19 @@ async function main() {
   const tagResponse=await fetch(`https://api.github.com/repos/${repository}/git/ref/tags/v${current}`,{
     headers:{Authorization:`Bearer ${e.GH_TOKEN}`,Accept:'application/vnd.github+json'}});
   assert(tagResponse.status===200||tagResponse.status===404,'Unable to establish current release tag');
-  if(!shouldBump({message,tagFound:tagResponse.status===200})) {
-    console.log('Version already new, or source commit is an auto-version commit; no bump.');
+  if(!shouldBump({message})) {
+    console.log('Source commit is an auto-version commit; no bump.');
     return;
   }
+  const unreleased=tagResponse.status===404?current:null;
+  if(unreleased)console.log(`${current} was never released (this merge landed while it was being packaged); its notes move into the new version.`);
   const version=nextBetaVersion(current);
   const nextTag=await fetch(`https://api.github.com/repos/${repository}/git/ref/tags/v${version}`,{
     headers:{Authorization:`Bearer ${e.GH_TOKEN}`,Accept:'application/vnd.github+json'}});
   assert(nextTag.status===404,'Next beta tag already exists or lookup failed; refusing version reuse');
   const changelog=await readFile('CHANGELOG.md','utf8');
   await writeFile('VERSION',version+'\n');
-  await writeFile('CHANGELOG.md',betaChangelog(changelog,version,sha,message));
+  await writeFile('CHANGELOG.md',betaChangelog(changelog,version,sha,unreleased));
   git(['config','user.name','Songsmith beta release bot']);
   git(['config','user.email','release-bot@users.noreply.github.com']);
   git(['add','--','VERSION','CHANGELOG.md']);

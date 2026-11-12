@@ -6,37 +6,48 @@ dependencies: []
 conflicts: []
 ---
 
-# EQ-41 — Move Gain Scale from title bar to main EQ toolbox
+# EQ-41 — Label the Gain Scale control and explain it plainly
 
 **Issue:** [EQ-41 #203](https://github.com/tonygward/audio-plugins/issues/203)  
-**Related:** [SUI-18 #202](https://github.com/tonygward/audio-plugins/issues/202) (standardise title bars) and [SUI-17 #201](https://github.com/tonygward/audio-plugins/issues/201) (plugin title tooltip)  
+**Related:** [SUI-18](../../shared/prompts/done/SUI-18-consistent-plugin-title-bars.md) (standardise title bars, #202, shipped in 0.5.10)
+
+## Already delivered: do not redo
+
+This prompt originally moved the Scale control out of the title bar. **SUI-18 (#223, 0.5.10) already did that:** `scaleSlider` now sits in the second toolbox row, beside Auto Gain and Output (`layoutContent()` in `eq/Source/PluginEditor.cpp`), with the band count next to it when there is room. Do not move it again, add a second control or touch the parameter.
 
 ## Objective and user value
 
-Retain the useful full-curve EQ gain adjustment but place it in the **EQ main toolbox** rather than the global title bar. The title bar will be reserved for plugin name, preset, Undo, Redo, and Bypass, consistent with SUI-18.
+The control scales every band's gain, but on screen it reads only **Scale 100%**, which is easy to mistake for interface size. Name it for what it does and give it a plain-language tooltip.
 
 ## Existing behaviour
 
-`eq/Source/PluginEditor.cpp` sets up a `scaleSlider` in the first/title row, with `EQ::gainScaleId` APVTS attachment and shown range roughly -100% to 200%. It scales every EQ band's gain (0% flat, 100% as set; negative values invert gain), **not interface zoom**. It is an actual DSP control whose parameter values, states and automation must remain stable.
+- Value text: `"Scale " + percent + "%"` (`scaleSlider.textFromValueFunction`), parsed back by `valueFromTextFunction`.
+- Host parameter name is already **Gain Scale** (`EQ::gainScaleId`, `PluginProcessor.cpp`), so the screen and the host disagree.
+- Tooltip: "Scale every band's gain together: 0 % = flat, 100 % = as set, negative inverts (cuts and notches are unaffected). Double-click: 100 %".
 
-## Desired behaviour and implementation
+## Desired behaviour
 
-1. Inspect the current EQ editor layout, plugin parameter definitions, engine gain-scale handling, graph/toolbox layout, presets, undo support, and tests. Coordinate the single source edit with SUI-18; do not independently build a second scale control.
-2. Remove `scaleSlider` from title-row layout and relocate it **visibly into the main EQ toolbox near other curve controls** (not hidden inside an unrelated settings popover). Keep the title row simplified and aligned with SUI-18.
-3. Label **Gain Scale** (or **Scale EQ Gain**) and display percent, distinguishing it clearly from interface size. Plain-English tooltip: “Increase or reduce all EQ boosts and cuts together. 100% uses the values you set, 0% flattens them, and negative values turn boosts into cuts.” Retain double-click reset to 100% and editable value where appropriate.
-4. Reuse the exact existing `EQ::gainScaleId` attachment, parameter identity, range, normalisation and preset/session state; **do not replace or reset** the parameter. Existing sessions and automation must sound exactly as before.
-5. Preserve keyboard interaction, accessible labels, Undo/Redo and host automation. Ensure placements do not clash with frequency guide, selected-band controls, phase mode, oversampling, processing diagnostics or graph; respect 980px minimum editor and all supported scales/high DPI.
-6. Update editor docs, screenshot tests and any tooltip/QA references. Coordinate with SUI-17 so the plugin title tooltip remains unobstructed.
+1. The value text reads **Gain Scale 100%** (and so on), matching the host parameter name. Typing a value still works with or without the words.
+2. Tooltip, in sentence case and plain words, keeping the facts the current one states: "Turns every band's boosts and cuts up or down together. 100% uses the values you set, 0% flattens them, and negative values turn boosts into cuts. Low Cut, High Cut and Notch bands are not affected. Double-click to return to 100%."
+3. Widen the slider's `barWidth` measurement to the new longest text (`"Gain Scale -100%"`, `"Gain Scale 200%"`) so nothing is truncated. If the row no longer fits at the minimum editor width, hide the band count first (it already hides when there is no room), never shorten the words.
 
-## Acceptance tests
+## Scope
 
-- Scale absent from title bar and present as an obvious, operable control in main EQ toolbox.
-- Default 100%, neutral 0%, negative inversion and upper positive range preserve current DSP behaviour; controlled gain-curve tests at key values.
-- Factory/custom preset state, historical saved sessions, normalised host automation, existing `EQ::gainScaleId` ID/parameter mapping all preserved; no migration necessary.
-- Pointer, text, keyboard, Undo/Redo and double-click reset work.
-- No overlap/clipping at minimum/maximum supported sizes; retain before/after screenshots and host check notes.
-- Required current-head Windows/macOS CI passes; trusted merge and qualifying beta version bump, Windows EXE/macOS PKG installers, private R2 and live beta website/download verification; final issue evidence comment precedes closure and board Done.
+`eq/Source/PluginEditor.cpp` (value text, parser, tooltip, layout width), EQ tests, `eq/README` / docs that quote the old text, before-and-after screenshots. No DSP, parameter, preset or state change; no `stateVersion` bump.
 
-## Dependencies, risks and versioning
+## Acceptance criteria
 
-SUI-18 owns the **shared header layout**; EQ-41 owns relocation of the existing Scale control. If Matrix executes SUI-18 first, keep gain-scale relocation to this story rather than omitting the control. If EQ-41 is first, SUI-18 must reuse it, not duplicate it. Primary risk: accidental change to saved EQ audio and automation, or cramming the toolbox at minimum window size. Sonnet default, single active task, verified weekly Claude usage below 60%, issue comments for delivery trace, third-component beta VERSION increment under current policy.
+- On screen the control reads **Gain Scale** with its percentage at 100 %, 150 % and 200 % interface sizes and at the minimum window width, with no truncation or overlap.
+- Typing `50`, `50%` and `Gain Scale 50%` all set 50 %; double-click returns to 100 %.
+- The tooltip text matches the wording above.
+- `EQ::gainScaleId`, its range, automation and saved sessions are unchanged.
+
+## Tests
+
+- Extend the existing EQ editor tests: value text, text parsing, tooltip text, and the plain-words test (no abbreviations).
+- Layout test: the slider's bounds fit its longest text at the minimum width, and it stays in the toolbox row, not the title bar.
+- Before and after screenshots from `EQTests --screenshots`.
+
+## Build and release
+
+Plugin source change: the pull request builds EQ, and the merge takes the normal automatic beta version bump. Add a musician-facing line under `## Unreleased` in `CHANGELOG.md` (the control is now labelled Gain Scale; nothing else changes and there is nothing to do). Not yet verified in a DAW until checked.

@@ -1,9 +1,8 @@
 # EQ-42 — Accurate clipping indication and peak readout placement
 
 **Issue ID:** EQ-42  
-**Product:** Songsmith Clean EQ  
+**Product:** Songsmith EQ  
 **Workstream:** Functional UX / metering correctness  
-**Execution:** Backlog only; not queued or started. Board ordering controls pickup.  
 **Default agent:** Claude Sonnet; Opus only if metering architecture needs complex debugging.  
 **Related:** EQ-39 (#117 implementation), `eq/docs/output-meter.md`; EQ-41 (#203) unrelated layout change.
 

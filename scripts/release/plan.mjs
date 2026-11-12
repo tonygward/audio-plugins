@@ -16,8 +16,9 @@ export function planPush({bumpEnabled,message,versionTagged}) {
   if(!bumpEnabled)return {build:true,reason:'Automatic version bumps are off, so every source push is a full build'};
   if(String(message??'').startsWith(BUMP_PREFIX))return {build:true,reason:'This is the version bump commit: the packaging build the release is made from'};
   if(versionTagged===null||versionTagged===undefined)return {build:true,reason:'Could not establish whether VERSION is released, so building to be safe'};
-  if(versionTagged===false)return {build:true,reason:'The current VERSION is not released yet, so this push is the packaging build for it'};
-  return {build:false,reason:'A source merge: the version bump follows it, and the bump commit is the packaging build'};
+  // Every source merge is bumped, even while the current VERSION is unreleased, so a plain merge is never the packaging build.
+  return {build:false,reason:versionTagged?'A source merge: the version bump follows it, and the bump commit is the packaging build'
+    :'A source merge while the current VERSION is unreleased: the version bump follows it and supersedes that version'};
 }
 
 async function main() {

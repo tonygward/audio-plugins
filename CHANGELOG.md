@@ -1,18 +1,26 @@
 # Songsmith Plugins changelog
 
-Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries.
+Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
 ## Unreleased
+
+- In Songsmith Analog Compressor, **Ignore Below** is now a horizontal slider instead of a knob with six steps. Pick any whole frequency from 20 to 500 Hz by dragging, with the arrow keys, or by clicking the number and typing it (for example 127 Hz); double-click for Off. It still only changes what the compressor listens to, so the bass you hear is unchanged. Your saved sessions and presets keep exactly the frequency they had (Off, 60, 80, 100, 150 or 200 Hz), and you do not need to do anything. If a project has automation written for the old six steps, it still works; whichever of the old and new controls moved most recently decides the frequency. This has not yet been checked in a DAW.
+
+## 0.5.17
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
+## 0.5.16
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
+## 0.5.15
 
 - In Songsmith Analog Compressor, **Ignore Below** is now a horizontal slider instead of a knob with six steps. Pick any whole frequency from 20 to 500 Hz by dragging, with the arrow keys, or by clicking the number and typing it (for example 127 Hz); double-click for Off. It still only changes what the compressor listens to, so the bass you hear is unchanged. Your saved sessions and presets keep exactly the frequency they had (Off, 60, 80, 100, 150 or 200 Hz), and you do not need to do anything. If a project has automation written for the old six steps, it still works; whichever of the old and new controls moved most recently decides the frequency. This has not yet been checked in a DAW.
 
 - Songsmith Analog Compressor no longer shows a sentence of ratio advice along the bottom of the window. Instead, hover over any ratio button (2:1, 4:1, 8:1, 12:1, 20:1 or All) for a short plain-language description of how it tends to sound and where it is useful. The tip for a loaded starting point now appears when you hover over the preset menu. These are listening suggestions, not guarantees. The sound and your saved sessions are unchanged; you do not need to do anything.
 
 - In Songsmith Analog Compressor, the Oversampling menu has moved to the far left of the controls, under the Input knob, instead of sitting below Ignore Below. It is the same menu with the same choices, and your saved sessions and presets are unchanged. You do not need to do anything.
-
-## 0.5.15
-
-Behind-the-scenes improvements and fixes. There is nothing you need to do.
 
 ## 0.5.14
 

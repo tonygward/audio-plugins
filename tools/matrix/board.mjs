@@ -97,14 +97,10 @@ export function pullTaskState(pulls) {
   return { merged, open };
 }
 
-// Deferral. The board's Execution field is the easy switch: Deferred holds a card back, and Run Now or Scheduled releases it even if
-// the prompt's own wording says deferred. Any other value, or none, leaves it to the prompt.
-export function isDeferred(card, prompt) {
-  if (card?.execution === 'Deferred') return true;
-  if (['Run Now', 'Scheduled'].includes(card?.execution)) return false;
-  // Boilerplate wording such as "not queued by this prompt" is not a hold: a card the owner put in Todo or Doing is released.
-  if (prompt?.proseOnlyDeferred && prompt.execution !== 'deferred' && ['Todo', 'Doing'].includes(card?.status)) return false;
-  return Boolean(prompt?.deferred || prompt?.execution === 'deferred');
+// Deferral. Only the board's Execution value Deferred holds a card back. Prompts and issues carry no status or execution:
+// wording such as "deferred" or "not queued" inside them holds nothing.
+export function isDeferred(card) {
+  return card?.execution === 'Deferred';
 }
 
 export function normaliseCard(node, index) {
@@ -133,7 +129,7 @@ export function selectFromBoard(snapshot, prompts, context) {
 
   const byId = new Map(prompts.map(p => [p.id, p]));
   const complete = new Set(prompts.filter(p => p.complete).map(p => p.id));
-  // Doing is a run-now request and is offered first (a deferred prompt is skipped); Todo is the ready queue. Each in board order.
+  // Doing is a run-now request and is offered first (a card marked Deferred is skipped); Todo is the ready queue. Each in board order.
   const queue = statuses.flatMap(status => snapshot.cards.filter(card => card.status === status));
   const decisions = [], seen = new Set();
   let selected = null;
@@ -149,7 +145,7 @@ export function selectFromBoard(snapshot, prompts, context) {
       : !prompt ? 'no canonical prompt found'
       : prompt.excluded ? 'prompt is in an excluded folder (future or archive)'
       : card.execution === 'Separate' ? 'card is marked Separate on the board (scheduled separately)'
-      : isDeferred(card, prompt) ? (card.execution === 'Deferred' ? 'card is marked Deferred on the board' : 'prompt is marked deferred')
+      : isDeferred(card) ? 'card is marked Deferred on the board'
       : prompt.blocked ? 'prompt is blocked'
       : task && ['claimed', 'interrupted', 'awaiting-review', 'complete', 'dead-letter', 'withdrawn'].includes(task.state) ? `durable state: ${task.state}`
       : !executionPaths.has(repository) ? `no scoped execution path for ${repository}` : null;

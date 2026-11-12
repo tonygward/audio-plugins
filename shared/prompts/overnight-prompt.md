@@ -3,7 +3,7 @@
 Follow [the execution and delivery policy](../../docs/songsmith-execution-policy.md), [AGENTS.md](../../AGENTS.md), [CLAUDE.md](../../CLAUDE.md) and the selected canonical prompt.
 
 ## Select one task
-The Songsmith Development board's Todo column is the manually ordered overnight queue. Select the topmost eligible card in the specific view's visible order. Doing requests immediate work, serialised behind the current job, and is offered ahead of Todo. A deferred prompt is never picked up, even in Doing. Never choose by folder, task ID, issue number, priority or repository; never reject because of issue or prompt location/prefix. Resolve the actual implementation repo and its permitted execution path.
+The Songsmith Development board's Todo column is the manually ordered overnight queue. Select the topmost eligible card in the specific view's visible order. Doing requests immediate work, serialised behind the current job, and is offered ahead of Todo. A card whose board Execution field is Deferred is never picked up, even in Doing; wording in a prompt or issue never defers a card. Never choose by folder, task ID, issue number, priority or repository; never reject because of issue or prompt location/prefix. Resolve the actual implementation repo and its permitted execution path.
 
 AUTO-11 must implement and verify this board reader before claiming board-driven execution. Until then report the existing selector's actual behaviour; do not invent board support. If visible order cannot be read, fail closed with a diagnostic, not a fallback ordering.
 

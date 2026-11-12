@@ -24,7 +24,7 @@ Every editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold,
 
 ## Install every plugin at once
 
-**Songsmith Plugins** is one installer with every plugin in it: `Songsmith-Plugins-<version>-win64-setup.exe`, from the [Releases page](https://github.com/tonygward/audio-plugins/releases) (CI builds it on every merge to `main`, and on pull requests that change shared or installer files, as the `Songsmith-Plugins-Windows-setup` artifact; a pull request that changes only one plugin builds only that plugin). This is the one to use.
+**Songsmith Plugins** is one installer with every plugin in it: `Songsmith-Plugins-<version>-win64-setup.exe`, from the [Releases page](https://github.com/tonygward/audio-plugins/releases) (CI builds it in the packaging build on each version bump commit, and on pull requests that change shared or installer files, as the `Songsmith-Plugins-Windows-setup` artifact; a pull request that changes only one plugin builds only that plugin). This is the one to use.
 
 1. Run it. Windows SmartScreen will probably say it "protected your PC", because the installer isn't code-signed: click **More info**, then **Run anyway**.
 2. Every plugin is ticked. Untick any you don't want. Each plugin comes with a standalone app that runs without recording software. The page shows how much disk space each one needs.
@@ -83,42 +83,11 @@ Songsmith EQ, by Songsmith Studio, was called TW Pro EQ before v0.3. Sessions an
 
 ### Just want to use it?
 
-Pre-built **Windows** downloads are on the [Releases page](https://github.com/tonygward/audio-plugins/releases).
+Install it with the [Songsmith Plugins installer](#install-every-plugin-at-once) above, from the [Releases page](https://github.com/tonygward/audio-plugins/releases): `Songsmith-Plugins-<version>-win64-setup.exe` on Windows or `Songsmith-Plugins-<version>-macOS.pkg` on a Mac, with Songsmith EQ ticked. Each release has only those two files; there is no separate Songsmith EQ download any more.
 
-**Installer**
+Upgrading from TW Pro EQ? The installer removes the old `TW Pro EQ` plug-in, and your sessions and presets carry over.
 
-The [Songsmith Plugins installer](#install-every-plugin-at-once) above includes Songsmith EQ and is the one to use. Songsmith EQ also still has its own installer:
-
-1. Download `Songsmith-EQ-<version>-win64-setup.exe` and run it.
-2. Windows SmartScreen will probably say it "protected your PC". The installer isn't code-signed (signing needs a paid certificate), so Windows doesn't recognise the publisher. Click **More info**, then **Run anyway**.
-3. Click through Setup. It installs the VST3 plugin into the standard VST3 folder, along with a standalone app that runs without recording software. Close your DAW first: if the plugin is loaded, Setup stops and changes nothing.
-4. Rescan plugins in your DAW.
-
-Running a newer installer upgrades in place. Upgrading from TW Pro EQ? Setup removes the old `TW Pro EQ.vst3` for you, and your sessions and presets carry over. To uninstall, use **Settings → Apps → Installed apps → Songsmith EQ**. Your presets are kept.
-
-**Zip (manual install)**
-
-1. Download `Songsmith-EQ-<version>-win64.zip`.
-2. Extract it and copy the `Songsmith EQ.vst3` folder into `C:\Program Files\Common Files\VST3`. Upgrading from TW Pro EQ? Delete `TW Pro EQ.vst3` from that folder too. Your DAW sees it as the same plugin, so leaving it there lists the plugin twice.
-3. Rescan plugins in your DAW.
-
-**macOS installer (recommended)**
-
-1. Download `Songsmith-EQ-<version>-macOS.pkg` (from the Releases page, or the `Songsmith-EQ-macOS-pkg` artifact of any CI run on the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml)). It's a universal installer for Apple Silicon and Intel Macs.
-2. Quit your DAW, then open the `.pkg`. macOS will probably refuse at first and say it can't check the installer for malicious software. That's because it isn't signed or notarised by Apple (that needs a paid developer account), not because anything is wrong with it. Try to open it once, then go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. (On older macOS, right-click the `.pkg` and choose **Open**.)
-3. Click through the installer and enter your password. It installs, for every user on the Mac:
-   - the **VST3** plug-in into `/Library/Audio/Plug-Ins/VST3`,
-   - the **Audio Unit** (for Logic Pro and GarageBand) into `/Library/Audio/Plug-Ins/Components`,
-   - the **standalone app** into `/Applications`.
-
-   Click **Customize** to leave any of them out.
-4. Restart your DAW, or rescan its plug-ins.
-
-Running a newer installer upgrades in place. Upgrading from TW Pro EQ? The installer removes the old `TW Pro EQ` plug-ins (and any copies in your own `~/Library/Audio/Plug-Ins`), and your sessions and presets carry over. Plug-ins installed by the `.pkg` don't need the `xattr` step below. To uninstall, see [Uninstalling](#uninstalling) below.
-
-**macOS zip (manual install)**
-
-Download `Songsmith-EQ-<version>-macOS.zip` (VST3 + AU, universal; also the `Songsmith-EQ-macOS-zip` CI artifact) and copy the plug-ins into place as described under [Install](#install-1) below. The zip isn't signed or notarised either, so after copying the plug-ins you may need to run `xattr -dr com.apple.quarantine` on them. Or build from source.
+To install a build you made yourself, see **Install** under [Windows](#windows) or [macOS](#macos) below.
 
 ---
 
@@ -198,7 +167,7 @@ You need [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSo
 .\installer\test-installer.ps1         # builds it, then installs, upgrades and uninstalls it inside a temp folder
 ```
 
-The version comes from `project(... VERSION ...)` in `CMakeLists.txt`. The script is `installer\SongsmithEQ.iss`. The test never touches your real VST3 folder or presets. CI builds both files on every push (artifacts `Songsmith-EQ-Windows-setup` and `Songsmith-EQ-Windows-zip`), ready to attach to a release by hand.
+The version comes from `project(... VERSION ...)` in `CMakeLists.txt`. The script is `installer\SongsmithEQ.iss`. The test never touches your real VST3 folder or presets. CI builds both as internal test artifacts (`Songsmith-EQ-Windows-setup` and `Songsmith-EQ-Windows-zip`); they are never published. Releases carry only the two suite installers.
 
 ---
 
@@ -272,7 +241,7 @@ After a Release build, from the `eq` folder (needs Xcode's `pkgbuild` and `produ
 installer/macos/build-installer.sh   # -> build/installer/Songsmith-EQ-<version>-macOS.pkg
 ```
 
-The version comes from `project(... VERSION ...)` in `CMakeLists.txt`. The installer's layout and pages are in `installer/macos/` (`distribution.xml`, `resources/`, and the `preinstall`/`postinstall` scripts in `scripts/`). It isn't signed or notarised. CI builds it on every push and uploads it as the `Songsmith-EQ-macOS-pkg` artifact, next to the zip, ready to attach to a release by hand.
+The version comes from `project(... VERSION ...)` in `CMakeLists.txt`. The installer's layout and pages are in `installer/macos/` (`distribution.xml`, `resources/`, and the `preinstall`/`postinstall` scripts in `scripts/`). It isn't signed or notarised. CI builds it as an internal test artifact (`Songsmith-EQ-macOS-pkg`, next to the zip); it is never published. Releases carry only the two suite installers.
 
 `installer/macos/test-installer.sh` is CI's end-to-end test. It really installs system-wide (and removes legacy plug-ins), so it refuses to run outside CI unless you pass `--i-know-this-installs-system-wide`.
 

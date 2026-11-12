@@ -12,7 +12,7 @@ Load the plugin from an installer build: the CI artifacts `Songsmith-Analog-Comp
 | `auval -v aufx Sfc1 Tnyw` on the built component, and again on the component the `.pkg` installed | CI macOS job |
 | Mono/mono and stereo/stereo accepted; mismatched and surround layouts rejected; both process | AnalogCompressorTests "Bus layouts" |
 | Every parameter round-trips through the saved state; missing or out-of-range values fall back or clamp; v1 sessions load | AnalogCompressorTests "State", "Oversampling and latency" |
-| Interface size, meter mode and preset name are recalled | AnalogCompressorTests "Editor (vector)", "Presets" |
+| Window size, meter mode and preset name are recalled | AnalogCompressorTests "Editor (vector)", "Presets" |
 | Bypass is bit-exact (or delayed by exactly the reported latency) and cross-fades without combing | AnalogCompressorTests "Default transparency", "Oversampling and latency" |
 | Reported latency matches the signal (0/4/6 samples) | AnalogCompressorTests "Oversampling and latency" |
 | Automation gestures: one begin/end per button press and per preset parameter change | AnalogCompressorTests "Editor (vector)", "Presets" |

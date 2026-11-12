@@ -1,16 +1,17 @@
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 
-const modes = new Set(['scheduled', 'build-now', 'deferred']);
 const fields = new Set(['id', 'status', 'execution', 'priority', 'model', 'effort', 'dependencies', 'conflicts']);
 const idPattern = /^[A-Z][A-Z0-9]*-\d{2,}$/;
-const scopes = { eq: 'EQ', 'analog-compressor': 'ACOMP', maximiser: 'MAX' };
+const scopes = { eq: 'EQ', 'analog-compressor': 'ACOMP', maximiser: 'MAX', compressor: 'COMP' };
+// Every folder whose prompts/ Matrix reads. compressor/ holds the planned Songsmith Compressor (COMP) before it has source.
+export const PROMPT_FILE = /^(eq|analog-compressor|maximiser|compressor|shared)\/prompts\/.+\.md$/;
 export const digest = text => createHash('sha256').update(text).digest('hex');
 
 // Overnight/notification agent selection is for functional audio-product changes only.
 // Infrastructure (AUTO), portal operations (WEB), and any unknown shared scope are
 // always routed to a separate explicitly authorised maintenance workflow.
-const functionalTopLevel = { eq: 'EQ', 'analog-compressor': 'ACOMP', maximiser: 'MAX' };
+const functionalTopLevel = { eq: 'EQ', 'analog-compressor': 'ACOMP', maximiser: 'MAX', compressor: 'COMP' };
 const functionalShared = new Set(['SUI', 'OPT', 'PEQ', 'BUS', 'CLN', 'ADV', 'REC']);
 export function isFunctionalPrompt(prompt) {
   const parts = prompt.file.split('/');
@@ -75,14 +76,14 @@ export function parsePrompt(file, text) {
   const priority = ({ high: 1, medium: 50, low: 90 })[priorityText] ?? Number(priorityText);
   if (!Number.isFinite(priority) || priority < 0) throw new Error('Invalid priority');
   return { id, file, hash: digest(normal), execution: 'scheduled', defaulted: true,
-    status, complete, excluded, deferred: false, blocked,
+    status, complete, excluded, blocked,
     dependencies, conflicts: meta.conflicts ?? [], priority, model, effort, body };
 }
 
 export function scan(files) {
   const prompts = [], errors = [], warnings = [], seen = new Set();
   for (const [file, text] of files) {
-    if (!/^(eq|analog-compressor|maximiser|shared)\/prompts\/.+\.md$/.test(file)) continue;
+    if (!PROMPT_FILE.test(file)) continue;
     if (['README.md', 'overnight-prompt.md'].includes(path.posix.basename(file))) continue;
     try {
       const prompt = parsePrompt(file, text);
@@ -117,7 +118,7 @@ export function select(prompts, tasks, trigger, limit = 6) {
   const selected = [], decisions = [];
   for (const p of [...prompts].sort((a, b) => (a.execution !== 'build-now') - (b.execution !== 'build-now') || a.priority - b.priority || a.id.localeCompare(b.id))) {
     const task = tasks[p.id];
-    let reason = !isFunctionalPrompt(p) ? 'infrastructure excluded from overnight work' : p.complete ? 'merged archive' : p.excluded ? 'excluded folder' : p.deferred ? 'deferred policy' : p.blocked ? 'blocked status' : null;
+    let reason = !isFunctionalPrompt(p) ? 'infrastructure excluded from overnight work' : p.complete ? 'merged archive' : p.excluded ? 'excluded folder' : p.blocked ? 'blocked status' : null;
     if (!reason && task && ['claimed', 'interrupted', 'awaiting-review', 'complete', 'dead-letter'].includes(task.state)) reason = `durable state: ${task.state}`;
     if (!reason && p.dependencies.some(id => !complete.has(id))) reason = 'dependency not merged or unknown';
     if (!reason && p.dependencies.includes(p.id)) reason = 'self dependency';

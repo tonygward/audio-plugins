@@ -9,8 +9,7 @@ export const REQUIRED = [
   ['acceptance', /accept|done when|definition of done|success criteria/i, 'acceptance criteria (how we know it is finished)'],
   ['tests', /\btests?\b|testing|verification|validat/i, 'tests (what proves it works)']
 ];
-// Only an explicit hold counts; boilerplate such as "not queued or started" must not stop a card the owner moved to Todo or Doing.
-const DEFERRED = /\*\*(?:execution|status):\*\*\s*deferred\b|\bdo not implement yet\b/i;
+// Issue text never holds a card: wording such as "deferred" or "not queued" is ignored. Only the board's Execution value Deferred does.
 const MIN_CHARS = 30;
 
 /** Split an issue body into { heading, text } sections. Headings are Markdown headings or a line that starts with a bold label. */
@@ -25,10 +24,9 @@ export function sections(body) {
   return out;
 }
 
-/** { ok, deferred, missing[] } - what an issue still lacks before Matrix may build from it. */
+/** { ok, missing[] } - what an issue still lacks before Matrix may build from it. */
 export function assessIssue(body) {
   const text = String(body ?? '');
-  if (DEFERRED.test(text.slice(0, 1500))) return { ok: false, deferred: true, missing: [] };
   const parts = sections(text), substantial = part => part.text.replace(/\s+/g, '').length >= MIN_CHARS;
   const missing = [];
   for (const [key, pattern, label] of REQUIRED) {
@@ -37,10 +35,10 @@ export function assessIssue(body) {
     const testsInAcceptance = key === 'tests' && parts.some(part => /accept/i.test(part.heading) && substantial(part) && /\btests?\b|verif|validat/i.test(part.text));
     if (!found && !testsInAcceptance) missing.push(label);
   }
-  return { ok: missing.length === 0, deferred: false, missing };
+  return { ok: missing.length === 0, missing };
 }
 
-const FOLDERS = { EQ: 'eq/prompts', ACOMP: 'analog-compressor/prompts', MAX: 'maximiser/prompts' };
+const FOLDERS = { EQ: 'eq/prompts', ACOMP: 'analog-compressor/prompts', MAX: 'maximiser/prompts', COMP: 'compressor/prompts' };
 const slug = (title, id) => title.replace(new RegExp('^' + id + '\\s*[—–:-]\\s*', 'i'), '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'task';
 
 /** Canonical prompt path for a task ID and issue title. Plugin prompts are numbered; everything else is ID-prefixed under shared/. */
@@ -73,7 +71,7 @@ export function needsDetailComment(id, missing, hash) {
 
 /**
  * For Doing/Todo cards with no prompt file: assess the issue. Sufficient issues yield a generated prompt; insufficient ones are
- * commented on once (deduplicated by a marker that includes the issue text) and the card moves to Blocked. Deferred issues are left alone.
+ * commented on once (deduplicated by a marker that includes the issue text) and the card moves to Blocked. Cards marked Deferred or Separate are left alone.
  * io: { issueBody(repository, issue), hasComment, comment, moveToBlocked }
  * Returns { prompts: generated prompts, blocked: ids, notes: [] }. In a dry run nothing is written.
  */
@@ -87,7 +85,6 @@ export async function resolveFromIssues({ board, prompts, pulls = [], tasks = {}
     if (tasks[card.taskId] && !['pending', 'withdrawn'].includes(tasks[card.taskId].state)) continue;
     try {
       const body = await io.issueBody(card.repository, card.issue), verdict = assessIssue(body);
-      if (verdict.deferred) { notes.push(`${card.taskId}: issue is marked deferred`); continue; }
       let missing = verdict.missing, prompt = null;
       if (verdict.ok) {
         try { prompt = promptFromIssue(card, body, { issueUrl: `https://github.com/${card.repository}/issues/${card.issue}` }); }

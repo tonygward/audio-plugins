@@ -1,6 +1,6 @@
 # ACOMP-16 — Continuous Ignore Below cutoff, up to 500 Hz
 
-**Issue ID:** ACOMP-16. **Product:** Songsmith Analog Compressor. **Status:** backlog only; agent Sonnet (Opus only if difficult parameter migration).
+**Issue ID:** ACOMP-16. **Product:** Songsmith Analog Compressor. **Agent:** Sonnet (Opus only if difficult parameter migration).
 **Predecessors:** ACOMP-07 detector filter, ACOMP-12 rotary UI (already implemented). Do **not** reopen or reimplement completed work.
 
 ## User story

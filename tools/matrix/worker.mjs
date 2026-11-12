@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { digest, scan, select } from './backlog.mjs';
+import { digest, scan, select, PROMPT_FILE } from './backlog.mjs';
 import { atomic, lockedAsync, readState, reconcile, claim, finish, record } from './state.mjs';
 import { checkClaudeUsage } from './usage.mjs';
 import { usageGate, dailyDue, londonDay } from './policy.mjs';
@@ -114,7 +114,7 @@ export async function work(config, { trigger = 'daily', run = runProcess, loadSn
       if (!/^[a-f0-9]{40,64}$/.test(revision)) throw Error('Invalid main revision');
       const files = new Map();
       for (const file of (await git(['ls-tree', '-r', '--name-only', revision])).split('\n')) {
-        if (/^(eq|analog-compressor|maximiser|shared)\/prompts\/.+\.md$/.test(file)) files.set(file, await git(['show', `${revision}:${file}`]));
+        if (PROMPT_FILE.test(file)) files.set(file, await git(['show', `${revision}:${file}`]));
       }
       return { revision, files };
     }

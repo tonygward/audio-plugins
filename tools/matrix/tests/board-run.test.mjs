@@ -253,19 +253,19 @@ test('in a dry run the issue is assessed but nothing is commented or moved', asy
   assert.equal(h.comments.length, 0); assert.ok(!h.calls.includes('blocked:item-9'));
 });
 
-// ---- Board Execution field releases a prompt whose own wording reads as deferred (AUTO-12) ----
-test('Run Now or Scheduled on the card releases a prompt that only reads as deferred; Deferred holds one back', () => {
-  const deferredPrompt = prompt('A-01', { deferred: true }), liveCard = (execution, id = 'A-01') => ({ taskId: id, issue: 1, execution, status: 'Doing' });
-  for (const [execution, expected] of [['Run Now', 'pending'], ['Scheduled', 'pending'], [null, 'withdrawn'], ['Deferred', 'withdrawn']]) {
-    const state = { tasks: {} }; refreshTasks(state, [deferredPrompt], revision, undefined, [liveCard(execution)]);
+// ---- Only the board Execution value Deferred holds a task back; a prompt cannot ----
+test('Deferred on the card withdraws a task; any other value, or no card, leaves it pending', () => {
+  const p = prompt('A-01'), liveCard = (execution, id = 'A-01') => ({ taskId: id, issue: 1, execution, status: 'Doing' });
+  for (const [execution, expected] of [['Run Now', 'pending'], ['Scheduled', 'pending'], [null, 'pending'], ['Deferred', 'withdrawn']]) {
+    const state = { tasks: {} }; refreshTasks(state, [p], revision, undefined, [liveCard(execution)]);
     assert.equal(state.tasks['A-01'].state, expected, String(execution));
   }
-  // The same state a previous tick left behind (withdrawn) is released once the card says Run Now.
+  // A task a previous tick withdrew is released once the card is no longer Deferred.
   const stale = { tasks: { 'A-01': { id: 'A-01', state: 'withdrawn' } } };
-  refreshTasks(stale, [deferredPrompt], revision, undefined, [liveCard('Run Now')]); assert.equal(stale.tasks['A-01'].state, 'pending');
-  // A card for another task, or no cards at all, changes nothing from the old behaviour.
-  const other = { tasks: {} }; refreshTasks(other, [deferredPrompt], revision, undefined, [liveCard('Run Now', 'B-01')]); assert.equal(other.tasks['A-01'].state, 'withdrawn');
-  const none = { tasks: {} }; refreshTasks(none, [deferredPrompt], revision); assert.equal(none.tasks['A-01'].state, 'withdrawn');
+  refreshTasks(stale, [p], revision, undefined, [liveCard('Run Now')]); assert.equal(stale.tasks['A-01'].state, 'pending');
+  // A Deferred card for another task, or no cards at all, does not hold this one.
+  const other = { tasks: {} }; refreshTasks(other, [p], revision, undefined, [liveCard('Deferred', 'B-01')]); assert.equal(other.tasks['A-01'].state, 'pending');
+  const none = { tasks: {} }; refreshTasks(none, [p], revision); assert.equal(none.tasks['A-01'].state, 'pending');
 });
 
 test('the board cannot release a prompt in an excluded folder or marked blocked, and Deferred holds back a normal prompt', () => {

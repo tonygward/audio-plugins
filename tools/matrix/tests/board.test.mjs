@@ -24,13 +24,13 @@ test('ordering ignores task ID, issue number and prompt priority', () => {
   assert.equal(result.selected.taskId, 'Z-99');
 });
 
-test('Doing is a run-now request and is picked before Todo; a deferred Doing card is skipped', () => {
+test('Doing is a run-now request and is picked before Todo; a Doing card marked Deferred is skipped', () => {
   const result = selectFromBoard(snapshot(card('Todo', 1, 'A-01'), card('Doing', 2, 'B-01'), card('Backlog', 3, 'C-01')), prompts, base());
   assert.equal(result.selected.taskId, 'B-01');
   assert.deepEqual(result.decisions.map(d => d.taskId), ['B-01', 'A-01'], 'Backlog is not a candidate');
-  const deferred = selectFromBoard(snapshot(card('Todo', 1, 'A-01'), card('Doing', 2, 'B-01')), prompts.map(p => p.id === 'B-01' ? { ...p, deferred: true } : p), base());
+  const deferred = selectFromBoard(snapshot(card('Todo', 1, 'A-01'), card('Doing', 2, 'B-01', { execution: 'Deferred' })), prompts, base());
   assert.equal(deferred.selected.taskId, 'A-01');
-  assert.equal(deferred.decisions[0].reason, 'prompt is marked deferred');
+  assert.equal(deferred.decisions[0].reason, 'card is marked Deferred on the board');
 });
 
 test('cards from other repositories and prefixes are considered, never refused by location', () => {
@@ -59,11 +59,11 @@ test('merged work awaiting release is never recoded', () => {
 });
 
 test('deferred, closed, claimed, duplicate, PR and untitled cards are skipped with reasons', () => {
-  const ps = [prompt('A-01', { deferred: true }), prompt('B-01'), prompt('C-01')];
-  const cards = [card('Todo', 1, 'A-01'), card('Todo', 2, 'B-01', { state: 'CLOSED' }), card('Todo', 3, 'C-01'), card('Todo', 3, 'C-01'),
+  const ps = [prompt('A-01'), prompt('B-01'), prompt('C-01')];
+  const cards = [card('Todo', 1, 'A-01', { execution: 'Deferred' }), card('Todo', 2, 'B-01', { state: 'CLOSED' }), card('Todo', 3, 'C-01'), card('Todo', 3, 'C-01'),
     card('Todo', 5, null, { issue: null }), card('Todo', 6, null)];
   const reasons = selectFromBoard(snapshot(...cards), ps, base({ tasks: { 'C-01': { state: 'claimed' } } })).decisions.map(d => d.reason);
-  assert.deepEqual(reasons.map(r => r.split(':')[0]), ['prompt is marked deferred', 'issue is closed', 'durable state', 'duplicate card for task', 'not an issue card (implementation PR or draft)', 'no task ID in issue title']);
+  assert.deepEqual(reasons.map(r => r.split(':')[0]), ['card is marked Deferred on the board', 'issue is closed', 'durable state', 'duplicate card for task', 'not an issue card (implementation PR or draft)', 'no task ID in issue title']);
 });
 
 test('at most one task is selected and an active job blocks pickup', () => {
@@ -170,15 +170,11 @@ test('prompts in excluded folders and withdrawn tasks are skipped with a reason'
   assert.equal(result.selected.taskId, 'C-01');
 });
 
-test('the board Execution field defers or releases a card; otherwise the prompt decides', () => {
-  const pick = (execution, promptDeferred) => selectFromBoard(snapshot(card('Doing', 1, 'A-01', { execution })), prompts.map(p => p.id === 'A-01' ? { ...p, deferred: promptDeferred } : p), base());
-  assert.equal(pick('Deferred', false).selected, null);
-  assert.equal(pick('Deferred', false).decisions[0].reason, 'card is marked Deferred on the board');
-  assert.equal(pick('Run Now', true).selected.taskId, 'A-01', 'Run Now releases a prompt that says deferred');
-  assert.equal(pick('Scheduled', true).selected.taskId, 'A-01');
-  assert.equal(pick('Separate', true).selected, null, 'other values leave it to the prompt');
-  assert.equal(pick(null, true).selected, null);
-  assert.equal(pick(null, false).selected.taskId, 'A-01');
+test('only the board Execution value Deferred holds a card back', () => {
+  const pick = execution => selectFromBoard(snapshot(card('Doing', 1, 'A-01', { execution })), prompts, base());
+  assert.equal(pick('Deferred').selected, null);
+  assert.equal(pick('Deferred').decisions[0].reason, 'card is marked Deferred on the board');
+  for (const execution of ['Run Now', 'Scheduled', null]) assert.equal(pick(execution).selected.taskId, 'A-01', String(execution));
 });
 
 test('fetchBoard carries the Execution field', async () => {
@@ -201,12 +197,10 @@ test('a task resumed with committed work is selected even though its pull reques
   assert.equal(resumed.selected?.taskId, 'A-01');
 });
 
-test('boilerplate "not queued" wording releases a Todo or Doing card; explicit deferral and Deferred still hold', () => {
-  const prose = { proseOnlyDeferred: true, deferred: true, execution: 'scheduled' };
-  assert.equal(isDeferred({ status: 'Doing', execution: null }, prose), false);
-  assert.equal(isDeferred({ status: 'Todo', execution: null }, prose), false);
-  assert.equal(isDeferred({ status: 'Backlog', execution: null }, prose), true);
-  assert.equal(isDeferred({ status: 'Doing', execution: 'Deferred' }, prose), true);
-  assert.equal(isDeferred({ status: 'Doing', execution: null }, { deferred: true, execution: 'deferred' }), true);
-  assert.equal(isDeferred({ status: 'Doing', execution: null }, { deferred: true, proseOnlyDeferred: false }), true);
+test('a prompt cannot defer a card: isDeferred reads only the board Execution field', () => {
+  for (const status of ['Doing', 'Todo', 'Backlog']) {
+    assert.equal(isDeferred({ status, execution: 'Deferred' }), true, status);
+    for (const execution of [null, 'Run Now', 'Scheduled', 'Separate']) assert.equal(isDeferred({ status, execution }), false, `${status} ${execution}`);
+  }
+  assert.equal(isDeferred(undefined), false, 'no card on the board');
 });

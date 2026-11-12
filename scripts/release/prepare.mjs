@@ -34,6 +34,13 @@ export async function currentMainFor(api,sha) {
   if(cmp.status==='ahead'&&files.length<300&&onlyNonBuildChanges(files))return tip;
   throw Error('Build is no longer current main; a later source commit superseded it');
 }
+// A Build whose VERSION main has since moved past was superseded by a later bump: nothing to publish, and not a failure.
+export function supersededByLaterVersion(builtVersion,mainVersion) {
+  const parse=v=>releaseVersion(v).split('.').map(Number);
+  const [a,b]=[parse(builtVersion),parse(mainVersion)];
+  for(let i=0;i<3;i++)if(a[i]!==b[i])return b[i]>a[i];
+  return false;
+}
 export function releaseNotes(changelog,version) {
   const headings=[...changelog.matchAll(/^## (\d+\.\d+\.\d+)\s*$/gm)];
   const matches=headings.filter(m=>m[1]===version);
@@ -105,7 +112,16 @@ async function main() {
   if(lookup.status!==404)throw Error(`GitHub tag lookup returned ${lookup.status}`);
   // Checked after the tag lookup so a build superseded by its own version
   // bump commit is a quiet no-op rather than a red failure.
-  await currentMainFor(api,env.BUILD_SHA);
+  try {
+    await currentMainFor(api,env.BUILD_SHA);
+  } catch(error) {
+    const main=await api('/contents/VERSION?ref=main');
+    const mainVersion=Buffer.from(main.content??'','base64').toString('utf8');
+    if(!supersededByLaterVersion(version,mainVersion))throw error;
+    console.log(`v${version} was superseded by v${releaseVersion(mainVersion)} before it was published; its notes move into that release. No release from this run.`);
+    await writeFile(env.GITHUB_OUTPUT,'publish=false\n',{flag:'a'});
+    return;
+  }
   await writeFile('release-notes.md',notes+'\n');
   await writeFile(env.GITHUB_OUTPUT,`publish=true\nversion=${version}\n`,{flag:'a'});
   console.log(`Ready for release v${version} from verified main Build run ${runId}`);
