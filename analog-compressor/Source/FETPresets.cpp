@@ -13,9 +13,29 @@ namespace FET
     }
 
     const char* const Presets::presetParameterIds[] = { ID::input, ID::output, ID::attack, ID::release,
-                                                        ID::ratio, ID::allButtons, ID::grOff, ID::detectorLowCut,
-                                                        ID::ratioTwoToOne };   // last: older preset files lack it and load it Off
+                                                        ID::ratio, ID::allButtons, ID::grOff,
+                                                        ID::ratioTwoToOne };   // older preset files lack it and load it Off
     const int Presets::numPresetParameters = (int) std::size (presetParameterIds);
+    // Ignore Below (ACOMP-16) is handled on its own: files hold `ignoreBelowHz`; files saved before it hold only the
+    // legacy six-step `detectorLowCut`, which maps to the exact same cutoff.
+
+    namespace
+    {
+        int legacyIndexForHz (float hz) noexcept
+        {
+            for (int i = 0; i < numLowCutSteps; ++i)
+                if (lowCutHz[i] == hz)
+                    return i;
+            return 0;   // not one of the six: the legacy value stays Off (the file's `ignoreBelowHz` is what counts)
+        }
+    }
+
+    void Presets::setIgnoreBelow (float hz)
+    {
+        hz = ignoreBelowSnap (hz);
+        setParam (ID::detectorLowCut, (float) legacyIndexForHz (hz));   // keeps the hidden legacy value in step
+        setParam (ID::ignoreBelowHz, hz);
+    }
 
     // Conservative starting points. Output is set so a -18 dBFS RMS signal comes out at about
     // the level it went in (tested), so switching the plugin in and out compares tone, not
@@ -82,7 +102,7 @@ namespace FET
         setParam (ID::allButtons, f.allButtons ? 1.0f : 0.0f);
         setParam (ID::grOff, 0.0f);
         setParam (ID::ratioTwoToOne, 0.0f);
-        setParam (ID::detectorLowCut, (float) lowCutDefault);   // starting points leave the detector hearing everything
+        setIgnoreBelow (ignoreBelowDefaultHz);   // starting points leave the detector hearing everything
         currentName = f.name;
         currentHint = f.hint;
     }
@@ -108,6 +128,10 @@ namespace FET
             const float def = p->convertFrom0to1 (p->getDefaultValue());
             setParam (id, (float) xml->getDoubleAttribute (id, def));
         }
+        if (xml->hasAttribute (ID::ignoreBelowHz))
+            setIgnoreBelow ((float) xml->getDoubleAttribute (ID::ignoreBelowHz, ignoreBelowDefaultHz));
+        else   // saved before ACOMP-16: the six-step choice index; a missing value means Off
+            setIgnoreBelow (ignoreBelowFromLegacyIndex (xml->getIntAttribute (ID::detectorLowCut, lowCutDefault)));
         currentName = file.getFileNameWithoutExtension();
         currentHint = {};
         return true;
@@ -151,6 +175,9 @@ namespace FET
         xml.setAttribute ("version", 1);
         for (int i = 0; i < numPresetParameters; ++i)
             xml.setAttribute (presetParameterIds[i], (double) apvts.getRawParameterValue (presetParameterIds[i])->load());
+        const float hz = ignoreBelowSnap (apvts.getRawParameterValue (ID::ignoreBelowHz)->load());
+        xml.setAttribute (ID::ignoreBelowHz, (double) hz);
+        xml.setAttribute (ID::detectorLowCut, legacyIndexForHz (hz));   // for older versions of the plugin
 
         const auto file = userFolder.getChildFile (clean + fileExtension);
         if (! xml.writeTo (file))

@@ -28,6 +28,7 @@ SongsmithAnalogCompressorProcessor::SongsmithAnalogCompressorProcessor()
     oversamplingParam = apvts.getRawParameterValue (ID::oversampling);
     allButtonsParam = apvts.getRawParameterValue (ID::allButtons);
     lowCutParam = apvts.getRawParameterValue (ID::detectorLowCut);
+    ignoreBelowParam = apvts.getRawParameterValue (ID::ignoreBelowHz);
     jassert (bypassParam != nullptr && inputDb != nullptr && outputDb != nullptr);
 }
 
@@ -66,13 +67,65 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithAnalogCompressorPro
                                                         oversamplingNames(), oversamplingDefault));
 
     // Added in state version 3. Off by default, so older sessions sound exactly as they did.
-    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ID::detectorLowCut, 3 }, "Ignore Below",
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ID::detectorLowCut, 3 }, "Ignore Below Steps",
                                                         lowCutNames(), lowCutDefault));
 
     // Added in state version 4 (ACOMP-11). Off by default, so older sessions keep their saved ratio.
     layout.add (std::make_unique<AudioParameterBool> (ParameterID { ID::ratioTwoToOne, 4 }, "Ratio 2:1", false));
 
+    // Added in state version 5 (ACOMP-16): the continuous Ignore Below cutoff. Off by default.
+    layout.add (std::make_unique<AudioParameterFloat> (
+        ParameterID { ID::ignoreBelowHz, 5 }, "Ignore Below", ignoreBelowRange(), ignoreBelowDefaultHz,
+        AudioParameterFloatAttributes()
+            .withStringFromValueFunction ([] (float value, int) { return ignoreBelowText (value); })
+            .withValueFromStringFunction ([] (const String& text)
+                                          { const float hz = ignoreBelowFromText (text); return hz < 0.0f ? 0.0f : hz; })));
+
     return layout;
+}
+
+float SongsmithAnalogCompressorProcessor::currentIgnoreBelowHz() noexcept
+{
+    const float legacy = lowCutParam->load();
+    const float hz = ignoreBelowParam->load();
+
+    if (detectorResync.exchange (false))
+    {
+        seenLegacy = legacy;
+        seenIgnoreBelow = hz;
+        legacyWins = false;
+    }
+    else
+    {
+        if (legacy != seenLegacy)   // old automation or an old preset moved the six-step choice
+        {
+            seenLegacy = legacy;
+            legacyWins = true;
+            legacySyncHz.store (ignoreBelowFromLegacyIndex ((int) legacy), std::memory_order_relaxed);
+            legacySyncPending.store (true, std::memory_order_release);
+        }
+        if (hz != seenIgnoreBelow)  // the new control moved (in the same block as the old one, the new one wins)
+        {
+            seenIgnoreBelow = hz;
+            legacyWins = false;
+        }
+    }
+    return legacyWins ? ignoreBelowFromLegacyIndex ((int) legacy) : ignoreBelowSnap (hz);
+}
+
+// The window shows `ignoreBelowHz`. When the old six-step parameter was automated instead, copy its cutoff across
+// so the slider follows; the audio thread has already used it, so nothing waits for this.
+void SongsmithAnalogCompressorProcessor::syncIgnoreBelowFromLegacy()
+{
+    if (! legacySyncPending.exchange (false, std::memory_order_acquire))
+        return;
+    auto* p = apvts.getParameter (ID::ignoreBelowHz);
+    const float hz = legacySyncHz.load (std::memory_order_relaxed);
+    if (std::abs (ignoreBelowParam->load() - hz) < 0.5f)
+        return;
+    p->beginChangeGesture();
+    p->setValueNotifyingHost (p->convertTo0to1 (hz));
+    p->endChangeGesture();
 }
 
 //==============================================================================
@@ -179,7 +232,7 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
     engine.setReleaseKnob (releaseKnob->load());
     engine.setGainReductionEnabled (grOffParam->load() < 0.5f);
     engine.setAllButtons (isAllButtonsOn());
-    engine.setDetectorLowCutHz (FET::lowCutHz[juce::jlimit (0, FET::numLowCutSteps - 1, (int) lowCutParam->load())]);
+    engine.setDetectorLowCutHz (currentIgnoreBelowHz());   // detector only; the audio path is never filtered
     fetFactor.setTargetValue (isAllButtonsOn() ? FET::FetCell::allButtonsFactor : 1.0f);
 
     // Fully bypassed and settled with no latency to keep: leave the buffer untouched.
@@ -346,6 +399,14 @@ void SongsmithAnalogCompressorProcessor::getStateInformation (juce::MemoryBlock&
     auto state = apvts.copyState();
     state.setProperty (versionId, stateVersion, nullptr);
 
+    // Old automation moved the six-step choice but the slider has not caught up yet: save what is playing.
+    if (legacySyncPending.load (std::memory_order_acquire))
+    {
+        auto child = state.getChildWithProperty ("id", ID::ignoreBelowHz);
+        if (child.isValid())
+            child.setProperty ("value", legacySyncHz.load (std::memory_order_relaxed), nullptr);
+    }
+
     juce::ValueTree ui (uiId);
     ui.setProperty ("uiScale", uiScale.load(), nullptr);
     if (editorWidth.load() > 0)
@@ -385,10 +446,20 @@ void SongsmithAnalogCompressorProcessor::restoreFromValueTree (const juce::Value
         if (child.isValid() && child.hasProperty ("value"))
             value = rp->getNormalisableRange().snapToLegalValue ((float) child.getProperty ("value"));
 
+        // Migration to state version 5 (ACOMP-16): older sessions have no `ignoreBelowHz`, only the six-step
+        // `detectorLowCut`. Its choice index means exactly one cutoff (Off, 60, 80, 100, 150, 200 Hz).
+        if (rp->paramID == ID::ignoreBelowHz && (int) saved.getProperty (versionId, 1) < 5)
+        {
+            const auto legacy = saved.getChildWithProperty ("id", ID::detectorLowCut);
+            value = ignoreBelowFromLegacyIndex (legacy.isValid() ? juce::roundToInt ((float) legacy.getProperty ("value", 0.0f)) : lowCutDefault);
+        }
+
         fresh.appendChild (juce::ValueTree ("PARAM", { { "id", rp->paramID }, { "value", value } }), nullptr);
     }
 
     apvts.replaceState (fresh);
+    legacySyncPending.store (false);
+    detectorResync.store (true);   // the loaded values are the baseline, not a change by old automation
     history.clear();   // a loaded session starts with a clean Undo history
 
     const auto ui = saved.getChildWithName (uiId);

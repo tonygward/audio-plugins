@@ -57,6 +57,7 @@ namespace FET
 
     private:
         void setParam (const char* id, float plainValue);
+        void setIgnoreBelow (float hz);   // the continuous cutoff, and the hidden legacy choice kept in step
 
         juce::AudioProcessorValueTreeState& apvts;
         juce::File userFolder { getDefaultUserFolder() };

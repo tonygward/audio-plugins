@@ -4,6 +4,8 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 ## Unreleased
 
+- In Songsmith Analog Compressor, **Ignore Below** is now a horizontal slider instead of a knob with six steps. Pick any whole frequency from 20 to 500 Hz by dragging, with the arrow keys, or by clicking the number and typing it (for example 127 Hz); double-click for Off. It still only changes what the compressor listens to, so the bass you hear is unchanged. Your saved sessions and presets keep exactly the frequency they had (Off, 60, 80, 100, 150 or 200 Hz), and you do not need to do anything. If a project has automation written for the old six steps, it still works; whichever of the old and new controls moved most recently decides the frequency. This has not yet been checked in a DAW.
+
 - Songsmith Analog Compressor no longer shows a sentence of ratio advice along the bottom of the window. Instead, hover over any ratio button (2:1, 4:1, 8:1, 12:1, 20:1 or All) for a short plain-language description of how it tends to sound and where it is useful. The tip for a loaded starting point now appears when you hover over the preset menu. These are listening suggestions, not guarantees. The sound and your saved sessions are unchanged; you do not need to do anything.
 
 - In Songsmith Analog Compressor, the Oversampling menu has moved to the far left of the controls, under the Input knob, instead of sitting below Ignore Below. It is the same menu with the same choices, and your saved sessions and presets are unchanged. You do not need to do anything.
