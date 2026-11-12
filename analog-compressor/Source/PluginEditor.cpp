@@ -394,8 +394,9 @@ void SongsmithAnalogCompressorEditor::layoutContent()
         bypassButton.setBounds (header.bypass);
     }
 
-    // Oversampling is a processing setting, so it sits with the other processing controls, under Ignore Below.
-    oversampling.setBounds (lowCutX, lowCutY + lowCutHeight + 4, lowCutWidth, 26);
+    // ACOMP-15: Oversampling is a processing setting. It sits at the far left of the processing area,
+    // directly under the Input control and clear of the title bar, left-aligned with Input.
+    oversampling.setBounds (inputArea.getX(), inputArea.getBottom() + 12, 176, 26);
 
     diagnostics->setBounds (0, FET::contentHeight, FET::designWidth, FET::footerHeight);
 }

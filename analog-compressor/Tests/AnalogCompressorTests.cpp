@@ -353,7 +353,16 @@ struct EditorTests final : juce::UnitTest
         if (auto* ac = dynamic_cast<SongsmithAnalogCompressorEditor*> (ed.get()))
         {
             expect (ac->getOversamplingBox().getBottom() > 50, "Oversampling sits with the processing controls, below the title bar");
-            expect (ac->getOversamplingBox().getY() > ac->getIgnoreBelowKnob().getY(), "Oversampling is under Ignore Below");
+            {
+                // ACOMP-15: far left of the processing area, left-aligned with Input, clear of every other control.
+                auto& os = ac->getOversamplingBox();
+                auto& inputKnob = ac->getKnob (ID::input);
+                expectEquals (os.getX(), inputKnob.getX(),"Oversampling is at the far left, aligned with Input");
+                expect (os.getX() < ac->getIgnoreBelowKnob().getX(), "Oversampling is left of Ignore Below");
+                expect (! os.getBounds().intersects (ac->getIgnoreBelowKnob().getBounds()), "Oversampling does not overlap Ignore Below");
+                expect (! os.getBounds().intersects (inputKnob.getBounds()), "Oversampling does not overlap Input");
+                expect (os.getBottom() <= FET::contentHeight, "Oversampling sits inside the control area, above the footer");
+            }
             expect (ac->getTitleBounds().getRight() < ac->getPresetBox().getX(), "the title does not overlap the preset selector");
         }
 
