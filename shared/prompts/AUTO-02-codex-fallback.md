@@ -8,7 +8,7 @@
 
 **Build handoff:** Agents edit branches/worktrees inside the container; **GitHub-hosted Windows/macOS Actions** perform native plugin/installer validation at the exact PR head SHA. An independently trusted CI/auto-merge path owns merges; verified release/R2/website workflows own distribution. No local Windows build account, Windows task or DPAPI credential is required for this feature.
 
-The fallback remains **deferred**, not automatically enabled by this documentation change. Reconcile this story with [AUTO-05](AUTO-05-linux-agent-github-actions.md) and the existing `tools/matrix/linux-worker.mjs` provider boundary at implementation time.
+The fallback remains **deferred**, not automatically enabled by this documentation change. Reconcile this story with AUTO-05 and the existing `tools/matrix/linux-worker.mjs` provider boundary at implementation time.
 
 
 **Priority:** Future enhancement after AUTO-01 is operational and tested.  
