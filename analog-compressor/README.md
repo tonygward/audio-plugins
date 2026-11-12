@@ -2,9 +2,9 @@
 
 A feedback FET compressor inspired by the Rev D blackface 1176LN, by Songsmith Studio, built with JUCE and CMake. It is an original design, not a clone, and isn't affiliated with or endorsed by Universal Audio. First released on 2026-11-04 as [version 0.1.0](https://github.com/tonygward/audio-plugins/releases/tag/compressor-v0.1.0). Every Songsmith plugin now shares one version number: see the [changelog](../CHANGELOG.md).
 
-![Songsmith Analog Compressor editor at 100 %, version 0.5.9, showing the Ignore Below knob beside Gain Reduction Off](docs/images/editor-0.5.9.png)
+![Songsmith Analog Compressor editor at 100 %, version 0.5.16, with Oversampling under the Input knob and the Ignore Below knob beside Gain Reduction Off](docs/images/editor-0.5.16.png)
 
-*A real screenshot of version 0.5.9 at 100 % interface size, rendered by the test executable. Ignore Below is the small knob beside Gain Reduction Off; it is set to Off.*
+*A real screenshot of version 0.5.16 at 100 %, rendered by the test executable (`AnalogCompressorTests --screenshots`). Oversampling sits under the Input knob; Ignore Below is the small knob beside Gain Reduction Off, set to Off. Hover over a ratio button for a short description of how it sounds.*
 
 ## Features
 
