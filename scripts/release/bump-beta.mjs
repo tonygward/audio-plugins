@@ -37,6 +37,13 @@ export function pullRequestBuilt({prs,runs}) {
     runs.some(run=>run?.head_sha===pr.head.sha&&run?.event==='pull_request'&&run?.status==='completed'&&run?.conclusion==='success'&&
       run?.path?.split('@')[0]==='.github/workflows/build.yml'&&run?.repository?.full_name===repository&&run?.head_repository?.full_name===repository));
 }
+// A pull request build that is still queued or running at merge time: the bump waits for it instead of giving up.
+export function pullRequestBuilding({prs,runs}) {
+  if(!Array.isArray(prs)||!Array.isArray(runs))return false;
+  return prs.some(pr=>pr?.merged_at&&pr?.base?.ref==='main'&&/^[a-f0-9]{40}$/.test(pr?.head?.sha||'')&&
+    runs.some(run=>run?.head_sha===pr.head.sha&&run?.event==='pull_request'&&run?.status!=='completed'&&
+      run?.path?.split('@')[0]==='.github/workflows/build.yml'&&run?.repository?.full_name===repository&&run?.head_repository?.full_name===repository));
+}
 export function shouldBump({message,tagFound}) {
   return tagFound && !String(message).startsWith('[beta-version]');
 }
@@ -51,12 +58,23 @@ async function main() {
     if(!response.ok)throw Error(`GitHub ${response.status}: ${path.split('?')[0]}`);
     return response.json();
   };
-  const prs=await api(`/commits/${sha}/pulls`),runs=[];
+  const prs=await api(`/commits/${sha}/pulls`);
   assert(Array.isArray(prs),'Pull requests response malformed');
-  for(const pr of prs.filter(p=>p?.merged_at&&/^[a-f0-9]{40}$/.test(p?.head?.sha||''))) {
-    const found=await api(`/actions/workflows/build.yml/runs?head_sha=${pr.head.sha}&event=pull_request&status=completed&per_page=30`);
-    assert(Array.isArray(found.workflow_runs),'Build runs response malformed');
-    runs.push(...found.workflow_runs);
+  const lookup=async()=>{
+    const runs=[];
+    for(const pr of prs.filter(p=>p?.merged_at&&/^[a-f0-9]{40}$/.test(p?.head?.sha||''))) {
+      const found=await api(`/actions/workflows/build.yml/runs?head_sha=${pr.head.sha}&event=pull_request&per_page=30`);
+      assert(Array.isArray(found.workflow_runs),'Build runs response malformed');
+      runs.push(...found.workflow_runs);
+    }
+    return runs;
+  };
+  // Merged before its pull request build finished (a hand merge): wait for it, up to 30 minutes, rather than failing and needing a re-run.
+  let runs=await lookup();
+  for(let waited=0;!pullRequestBuilt({prs,runs})&&pullRequestBuilding({prs,runs})&&waited<30;waited++) {
+    console.log('The pull request build is still running; waiting a minute before deciding.');
+    await new Promise(resolve=>setTimeout(resolve,60000));
+    runs=await lookup();
   }
   assert(pullRequestBuilt({prs,runs}),'No successful pull request Build at the exact head of a merged pull request for this commit; not bumping');
   const tip=await currentMainFor(api,sha);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {nextBetaVersion,betaChangelog,shouldBump,pullRequestBuilt} from '../scripts/release/bump-beta.mjs';
+import {nextBetaVersion,betaChangelog,shouldBump,pullRequestBuilding,pullRequestBuilt} from '../scripts/release/bump-beta.mjs';
 test('increments only beta patch',()=>{
   assert.equal(nextBetaVersion('1.3.0\n'),'1.3.1');
   assert.equal(nextBetaVersion('1.3.9'),'1.3.10');
@@ -46,4 +46,13 @@ test('no merged pull request, an unmerged one or a base other than main never vo
   assert.equal(pullRequestBuilt({prs:[{...mergedPr,merged_at:null}],runs:[goodRun]}),false);
   assert.equal(pullRequestBuilt({prs:[{...mergedPr,base:{ref:'dev'}}],runs:[goodRun]}),false);
   assert.equal(pullRequestBuilt({prs:null,runs:[goodRun]}),false);
+});
+test('a pull request build still queued or running is waited for, a finished one is not',()=>{
+  const running={...goodRun,status:'in_progress',conclusion:null};
+  assert.equal(pullRequestBuilding({prs:[mergedPr],runs:[running]}),true);
+  assert.equal(pullRequestBuilding({prs:[mergedPr],runs:[{...running,status:'queued'}]}),true);
+  assert.equal(pullRequestBuilding({prs:[mergedPr],runs:[goodRun]}),false);
+  assert.equal(pullRequestBuilding({prs:[mergedPr],runs:[{...running,head_sha:'c'.repeat(40)}]}),false,'another head');
+  assert.equal(pullRequestBuilding({prs:[mergedPr],runs:[{...running,event:'push'}]}),false);
+  assert.equal(pullRequestBuilding({prs:[],runs:[running]}),false);
 });
