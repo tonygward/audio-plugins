@@ -41,21 +41,20 @@ namespace
     const juce::Rectangle<int> meterModes  { 592, 242, 344, 28 };   // a row under the meter
     const juce::Rectangle<int> grOffArea   { 592, 314, 150, 32 };
 
-    // One line each: what the ratio does to the level (above the point where compression starts),
-    // and what it is good for. Listening suggestions, not measurements.
+    // Listening-oriented descriptions of typical uses, not promises about gain reduction.
+    // Index 0..3 = 4:1, 8:1, 12:1, 20:1; 4 = the Songsmith 2:1.
     juce::String ratioTip (int index)
     {
-        static const char* const what[] = {
-            "the gentlest of the original four. For every 4 dB the sound rises above the point where compression starts, it comes out 1 dB louder. A good starting point for steady control of vocals and bass.",
-            "firmer. 8 dB in, 1 dB out above that point. Often used to keep drums and lively vocals punchy.",
-            "strong. 12 dB in, 1 dB out above that point. For heavier control of drums and vocals.",
-            "the strongest, close to a limiter. 20 dB in, 1 dB out above that point. For hard peak control or a deliberately squashed sound.",
-            "gentle compression that evens out louder parts without squashing the sound. For every 2 dB the sound rises above the point where compression starts, it comes out 1 dB louder. "
-            "A Songsmith addition: the original hardware has no 2:1 button." };
-        // Index 4 is the Songsmith 2:1, which is not part of the four-item `ratio` choice.
-        const juce::String name = index == 4 ? juce::String ("2:1") : ratioNames()[index];
-        return "Ratio " + name + ": " + what[index];
+        static const char* const tips[] = {
+            "Balanced compression. Controls louder notes while keeping the sound lively and punchy. A good everyday starting point.",
+            "Strong compression. Keeps volume more consistent and makes louder notes stand out less. Useful for bass, drums and powerful vocals.",
+            "Very strong compression. Firmly controls loud peaks and creates a more compressed, upfront sound.",
+            "Limiter-like compression. Heavily controls loud peaks for a dense, aggressive sound. Not a guaranteed brick-wall limiter.",
+            "Gentle compression. Smooths out volume differences while keeping the performance natural. Great for acoustic guitar and vocals." };
+        return tips[index];
     }
+
+    const char* const allButtonTip = "Aggressive 1176-style compression. Produces a distinctive, energetic sound with extra character. Great for parallel drums and special effects.";
 
     // A fine brushed-metal grain for the faceplate, drawn as vectors so it scales with the editor and
     // stays sharp at every interface size. Built once; the same grain every time.
@@ -207,8 +206,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
         content.addAndMakeVisible (*b);
         ratioButtons[(size_t) i] = std::move (b);
     }
-    allButton.setTooltip ("All: presses all four ratio buttons in at once, for a harder, more aggressive and more distorted sound. "
-                          "Press any single ratio to go back to it.");
+    allButton.setTooltip (allButtonTip);
     allButton.onClick = [this] { allButtonsAttachment.setValueAsCompleteGesture (allButtonsOn ? 0.0f : 1.0f); };
     content.addAndMakeVisible (allButton);
 
@@ -460,13 +458,7 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
                     juce::Justification::centred);
     }
 
-    // The listening cue of the loaded starting point.
-    g.setColour (Colours::textDim);
-    g.setFont (font (Type::hint));
-    const auto hint = proc.presets.currentHint.isNotEmpty() ? proc.presets.currentHint
-                                                             : juce::String ("Double-click a knob for its default.");
-    // Stops before the Oversampling menu at the right (lowCutX).
-    g.drawFittedText (hint, juce::Rectangle<int> (24, 356, lowCutX - 24 - 16, 36), juce::Justification::centredLeft, 2);
+    // ACOMP-14: no permanent guidance sentence under the controls. Ratio help is in the button tooltips.
 }
 
 juce::String SongsmithAnalogCompressorEditor::gainReductionText (float db)
@@ -552,6 +544,12 @@ void SongsmithAnalogCompressorEditor::rebuildPresetMenu()
 
     presetBox.setText (proc.presets.currentName.isNotEmpty() ? proc.presets.currentName : juce::String ("Preset"),
                        juce::dontSendNotification);
+
+    // The loaded starting point's listening cue is available on hover instead of as permanent text.
+    juce::String tip ("Preset: choose a starting point or one of your own, or save the current settings. Loading a preset keeps the window size.");
+    if (proc.presets.currentHint.isNotEmpty())
+        tip << " " << proc.presets.currentHint;
+    presetBox.setTooltip (tip);
 }
 
 void SongsmithAnalogCompressorEditor::presetChosen()
