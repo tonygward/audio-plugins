@@ -16,7 +16,7 @@ conflicts: []
 
 # AUTO-09 — One Linux-container task through PR, native CI and verified merge
 
-**Split from:** [AUTO-01](AUTO-01-matrix-autonomous-development.md) and [AUTO-05](AUTO-05-linux-agent-github-actions.md). **Status:** Open: an end-to-end operational pilot, not new worker scaffolding.
+**Split from:** [AUTO-01](AUTO-01-matrix-autonomous-development.md) and AUTO-05. **Status:** Open: an end-to-end operational pilot, not new worker scaffolding.
 
 ## Goal
 Show one eligible canonical backlog item is developed by the isolated Linux agent, tested on **hosted Windows and macOS GitHub Actions at the current PR head SHA**, repaired in a bounded way if needed, and merged through the independently gated workflow.
