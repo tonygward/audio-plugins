@@ -543,28 +543,40 @@ struct EditorRefinementTests final : juce::UnitTest
         beginTest ("The ratio buttons say what they are, and All is called All");
         {
             const char* const expected[] = { "4:1", "8:1", "12:1", "20:1" };
+            const char* const tips[] = {
+                "Balanced compression. Controls louder notes while keeping the sound lively and punchy. A good everyday starting point.",
+                "Strong compression. Keeps volume more consistent and makes louder notes stand out less. Useful for bass, drums and powerful vocals.",
+                "Very strong compression. Firmly controls loud peaks and creates a more compressed, upfront sound.",
+                "Limiter-like compression. Heavily controls loud peaks for a dense, aggressive sound. Not a guaranteed brick-wall limiter." };
             for (int i = 0; i < 4; ++i)
             {
                 auto& b = dynamic_cast<juce::TextButton&> (ed->getRatioButton (i));
                 expectEquals (b.getButtonText(), juce::String (expected[i]));
-                expect (b.getTooltip().startsWith ("Ratio " + juce::String (expected[i]) + ": "), "tooltip names the ratio");
-                expect (b.getTooltip().contains ("1 dB"), "and says what it does to the level");
+                expectEquals (b.getTooltip(), juce::String (tips[i]));
                 expect (b.getTooltip().length() < 260, "short enough to read");
             }
             auto& all = dynamic_cast<juce::TextButton&> (ed->getAllButton());
             expectEquals (all.getButtonText(), juce::String ("All"));
-            expect (all.getTooltip().contains ("all four ratio buttons") && all.getTooltip().contains ("aggressive"), "the tooltip explains what All does");
+            expectEquals (all.getTooltip(), juce::String ("Aggressive 1176-style compression. Produces a distinctive, energetic sound with extra character. Great for parallel drums and special effects."));
             for (const auto& text : { all.getTooltip(), dynamic_cast<juce::TextButton&> (ed->getRatioButton (3)).getTooltip() })
                 expect (Songsmith::UI::Wording::findBanned (text).isEmpty(), "plain words: " + Songsmith::UI::Wording::findBanned (text));
         }
 
-        beginTest ("The Songsmith 2:1 button is labelled, explained and says it is not on the original hardware");
+        beginTest ("Every ratio button has its own tooltip, and no description is drawn permanently");
+        {
+            juce::StringArray seen;
+            for (int i = 0; i < 5; ++i)
+                seen.addIfNotAlreadyThere (ed->getRatioButton (i).getTooltip());
+            seen.addIfNotAlreadyThere (ed->getAllButton().getTooltip());
+            expectEquals (seen.size(), 6);
+            expect (! seen.contains (juce::String()), "no blank tooltip");
+        }
+
+        beginTest ("The Songsmith 2:1 button is labelled and explained");
         {
             auto& b = dynamic_cast<juce::TextButton&> (ed->getRatioButton (4));
             expectEquals (b.getButtonText(), juce::String ("2:1"));
-            expect (b.getTooltip().startsWith ("Ratio 2:1: "), "tooltip names the ratio");
-            expect (b.getTooltip().contains ("evens out louder parts without squashing the sound"), "and says what it does");
-            expect (b.getTooltip().contains ("Songsmith addition"), "and that it is an addition");
+            expectEquals (b.getTooltip(), juce::String ("Gentle compression. Smooths out volume differences while keeping the performance natural. Great for acoustic guitar and vocals."));
             expect (Songsmith::UI::Wording::findBanned (b.getTooltip()).isEmpty(), "plain words");
             expect (b.getTooltip().length() < 360, "short enough to read");
             expect (ed->getRatioButton (4).getBounds().getHeight() >= 30, "large enough to press at the smallest size");
