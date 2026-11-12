@@ -415,7 +415,7 @@ struct EditorTests4 final : juce::UnitTest
             SongsmithAnalogCompressorEditor e (p);
             expectEquals (e.getAllButton().getButtonText(), juce::String ("All"));
             expectEquals (e.getAllButton().getTitle(), juce::String ("All"));
-            expect (e.getAllButton().getTooltip().containsIgnoreCase ("all four ratio buttons"), "tooltip explains the action");
+            expect (e.getAllButton().getTooltip().containsIgnoreCase ("Aggressive 1176-style compression"), "tooltip explains the action");
 
             std::function<void (juce::Component&)> walk = [&] (juce::Component& c)
             {
