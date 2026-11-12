@@ -28,7 +28,6 @@ Use one task per invocation and one active task total. Stop new pickup at >=60% 
 - [AUTO-07](done/AUTO-07-linux-ci-worker-code-foundation.md): merged Linux-worker/hosted-CI code foundation.
 - [AUTO-08](AUTO-08-linux-container-deployment-validation.md): deployed image, mounts, capabilities, credentials, scheduler, durable recovery, pause and negative-isolation evidence.
 - [AUTO-09](AUTO-09-container-development-ci-and-merge-pilot.md): genuine single-task development, exact-head native CI, bounded repair and trusted automatic merge evidence.
-- [AUTO-10](AUTO-10-verified-beta-distribution-e2e.md): qualifying build → automatic beta build/patch increment → exactly two release installers → verified private R2 → deployed beta website and authenticated downloads.
 - [AUTO-04](AUTO-04-independent-tdd-test-agent.md) and [AUTO-02](AUTO-02-codex-fallback.md) remain separate enhancements.
 
 ## Acceptance, tests and lifecycle

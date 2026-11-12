@@ -39,7 +39,6 @@ Order below is an index, not the execution queue. The board decides order.
 | AUTO-02 | [Codex fallback when Claude allowance is exhausted](AUTO-02-codex-fallback.md) | [#163](https://github.com/tonygward/audio-plugins/issues/163) |
 | AUTO-01 | [Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) | [#162](https://github.com/tonygward/audio-plugins/issues/162) |
 | EQ-41 | [Move Gain Scale into EQ main toolbox](../../eq/prompts/41-gain-scale-main-toolbox.md) | [#203](https://github.com/tonygward/audio-plugins/issues/203) |
-| AUTO-10 | [Verify beta release distribution end to end](AUTO-10-verified-beta-distribution-e2e.md) | [#157](https://github.com/tonygward/audio-plugins/issues/157) |
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
 
