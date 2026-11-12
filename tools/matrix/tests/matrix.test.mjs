@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { parsePrompt, scan, select } from '../backlog.mjs';
+import { parsePrompt, scan, select, PROMPT_FILE, isFunctionalPrompt } from '../backlog.mjs';
 import { atomic, locked, readState, reconcile, claim, finish } from '../state.mjs';
 import { usageGate, TELEMETRY_SOURCE, dailyDue, londonDay, claudePlan, releaseAssets } from '../policy.mjs';
 import { tick, notify, snapshot, readConfig } from '../matrix.mjs';
@@ -301,4 +301,13 @@ test('words such as "in progress" or "deferred" in a prompt README row hold noth
   const { prompts } = scan(files);
   const p = prompts.find(x => x.id === 'EQ-41');
   assert.equal(p.blocked, false); assert.deepEqual(p.dependencies, ['EQ-40']);
+});
+
+test('compressor/prompts (the planned Songsmith Compressor) is read like the other plugin folders', () => {
+  assert.ok(PROMPT_FILE.test('compressor/prompts/01-songsmith-compressor.md'));
+  assert.ok(!PROMPT_FILE.test('compressor/Source/x.md'));
+  const p = parsePrompt('compressor/prompts/02-knee.md', prose);
+  assert.equal(p.id, 'COMP-02'); assert.ok(isFunctionalPrompt(p));
+  const r = scan(new Map([['compressor/prompts/02-knee.md', prose], ['compressor/prompts/README.md', '# x']]));
+  assert.deepEqual(r.prompts.map(x => x.id), ['COMP-02']);
 });

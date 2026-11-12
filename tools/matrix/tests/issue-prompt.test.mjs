@@ -26,6 +26,7 @@ test('an issue that says it is deferred is not held back: only the board Executi
 test('the prompt path follows the ID prefix, and the generated prompt is valid, ready and links the issue', () => {
   assert.equal(promptPath('ACOMP-12', 'ACOMP-12 — Add two to one ratio'), 'analog-compressor/prompts/12-add-two-to-one-ratio.md');
   assert.equal(promptPath('EQ-42', 'EQ-42: Fix it!'), 'eq/prompts/42-fix-it.md');
+  assert.equal(promptPath('COMP-02', 'COMP-02 — Knee control'), 'compressor/prompts/02-knee-control.md');
   assert.equal(promptPath('AUTO-14', 'AUTO-14 — Record why'), 'shared/prompts/AUTO-14-record-why.md');
   const p = promptFromIssue(card('ACOMP-12'), GOOD, { issueUrl: 'https://github.com/o/r/issues/5' });
   assert.equal(p.id, 'ACOMP-12'); assert.equal(p.file, 'analog-compressor/prompts/12-add-two-to-one-ratio.md');

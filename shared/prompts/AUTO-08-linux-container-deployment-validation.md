@@ -16,7 +16,7 @@ conflicts: []
 
 # AUTO-08 — Validate isolated Linux container deployment on Matrix
 
-**Split from:** AUTO-05. **Status:** Open: requires runtime evidence. **Code foundation:** [AUTO-07](done/AUTO-07-linux-ci-worker-code-foundation.md).
+**Split from:** AUTO-05. It requires runtime evidence. **Code foundation:** [AUTO-07](done/AUTO-07-linux-ci-worker-code-foundation.md).
 
 ## Goal
 Prove the existing Linux-container development controller is deployed and safely operational as a *controller*, while unattended coding remains disabled until approved. Do not reactivate legacy Windows accounts, Windows Task Scheduler worker or local PowerShell build broker.

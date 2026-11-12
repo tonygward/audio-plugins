@@ -3,7 +3,7 @@
 **Product name:** Songsmith Compressor (exactly; never "Songsmith Clean Compressor" in product UI, installer, or plugin metadata).
 **Scope:** New independent dynamics plugin.
 **Implementation:** Claude Sonnet by default, Opus for explicitly documented advanced DSP/architecture questions.
-**Tracking:** COMP-01, superseding CLN-01 #168 to prevent duplicate implementation.
+**Issue:** [COMP-01 #235](https://github.com/tonygward/audio-plugins/issues/235). Supersedes CLN-01 (#168, closed; its prompt was withdrawn) to prevent duplicate implementation.
 
 ## User story and value
 As a recording musician I want a simple, transparent conventional compressor that can gently smooth acoustic guitars and vocals or assertively control peaks, with an optional **Analog Warmth** button for colour. I should not need to understand 1176 Input/Output threshold conventions, and I should be able to load a sensible instrument preset and mostly leave it alone.

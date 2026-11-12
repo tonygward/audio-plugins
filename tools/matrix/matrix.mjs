@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { scan, select } from './backlog.mjs';
+import { scan, select, PROMPT_FILE } from './backlog.mjs';
 import { atomic, locked, readState, reconcile, record } from './state.mjs';
 import { dailyDue, londonDay, claudePlan } from './policy.mjs';
 import { checkClaudeUsage, validateUsageConfig } from './usage.mjs';
@@ -20,7 +20,7 @@ export function snapshot(repo, { local = false, run = command } = {}) {
   const tree = run('git', ['ls-tree', '-r', '--name-only', revision], repo).split('\n');
   const files = new Map();
   for (const file of tree) {
-    if (/^(eq|analog-compressor|maximiser|shared)\/prompts\/.+\.md$/.test(file)) files.set(file, run('git', ['show', `${revision}:${file}`], repo));
+    if (PROMPT_FILE.test(file)) files.set(file, run('git', ['show', `${revision}:${file}`], repo));
   }
   return { revision, files };
 }
