@@ -34,7 +34,6 @@ Order below is an index, not the execution queue. The board decides order.
 | OPT-01 | [Optical Leveller](classics/OPT-01-optical-leveller.md) | [#169](https://github.com/tonygward/audio-plugins/issues/169) |
 | CLN-01 | [Clean Compressor](classics/CLN-01-clean-compressor.md) | [#168](https://github.com/tonygward/audio-plugins/issues/168) |
 | BUS-01 | [SSL-style bus compressor](classics/BUS-01-ssl.md) | [#167](https://github.com/tonygward/audio-plugins/issues/167) |
-| AUTO-05 | [Isolated Linux development agent with GitHub Actions native builds](AUTO-05-linux-agent-github-actions.md) | [#166](https://github.com/tonygward/audio-plugins/issues/166) |
 | AUTO-04 | [Independent test-writing agent and TDD workflow](AUTO-04-independent-tdd-test-agent.md) | [#165](https://github.com/tonygward/audio-plugins/issues/165) |
 | AUTO-02 | [Codex fallback when Claude allowance is exhausted](AUTO-02-codex-fallback.md) | [#163](https://github.com/tonygward/audio-plugins/issues/163) |
 | AUTO-01 | [Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) | [#162](https://github.com/tonygward/audio-plugins/issues/162) |
@@ -42,7 +41,7 @@ Order below is an index, not the execution queue. The board decides order.
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
 
-AUTO-01 and AUTO-05 are parent tracking epics. AUTO-06/07 are archived code foundations. AUTO-08/09/10 retain runtime, development/CI and distribution evidence respectively. Real Matrix PRs #174/#177 show execution has occurred; they do not prove every isolation/recovery/distribution acceptance criterion.
+AUTO-01 is a parent tracking epic (AUTO-05, the Linux agent container, is built and withdrawn as an epic). AUTO-06/07 are archived code foundations. AUTO-08/09 retain runtime and development/CI evidence respectively (AUTO-10, distribution, was proven and withdrawn). Real Matrix PRs #174/#177 show execution has occurred; they do not prove every isolation/recovery/distribution acceptance criterion.
 
 ARCH-01 is a deferred parent architecture epic requiring an approved, staged migration after the current SDLC proves end-to-end. It is not an executable Matrix job. AUTO-02 provider fallback and future/classic plugin designs remain deferred until intentionally promoted. A board card cannot bypass unmet dependencies or execution permissions.
 

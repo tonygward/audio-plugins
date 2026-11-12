@@ -9,7 +9,7 @@ conflicts: []
 
 # AUTO-07 — Linux worker and CI-handoff code foundation
 
-**Milestone:** Completed **source implementation** only, not deployment or end-to-end operation. **Split from:** [AUTO-05](../AUTO-05-linux-agent-github-actions.md) and [AUTO-01](../AUTO-01-matrix-autonomous-development.md). **Evidence:** [PR #139](https://github.com/tonygward/audio-plugins/pull/139), merged 9 November 2026; earlier CI auto-merge foundation [PR #135](https://github.com/tonygward/audio-plugins/pull/135).
+**Milestone:** Completed **source implementation** only, not deployment or end-to-end operation. **Split from:** AUTO-05 and [AUTO-01](../AUTO-01-matrix-autonomous-development.md). **Evidence:** [PR #139](https://github.com/tonygward/audio-plugins/pull/139), merged 9 November 2026; earlier CI auto-merge foundation [PR #135](https://github.com/tonygward/audio-plugins/pull/135).
 
 ## Delivered scope
 - `tools/matrix/linux-worker.mjs` and `tools/matrix/tests/linux-worker.test.mjs` committed together in PR #139.
