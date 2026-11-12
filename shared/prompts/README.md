@@ -3,7 +3,7 @@
 ## Current rules — 9 November 2026
 [Execution and delivery policy](../../docs/songsmith-execution-policy.md) is authoritative.
 
-- Board Todo order decides overnight pickup; Doing requests immediate work behind the active job, unless the prompt is deferred (a deferred prompt is never picked up, wherever its card sits). Never reject due to issue repository, prompt location or ID prefix. Validate the actual view order; no priority/ID fallback.
+- Board Todo order decides overnight pickup; Doing requests immediate work behind the active job. Only the board's Execution value Deferred holds a card back; a prompt or issue cannot defer it, whatever it says. Never reject due to issue repository, prompt location or ID prefix. Validate the actual view order; no priority/ID fallback.
 - One task per invocation and one active job. Stop new work at >=60% verified weekly Claude usage, including scoped meters; unknown usage blocks pickup.
 - Automatically approve/merge only after current-head required CI/tests pass. Trusted workflows automatically increment the beta third-component build/patch number; major/minor increments are deferred.
 - Comment on actual pickup, progress, failure, merge and deployment. Verify matching beta website deployment and both installer downloads, post the final completion comment, then close the issue and finally set its board card Done.
@@ -43,7 +43,7 @@ Order below is an index, not the execution queue. The board decides order.
 
 AUTO-01 is a parent tracking epic (AUTO-05, the Linux agent container, is built and withdrawn as an epic). AUTO-06/07 are archived code foundations. AUTO-08/09 retain runtime and development/CI evidence respectively (AUTO-10, distribution, was proven and withdrawn). Real Matrix PRs #174/#177 show execution has occurred; they do not prove every isolation/recovery/distribution acceptance criterion.
 
-ARCH-01 is a deferred parent architecture epic requiring an approved, staged migration after the current SDLC proves end-to-end. It is not an executable Matrix job. AUTO-02 provider fallback and future/classic plugin designs remain deferred until intentionally promoted. A board card cannot bypass unmet dependencies or execution permissions.
+ARCH-01 is a parent architecture epic requiring an approved, staged migration after the current SDLC proves end-to-end. It is not an executable Matrix job. Keep AUTO-02 provider fallback and the classic plugin designs held back with the board's Execution value Deferred until they are intentionally promoted; prompts in `future/` are excluded from pickup. A board card cannot bypass unmet dependencies or execution permissions.
 
 ## Merged implementation archive
 These links prevent completed features being selected again. Verify each ticket's delivery separately; the archive is not board Done.

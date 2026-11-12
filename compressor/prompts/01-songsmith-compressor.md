@@ -1,7 +1,7 @@
 # COMP-01 — Songsmith Compressor
 
 **Product name:** Songsmith Compressor (exactly; never "Songsmith Clean Compressor" in product UI, installer, or plugin metadata).
-**Scope:** New independent dynamics plugin. **Status:** Backlog specification; board controls scheduling.
+**Scope:** New independent dynamics plugin.
 **Implementation:** Claude Sonnet by default, Opus for explicitly documented advanced DSP/architecture questions.
 **Tracking:** COMP-01, superseding CLN-01 #168 to prevent duplicate implementation.
 

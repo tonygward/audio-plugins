@@ -18,7 +18,6 @@ function prompt(mode, extra = '', file = 'eq/prompts/41-example.md') {
   const p = { ...parsePrompt(file, meta.length ? `---\n${meta.join('\n')}\n---\n${prose}` : prose) };
   p.body += lines.filter(l => !/^[a-z]+:/.test(l)).join('\n');
   if (mode) p.execution = mode;
-  if (mode === 'deferred') p.deferred = true;
   if (lines.includes('status: blocked')) p.blocked = true;
   return p;
 }
@@ -36,18 +35,18 @@ test('Legacy metadata omission defaults to scheduled and never executes on notif
   assert.equal(select([p], {}, 'notify').selected.length, 0);
   assert.equal(select([p], {}, 'daily').selected.length, 1);
 });
-for (const mode of ['scheduled', 'build-now', 'deferred']) test(`Explicit ${mode} scheduling`, () => {
+for (const mode of ['scheduled', 'build-now']) test(`Explicit ${mode} scheduling`, () => {
   const p = prompt(mode);
   assert.equal(select([p], {}, 'notify').selected.length, mode === 'build-now' ? 1 : 0);
-  assert.equal(select([p], {}, 'daily').selected.length, mode === 'deferred' ? 0 : 1);
+  assert.equal(select([p], {}, 'daily').selected.length, 1);
 });
 test('Status and execution in a prompt are ignored, because the board owns them', () => {
   for (const meta of ['execution: build-now', 'execution: deferred', 'execution: nonsense', 'status: blocked', 'status: deferred', 'status: done', 'status: whatever']) {
     const p = parsePrompt('eq/prompts/41-x.md', `---\n${meta}\n---\n${prose}`);
-    assert.equal(p.execution, 'scheduled', meta); assert.equal(p.deferred, false, meta); assert.equal(p.blocked, false, meta);
+    assert.equal(p.execution, 'scheduled', meta); assert.equal(p.deferred, undefined, meta); assert.equal(p.blocked, false, meta);
   }
   const wording = parsePrompt('eq/prompts/41-x.md', '**Status:** Deferred, DO NOT IMPLEMENT YET, not queued.\n' + prose);
-  assert.equal(wording.deferred, false); assert.equal(wording.blocked, false);
+  assert.equal(wording.deferred, undefined); assert.equal(wording.blocked, false);
   assert.equal(select([wording], {}, 'daily').selected.length, 1);
 });
 test('Duplicate metadata and malformed front matter rejected', () => {
@@ -163,7 +162,7 @@ test('Bounded attempts enter dead letter and changed revision cannot be claimed'
 test('Deleted and reclassified pending prompts cannot run from stale queue', () => {
   const s = state(), p = prompt('build-now'); reconcile(s, [p], revision); reconcile(s, [], revision);
   assert.equal(s.tasks[p.id].state, 'withdrawn');
-  reconcile(s, [prompt('deferred')], revision); assert.equal(s.tasks[p.id].state, 'withdrawn');
+  reconcile(s, [{ ...prompt(), excluded: true }], revision); assert.equal(s.tasks[p.id].state, 'withdrawn');
 });
 test('Atomic state persistence and corrupt state fails closed', t => {
   const dir = temp(t); atomic(path.join(dir, 'state.json'), state()); assert.deepEqual(readState(dir), state());
@@ -247,12 +246,12 @@ test('Release contract accepts exactly two matching installers', () => {
   assert.equal(releaseAssets('1.4.0', good).length, 2);
   for (const names of [[], good.slice(0, 1), [...good, 'screenshot.png'], [good[0], good[0]], good.map(n => n.replace('1.4.0', '1.3.0'))]) assert.throws(() => releaseAssets('1.4.0', names));
 });
-test('Actual repository backlog parses legacy files and preserves AUTO-02 deferred policy', () => {
+test('Actual repository backlog parses legacy files and no prompt holds itself back', () => {
   const repo = fileURLToPath(new URL('../../../', import.meta.url));
   const result = scan(snapshot(repo, { local: true }).files);
   assert.deepEqual(result.errors, []);
   // The board owns status and execution: no prompt may carry them, and none is held back by its own wording.
-  assert.deepEqual(result.prompts.filter(p => p.deferred || p.blocked).map(p => p.id), []);
+  assert.deepEqual(result.prompts.filter(p => p.blocked).map(p => p.id), []);
   for (const [file, text] of snapshot(repo, { local: true }).files) {
     if (/^(eq|analog-compressor|maximiser|shared)\/prompts\/.+\.md$/.test(file) && !/README/.test(file) && text.startsWith('---')) {
       const front = text.slice(0, text.indexOf('\n---', 3));
