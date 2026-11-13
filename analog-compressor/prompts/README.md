@@ -21,7 +21,7 @@ Every task has a stable **ACOMP-##** reference (for example ACOMP-05), distinct 
 | [13 Preset research for the Songsmith Compressor](done/13-joe-gilder-grounded-presets.md) | Done | [#233](https://github.com/tonygward/audio-plugins/issues/233), PR #245 (in 0.5.15) |
 | [14 Ratio descriptions in per-button tooltips](done/14-ratio-button-tooltips.md) | Done | [#234](https://github.com/tonygward/audio-plugins/issues/234), PR #247 (in 0.5.15) |
 | [15 Oversampling at the far left](done/15-oversampling-far-left.md) | Done | [#236](https://github.com/tonygward/audio-plugins/issues/236), PR #248 (in 0.5.15) |
-| [16 Continuous Ignore Below up to 500 Hz](16-ignore-below-continuous-500hz.md) | To do | [#237](https://github.com/tonygward/audio-plugins/issues/237) |
+| [16 Continuous Ignore Below up to 500 Hz](done/16-ignore-below-continuous-500hz.md) | To do | [#237](https://github.com/tonygward/audio-plugins/issues/237) |
 
 The board decides the order of the remaining prompts; see the [execution policy](../../docs/songsmith-execution-policy.md). (ACOMP-08, 06 and 07 ran in that order on 5 November 2026, keeping their original IDs and filenames.)
 

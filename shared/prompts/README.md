@@ -22,7 +22,7 @@ This is an index, not the queue: the board decides what runs and in what order. 
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
 | EQ-41 | [Label the Gain Scale control](../../eq/prompts/41-gain-scale-main-toolbox.md) | [#203](https://github.com/tonygward/audio-plugins/issues/203) |
 | EQ-42 | [Accurate clipping indication and peak readout](../../eq/prompts/42-clip-meter-readout.md) | [#232](https://github.com/tonygward/audio-plugins/issues/232) |
-| ACOMP-16 | [Continuous Ignore Below up to 500 Hz](../../analog-compressor/prompts/16-ignore-below-continuous-500hz.md) | [#237](https://github.com/tonygward/audio-plugins/issues/237) |
+| ACOMP-16 | [Continuous Ignore Below up to 500 Hz](../../analog-compressor/prompts/done/16-ignore-below-continuous-500hz.md) | [#237](https://github.com/tonygward/audio-plugins/issues/237) |
 | WEB-01 | [Private beta portal](WEB-01-private-beta-portal.md) (code in `songsmith-website`; Matrix does not build there yet) | [website #21](https://github.com/tonygward/songsmith-website/issues/21) |
 | WEB-02 | [Distribution hardening](https://github.com/tonygward/songsmith-website/blob/main/prompts/WEB-02-release-distribution-hardening.md) (prompt kept in `songsmith-website`) | [website #22](https://github.com/tonygward/songsmith-website/issues/22) |
 | WEB-03 | [Plugin Features section](WEB-03-beta-plugin-features-section.md) (code in `songsmith-website`) | [website #19](https://github.com/tonygward/songsmith-website/issues/19) |
