@@ -125,8 +125,18 @@ async function main() {
   git(['add','--','VERSION','CHANGELOG.md']);
   assert(git(['diff','--cached','--name-only']).split('\n').sort().join(',')==='CHANGELOG.md,VERSION','Unexpected staged files');
   git(['commit','-m',`[beta-version] ${version}: ${message.split('\n')[0].slice(0,100)}`]);
-  // Protected from force pushing: if main advanced, non-fast-forward push fails.
-  git(['push','origin','HEAD:refs/heads/main'],{env:childEnv});
+  // Protected from force pushing: if main advanced, a non-fast-forward push fails. The archive step commits to main right after a Matrix
+  // merge, so that race is normal: when only documentation landed meanwhile (currentMainFor), put the bump on top of it and push again.
+  for(let attempt=1;;attempt++) {
+    try { git(['push','origin','HEAD:refs/heads/main'],{env:childEnv}); break; }
+    catch(error) {
+      if(attempt>=3)throw error;
+      await currentMainFor(api,sha);
+      git(['fetch','origin','main'],{env:childEnv});
+      git(['rebase','FETCH_HEAD']);
+      console.log('main moved while the bump was being pushed (documentation only); retrying on top of it');
+    }
+  }
   console.log(`New beta checkpoint ${version} pushed; its packaging build runs next and the release is published from it`);
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)
