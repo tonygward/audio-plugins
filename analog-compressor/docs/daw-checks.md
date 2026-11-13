@@ -36,6 +36,6 @@ These are **not** executed by CI. They're listed per host, to tick off.
 | 8 | **Multiple instances:** 8+ instances on different tracks with different settings. Each keeps its own settings and meter, and the CPU is reasonable (~2.5 % each at 4x) | ☐ | ☐ | ☐ |
 | 9 | **Presets:** the host's preset/program list shows the 4 starting points. Saving a user preset from the editor and reloading it works | ☐ | ☐ | ☐ |
 | 10 | **Coexistence:** with Songsmith EQ installed too, both scan and both load in the same song | ☐ | ☐ | ☐ |
-| 11 | **Low Cut:** write automation of Low Cut between Off and 100 Hz on a kick or bass track. It plays back, the editor follows, there are no clicks, and the Gain Reduction meter moves while the bass you hear stays the same. Save, close, reopen: the setting returns | ☐ | ☐ | ☐ |
+| 11 | **Ignore Below:** write automation of Ignore Below between Off and 127 Hz on a kick or bass track. It plays back, the slider follows, there are no clicks, and the Gain Reduction meter moves while the bass you hear stays the same. Save, close, reopen: the setting returns. Then open a project saved before 0.5.18 that used the old steps (or automated "Ignore Below Steps"): it keeps its frequency and the old automation still plays | ☐ | ☐ | ☐ |
 
 Also by hand: the listening notes in [detector-low-cut.md](detector-low-cut.md), the listening checklists in [engine.md](engine.md), [colour.md](colour.md) and [all-buttons.md](all-buttons.md), and the editor checks in [smoke-test.md](smoke-test.md).

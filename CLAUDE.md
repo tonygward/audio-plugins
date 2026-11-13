@@ -30,7 +30,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 - Hierarchy comes from weight and size, not capitals.
 - Controls use the **slightly bevelled** look from the compressor: raised buttons and knob caps lit from the top left, recessed wells for value fields, pushed-in look when on. Subtle, not chrome.
 - Shared neutral colours. Each plugin has one accent colour.
-- Every editor is vector-drawn, scales as a whole (interface size 75–200 % or more), and stays crisp on Retina and Windows display scaling.
+- Every editor is vector-drawn, scales as a whole (interface size at least 75–200 %; see the style guide for each plugin's range), and stays crisp on Retina and Windows display scaling.
 - New plugins link the shared UI library; they don't copy fonts or look-and-feel code.
 
 ### 4. Controls belong beside what they affect
@@ -42,7 +42,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 
 ### 5. Plain words, no abbreviations
 - Every word on screen is spelled out: labels, buttons, menus, tooltips, hints, parameter display names, preset names. `SC` is "Side Chain", `GR` is "Gain Reduction", `Out` is "Output".
-- Allowed short forms only: units (`Hz`, `kHz`, `dB`, `dB/oct`, `dBFS`, `dBTP`, `LUFS`, `ms`, `s`, `%`, `×`), note names (`A4`), key names (`Ctrl`, `Alt`, `Cmd`, `Shift`), `Q`, and format names (`VST3`, `AU`).
+- Allowed short forms only: units (`Hz`, `kHz`, `dB`, `dB/oct`, `dBFS`, `dBTP`, `dBu`, `LUFS`, `ms`, `s`, `%`, `×`), note names (`A4`), key names (`Ctrl`, `Alt`, `Cmd`, `Shift`), `Q`, format names (`VST3`, `AU`), and `CPU` inside the Processing Load readout only. The [style guide](docs/style-guide.md#wording) holds the full list.
 - Simple language: say what a control does. When a technical term is the right name, keep it and explain it in one short tooltip sentence.
 - One word for one thing across all plugins. Title case for control names, sentence case for tooltips. British spelling.
 - If a word doesn't fit, change the layout, never shorten the word. Tests enforce this; keep them passing.

@@ -1,12 +1,12 @@
-# Detector Low Cut (ACOMP-07)
+# Ignore Below: the detector low cut (ACOMP-07, ACOMP-12, ACOMP-16)
 
-**Low Cut** is a **Songsmith addition** to the 1176-inspired design. The hardware has no such control ([references.md](references.md)); everything below is a Songsmith design choice, not published 1176 behaviour.
+**Ignore Below** (called Low Cut until ACOMP-12) is a **Songsmith addition** to the 1176-inspired design. The hardware has no such control ([references.md](references.md)); everything below is a Songsmith design choice, not published 1176 behaviour.
 
 ## What it does
 
 The compressor decides how much to turn the sound down by listening to the level. Deep bass carries a lot of level, so a loud kick or bass note can make the whole sound duck. Low Cut removes the deepest bass from **what the compressor listens to** only. The audio you hear is never filtered: the bass stays as it was, and it is simply no longer the reason for the gain reduction.
 
-## ACOMP-12: the Ignore Below knob (superseded by the ACOMP-16 slider above; kept as history)
+## ACOMP-12: the Ignore Below knob (superseded by the ACOMP-16 slider below; kept as history)
 
 The dropdown named Low Cut became a round knob named **Ignore Below**, in the same look as Input, Output, Attack and Release. It sits right of Gain Reduction Off (design units x 760, y 302, 176 x 50), clear of the Gain Reduction readout above and the hint line below. The name and the readout (`Off`, `60 Hz`, `80 Hz`, `100 Hz`, `150 Hz`, `200 Hz`) are to the right of the knob. Double-click returns it to Off; arrow keys step through the values.
 

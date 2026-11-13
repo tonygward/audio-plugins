@@ -45,7 +45,7 @@ Follow-up decision: use the documented `/usage` structured report in a separate,
 empty-directory CLI invocation to obtain weekly limits before model work. This
 supersedes the original status-line-only feasibility blocker. Verify subscription
 authentication and the tested CLI version family, reject cached/failure notices,
-unknown limits and paid extra usage, and retain the 85% threshold. Cache detection
+unknown limits and paid extra usage, and retain the 85% threshold (since lowered to 60%; see the execution policy). Cache detection
 depends on the CLI's notices because the experimental schema lacks a server fetch
 timestamp; version changes and real provider failure behaviour need revalidation.
 The check is optional and read-only; live execution stays disabled. No manual or API

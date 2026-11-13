@@ -32,7 +32,6 @@ and the repository test fails if a prompt still has one. Metadata supports the f
 ---
 id: EQ-41
 priority: high
-model: sonnet
 effort: low
 dependencies: ["EQ-32"]
 conflicts: []
@@ -60,7 +59,7 @@ Missing/circular/unmerged dependencies skip work. Only tracked `done/` files on
 fetched main supply completion evidence; an agent report cannot complete a prompt.
 
 The board decides what runs and in what order; the prompt scan supplies the prompt, its dependencies and its conflicts (conflicts are symmetric; a task
-with a missing, circular or unmerged dependency is skipped with a reason). Priority only breaks ties in the legacy dry-run selector. This conservative footprint can yield fewer than three.
+with a missing, circular or unmerged dependency is skipped with a reason). Priority only breaks ties in the legacy dry-run selector.
 
 ## Matrix core lane (auto-merge for Matrix's own code)
 
