@@ -13,7 +13,7 @@ Every task has a stable **MAX-##** reference (for example MAX-05), distinct from
 | [05 validation and packaging](done/05-validation-and-packaging.md) | Done | #46 |
 | [06 true peak by default](done/06-true-peak-by-default.md) | Done · Sonnet | |
 | [07 loudness meter (LUFS)](done/07-loudness-meter.md) | Delivered in beta v0.5.4 (Matrix final issue comment); download route not directly smoke-tested · **Opus for measurement design and validation plan, Sonnet for implementation** | |
-| [08 textured faceplate and refined meters](done/08-faceplate-and-meter-polish.md) | Done · Sonnet | [#224](https://github.com/tonygward/audio-plugins/issues/224), PR #228 merged (beta 0.5.12; delivery still being verified) |
-| [09 integrated LUFS beside the dial](done/09-integrated-lufs-beside-dial.md) | Merged in PR #240 (delivery being verified) · Sonnet | [#229](https://github.com/tonygward/audio-plugins/issues/229) |
+| [08 textured faceplate and refined meters](done/08-faceplate-and-meter-polish.md) | Done · Sonnet | [#224](https://github.com/tonygward/audio-plugins/issues/224), PR #228 (in 0.5.12) |
+| [09 integrated LUFS beside the dial](done/09-integrated-lufs-beside-dial.md) | Done · Sonnet | [#229](https://github.com/tonygward/audio-plugins/issues/229), PR #240 (in 0.5.13) |
 
 Still to do by hand before a release: the host checks in [`docs/host-checks.md`](../docs/host-checks.md).

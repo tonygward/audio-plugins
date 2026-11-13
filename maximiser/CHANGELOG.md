@@ -11,4 +11,4 @@ First version: a look-ahead brickwall maximiser modelled on the published behavi
 - A scalable Songsmith editor: Link, I/O and attenuation meters, and three starting points.
 - VST3 and Standalone on Windows; VST3, AU and Standalone on macOS. Unsigned installers for both.
 
-From version 1.1.0 on, every plugin shares one version number. New entries go in the [Songsmith Studio changelog](../CHANGELOG.md).
+From version 1.1.0 on, every plugin shares one version number. New entries go in the [Songsmith Plugins changelog](../CHANGELOG.md).

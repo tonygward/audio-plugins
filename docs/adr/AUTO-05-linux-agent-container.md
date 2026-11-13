@@ -2,7 +2,7 @@
 
 > **Update (November 2026):** the Linux container is live and the Windows machinery described below (the worker task, approval renewal, build broker, `SongsmithBuild` and `SongsmithAgent`) has been retired from the repository. This record is kept as the decision history.
 
-Status: proposed (pilot running 8 November 2026). Decision owner: Tony. Supersedes the Windows account/ACL approach in AUTO-01 **only after** a clean supervised pilot.
+Status: accepted and live (proposed 8 November 2026, when the pilot started; see the update above). Decision owner: Tony. Supersedes the Windows account/ACL approach in AUTO-01 **only after** a clean supervised pilot.
 
 ## Context
 
@@ -75,4 +75,4 @@ Rollback at any point: `./Start-MatrixAgent.ps1 -Action Down`, then `Enable-Sche
 
 ## Cost
 
-Hosted runners: roughly 10 minutes of Windows and 8 minutes of macOS per Matrix PR attempt (SUI-14: 9m56s and 7m41s), times up to three attempts. Check current GitHub plan limits before raising throughput. Claude usage is a 70 % weekly gate (lowered from 85 % on 9 November 2026 by the owner).
+Hosted runners: roughly 10 minutes of Windows and 8 minutes of macOS per Matrix PR attempt (SUI-14: 9m56s and 7m41s), times up to three attempts. Check current GitHub plan limits before raising throughput. Claude usage was a 70 % weekly gate at the time (lowered from 85 % on 9 November 2026 by the owner); it is now 60 %, see the execution policy.

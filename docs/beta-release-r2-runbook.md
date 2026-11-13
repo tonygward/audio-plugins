@@ -41,15 +41,15 @@ hashes); the safety stop is setting the activation variables to `false`.
 `R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com`,
 `R2_BUCKET=songsmith-beta-releases`.
 
-**Activation variables:** Keep `BETA_DISTRIBUTION_ENABLED=false` and
-`BETA_WEBSITE_RELEASE_ENABLED=false` until a controlled live test.
+**Activation variables:** `BETA_DISTRIBUTION_ENABLED` and `BETA_WEBSITE_RELEASE_ENABLED`
+are both `true` (live). Set either to `false` to pause that stage.
 These are repository variables, not encrypted credentials.
 
 The website verifier is pinned to immutable commit
 `dc9feadc10f69cfbd41f47b84b39addf00b2ea88` and must be reviewed
 before changing that pin. Never commit token contents to this repo.
 
-## First controlled end-to-end test
+## First controlled end-to-end test (done; repeat after changing the distribution path)
 
 1. Confirm the two sets of GitHub secrets and R2 endpoint authenticate and
    private bucket R2 public domains remain disabled.

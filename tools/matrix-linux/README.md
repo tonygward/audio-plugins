@@ -110,13 +110,13 @@ change-scope rules. It differs in validation: there is no local build.
 6. If it cannot get a green build, the PR stays a draft with a **Blocked** section.
 
 Before every run the worker checks its own isolation (not root, no Docker socket, no publishing or GitHub credentials in its environment, proxy configured,
-no capabilities) and refuses to start if any check fails. There is no 24-hour approval file: starting the container is the owner's approval, and
+no effective capabilities for the agent user) and refuses to start if any check fails. There is no 24-hour approval file: starting the container is the owner's approval, and
 `-Action Pause` / `-Action Stop` are the controls.
 
 ## Self-test (`verify`)
 
-Checks, from inside the container: non-root, no Docker socket or CLI, no sudo, read-only root, writable workspace,
-no capabilities, no-new-privileges, no publishing credentials in the environment or `/run/secrets`,
+Checks, from inside the container: non-root, no Docker socket or CLI, no sudo, the agent user cannot write to the root file system (file permissions, as wslc has no read-only flag), writable workspace,
+no effective capabilities for the agent user, no-new-privileges or, since wslc cannot set it, no set-id programs to gain privilege from, no publishing credentials in the environment or `/run/secrets`,
 no direct internet, no home-network access, and that the proxy refuses a host not on the allow-list.
 Passing proves the container is configured as designed; it does not prove the WSL host is safe, and it does not replace a review.
 

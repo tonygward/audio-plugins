@@ -13,7 +13,7 @@ It uses the same embedded Inter fonts, type sizes, title, colours and slightly b
 
 ## Scaling
 
-Everything is laid out in design units (960 x 400) inside one component, and that component is scaled as a whole with an affine transform. Text, knobs, strokes and the meter scale together, and JUCE draws them as vectors at the final resolution, so every size is sharp, including Retina and Windows display scaling. Sizes are 100, 125, 150, 175 and 200 %, picked from the **Size** menu. The size is saved with the session; a hand-edited value snaps to the nearest option. Tested at 100, 150 and 200 %: window size, control positions and proportions.
+Everything is laid out in design units (960 x 400) inside one component, and that component is scaled as a whole with an affine transform. Text, knobs, strokes and the meter scale together, and JUCE draws them as vectors at the final resolution, so every size is sharp, including Retina and Windows display scaling. Drag the bottom-right corner to resize it from 100 % to 200 % at a fixed aspect ratio (the Interface size menu was removed in SUI-18; a 75 % minimum is planned in [ACOMP-17](https://github.com/tonygward/audio-plugins/issues/255)). The size is saved with the session, and an older saved interface size still sets the starting width. Tested at 100, 150 and 200 %: window size, control positions and proportions.
 
 ## Controls
 

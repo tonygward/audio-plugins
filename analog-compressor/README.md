@@ -14,14 +14,16 @@ A feedback FET compressor inspired by the Rev D blackface 1176LN, by Songsmith S
 - **Analogue colour:** FET gain-cell distortion while compressing, plus the Class A output amplifier and transformer. **Gain Reduction Off** keeps the colour without compressing. Calibrated to the published specs: [docs/colour.md](docs/colour.md).
 - **Oversampling:** Off / 2x / 4x (default Off, so a new instance adds no delay and uses the least processing power; turn it up for a cleaner top end when compressing hard). Sessions saved earlier keep their setting. The latency is reported to the host, and the bypass stays aligned. If you switch Processing Load on (far left of the strip along the bottom of the editor), the readout beside it shows this instance's CPU use and that latency in milliseconds and samples.
 - **Needle meter** (about 45 % larger than before, with bigger scale numbers): Gain Reduction, Output +4 and Output +8 modes (0 on the scale at +4 or +8 dBu) with VU ballistics, plus a numeric gain reduction readout.
-- **Scalable vector editor:** 100-200 %, sharp on any display, on a fine brushed faceplate drawn as vectors. The ratio buttons read 20:1, 12:1, 8:1, 4:1 and (a Songsmith addition) 2:1, each with a plain tooltip. See [docs/editor.md](docs/editor.md).
+- **Scalable vector editor:** drag the bottom-right corner to resize it from 100 % to 200 % (a 75 % minimum is planned in [ACOMP-17](https://github.com/tonygward/audio-plugins/issues/255)), sharp on any display, on a fine brushed faceplate drawn as vectors. The ratio buttons read 20:1, 12:1, 8:1, 4:1 and (a Songsmith addition) 2:1, each with a plain tooltip. See [docs/editor.md](docs/editor.md).
 - **Ignore Below (a Songsmith addition, formerly Low Cut):** a horizontal slider beside Gain Reduction Off, under the meter, with the name on the left and the frequency on the right (for example 127 Hz). It stops deep bass from making the compressor turn the whole sound down. Only what the compressor *listens to* is filtered; the bass you hear is untouched. Choose any whole number of Hz from 20 to 500 (gentle 12 dB/oct slope) by dragging, with the arrow keys, or by clicking the number and typing; double-click for Off. Off by default, including in sessions saved earlier, and sessions that used the old 60, 80, 100, 150 or 200 Hz steps keep exactly that frequency. The original 1176 has no such control. Details and tests: [docs/detector-low-cut.md](docs/detector-low-cut.md).
 - **Title tooltip:** hover over the plugin name at the top left for a short explanation of what the compressor does and one thing to listen for. It is fixed wording, not a measurement. See [shared/docs/guidance.md](../shared/docs/guidance.md).
 - **Presets:** four conservative, level-matched starting points (lead vocal, acoustic guitar, bass, drum room), each with a listening cue, plus your own presets.
 
 ## Install
 
-Download the installers from the [releases page](https://github.com/tonygward/audio-plugins/releases/latest). CI builds the same files on every change (the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml)). None of the files are code-signed. See the Songsmith EQ section of the main README for the SmartScreen and Gatekeeper steps, which are the same here.
+Install it with the **Songsmith Plugins** suite installer from the [releases page](https://github.com/tonygward/audio-plugins/releases/latest) (`Songsmith-Plugins-<version>-win64-setup.exe` or `Songsmith-Plugins-<version>-macOS.pkg`), with Songsmith Analog Compressor ticked. Each release has only those two files. They aren't code-signed; the SmartScreen and Gatekeeper steps are in the [technical guide](../TECHNICAL.md#install-every-plugin-at-once).
+
+CI also builds this plugin's own installers as internal test files (the [Actions page](https://github.com/tonygward/audio-plugins/actions/workflows/build.yml)); they are never published:
 
 | File (CI artifact) | What it is |
 |---|---|
@@ -65,7 +67,7 @@ To build and test the installers:
 - Manufacturer code `Tnyw`, plugin code `Sfc1`, so the AU is `aufx Sfc1 Tnyw`.
 - Windows AppId `{FF3BD6A4-58D4-4AFA-BFA3-26B221E29340}`.
 - macOS package ids `com.songsmithstudio.songsmithanalogcompressor.{vst3,au,app}`.
-- Parameter IDs (stable): `input`, `output`, `attack`, `release`, `ratio`, `allButtons`, `grOff`, `bypass`, plus `oversampling` since state version 2 and `detectorLowCut` since state version 3. See `Source/FETParams.h`.
+- Parameter IDs (stable): `input`, `output`, `attack`, `release`, `ratio`, `allButtons`, `grOff`, `bypass`, plus `oversampling` since state version 2, `detectorLowCut` since state version 3 (kept for old sessions and automation, shown to hosts as "Ignore Below Steps") and `ignoreBelowHz` since state version 5. See `Source/FETParams.h`.
 
 ## Docs
 
@@ -76,7 +78,7 @@ To build and test the installers:
 | [colour.md](docs/colour.md) | Analogue colour and oversampling |
 | [all-buttons.md](docs/all-buttons.md) | All Buttons |
 | [editor.md](docs/editor.md) | The editor |
-| [detector-low-cut.md](docs/detector-low-cut.md) | The detector Low Cut: range, slope, tests and listening notes |
+| [detector-low-cut.md](docs/detector-low-cut.md) | Ignore Below (the detector low cut): range, slope, compatibility, tests and listening notes |
 | [presets.md](docs/presets.md) | How the controls work, and the starting points |
 | [daw-checks.md](docs/daw-checks.md) | Studio One and Logic checks, executed vs pending |
 | [smoke-test.md](docs/smoke-test.md) | Studio One smoke test |

@@ -10,13 +10,13 @@ _Forward-looking ideas; no committed delivery dates._
 
 | Direction | What it means | Status |
 |---|---|---|
-| **More plugins** | Aim for **6–12** useful processors. Next candidates: **Optical Leveller (LA-2A-inspired)**, **Clean Compressor**, **Pultec-style EQ**, **SSL-style Bus Compressor**. Further ideas: **Reverb**, **Delay**, **De-Esser**, **Saturator**, **Gate / Expander**, **Transient Shaper**, **Guitar Amp / Cabinet**. This is a candidate pool, not a commitment to build all of them. | Planned classics / later ideas |
+| **More plugins** | Aim for **6–12** useful processors. Next candidates: **Optical Leveller (LA-2A-inspired)**, **Songsmith Compressor** (a clean compressor, [COMP-01](../compressor/prompts/01-songsmith-compressor.md)), **Pultec-style EQ**, **SSL-style Bus Compressor**. Further ideas: **Reverb**, **Delay**, **De-Esser**, **Saturator**, **Gate / Expander**, **Transient Shaper**, **Guitar Amp / Cabinet**. This is a candidate pool, not a commitment to build all of them. | Planned classics / later ideas |
 | **Songsmith Channel Strip** | One easy-to-use plugin combining the **existing, validated processing engines** into practical vocal and instrument chains, including a proposed internal parallel Abbey Road-style reverb path. | Future |
 | **Standalone Loudness Analyser** | Drop in a **whole finished song** to check integrated LUFS, true peaks, recording format and streaming guidance; optional mastering/export can follow later. | Future |
 
 **Musician-first improvements:** an optional EQ frequency overlay per instrument (e.g. **Warmth**, **Thump**, **Plastic**, **Crunch**, **Air**) grounded in [Joe Gilder and real recording notes](../eq/docs/starting-points.md); plus optional, contextual guidance in every plugin and the standalone app: **“What matters? Why? Do I need to do anything?”** [Guidance prompts](../shared/prompts/README.md#open-prompts) are future work, not automatically queued.
 
-**Standing rules:** clear British English and musical preset names; consistent UI; honest, evidence-based audio guidance; backward compatibility and real-time safety; useful screenshots retained in PRs and READMEs; a beta release follows each merged plugin change (see the [execution policy](../docs/songsmith-execution-policy.md)). See [development rules](../CLAUDE.md) and the [prioritised backlog](../shared/prompts/README.md).
+**Standing rules:** clear British English and musical preset names; consistent UI; honest, evidence-based audio guidance; backward compatibility and real-time safety; useful screenshots retained in PRs and READMEs; a beta release follows each merged plugin change (see the [execution policy](../docs/songsmith-execution-policy.md)). See [development rules](../CLAUDE.md) and the [prompt index](../shared/prompts/README.md); the project board sets the order.
 
 ## Suite direction (high level)
 
@@ -35,12 +35,12 @@ Keep validating and improving what already exists before fixing the order of new
 
 ## Songsmith EQ — proposed instrument guide
 
-- [x] **Optional instrument-specific frequency overlay** (delivered as EQ-32 in 1.3.0; see [docs/frequency-guide.md](docs/frequency-guide.md)): show friendly tonal labels on the EQ graph for acoustic guitar, electric guitar, vocals, bass and drums. Draw on Joe Gilder's notes and the existing EQ starting-point research: **Rumble**, **Thump**, **Plastic**, **Warmth**, **Crunch** and **Air**. Keep this a subtle, optional, educational overlay, off by default and without changing audio. Frequency regions are listening suggestions rather than universal rules. Sources: `tonygward/music-recording/techniques/joe-gilder.md` and `eq/docs/starting-points.md`. Prompt: [`prompts/done/32-frequency-guide.md`](prompts/done/32-frequency-guide.md).
+- [x] **Optional instrument-specific frequency overlay** (delivered as EQ-32 in 1.3.0, before the renumbering to 0.5.0; see [docs/frequency-guide.md](docs/frequency-guide.md)): show friendly tonal labels on the EQ graph for acoustic guitar, electric guitar, vocals, bass and drums. Draw on Joe Gilder's notes and the existing EQ starting-point research: **Rumble**, **Thump**, **Plastic**, **Warmth**, **Crunch** and **Air**. Keep this a subtle, optional, educational overlay, off by default and without changing audio. Frequency regions are listening suggestions rather than universal rules. Sources: `tonygward/music-recording/techniques/joe-gilder.md` and `eq/docs/starting-points.md`. Prompt: [`prompts/done/32-frequency-guide.md`](prompts/done/32-frequency-guide.md).
 
 
 ---
 
-**Versioning note:** the EQ version numbers on the historical phases below are not current suite release numbers. New releases use the shared root `VERSION`, aligned to the delivery milestones in [the suite backlog](../shared/prompts/README.md).
+**Versioning note:** the EQ version numbers on the historical phases below are not current suite release numbers. New releases use the shared root `VERSION`, raised automatically on each source merge (see [release checkpoints](../docs/automatic-release-checkpoints.md)).
 
 ## Songsmith EQ — existing development roadmap
 
@@ -104,8 +104,8 @@ Each of these is a project on its own. Do them in this order:
 Requests from using the plugin on real mixes. Prompts 27–31 in [`prompts/done/`](prompts/done/).
 
 - [x] **Vertical output meter on the right** of the graph, full height, with a dB scale, peak hold and clip indicator, in place of the small bar in control row 2.
-- [ ] **EQ-39 — early Priority 2 follow-up:** [automatic mono/stereo output meter and sticky red CLIP warning](prompts/done/39-stereo-meter-clip-latch.md). One bar for mono; independent L/R for stereo. Clip on either channel latches until sustained silence. UI and real-time-safe metering only; shipped EQ-27 stays done.
-- [ ] **EQ-40 — early Priority 2 preset clean-up:** [group Starting Points by instrument, expose Mid/High Tom, hide Five-zone start and remove duplicate Factory choices](prompts/done/40-organise-starting-points.md); retain old preset indices and session compatibility.
+- [x] **EQ-39 (shipped in 0.5.1):** [automatic mono/stereo output meter and sticky red CLIP warning](prompts/done/39-stereo-meter-clip-latch.md). One bar for mono; independent L/R for stereo. Clip on either channel latches until sustained silence. UI and real-time-safe metering only; shipped EQ-27 stays done.
+- [x] **EQ-40 (shipped in 0.5.1):** [group Starting Points by instrument, expose Mid/High Tom, hide Five-zone start and remove duplicate Factory choices](prompts/done/40-organise-starting-points.md); retain old preset indices and session compatibility.
 - [x] **Piano notes toggle** in the bottom control bar (row 3), so the piano strip from task 16 isn't hidden in a right-click menu.
 - [x] **Edge clicks add cuts.** Double-clicking near the far left of the graph adds a Low Cut, near the far right a High Cut, and a Bell anywhere else.
 - [x] **"Abbey Road reverb" template**, copied from Tony's Pro-Q 4 preset "Abbey Road Reverb Trick" (low cut 377 Hz, 2 kHz dip, high cut 17 kHz).

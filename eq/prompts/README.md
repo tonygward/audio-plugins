@@ -28,9 +28,11 @@ Versions 1.x above are from before the suite was renumbered to 0.5.0 ([VER-01](.
 
 Matrix picks prompts up from the project board and each one goes straight into `main` through its own pull request, merged automatically once CI passes. See the [execution policy](../../docs/songsmith-execution-policy.md).
 
-## Run in waves, merging between waves
+## History: how prompts 05–31 ran in waves
 
-Every prompt branches from the latest `main`. Tasks in the same wave are mostly independent, so they can run in parallel. Review and merge a wave before starting the next, so later tasks build on the earlier work.
+This is how the early roadmap was run, before Matrix. Today Matrix runs one task at a time in board order ([execution policy](../../docs/songsmith-execution-policy.md)); the table is kept as a record and for its conflict notes.
+
+Every prompt branched from the latest `main`. Tasks in the same wave were mostly independent, so they ran in parallel, and each wave was merged before the next.
 
 | Wave | Prompts | Notes |
 |---|---|---|

@@ -44,8 +44,11 @@ is titled "Publish verified beta X.Y.Z"), and Cloudflare Pages deploys it.
 In `tonygward/audio-plugins` Actions repository secrets, create
 `RELEASE_PUBLISH_TOKEN`: a **fine-grained GitHub PAT** with resource owner
 `tonygward`, access to **only** `audio-plugins`, repository permission
-**Contents: Read and write** (Metadata read is automatically included), and
-a short documented expiration (e.g. 90 days). No other repo scope and no
+**Contents: Read and write** and **Pull requests: Read and write** (Metadata
+read is automatically included), and a short documented expiration (e.g. 90
+days). Pull requests access is there because `matrix-auto-merge.yml` uses the
+same token to comment on, mark ready and merge Matrix pull requests, so the
+merge starts the Build and release workflows. No other repo scope and no
 classic PAT. Never paste its value into code, issues or chat.
 
 In Actions repository variables, set `AUTO_RELEASE_ENABLED=true` **after**

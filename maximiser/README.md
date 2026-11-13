@@ -127,7 +127,7 @@ Hover over **Songsmith Maximiser** at the top left for a short explanation of wh
     - that a Songsmith EQ install is never touched.
   - **macOS:** a `.pkg` plus a zip. The test installs system-wide on the throwaway runner, runs auval on the installed component, reinstalls, installs with the app deselected, and runs `uninstall.sh`.
 
-  Publishing releases stays manual.
+  These per-plugin installers are internal CI test files. Releases are published automatically and contain only the two suite installers; see [release checkpoints](../docs/automatic-release-checkpoints.md).
 - **CI artifacts** (all separate from the EQ's):
   - `Songsmith-Maximiser-Windows-setup`, `-Windows-zip`, `-macOS-pkg` and `-macOS-zip`;
   - the raw `Songsmith-Maximiser-<OS>` builds;

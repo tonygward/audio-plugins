@@ -54,7 +54,7 @@ Why these numbers: 11, 12 and 13 px are the minimums set for Songsmith EQ (roadm
 
 Every plugin draws its name with `Songsmith::UI::drawTitle`: "Songsmith" in SemiBold in the text colour, a space, then the product name ("EQ", "Analog Compressor", "Maximiser") in Regular in the plugin's accent colour, both at 18 px. It sits at the top left, 24 px from the editor's left edge (`titleInset`), centred in a 52 px title bar (`titleBarHeight`). The compressor's title bar is the model.
 
-Songsmith EQ keeps its title in its first top-bar row (42 px tall, 12 px from the left), because that row also holds the presets, Undo, Redo and the interface size and has to fit at the 760 px minimum width.
+Songsmith EQ's title bar is its first top-bar row (42 px tall, 12 px from the left), laid out by the shared header like the others: name, Preset, Undo, Redo and Bypass, nothing else (see [title bar](../shared/docs/title-bar.md)). It has to fit at the 760 px minimum width. Interface size is in the `...` menu.
 
 ## Colours
 
@@ -88,7 +88,7 @@ The slightly bevelled look started on the compressor's knobs. It is subtle: cont
 - **Knobs:** a recessed ring (`recess`, darker at the top left, lighter at the bottom right); a cap 86 % of the radius (74 % when the ring shows a value arc) filled with a radial gradient from `panelLight` 25 % brighter at the top left to `panel` 40 % darker at the bottom right; a thin black outline at 50 %; a pointer in the knob's accent colour from 35 % to 90 % of the cap. Knobs without a printed scale show their value as an arc in the ring, from the centre for ranges that cross zero. Disabled knobs get a grey pointer.
 - **Combo boxes, the EQ's preset name and value fields (wells):** `recess`, 35 % darker at the top over the first 10 px, a `shadow` outline, a `highlight` on the bottom edge, corners 4 px (3 px for slider value boxes). Combo boxes have a thin chevron in `textDim`.
 - **Bar sliders** (the EQ's Output and Scale): a well that fills with the value at 55 %, from zero for ranges that cross it.
-- **Faders** (the maximiser's Threshold and Out Ceiling): a 6 px well as the track, filled in the fader's colour (vertical faders from the top, like the L1's); a raised handle with the button bevel and a line in the fader's colour.
+- **Faders** (the maximiser's Threshold and Output Ceiling): a 6 px well as the track, filled in the fader's colour (vertical faders from the top, like the L1's); a raised handle with the button bevel and a line in the fader's colour.
 
 ## Accent colours
 
@@ -143,10 +143,11 @@ The check (`Songsmith::UI::Wording::findBanned`) fails on a banned word (`SC`, `
 | Oversampling | OS | Running at a higher sample rate inside the plugin, for cleaner distortion and filters |
 | Dither | TPDF | A very quiet noise added before the output is rounded to fewer bits |
 | Bypass | Byp | The sound passes through untouched |
-| Interface size | Size, UI size | How large the window is drawn (75 % to 300 %) |
+| Interface size | Size, UI size | How large the window is drawn: at least 75 % to 200 % (Songsmith EQ 75–200 %, Songsmith Maximiser 75–300 %; Songsmith Analog Compressor is 100–200 % until [ACOMP-17](https://github.com/tonygward/audio-plugins/issues/255)) |
 | Starting point | | A factory setting to start from, with a listening hint |
 | Preset | | A saved setting, yours or a factory one |
 
 ### Known naming questions
 
+- Some factory presets shipped before the preset naming rule in `CLAUDE.md` (for example "Lead vocal", "Abbey Road reverb", "Rack tom"). They are renamed for their use case in [SUI-19](https://github.com/tonygward/audio-plugins/issues/266); until then, new presets follow the rule.
 - "Songsmith Analog Compressor" uses the American "analog" while the UI uses British spelling; the product name is part of the plugin's identity in hosts and installers, so it stays.

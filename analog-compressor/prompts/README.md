@@ -14,57 +14,15 @@ Every task has a stable **ACOMP-##** reference (for example ACOMP-05), distinct 
 | [08 1176-inspired editor](done/08-1176-editor.md) | Done · Sonnet | #88 (shipped in 1.3.0) |
 | [06 oversampling off by default](done/06-oversampling-off-by-default.md) | Done · Sonnet | |
 | [07 detector Low Cut](done/07-detector-low-cut.md) | Done · Sonnet | [#160](https://github.com/tonygward/audio-plugins/issues/160) (closed) |
-| 09 Guided compressor calibration | To do · **Sonnet** | |
-| 10 Switchable FET compressor models | To do · **Opus for DSP design, Sonnet for implementation** | |
+| [09 Guided compressor calibration](09-guided-compressor-calibration.md) | To do | [#264](https://github.com/tonygward/audio-plugins/issues/264) |
+| [10 Switchable FET compressor models](10-switchable-fet-models.md) | To do | [#265](https://github.com/tonygward/audio-plugins/issues/265) |
 | [11 Add 2:1 compression ratio](done/11-two-to-one-ratio.md) | Done · Sonnet | [#199](https://github.com/tonygward/audio-plugins/issues/199), PR #207 (shipped in 0.5.8) |
 | [12 Ignore Below rotary Hz control](done/12-ignore-below-rotary-hz.md) | Done · Sonnet | [#200](https://github.com/tonygward/audio-plugins/issues/200), PR #215 (shipped in 0.5.9) |
 | [13 Preset research for the Songsmith Compressor](done/13-joe-gilder-grounded-presets.md) | Done | [#233](https://github.com/tonygward/audio-plugins/issues/233), PR #245 (in 0.5.15) |
 | [14 Ratio descriptions in per-button tooltips](done/14-ratio-button-tooltips.md) | Done | [#234](https://github.com/tonygward/audio-plugins/issues/234), PR #247 (in 0.5.15) |
 | [15 Oversampling at the far left](done/15-oversampling-far-left.md) | Done | [#236](https://github.com/tonygward/audio-plugins/issues/236), PR #248 (in 0.5.15) |
-| [16 Continuous Ignore Below up to 500 Hz](done/16-ignore-below-continuous-500hz.md) | To do | [#237](https://github.com/tonygward/audio-plugins/issues/237) |
+| [16 Continuous Ignore Below up to 500 Hz](done/16-ignore-below-continuous-500hz.md) | Done | [#237](https://github.com/tonygward/audio-plugins/issues/237), PR #249 (in 0.5.18) |
 
 The board decides the order of the remaining prompts; see the [execution policy](../../docs/songsmith-execution-policy.md). (ACOMP-08, 06 and 07 ran in that order on 5 November 2026, keeping their original IDs and filenames.)
 
 Still to do by hand before a release: the Studio One and Logic checks in [`analog-compressor/docs/daw-checks.md`](../docs/daw-checks.md), and the listening checklists in `analog-compressor/docs`.
-
-## 09 · Guided compressor calibration
-
-**Recommended model:** Sonnet. **Estimated effort / usage:** Medium. **Escalation:** Opus only for an unavoidable calibration-measurement architecture question; document why and return to Sonnet. Follow `CLAUDE.md`. Build after the detector Low Cut and editor updates.
-
-Add an optional **Set Levels** action. Ask the user to play a representative loud section, then estimate an Input setting that gives a few dB of gain reduction on louder peaks (start with 2–4 dB) and an Output setting that approximately matches the dry and compressed loudness. Account for the current ratio, attack, release and Low Cut. Show the proposed settings and measured reduction, let the user apply or cancel, and make the applied settings undoable and manually adjustable. Keep Input and Output fixed during normal playback. Handle silence, short captures, clipping risk, and targets that cannot be reached. Keep measurement real-time safe and avoid writing over active host automation. Test on transients and sustained sources, and verify the output match using a level-matched bypass comparison.
-
-Add explicit tooltips for the Attack and Release knobs. Attack explains how quickly compression starts, Release explains how quickly it lets go, and both say turning clockwise makes it faster. Verify that the knob direction agrees with the DSP.
-
-## 10 · Switchable FET compressor models
-
-**Recommended model:** Opus for DSP design and validation planning; Sonnet for implementation. **Estimated effort / usage:** High. **Escalation:** Use Opus only for model-specific DSP design and measurement plans, document decisions, then Sonnet for implementation and tests. Build on the 1176 editor and guided calibration prompts.
-
-Keep all variants in one **Songsmith Analog Compressor** plugin. Add a clearly labelled **Model** selector that switches both the DSP and a distinct, subtle faceplate texture. Keep the existing model for session compatibility and use the named references below for the new models. Confirm Tony's exact Lindell reference before choosing a circuit or voicing. Use original faceplates and cite the references. Document which differences are supported by measurements or published material and which are Songsmith voicing choices.
-
-Define meaningful differences in gain reduction, timing and harmonic colour. Keep shared controls familiar and give each model a plain-language description. Save and recall the model in every factory preset, every custom preset and every host project. Use stable model IDs. Older presets without a model must load the original Rev D Blackface sound. Verify factory preset recall, custom preset round-trips and legacy preset migration. Older sessions must open with the existing model and sound. Retain IDs and verify safe switching during playback, output levels, bypass, latency and calibration for each model. Use repeatable measurements and level-matched listening on real material to verify the variants.
-
-### Model choices and tooltip copy
-
-Show the selected model’s use case beside the selector and make it available as a tooltip. Include it in the choice list where the host UI permits. Use these as starting copy and verify each description by level-matched listening.
-
-| Model | Suggested tooltip |
-|---|---|
-| Rev A · Blue Stripe | “Try this for a gritty, upfront vocal or to make room mics sound more aggressive.” |
-| Rev D · Blackface (Original Songsmith) | “Start here to tame vocal, bass or guitar peaks while keeping the sound fairly clean.” |
-| 1176AE · Anniversary Edition | “Try 2:1 for gentler control, or Slow Attack to let more of the first hit through.” |
-| Lindell-inspired | Confirm the exact reference first. If it is the 7X-500, start by auditioning it on Tony’s acoustic guitar recordings. Suggested tooltip: “Try this on acoustic guitar to even out strong strums while keeping the pick attack.” Check that the finished model supports this use on strummed and picked parts. |
-
-Support the AE’s 2:1 ratio and Slow Attack as explicit model-specific choices. Verify which ratio and attack settings each reference supports and define safe, predictable mapping when the user switches models. Keep the existing Rev D-inspired sound as the Blackface choice and preserve it for older sessions. Use Rev E as a comparison reference only.
-
-### Reference material
-
-- [Universal Audio 1176 Classic Limiter Collection tips and model notes](https://www.uaudio.com/blogs/ua/1176-collection-tips)
-- [Universal Audio 1176LN hardware manual and specifications](https://media.uaudio.com/assetlibrary/1/1/1176ln_manual.pdf)
-- [Universal Audio 2-1176 hardware manual and revision history](https://media.uaudio.com/assetlibrary/2/-/2-1176_manual.pdf)
-- [Plugin Alliance Lindell 7X-500 product reference](https://www.plugin-alliance.com/products/7x-500)
-
-Use the UA collection notes for model-specific features and the hardware manuals for the specifications of the units they cover. Keep published facts, measured behaviour and Songsmith design choices separate in the implementation notes.
-
-### Required factory preset · Acoustic Guitar Smoothing
-
-Add **Acoustic Guitar Smoothing**, based on Joe Gilder’s Butter Compression tutorial, with the **Lindell-inspired model** explicitly selected in the preset data. Locate the original tutorial and record its link, timestamp and demonstrated settings in the preset source notes. Map the settings to Songsmith controls, documenting any adaptations and setting Input and Output against a representative acoustic guitar recording where needed. Keep the preset pending if the tutorial or its settings cannot be verified. Audition it on Tony’s strummed and picked acoustic guitar recordings. Test that loading the preset switches to Lindell from another model, recalls the intended controls, and retains that model if saved as a custom preset.

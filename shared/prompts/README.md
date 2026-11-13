@@ -22,7 +22,8 @@ This is an index, not the queue: the board decides what runs and in what order. 
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
 | EQ-41 | [Label the Gain Scale control](../../eq/prompts/41-gain-scale-main-toolbox.md) | [#203](https://github.com/tonygward/audio-plugins/issues/203) |
 | EQ-42 | [Accurate clipping indication and peak readout](../../eq/prompts/42-clip-meter-readout.md) | [#232](https://github.com/tonygward/audio-plugins/issues/232) |
-| ACOMP-16 | [Continuous Ignore Below up to 500 Hz](../../analog-compressor/prompts/done/16-ignore-below-continuous-500hz.md) | [#237](https://github.com/tonygward/audio-plugins/issues/237) |
+| ACOMP-09 | [Guided compressor calibration](../../analog-compressor/prompts/09-guided-compressor-calibration.md) | [#264](https://github.com/tonygward/audio-plugins/issues/264) |
+| ACOMP-10 | [Switchable FET compressor models](../../analog-compressor/prompts/10-switchable-fet-models.md) | [#265](https://github.com/tonygward/audio-plugins/issues/265) |
 | WEB-01 | [Private beta portal](WEB-01-private-beta-portal.md) (code in `songsmith-website`; Matrix does not build there yet) | [website #21](https://github.com/tonygward/songsmith-website/issues/21) |
 | WEB-02 | [Distribution hardening](https://github.com/tonygward/songsmith-website/blob/main/prompts/WEB-02-release-distribution-hardening.md) (prompt kept in `songsmith-website`) | [website #22](https://github.com/tonygward/songsmith-website/issues/22) |
 | WEB-03 | [Plugin Features section](WEB-03-beta-plugin-features-section.md) (code in `songsmith-website`) | [website #19](https://github.com/tonygward/songsmith-website/issues/19) |
@@ -116,6 +117,7 @@ These links prevent completed features being selected again. An archived prompt 
 - [13-joe-gilder-grounded-presets](../../analog-compressor/prompts/done/13-joe-gilder-grounded-presets.md)
 - [14-ratio-button-tooltips](../../analog-compressor/prompts/done/14-ratio-button-tooltips.md)
 - [15-oversampling-far-left](../../analog-compressor/prompts/done/15-oversampling-far-left.md)
+- [16-ignore-below-continuous-500hz](../../analog-compressor/prompts/done/16-ignore-below-continuous-500hz.md)
 
 ### maximiser
 - [01-maximiser-shell](../../maximiser/prompts/done/01-maximiser-shell.md)
