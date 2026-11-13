@@ -37,4 +37,4 @@ As a musician applying EQ to previously mastered and limited audio, I want the p
 The existing EQ-39 latch behaviour is intentionally sticky; do not equate 'red CLIP stays on' with a current overshoot. Accurate user-facing semantics are more important than hiding indications of true clipping.
 
 ## Build and delivery
-Follow `docs/songsmith-execution-policy.md`. One Matrix job at a time; usage gating and board order apply. Require current-head CI, trusted merge, appropriate build-number increment from current baseline, suite installers, R2 release and authenticated beta website download verification. Comment on claim/start, progress, failures, completion; close and mark board Done **only after verified deployment**.
+Follow the [execution policy](../../docs/songsmith-execution-policy.md). Add a musician-facing note under `## Unreleased` in `CHANGELOG.md`.

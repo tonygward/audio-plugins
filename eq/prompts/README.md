@@ -1,6 +1,6 @@
 # Roadmap prompts
 
-There is one self-contained prompt per item in [`eq/ROADMAP.md`](../ROADMAP.md). Prompts still to run sit in this folder; finished ones move to [`done/`](done/) once their PR is merged into `main`. Each file starts with the same working rules: branch from `main`, don't break parameter IDs or saved sessions, keep the audio thread real-time safe, build and test, never run `install.ps1`, and finish with a PR (merged automatically once its checks pass; see the [execution policy](../../docs/songsmith-execution-policy.md)). Each file can be handed to an agent as it is.
+There is one self-contained prompt per item in [`eq/ROADMAP.md`](../ROADMAP.md). Prompts still to run sit in this folder; finished ones move to [`done/`](done/) once their PR is merged into `main`. Each file starts with the same working rules: branch from `main`, don't break parameter IDs or saved sessions, keep the audio thread real-time safe, build and test, never run `install.ps1`, and finish with a PR (see the [execution policy](../../docs/songsmith-execution-policy.md)). Each file can be handed to an agent as it is.
 
 References use the stable **EQ-##** IDs (for example EQ-27 means prompt 27 in this folder). The ID is preserved in `done/`; the linked PR numbers are separate delivery records. See [suite traceability rules](../../shared/prompts/README.md#prompt-identity-and-traceability).
 
@@ -24,9 +24,9 @@ References use the stable **EQ-##** IDs (for example EQ-27 means prompt 27 in th
 
 Versions 1.x above are from before the suite was renumbered to 0.5.0 ([VER-01](../../shared/prompts/done/VER-01-standardise-suite-version-0.5.0.md)).
 
-## Overnight runs merge into `main`
+## How these prompts run
 
-Run unattended with [`shared/prompts/overnight-prompt.md`](../../shared/prompts/overnight-prompt.md), each task goes **straight into `main`** through its own PR: the agent waits for CI, approves the PR and merges it itself once the build, tests and CI all pass, then starts the next task from the updated `main`. There's no integration branch any more. Nothing is pushed to `main` without a PR, and blocked tasks stay as draft PRs. (GitHub doesn't let an account formally approve its own PR, so the agent records its approval as a PR comment listing what it checked, then merges.)
+Matrix picks prompts up from the project board and each one goes straight into `main` through its own pull request, merged automatically once CI passes. See the [execution policy](../../docs/songsmith-execution-policy.md).
 
 ## Run in waves, merging between waves
 

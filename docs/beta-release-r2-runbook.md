@@ -1,7 +1,6 @@
 # Songsmith beta release distribution — GitHub → private R2
 
-**Current state:** GitHub Actions code installed, intentionally disabled until
-end-to-end credentials and real release acceptance checks are completed.
+**Current state:** live. Every published release is copied to private storage and the beta website updates on its own (`BETA_DISTRIBUTION_ENABLED=true`).
 
 ## Owner's publication policy
 
