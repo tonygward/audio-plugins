@@ -3,7 +3,7 @@ import {pathToFileURL} from 'node:url';
 
 const repo='tonygward/audio-plugins';
 const expectedJobs=['One version number','Songsmith Plugins installer - Windows','Songsmith Plugins installer - macOS',
-  ...['EQ','Analog Compressor','Maximiser'].flatMap(n=>[`${n} - Windows (VS, x64)`,`${n} - macOS (Xcode, universal)`])];
+  ...['EQ','Analog Compressor','Maximiser','Compressor'].flatMap(n=>[`${n} - Windows (VS, x64)`,`${n} - macOS (Xcode, universal)`])];
 
 export function releaseVersion(contents) {
   const v=contents.trim();
@@ -13,7 +13,7 @@ export function releaseVersion(contents) {
 // Mirrors the path filter in .github/workflows/build.yml: a commit that touches
 // only documentation, prompts, screenshots or ignore files never builds, so it
 // must not make an earlier successful Build look stale.
-const buildRoots=['eq/','analog-compressor/','maximiser/','shared/','installer/','.github/workflows/'];
+const buildRoots=['eq/','analog-compressor/','maximiser/','compressor/','shared/','installer/','.github/workflows/'];
 const buildFiles=['VERSION','.gitattributes'];
 export function isBuildPath(path) {
   const p=String(path).replaceAll('\\','/');
