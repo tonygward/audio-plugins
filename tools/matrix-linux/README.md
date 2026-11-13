@@ -104,7 +104,7 @@ change-scope rules. It differs in validation: there is no local build.
 1. Every five minutes, read the project board and pick **one** card: a Doing card at once (a run-now request), or one Todo card per London day after 02:00. Nothing in a prompt decides this.
 2. Claude edits a worktree with file tools only. The GitHub token is never in Claude's environment.
 3. Commit, merge `main` in if it moved (a changelog-only conflict is resolved; anything else stops with a Blocked note), push, open a **draft** PR.
-4. Wait for the hosted Windows and macOS **Build** on the exact head commit. Stale runs never count. On failure, up to two repairs: the failed-job log is saved to a file
+4. Wait for the hosted Windows and macOS **Build** on the exact head commit. Stale runs never count. On failure, up to three repairs (`maximumRepairs`): the failed-job log is saved to a file
    the agent may read as untrusted data; it is never pasted into the instructions.
 5. When the build is green, `matrix-auto-merge.yml` (the existing workflow) merges it; the existing release pipeline publishes the beta. The worker never merges or releases. Changes to Matrix's own code use the core lane described in `tools/matrix/README.md`; the image is still rebuilt by hand.
 6. If it cannot get a green build, the PR stays a draft with a **Blocked** section.
