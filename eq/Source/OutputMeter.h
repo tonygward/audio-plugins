@@ -4,9 +4,10 @@
 #include "EQLookAndFeel.h"
 
 // Tall vertical output peak meter, on the right of the graph (task 27, EQ-39). From the top:
-// the CLIP warning, the channel names, the bars (fill bottom to top, -60 to +6 dBFS on a linear
-// dB scale) with the dB scale on the right, and the held peak as a number in the frequency-axis
-// row. One bar for a mono output, two (Left, Right) for stereo, each showing its own peak.
+// the CLIP warning, the held peak as a signed number in dBFS directly beneath it (EQ-42), the
+// channel names, the bars (fill bottom to top, -60 to +6 dBFS on a linear
+// dB scale) with the dB scale on the right. The number is red only while the held peak is at or
+// above 0 dBFS (the same boundary as CLIP) and never depends on the CLIP latch. One bar for a mono output, two (Left, Right) for stereo, each showing its own peak.
 // The owner calls update() from its timer with the peaks read from the audio thread (linear,
 // already reset there) and the audio thread's latched clip state. The CLIP warning is text as
 // well as colour. It is sample-peak clipping (a sample at or above 0 dBFS), not a true-peak
@@ -21,6 +22,7 @@ public:
     static constexpr float barsWidth = 20.0f;               // all the bars together, mono or stereo
     static constexpr float barGap = 2.0f;                   // between the Left and Right bars
     static constexpr float clipWidth = 34.0f, clipHeight = 14.0f, clipGap = 3.0f;
+    static constexpr float peakHeight = 14.0f, peakGap = 2.0f;   // the held-peak number, directly under CLIP
     static constexpr float namesHeight = 13.0f;             // the L and R above the bars
     static constexpr float bottomRow = 20.0f;               // same as the graph's frequency-label row
 
@@ -29,8 +31,11 @@ public:
 
     OutputMeterDisplay()
     {
-        setTooltip ("Output peak for each channel (number: held peak, 1.5 s). The red warning lights when a sample reaches "
-                    "0 dBFS and stays lit until the sound stops. Nothing needs doing unless you can hear distortion.");
+        setTooltip ("Output peak for each channel, measured after the EQ and the output gain. The number under the clip "
+                    "warning is the highest sample level held for 1.5 seconds: negative means below 0 dBFS, positive means over it "
+                    "and is red. The warning lights when a sample reaches 0 dBFS and stays lit while sound continues, so it can "
+                    "stay lit after the number has fallen. This is sample peak, not true peak. If the warning lights and the next stage may not have "
+                    "headroom, lower Output or the boosts. Click to clear the held number.");
     }
 
     // peakLeft / peakRight: linear peaks since the last call. channelCount: 1 for mono (only the
@@ -93,10 +98,17 @@ public:
         return { 1.0f, 1.0f, clipWidth, clipHeight };
     }
 
+    // The held-peak number: directly under CLIP, above the channel names and bars.
+    juce::Rectangle<float> getPeakBox() const
+    {
+        const auto clip = getClipBox();
+        return { clip.getX(), clip.getBottom() + clipGap - 1.0f, clip.getWidth(), peakHeight };
+    }
+
     // The area of all the bars together.
     juce::Rectangle<float> getBarArea() const
     {
-        const float top = 1.0f + clipHeight + clipGap + namesHeight;
+        const float top = getPeakBox().getBottom() + peakGap + namesHeight;
         return { 1.0f, top, barsWidth, juce::jmax (1.0f, (float) getHeight() - bottomRow - top) };
     }
 
@@ -124,7 +136,16 @@ public:
         return bar.getBottom() - bar.getHeight() * dbToProportion (db);
     }
 
-    // The text under the meter: the highest held peak, or a dash when there's no signal.
+    // True when a held peak is over full scale. 0 dBFS counts (the same boundary as CLIP); the sign
+    // of the number is the sign of the measurement, never of the CLIP latch.
+    static bool isOverFullScale (float holdDb) noexcept   { return holdDb >= 0.0f; }
+    bool isPeakOver() const noexcept                      { return getHoldDb() > minDb && isOverFullScale (getHoldDb()); }
+    juce::Colour getPeakColour() const
+    {
+        return isPeakOver() ? juce::Colour (0xffff5c5c) : EQColours::label;
+    }
+
+    // The text under CLIP: the highest held peak, or a dash when there's no signal.
     juce::String getPeakText() const
     {
         const float hold = getHoldDb();
@@ -223,9 +244,10 @@ public:
             g.drawText ("CLIP", clipBox, juce::Justification::centred, false);
         }
 
-        // Held peak, in the frequency-axis row.
-        g.setColour (clipped || getHoldDb() >= 0.0f ? juce::Colour (0xffff5c5c) : EQColours::label);
-        g.drawText (getPeakText(), juce::Rectangle<float> (0.0f, (float) getHeight() - bottomRow + 2.0f, (float) getWidth(), bottomRow - 4.0f),
+        // Held peak, directly under CLIP. Its colour follows the measured peak, not the CLIP latch.
+        g.setColour (getPeakColour());
+        g.setFont (font);
+        g.drawText (getPeakText(), snap (getPeakBox()),
                     juce::Justification::centred, false);
     }
 

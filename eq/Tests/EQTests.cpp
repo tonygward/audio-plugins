@@ -5794,6 +5794,147 @@ public:
 };
 static FrequencyGuideTests frequencyGuideTests;
 
+//==============================================================================
+// EQ-42: the held-peak number sits under CLIP, carries the measured sign, is red only at or above
+// 0 dBFS, and is independent of the CLIP latch. Fixtures check detection, latch and readout apart.
+class OutputMeterReadoutTests final : public juce::UnitTest
+{
+public:
+    OutputMeterReadoutTests() : juce::UnitTest ("Output meter peak readout and clip policy", "EQ") {}
+
+    static float gainOf (float db) { return juce::Decibels::decibelsToGain (db); }
+
+    void runTest() override
+    {
+        constexpr double fs = 48000.0;
+        using Meter = OutputMeterDisplay;
+        const auto red = juce::Colour (0xffff5c5c);
+
+        beginTest ("Layout: CLIP, then the peak number, then the channel names and bars; no number under the bars");
+        for (int height : { 300, 400, 900 })
+        {
+            Meter m;
+            m.setSize (Meter::preferredWidth, height);
+            const auto clip = m.getClipBox(), peak = m.getPeakBox(), bars = m.getBarArea();
+            expect (peak.getY() >= clip.getBottom(), "number below CLIP");
+            expect (peak.getBottom() + Meter::namesHeight <= bars.getY() + 0.01f, "number above the L and R names");
+            expectWithinAbsoluteError (peak.getCentreX(), clip.getCentreX(), 0.01f, "centred under CLIP");
+            expect (peak.getRight() <= (float) m.getWidth(), "inside the meter");
+            expect (bars.getBottom() <= (float) height - Meter::bottomRow + 0.01f, "the bottom row stays free for the axis");
+            expect (peak.getHeight() >= 12.0f, "tall enough for 12 px text");
+        }
+
+        beginTest ("Sign and colour follow the measured held peak: -6, -0.6, just below 0, 0, +0.2, +0.6 dBFS and silence");
+        {
+            struct Case { float db; const char* text; bool red; };
+            const Case cases[] = { { -6.0f, "-6.0", false }, { -0.6f, "-0.6", false }, { -0.01f, "-0.0", false },
+                                   { 0.0f, "0.0", true }, { 0.2f, "+0.2", true }, { 0.6f, "+0.6", true } };
+            for (auto c : cases)
+                for (int channels : { 1, 2 })
+                {
+                    Meter m;
+                    m.setSize (Meter::preferredWidth, 400);
+                    m.update (gainOf (c.db), channels == 2 ? gainOf (c.db) : 0.0f, channels, false, 0.0, 0.0);
+                    const auto context = juce::String (c.db) + " dBFS, " + juce::String (channels) + " channel(s)";
+                    expectEquals (m.getPeakText(), juce::String (c.text), context + ": text");
+                    expect (m.isPeakOver() == c.red, context + ": red or not");
+                    expect (m.getPeakColour() == (c.red ? red : EQColours::label), context + ": colour");
+                    expect (! m.isClipped(), context + ": the number alone never lights CLIP");
+                }
+
+            Meter silent;
+            silent.update (0.0f, 0.0f, 2, false, 0.0, 0.0);
+            expect (! silent.isPeakOver() && silent.getPeakText().length() == 1, "silence: a dash, not red");
+            expect (Meter::isOverFullScale (0.0f) && ! Meter::isOverFullScale (-0.0001f), "the boundary is 0 dBFS");
+        }
+
+        beginTest ("A latched CLIP does not turn a negative held peak red, and the larger channel is the number");
+        {
+            Meter m;
+            m.setSize (Meter::preferredWidth, 400);
+            m.update (gainOf (0.6f), 0.1f, 2, true, 0.0, 0.0);
+            expect (m.isClipped() && m.isPeakOver() && m.getPeakText() == "+0.6", "over: both red");
+            m.update (gainOf (-0.6f), 0.1f, 2, true, 5.0, 5.0);   // the hold has fallen away to the new peak
+            expect (m.isClipped(), "CLIP stays lit");
+            expectEquals (m.getPeakText(), juce::String ("-0.6"));
+            expect (! m.isPeakOver() && m.getPeakColour() == EQColours::label, "the number is not red");
+            m.update (0.1f, gainOf (-3.0f), 2, false, 6.0, 0.0);
+            expect (! m.isClipped(), "and CLIP clears only when the audio thread says so");
+        }
+
+        beginTest ("Fixtures: limited master at -1 dBFS shows no CLIP; exactly 0 dBFS does (documented policy)");
+        for (bool mono : { false, true })
+        {
+            using Set = juce::AudioChannelSet;
+            const int ch = mono ? 1 : 2;
+            auto make = [&] (SongsmithEQAudioProcessor& p)
+            {
+                p.setBusesLayout (OutputMeterClipTests::layout (mono ? Set::mono() : Set::stereo(), mono ? Set::mono() : Set::stereo()));
+                OutputMeterClipTests::flat (p).prepareToPlay (fs, 512);
+            };
+
+            SongsmithEQAudioProcessor limited;
+            make (limited);
+            OutputMeterClipTests::feed (limited, ch, gainOf (-1.0f), gainOf (-1.0f), 8);
+            expect (! limited.outputMeter.clipLatched.load() && ! limited.outputMeter.clipped.load(), "-1 dBFS: no clip");
+            Meter shown;
+            shown.update (limited.outputMeter.readAndResetChannel (0), limited.outputMeter.readAndResetChannel (1), ch,
+                          limited.outputMeter.clipLatched.load(), 0.0, 0.0);
+            expectEquals (shown.getPeakText(), juce::String ("-1.0"));
+            expect (! shown.isPeakOver(), "-1.0 is not red");
+
+            SongsmithEQAudioProcessor atZero;
+            make (atZero);
+            OutputMeterClipTests::feed (atZero, ch, 1.0f, 1.0f, 2);
+            expect (atZero.outputMeter.clipLatched.load(), "exactly 0 dBFS latches CLIP");
+            Meter zero;
+            zero.update (atZero.outputMeter.readAndResetChannel (0), atZero.outputMeter.readAndResetChannel (1), ch, true, 0.0, 0.0);
+            expectEquals (zero.getPeakText(), juce::String ("0.0"));
+            expect (zero.isPeakOver(), "0.0 is red, matching CLIP");
+        }
+
+        beginTest ("Fixture: a -0.9 dBFS master pushed over by +1.1 dB of Output gain reads +0.2 and latches CLIP");
+        for (bool mono : { false, true })
+        {
+            using Set = juce::AudioChannelSet;
+            const int ch = mono ? 1 : 2;
+            SongsmithEQAudioProcessor p;
+            p.setBusesLayout (OutputMeterClipTests::layout (mono ? Set::mono() : Set::stereo(), mono ? Set::mono() : Set::stereo()));
+            OutputMeterClipTests::flat (p).prepareToPlay (fs, 512);
+            auto* gain = p.apvts.getParameter (EQ::outputGainId);
+            gain->setValueNotifyingHost (gain->convertTo0to1 (1.1f));
+            OutputMeterClipTests::feed (p, ch, 0.9f, 0.9f, 200);   // let the gain smoothing settle
+            (void) p.outputMeter.readAndResetChannel (0);
+            (void) p.outputMeter.readAndResetChannel (1);
+            OutputMeterClipTests::feed (p, ch, 0.9f, 0.9f, 4);
+            expect (p.outputMeter.clipLatched.load(), "over after the boost: CLIP latched");
+            Meter shown;
+            shown.update (p.outputMeter.readAndResetChannel (0), p.outputMeter.readAndResetChannel (1), ch, true, 0.0, 0.0);
+            expectEquals (shown.getPeakText(), juce::String ("+0.2"));
+            expect (shown.isPeakOver(), "red");
+        }
+
+        beginTest ("Fixture: a brief over then sustained quiet audio: CLIP stays, the number is negative and not red, then CLIP clears");
+        {
+            SongsmithEQAudioProcessor p;
+            OutputMeterClipTests::flat (p).prepareToPlay (fs, 512);
+            OutputMeterClipTests::feed (p, 2, gainOf (0.4f), gainOf (0.4f), 1);
+            expect (p.outputMeter.clipLatched.load());
+            (void) p.outputMeter.readAndResetChannel (0);
+            (void) p.outputMeter.readAndResetChannel (1);
+            OutputMeterClipTests::feed (p, 2, 0.5f, 0.5f, 200);
+            expect (p.outputMeter.clipLatched.load(), "latch survives audible sound");
+            Meter shown;
+            shown.update (p.outputMeter.readAndResetChannel (0), p.outputMeter.readAndResetChannel (1), 2, true, 10.0, 10.0);
+            expectEquals (shown.getPeakText(), juce::String ("-6.0"));
+            expect (shown.isClipped() && ! shown.isPeakOver(), "CLIP lit, number normal");
+            OutputMeterClipTests::feed (p, 2, 0.0f, 0.0f, 100);
+            expect (! p.outputMeter.clipLatched.load(), "sustained silence clears the latch");
+        }
+    }
+};
+static OutputMeterReadoutTests outputMeterReadoutTests;
+
 static PianoToggleTests pianoToggleTests;
 static EdgeClickTests edgeClickTests;
 static OutputMeterTests outputMeterTests;
