@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Older releases keep the tags they had (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
-## Unreleased
+## 0.5.18
 
 - In Songsmith Analog Compressor, **Ignore Below** is now a horizontal slider instead of a knob with six steps. Pick any whole frequency from 20 to 500 Hz by dragging, with the arrow keys, or by clicking the number and typing it (for example 127 Hz); double-click for Off. It still only changes what the compressor listens to, so the bass you hear is unchanged. Your saved sessions and presets keep exactly the frequency they had (Off, 60, 80, 100, 150 or 200 Hz), and you do not need to do anything. If a project has automation written for the old six steps, it still works; whichever of the old and new controls moved most recently decides the frequency. This has not yet been checked in a DAW.
 
