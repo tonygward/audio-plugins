@@ -99,6 +99,7 @@ Each plugin has one accent colour, used for the product name in the title, lit b
 | Songsmith EQ | Songsmith yellow `#F2C94C` (also the total curve) |
 | Songsmith Analog Compressor | Amber `#E8A33D` |
 | Songsmith Maximiser | Songsmith yellow `#F2C94C` |
+| Songsmith Compressor | Songsmith teal `#3DDBC4` |
 
 The EQ and the maximiser share their accent today; a separate colour for one of them is a decision for a later task.
 

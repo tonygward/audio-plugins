@@ -2,7 +2,7 @@
 
 The engine of the planned **Songsmith Compressor** (COMP-01). It is a clean, conventional compressor and is separate from the 1176-inspired Songsmith Analog Compressor, which it does not touch. Code: `Source/CompressorEngine.h` and `.cpp`. Tests: `Tests/CompressorTests.cpp` (`CompressorTests`).
 
-This is slice 1 of COMP-01: the engine only. There is no plugin, editor, preset or Analog Warmth yet, so nothing here is audible to musicians.
+This page describes the engine. The plugin around it (parameters, editor, presets) is described in the [README](../README.md); Analog Warmth is not built yet.
 
 ## What is published and what is a Songsmith design choice
 
@@ -31,6 +31,9 @@ None. There is no look-ahead and no oversampling.
 
 ## Not yet done
 
-- The plugin target, parameters, state and stable identity.
-- Metering in the editor, presets, Analog Warmth, installer and CI wiring.
+- Analog Warmth (a later slice, with a new parameter and a state version bump).
 - Real audio listening checks (guitar, vocal, bass). The tests use synthetic signals only, so no listening verification is claimed.
+
+## Known limitation: sine waves read slightly louder
+
+The detector follows the peak of every wave, one sample at a time, and the attack and release smoothing is applied to the resulting gain reduction. For noise or full music this behaves as expected. For a pure low-frequency sine the reduction rises and falls a little within each wave, so a sine can come out up to about 0.8 dB louder than a steady signal at the same peak level with the Acoustic Guitar preset. Auto Makeup is exact for a steady level (`Make-up gain` test) and close for music. A peak-hold or envelope stage in the detector would remove this, at the cost of lengthening the effective release; that is a later decision, not made here.
