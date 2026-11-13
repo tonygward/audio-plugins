@@ -2,7 +2,7 @@
 #
 #   pwsh installer/check-version.ps1            # the files that must read VERSION, not hold a version
 #   pwsh installer/check-version.ps1 -Built     # also: every built plugin reports the same version
-#   pwsh installer/check-version.ps1 -Built -Plugin eq   # only that plugin's build (eq, analog-compressor, maximiser)
+#   pwsh installer/check-version.ps1 -Built -Plugin eq   # only that plugin's build (eq, analog-compressor, maximiser, compressor)
 #
 # Checks:
 #  1. VERSION (repository root) holds exactly one x.y.z line.
@@ -29,7 +29,8 @@ else { Fail "VERSION must hold exactly one line, x.y.z (found $($lines.Count) li
 $plugins = @(
     @{ Folder = "eq";                Target = "SongsmithEQ" },
     @{ Folder = "analog-compressor"; Target = "SongsmithAnalogCompressor" },
-    @{ Folder = "maximiser";         Target = "SongsmithMaximiser" }
+    @{ Folder = "maximiser";         Target = "SongsmithMaximiser" },
+    @{ Folder = "compressor";        Target = "SongsmithCompressor" }
 )
 
 # 2. CMake reads the file and holds no version of its own.

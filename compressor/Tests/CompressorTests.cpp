@@ -1,367 +1,507 @@
-// Songsmith Compressor tests (COMP-01, slice 1: the engine). Run: CompressorTests.exe
-#include <juce_core/juce_core.h>
-#include <juce_audio_basics/juce_audio_basics.h>
+// Songsmith Compressor test runner: the plugin (identity, parameters, state, bypass, presets, editor)
+// and the shared Songsmith checks. The engine is tested in EngineTests.cpp.
+#include <juce_audio_processors/juce_audio_processors.h>
 #include <cmath>
-#include <vector>
-#include "CompressorEngine.h"
-
-using namespace SongsmithComp;
+#include <random>
+#include "PluginProcessor.h"
+#include "PluginEditor.h"
+#include "../../shared/Tests/SongsmithControlSheet.h"
+#include "../../shared/Tests/SongsmithUITests.h"
+#include "../../shared/Tests/SongsmithHeaderTests.h"
+#include "../../shared/Tests/SongsmithDiagnosticsTests.h"
+#include "../../shared/Tests/SongsmithGuidanceTests.h"
+#include "SongsmithWording.h"
 
 namespace
 {
-    float amp (float db) { return std::pow (10.0f, db / 20.0f); }
-
-    // A constant-envelope test signal: samples alternate +a, -a, so the peak detector sees a true
-    // level step at any sample rate.
-    void runConstant (Engine& e, float levelDb, int samples, std::vector<float>* grOut = nullptr)
+    void setParam (SongsmithCompressorAudioProcessor& p, const char* id, float value)
     {
-        const float a = amp (levelDb);
-        for (int i = 0; i < samples; ++i)
-        {
-            float x = (i & 1) ? -a : a;
-            float* ch[] = { &x };
-            e.process (ch, 1, 1);
-            if (grOut != nullptr)
-                grOut->push_back (e.getGainReductionDb());
-        }
+        auto* rp = p.apvts.getParameter (id);
+        jassert (rp != nullptr);
+        rp->setValueNotifyingHost (rp->convertTo0to1 (value));
     }
 
-    float settledGrDb (Engine& e, double fs, float levelDb)
+    float getParam (const SongsmithCompressorAudioProcessor& p, const char* id)
     {
-        e.reset();
-        runConstant (e, levelDb, (int) (fs * 5.0));
-        return e.getGainReductionDb();
+        return p.apvts.getRawParameterValue (id)->load();
     }
 
-    // Time in ms for the gain reduction to reach `fraction` of its final value, interpolated.
-    float timeToFraction (const std::vector<float>& gr, double fs, float fraction, bool rising)
+    std::vector<float> noise (int n, float amp, unsigned seed)
     {
-        const float start = gr.front(), end = gr.back();
-        const float target = start + (end - start) * fraction;
-        for (size_t i = 1; i < gr.size(); ++i)
+        std::mt19937 rng (seed);
+        std::uniform_real_distribution<float> dist (-amp, amp);
+        std::vector<float> v ((size_t) n);
+        for (auto& s : v)
+            s = dist (rng);
+        return v;
+    }
+
+    void prepare (SongsmithCompressorAudioProcessor& p, double fs, int block, int numChannels = 2)
+    {
+        const auto set = numChannels == 1 ? juce::AudioChannelSet::mono() : juce::AudioChannelSet::stereo();
+        juce::AudioProcessor::BusesLayout layout;
+        layout.inputBuses.add (set);
+        layout.outputBuses.add (set);
+        p.setBusesLayout (layout);
+        p.setRateAndBufferSizeDetails (fs, block);
+        p.prepareToPlay (fs, block);
+    }
+
+    // Runs 'in' (one vector per channel) through the processor in blocks of 'block' samples.
+    std::vector<std::vector<float>> run (SongsmithCompressorAudioProcessor& p, std::vector<std::vector<float>> in, int block)
+    {
+        const int channels = (int) in.size(), total = (int) in[0].size();
+        juce::MidiBuffer midi;
+        for (int pos = 0; pos < total; pos += block)
         {
-            const bool crossed = rising ? gr[i] >= target : gr[i] <= target;
-            if (crossed)
-            {
-                const float f = (target - gr[i - 1]) / (gr[i] - gr[i - 1]);
-                return (float) (((double) i - 1.0 + (double) f) * 1000.0 / fs);
-            }
+            const int n = std::min (block, total - pos);
+            juce::AudioBuffer<float> buffer (channels, n);
+            for (int c = 0; c < channels; ++c)
+                buffer.copyFrom (c, 0, in[(size_t) c].data() + pos, n);
+            p.processBlock (buffer, midi);
+            for (int c = 0; c < channels; ++c)
+                std::copy (buffer.getReadPointer (c), buffer.getReadPointer (c) + n, in[(size_t) c].begin() + pos);
         }
-        return -1.0f;
+        return in;
     }
 }
 
-class CompressorEngineTests final : public juce::UnitTest
+//==============================================================================
+class CompressorPluginTests final : public juce::UnitTest
 {
 public:
-    CompressorEngineTests() : juce::UnitTest ("Compressor engine", "Compressor") {}
-
-    static Params base()
-    {
-        Params p;
-        p.thresholdDb = -24.0f; p.ratio = 4.0f; p.attackMs = 10.0f; p.releaseMs = 100.0f;
-        p.kneeDb = 0.0f; p.makeupDb = 0.0f; p.autoMakeup = false; p.mix = 1.0f;
-        return p;
-    }
+    CompressorPluginTests() : juce::UnitTest ("Songsmith Compressor plugin", "Compressor") {}
 
     void runTest() override
     {
-        beginTest ("Static curve: below the threshold nothing; above it, the ratio sets the slope");
-        for (float ratio : { 1.2f, 1.3f, 1.5f, 2.0f, 4.0f, 10.0f, 20.0f })
+        beginTest ("Plug-in identity: its own name and codes, never the Analog Compressor's");
         {
-            expectWithinAbsoluteError (staticGainDb (-40.0f, -24.0f, ratio, 0.0f), 0.0f, 1.0e-6f, "below threshold");
-            expectWithinAbsoluteError (staticGainDb (-24.0f, -24.0f, ratio, 0.0f), 0.0f, 1.0e-6f, "at threshold");
-            const float out = -24.0f + 12.0f / ratio;   // 12 dB over the threshold
-            expectWithinAbsoluteError (staticGainDb (-12.0f, -24.0f, ratio, 0.0f), out - (-12.0f), 1.0e-4f, "ratio " + juce::String (ratio));
+            expectEquals (juce::String (COMP_MANUFACTURER_CODE), juce::String ("Tnyw"), "Songsmith manufacturer code");
+            expectEquals (juce::String (COMP_PLUGIN_CODE), juce::String ("Cmp1"), "pinned plugin code");
+            for (auto* other : { "Eq3b", "Sfc1", "Mxlm" })
+                expect (juce::String (COMP_PLUGIN_CODE) != other, "distinct from " + juce::String (other));
+            expectEquals (juce::String (JucePlugin_Name), juce::String ("Songsmith Compressor"));
+            expectEquals (juce::String (JucePlugin_Manufacturer), juce::String ("Songsmith Studio"));
         }
-        expectWithinAbsoluteError (staticGainDb (0.0f, -60.0f, 1.0f, 6.0f), 0.0f, 1.0e-6f, "1:1 never reduces");
 
-        beginTest ("Soft knee: continuous, starts half a knee below the threshold, joins the straight line half a knee above");
-        for (float knee : { 2.0f, 6.0f, 12.0f, 24.0f })
+        beginTest ("Parameters: stable IDs, ranges and gentle defaults");
         {
-            const float t = -24.0f, r = 4.0f;
-            expectWithinAbsoluteError (staticGainDb (t - knee * 0.5f, t, r, knee), 0.0f, 1.0e-5f, "knee start");
-            expectWithinAbsoluteError (staticGainDb (t + knee * 0.5f, t, r, knee), (1.0f / r - 1.0f) * knee * 0.5f, 1.0e-4f, "knee end");
-            float last = 0.0f;
-            for (float x = t - knee; x <= t + knee; x += 0.05f)
+            SongsmithCompressorAudioProcessor p;
+            struct Row { const char* id; float lo, hi, def; };
+            const Row rows[] = { { Comp::thresholdId, -60.0f, 0.0f, -18.0f }, { Comp::ratioId, 1.0f, 20.0f, 2.0f },
+                                 { Comp::attackId, 0.1f, 100.0f, 10.0f }, { Comp::releaseId, 10.0f, 2000.0f, 100.0f },
+                                 { Comp::kneeId, 0.0f, 24.0f, 6.0f }, { Comp::makeupId, 0.0f, 24.0f, 0.0f },
+                                 { Comp::mixId, 0.0f, 100.0f, 100.0f } };
+            for (auto& r : rows)
             {
-                const float g = staticGainDb (x, t, r, knee);
-                expect (g <= last + 1.0e-5f, "never rises as the level rises");
-                expect (std::abs (g - last) < 0.2f, "no jumps");
-                last = g;
+                auto* prm = p.apvts.getParameter (r.id);
+                expect (prm != nullptr, juce::String (r.id) + " exists");
+                if (prm == nullptr) continue;
+                const auto range = p.apvts.getParameterRange (r.id);
+                expectWithinAbsoluteError (range.start, r.lo, 1.0e-4f, juce::String (r.id) + " minimum");
+                expectWithinAbsoluteError (range.end, r.hi, 1.0e-4f, juce::String (r.id) + " maximum");
+                expectWithinAbsoluteError (getParam (p, r.id), r.def, 1.0e-3f, juce::String (r.id) + " default");
             }
+            expect (p.apvts.getParameter (Comp::autoMakeupId) != nullptr && p.apvts.getParameter (Comp::bypassId) != nullptr);
+            expectEquals (p.getParameters().size(), 9, "nine parameters");
+            expect (p.getBypassParameter() != nullptr, "native host bypass");
+
+            // The ratio control is finest at the gentle end: 1.3 sits well inside the first half of the travel.
+            auto* ratio = p.apvts.getParameter (Comp::ratioId);
+            expectLessThan (ratio->convertTo0to1 (1.5f), 0.25f, "1.5 to 1 is in the first quarter of the travel");
+            expectWithinAbsoluteError (ratio->convertFrom0to1 (1.0f), 20.0f, 1.0e-3f);
         }
 
-        beginTest ("1:1 produces no gain reduction and leaves the signal bit-identical");
+        beginTest ("No latency, mono and stereo layouts, and nothing else");
         {
-            Engine e; e.prepare (48000.0);
-            auto p = base(); p.ratio = 1.0f; p.thresholdDb = -60.0f; p.kneeDb = 12.0f;
-            e.setParams (p); e.reset();
-            juce::Random rng (7);
-            std::vector<float> in (4096), out;
-            for (auto& s : in) s = rng.nextFloat() * 1.8f - 0.9f;
-            out = in;
-            float* ch[] = { out.data() };
-            e.process (ch, 1, (int) out.size());
-            expect (out == in, "identical samples");
-            expectEquals (e.readMeters().gainReductionDb, 0.0f);
+            SongsmithCompressorAudioProcessor p;
+            prepare (p, 48000.0, 512);
+            expectEquals (p.getLatencySamples(), 0);
+            expect (p.getTailLengthSeconds() == 0.0);
+            prepare (p, 48000.0, 512, 1);
+            expectEquals (p.getTotalNumInputChannels(), 1);
+
+            juce::AudioProcessor::BusesLayout surround;
+            surround.inputBuses.add (juce::AudioChannelSet::create5point1());
+            surround.outputBuses.add (juce::AudioChannelSet::create5point1());
+            expect (! p.isBusesLayoutSupported (surround), "5.1 is not supported");
+            juce::AudioProcessor::BusesLayout mismatch;
+            mismatch.inputBuses.add (juce::AudioChannelSet::mono());
+            mismatch.outputBuses.add (juce::AudioChannelSet::stereo());
+            expect (! p.isBusesLayoutSupported (mismatch), "different input and output layouts are refused");
         }
 
-        beginTest ("Settled gain reduction matches the static curve at 44.1, 48 and 96 kHz");
+        beginTest ("Processing: the plugin gives what the engine gives, at any block size, and reduces loud sound");
         for (double fs : { 44100.0, 48000.0, 96000.0 })
-            for (float ratio : { 1.3f, 2.0f, 10.0f, 20.0f })
-                for (float knee : { 0.0f, 12.0f })
-                {
-                    Engine e; e.prepare (fs);
-                    auto p = base(); p.ratio = ratio; p.kneeDb = knee;
-                    e.setParams (p);
-                    const float expected = -staticGainDb (-10.0f, p.thresholdDb, ratio, knee);
-                    expectWithinAbsoluteError (settledGrDb (e, fs, -10.0f), expected, 0.02f,
-                                               juce::String (fs) + " Hz, ratio " + juce::String (ratio) + ", knee " + juce::String (knee));
-                }
-
-        beginTest ("Attack: the reduction reaches 63 % of its settled value after the attack time (0.1, 10, 30, 100 ms)");
-        for (double fs : { 44100.0, 48000.0, 96000.0 })
-            for (float attack : { 0.1f, 10.0f, 30.0f, 100.0f })
-            {
-                Engine e; e.prepare (fs);
-                auto p = base(); p.attackMs = attack; p.releaseMs = 2000.0f; p.ratio = 20.0f;
-                e.setParams (p); e.reset();
-                std::vector<float> gr;
-                runConstant (e, -60.0f, 100, &gr);   // quiet: no reduction
-                gr.clear();
-                gr.push_back (0.0f);
-                runConstant (e, 0.0f, (int) (fs * attack * 0.001 * 8.0) + 64, &gr);
-                const float t = timeToFraction (gr, fs, 1.0f - std::exp (-1.0f) , true);
-                // Compare with the settled value of the same run's final sample, which is nearly the target.
-                const float tolerance = juce::jmax (0.05f * attack, 1.5f * 1000.0f / (float) fs);
-                expectWithinAbsoluteError (t, attack, tolerance + 0.01f * attack,
-                                           juce::String (fs) + " Hz, attack " + juce::String (attack) + " ms measured " + juce::String (t));
-            }
-
-        beginTest ("Release: the reduction falls to 37 % after the release time (10, 30, 50, 2000 ms)");
-        for (double fs : { 44100.0, 48000.0, 96000.0 })
-            for (float release : { 10.0f, 30.0f, 50.0f, 2000.0f })
-            {
-                Engine e; e.prepare (fs);
-                auto p = base(); p.attackMs = 0.1f; p.releaseMs = release; p.ratio = 20.0f;
-                e.setParams (p); e.reset();
-                runConstant (e, 0.0f, (int) (fs * 0.1));   // settle deep
-                const float start = e.getGainReductionDb();
-                std::vector<float> gr { start };
-                runConstant (e, -80.0f, (int) (fs * release * 0.001 * 6.0), &gr);
-                // Falling to the target (zero): find the time the value drops to 1/e of the start.
-                float t = -1.0f;
-                for (size_t i = 1; i < gr.size(); ++i)
-                    if (gr[i] <= start * std::exp (-1.0f))
-                    {
-                        const float f = (start * std::exp (-1.0f) - gr[i - 1]) / (gr[i] - gr[i - 1]);
-                        t = (float) (((double) i - 1.0 + (double) f) * 1000.0 / fs);
-                        break;
-                    }
-                expectWithinAbsoluteError (t, release, 0.06f * release + 1000.0f / (float) fs,
-                                           juce::String (fs) + " Hz, release " + juce::String (release) + " ms measured " + juce::String (t));
-            }
-
-        beginTest ("Very low threshold and a gentle ratio give steady, continuous gentle reduction");
         {
-            Engine e; e.prepare (48000.0);
-            auto p = base(); p.thresholdDb = -60.0f; p.ratio = 1.3f; p.attackMs = 30.0f; p.releaseMs = 50.0f; p.kneeDb = 12.0f;
-            e.setParams (p); e.reset();
-            juce::Random rng (3);
-            std::vector<float> gr;
-            for (int block = 0; block < 200; ++block)
+            const auto left = noise (24000, 0.8f, 1), right = noise (24000, 0.6f, 2);
+            auto render = [&] (int block)
             {
-                std::vector<float> in (480);
-                for (auto& s : in) s = (rng.nextFloat() * 2.0f - 1.0f) * 0.01f;   // peaks at -40 dBFS, 20 dB over the threshold
-                float* ch[] = { in.data() };
-                e.process (ch, 1, (int) in.size());
-                if (block > 20) gr.push_back (e.getGainReductionDb());
-            }
-            float lo = 1000.0f, hi = -1000.0f;
-            for (auto g : gr) { lo = juce::jmin (lo, g); hi = juce::jmax (hi, g); }
-            expectGreaterThan (lo, 0.5f, "always reducing a little");
-            expectLessThan (hi, 6.0f, "never more than gentle");
-        }
-
-        beginTest ("Block size does not change the result");
-        {
-            auto render = [] (int block)
-            {
-                Engine e; e.prepare (48000.0);
-                auto p = base(); p.kneeDb = 6.0f; p.makeupDb = 3.0f; p.mix = 0.8f;
-                e.setParams (p); e.reset();
-                juce::Random rng (11);
-                std::vector<float> l (6000), r (6000);
-                for (size_t i = 0; i < l.size(); ++i) { l[i] = rng.nextFloat() * 1.6f - 0.8f; r[i] = rng.nextFloat() * 1.6f - 0.8f; }
-                for (size_t pos = 0; pos < l.size(); pos += (size_t) block)
-                {
-                    const int n = (int) juce::jmin ((size_t) block, l.size() - pos);
-                    float* ch[] = { l.data() + pos, r.data() + pos };
-                    e.process (ch, 2, n);
-                }
-                return std::make_pair (l, r);
+                SongsmithCompressorAudioProcessor p;
+                setParam (p, Comp::thresholdId, -24.0f);
+                setParam (p, Comp::ratioId, 4.0f);
+                prepare (p, fs, block);
+                return run (p, { left, right }, block);
             };
-            const auto a = render (6000), b = render (1), c = render (7), d = render (512);
-            expect (a == b && a == c && a == d, "identical for block sizes 1, 7, 512 and 6000");
+            const auto big = render (512), small = render (37);
+            expect (big == small, "block size does not change the result at " + juce::String (fs));
+
+            double inRms = 0.0, outRms = 0.0;
+            for (size_t i = 12000; i < left.size(); ++i) { inRms += left[i] * left[i]; outRms += big[0][i] * big[0][i]; }
+            expectLessThan (outRms, inRms * 0.7, "the loud noise is turned down");
         }
 
-        beginTest ("Stereo link: both channels get the same gain, set by the louder one");
+        beginTest ("Bypass: after the short fade the sound is bit-identical, and nothing clicks on the way");
         {
-            Engine e; e.prepare (48000.0);
-            auto p = base(); p.ratio = 10.0f;
-            e.setParams (p); e.reset();
-            float lastL = 0.0f, lastR = 0.0f;
-            const float quiet = 0.02f;   // -34 dBFS, under the threshold on its own
-            for (int i = 0; i < 48000; ++i)
+            SongsmithCompressorAudioProcessor p;
+            setParam (p, Comp::thresholdId, -40.0f);
+            setParam (p, Comp::ratioId, 20.0f);
+            prepare (p, 48000.0, 512);
+            const auto in = noise (48000, 0.7f, 3);
+            auto first = run (p, { in, in }, 512);
+            expect (first[0] != in, "compressing");
+
+            setParam (p, Comp::bypassId, 1.0f);
+            juce::MidiBuffer midi;
+            const int settled = (int) (48000.0 * SongsmithCompressorAudioProcessor::bypassFadeSeconds) + 512;
+            for (int b = 0; b < settled / 512 + 2; ++b)
             {
-                const float s = (i & 1) ? -1.0f : 1.0f;
-                float l = 0.8f * s, r = quiet * s;
-                float* ch[] = { &l, &r };
-                e.process (ch, 2, 1);
-                lastL = std::abs (l); lastR = std::abs (r);
+                juce::AudioBuffer<float> buffer (2, 512);
+                for (int c = 0; c < 2; ++c)
+                    buffer.copyFrom (c, 0, in.data(), 512);
+                p.processBlock (buffer, midi);
+                if (b >= settled / 512 + 1)
+                    for (int i = 0; i < 512; ++i)
+                        expectEquals (buffer.getSample (0, i), in[(size_t) i], "bit-exact dry");
             }
-            expectGreaterThan (e.getGainReductionDb(), 5.0f);
-            expectWithinAbsoluteError (lastL / 0.8f, lastR / quiet, 1.0e-5f, "same gain on both channels");
-            expectLessThan (lastR / quiet, 0.9f, "the quiet channel is turned down with the loud one");
         }
 
-        beginTest ("Mix: 0 % is the untouched input, 100 % fully compressed, 50 % halfway between");
+        beginTest ("Saved state: round trip, defaults for anything missing, tolerant of newer versions");
         {
-            auto render = [] (float mix)
+            SongsmithCompressorAudioProcessor a;
+            setParam (a, Comp::thresholdId, -31.5f);
+            setParam (a, Comp::ratioId, 1.3f);
+            setParam (a, Comp::attackId, 30.0f);
+            setParam (a, Comp::releaseId, 50.0f);
+            setParam (a, Comp::kneeId, 12.0f);
+            setParam (a, Comp::makeupId, 4.0f);
+            setParam (a, Comp::autoMakeupId, 0.0f);
+            setParam (a, Comp::mixId, 40.0f);
+            a.editorWidth = 1000;
+
+            juce::MemoryBlock block;
+            a.getStateInformation (block);
+            SongsmithCompressorAudioProcessor b;
+            b.setStateInformation (block.getData(), (int) block.getSize());
+            for (auto* id : { Comp::thresholdId, Comp::ratioId, Comp::attackId, Comp::releaseId, Comp::kneeId, Comp::makeupId,
+                              Comp::autoMakeupId, Comp::mixId, Comp::bypassId })
+                expectWithinAbsoluteError (getParam (b, id), getParam (a, id), 1.0e-3f, juce::String (id) + " restored");
+            expectEquals (b.editorWidth.load(), 1000);
+
+            auto xml = a.createState().createXml();
+            expect (xml != nullptr && xml->getIntAttribute ("version") == SongsmithCompressorAudioProcessor::stateVersion, "version saved");
+
+            // A session that knows only some parameters (as an older version would): the rest take defaults.
+            auto tree = a.createState();
+            tree.removeChild (tree.getChildWithProperty ("id", Comp::mixId), nullptr);
+            tree.removeChild (tree.getChildWithProperty ("id", Comp::kneeId), nullptr);
+            tree.removeChild (tree.getChildWithName ("UI"), nullptr);
+            SongsmithCompressorAudioProcessor c;
+            c.restoreFromValueTree (tree);
+            expectWithinAbsoluteError (getParam (c, Comp::mixId), 100.0f, 1.0e-3f, "missing Mix is the default");
+            expectWithinAbsoluteError (getParam (c, Comp::kneeId), 6.0f, 1.0e-3f, "missing Knee is the default");
+            expectWithinAbsoluteError (getParam (c, Comp::thresholdId), -31.5f, 0.1f, "known values kept");
+            expectEquals (c.editorWidth.load(), Comp::EditorLayout::defaultWidth, "default size");
+
+            // A newer version with an unknown extra parameter and an absurd value: kept in range, extras ignored.
+            auto newer = a.createState();
+            newer.setProperty ("version", 99, nullptr);
+            newer.appendChild (juce::ValueTree ("PARAM", { { "id", "from_the_future" }, { "value", 1.0f } }), nullptr);
+            newer.getChildWithProperty ("id", Comp::ratioId).setProperty ("value", 1.0e9f, nullptr);
+            newer.getChildWithProperty ("id", Comp::thresholdId).setProperty ("value", std::numeric_limits<float>::quiet_NaN(), nullptr);
+            SongsmithCompressorAudioProcessor d;
+            d.restoreFromValueTree (newer);
+            expectWithinAbsoluteError (getParam (d, Comp::ratioId), 20.0f, 1.0e-3f, "clamped into range");
+            expectWithinAbsoluteError (getParam (d, Comp::thresholdId), -18.0f, 1.0e-3f, "NaN falls back to the default");
+
+            SongsmithCompressorAudioProcessor e;
+            const char junk[] = "not a session";
+            e.setStateInformation (junk, (int) sizeof (junk));   // must not crash or change anything
+            expectWithinAbsoluteError (getParam (e, Comp::ratioId), 2.0f, 1.0e-3f);
+        }
+
+        beginTest ("Undo and Redo of what the musician changes, not host automation");
+        {
+            SongsmithCompressorAudioProcessor p;
+            Songsmith::UI::Testing::checkParameterHistory (*this, p, Comp::thresholdId, Comp::releaseId, "Compressor");
+        }
+
+        beginTest ("Factory presets: plain names, in range, unique, Acoustic Guitar as published, loaded in one undo step");
+        {
+            const auto& presets = Comp::getPresets();
+            juce::StringArray names;
+            for (auto& pr : presets)
             {
-                Engine e; e.prepare (48000.0);
-                auto p = base(); p.ratio = 20.0f; p.mix = mix;
-                e.setParams (p); e.reset();
-                runConstant (e, 0.0f, 48000);
-                float x = 0.5f;
-                for (int i = 0; i < 2; ++i) { x = 0.5f; float* ch[] = { &x }; e.process (ch, 1, 1); }
-                return x;
-            };
-            const float dry = render (0.0f), wet = render (1.0f), half = render (0.5f);
-            expectWithinAbsoluteError (dry, 0.5f, 1.0e-6f, "mix 0");
-            expectLessThan (wet, 0.45f, "mix 100 reduces");
-            expectWithinAbsoluteError (half, 0.5f * (dry + wet), 1.0e-3f, "mix 50");
-        }
-
-        beginTest ("Make-up gain adds its dB; auto make-up matches the level at the reference and is never negative");
-        {
-            Engine e; e.prepare (48000.0);
-            auto p = base(); p.thresholdDb = -30.0f; p.ratio = 1.3f; p.kneeDb = 0.0f; p.attackMs = 0.1f;
-            p.autoMakeup = true;
-            e.setParams (p); e.reset();
-            runConstant (e, autoMakeupReferenceDb, 48000 * 2);
-            e.readMeters();
-            runConstant (e, autoMakeupReferenceDb, 4800);
-            const auto m = e.readMeters();
-            expectWithinAbsoluteError (juce::Decibels::gainToDecibels (m.outputPeak) - juce::Decibels::gainToDecibels (m.inputPeak),
-                                       0.0f, 0.05f, "level matched at the reference level");
-            expectGreaterThan (autoMakeupDb (p), 0.0f);
-            auto none = p; none.thresholdDb = 0.0f;
-            expectEquals (autoMakeupDb (none), 0.0f, "nothing to restore when nothing is reduced");
-
-            Engine f; f.prepare (48000.0);
-            auto q = base(); q.thresholdDb = 0.0f; q.makeupDb = 6.0f;
-            f.setParams (q); f.reset();
-            runConstant (f, -20.0f, 4800);
-            const auto fm = f.readMeters();
-            expectWithinAbsoluteError (juce::Decibels::gainToDecibels (fm.outputPeak) - juce::Decibels::gainToDecibels (fm.inputPeak), 6.0f, 0.02f);
-        }
-
-        beginTest ("Extreme settings stay in range: threshold -60 and 0, ratio 20, out-of-range and non-finite values");
-        {
-            Engine e; e.prepare (48000.0);
-            for (float th : { -60.0f, 0.0f })
-                for (float ratio : { 1.0f, 20.0f })
-                {
-                    auto p = base(); p.thresholdDb = th; p.ratio = ratio;
-                    e.setParams (p); e.reset();
-                    runConstant (e, 0.0f, 9600);
-                    expect (std::isfinite (e.getGainReductionDb()) && e.getGainReductionDb() <= 60.1f, "finite and bounded");
-                }
-            Params wild;
-            wild.thresholdDb = -1000.0f; wild.ratio = 1.0e9f; wild.attackMs = -5.0f; wild.releaseMs = 1.0e9f;
-            wild.kneeDb = std::numeric_limits<float>::quiet_NaN(); wild.makeupDb = 999.0f; wild.mix = 7.0f;
-            e.setParams (wild);
-            runConstant (e, -3.0f, 4800);
-            expect (std::isfinite (e.getGainReductionDb()), "finite with wild parameters");
-        }
-
-        beginTest ("Silence, non-finite input and very quiet input: no NaNs, no stuck reduction, exact silence out");
-        {
-            Engine e; e.prepare (48000.0);
-            auto p = base(); p.releaseMs = 10.0f;
-            e.setParams (p); e.reset();
-            std::vector<float> in (4800, 0.0f);
-            float* ch[] = { in.data() };
-            e.process (ch, 1, (int) in.size());
-            for (auto s : in) expectEquals (s, 0.0f);
-
-            std::vector<float> bad (64, std::numeric_limits<float>::infinity());
-            bad[3] = std::numeric_limits<float>::quiet_NaN();
-            float* bc[] = { bad.data() };
-            e.process (bc, 1, (int) bad.size());
-            for (auto s : bad) expect (std::isfinite (s), "finite output for non-finite input");
-
-            runConstant (e, 0.0f, 4800);
-            expectGreaterThan (e.getGainReductionDb(), 1.0f);
-            runConstant (e, -140.0f, 48000 * 3);
-            expectEquals (e.getGainReductionDb(), 0.0f, "reduction fully released, no denormal tail");
-        }
-
-        beginTest ("Parameter changes while running are smooth: no step in the output when make-up or mix jumps");
-        {
-            Engine e; e.prepare (48000.0);
-            auto p = base(); p.thresholdDb = 0.0f;
-            e.setParams (p); e.reset();
-            std::vector<float> out;
-            const float a = 0.25f;
-            for (int i = 0; i < 4800; ++i)
-            {
-                if (i == 2400) { p.makeupDb = 12.0f; e.setParams (p); }
-                float x = a;   // constant (DC) so any step is the gain, not the signal
-                float* ch[] = { &x };
-                e.process (ch, 1, 1);
-                out.push_back (x);
+                expect (! names.contains (pr.name), "unique name " + juce::String (pr.name));
+                names.add (pr.name);
+                expect (pr.thresholdDb >= -60.0f && pr.thresholdDb <= 0.0f && pr.ratio >= 1.0f && pr.ratio <= 20.0f
+                        && pr.attackMs >= 0.1f && pr.attackMs <= 100.0f && pr.releaseMs >= 10.0f && pr.releaseMs <= 2000.0f
+                        && pr.kneeDb >= 0.0f && pr.kneeDb <= 24.0f && pr.makeupDb >= 0.0f && pr.makeupDb <= 24.0f
+                        && pr.mixPercent >= 0.0f && pr.mixPercent <= 100.0f, juce::String (pr.name) + " is in range");
+                expect (! juce::String (pr.name).containsIgnoreCase ("butter") && ! juce::String (pr.hint).containsIgnoreCase ("butter"),
+                        "no tutorial wording on screen");
+                expect (juce::String (pr.hint).length() > 40 && juce::String (pr.hint).endsWithChar ('.'), "a full explanation");
             }
-            float maxStep = 0.0f;
-            for (size_t i = 1; i < out.size(); ++i) maxStep = juce::jmax (maxStep, std::abs (out[i] - out[i - 1]));
-            expectLessThan (maxStep, 0.01f, "a 12 dB make-up jump is ramped");
-            expectWithinAbsoluteError (out.back(), a * amp (12.0f), 0.01f, "and arrives");
+            expect (names.contains ("Acoustic Guitar"), "an Acoustic Guitar preset");
+
+            SongsmithCompressorAudioProcessor p;
+            p.history.clear();
+            const int guitar = names.indexOf ("Acoustic Guitar");
+            p.history.runStep ("preset load", [&] { p.applyPreset (guitar); });
+            expectWithinAbsoluteError (getParam (p, Comp::ratioId), 1.3f, 0.011f, "ratio 1.3 to 1");
+            expectWithinAbsoluteError (getParam (p, Comp::attackId), 30.0f, 0.05f, "attack 30 ms");
+            expectWithinAbsoluteError (getParam (p, Comp::releaseId), 50.0f, 0.5f, "release 50 ms");
+            expectLessThan (getParam (p, Comp::thresholdId), -24.0f, "a low threshold");
+            expect (p.getEngineParams().autoMakeup, "level matched");
+            p.history.undo();
+            expectWithinAbsoluteError (getParam (p, Comp::ratioId), 2.0f, 0.011f, "one undo restores everything");
+            expect (! p.history.canUndo(), "and it was one step");
+
+            setParam (p, Comp::bypassId, 1.0f);
+            p.applyPreset (0);
+            expect (p.isBypassed(), "loading a preset leaves Bypass alone");
+            p.applyPreset (99);   // out of range: ignored
         }
 
-        beginTest ("Meters report the deepest reduction and the input and output peaks, then reset");
+        beginTest ("Auto make-up keeps the level of a -18 dBFS signal; manual make-up adds its decibels");
         {
-            Engine e; e.prepare (48000.0);
-            e.setParams (base()); e.reset();
-            runConstant (e, -6.0f, 4800);
-            const auto m = e.readMeters();
-            expectWithinAbsoluteError (m.inputPeak, amp (-6.0f), 1.0e-5f);
-            expectGreaterThan (m.gainReductionDb, 1.0f);
-            expectLessThan (m.outputPeak, m.inputPeak, "compressed");
-            const auto again = e.readMeters();
-            expectEquals (again.inputPeak, 0.0f);
-            expectEquals (again.gainReductionDb, 0.0f);
+            SongsmithCompressorAudioProcessor p;
+            p.applyPreset (0);   // Acoustic Guitar
+            prepare (p, 48000.0, 480);
+            // A steady-level signal (samples alternate +a and -a), so the peak detector sees a constant level.
+            // A sine reads up to about 0.8 dB louder, because the detector follows each wave's peaks (see docs/engine.md).
+            std::vector<float> steady (48000);
+            for (size_t i = 0; i < steady.size(); ++i)
+                steady[i] = (i & 1) ? -0.1259f : 0.1259f;   // -18 dBFS
+            const auto out = run (p, { steady, steady }, 480);
+            expectWithinAbsoluteError (20.0f * std::log10 (std::abs (out[0][47998]) / 0.1259f), 0.0f, 0.1f, "level matched within 0.1 dB");
         }
     }
 };
 
-static CompressorEngineTests compressorEngineTests;
-
-int main (int, char**)
+//==============================================================================
+class CompressorEditorTests final : public juce::UnitTest
 {
-    struct Runner final : juce::UnitTestRunner
-    {
-        void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); }
-    } runner;
-    runner.runAllTests();
+public:
+    CompressorEditorTests() : juce::UnitTest ("Songsmith Compressor editor", "Compressor") {}
 
-    int failures = 0, checks = 0;
+    static std::unique_ptr<SongsmithCompressorAudioProcessorEditor> make (SongsmithCompressorAudioProcessor& p, int width)
+    {
+        p.editorWidth = width;
+        return std::unique_ptr<SongsmithCompressorAudioProcessorEditor> (dynamic_cast<SongsmithCompressorAudioProcessorEditor*> (p.createEditor()));
+    }
+
+    void runTest() override
+    {
+        beginTest ("The editor opens at the default, minimum and maximum sizes, keeps its shape and remembers its size");
+        for (int width : { Comp::EditorLayout::defaultWidth, Comp::EditorLayout::minWidth, Comp::EditorLayout::maxWidth })
+        {
+            SongsmithCompressorAudioProcessor p;
+            auto ed = make (p, width);
+            expect (ed != nullptr);
+            expectEquals (ed->getWidth(), width);
+            expectEquals (ed->getHeight(), Comp::EditorLayout::heightFor (width));
+            expectWithinAbsoluteError (ed->getContentScale(), (float) width / (float) Comp::EditorLayout::designWidth, 1.0e-5f);
+        }
+        {
+            SongsmithCompressorAudioProcessor p;
+            auto ed = make (p, 1000);
+            ed->setSize (1200, Comp::EditorLayout::heightFor (1200));
+            expectEquals (p.editorWidth.load(), 1200, "the size is saved with the session");
+            p.editorWidth = 1;
+            expectEquals (Comp::EditorLayout::constrainWidth (1), Comp::EditorLayout::minWidth);
+        }
+
+        beginTest ("Title bar reads name, preset, Undo, Redo, Bypass, and Bypass is top-right in the suite red");
+        {
+            SongsmithCompressorAudioProcessor p;
+            auto ed = make (p, Comp::EditorLayout::defaultWidth);
+            Songsmith::UI::Testing::checkSuiteHeader (*this, *ed, "Compressor");
+            Songsmith::UI::Testing::checkGlobalBypass (*this, *ed, *p.apvts.getParameter (Comp::bypassId), "Compressor");
+            expect (ed->getTitleBounds().getRight() < ed->getPresetBox().getX(), "the title does not overlap the preset selector");
+            expect (ed->getTitleHint().getBounds() == ed->getTitleBounds(), "the hint sits exactly over the title");
+        }
+
+        beginTest ("Controls: every knob sits in the controls area, none overlap, and each is near what it affects");
+        {
+            SongsmithCompressorAudioProcessor p;
+            auto ed = make (p, Comp::EditorLayout::defaultWidth);
+            std::vector<juce::Component*> parts { &ed->getThresholdSlider(), &ed->getRatioSlider(), &ed->getAttackSlider(),
+                                                  &ed->getReleaseSlider(), &ed->getKneeSlider(), &ed->getMakeupSlider(),
+                                                  &ed->getMixSlider(), &ed->getAutoMakeupButton() };
+            for (size_t i = 0; i < parts.size(); ++i)
+            {
+                expect (parts[i]->getY() > 52, "below the title bar");
+                expect (ed->getContent().getLocalBounds().contains (parts[i]->getBounds()), "inside the editor");
+                for (size_t j = i + 1; j < parts.size(); ++j)
+                    expect (! parts[i]->getBounds().intersects (parts[j]->getBounds()), "no overlap");
+            }
+            const auto makeup = ed->getMakeupSlider().getBounds(), button = ed->getAutoMakeupButton().getBounds();
+            expect (std::abs (makeup.getRight() - button.getX()) <= 48 && std::abs (makeup.getCentreY() - button.getCentreY()) < 80,
+                    "Auto Makeup sits beside Makeup Gain");
+            for (auto* m : { (juce::Component*) &ed->getInputMeter(), (juce::Component*) &ed->getReductionMeter(), (juce::Component*) &ed->getOutputMeter() })
+                expect (m->getX() > ed->getMixSlider().getRight(), "the meters sit to the right of the knobs");
+        }
+
+        beginTest ("Makeup Gain is greyed out while Auto Makeup is on, and the knobs show and take values");
+        {
+            SongsmithCompressorAudioProcessor p;
+            auto ed = make (p, Comp::EditorLayout::defaultWidth);
+            ed->syncFromParameters();
+            expect (ed->getAutoMakeupButton().getToggleState() && ! ed->getMakeupSlider().isEnabled(), "Auto on: Makeup Gain greyed");
+            setParam (p, Comp::autoMakeupId, 0.0f);
+            ed->syncFromParameters();
+            expect (ed->getMakeupSlider().isEnabled(), "Auto off: Makeup Gain available");
+
+            expectEquals (ed->getThresholdSlider().getTextFromValue (-18.0), juce::String ("-18.0 dB"));
+            expectEquals (ed->getRatioSlider().getTextFromValue (2.0), juce::String ("2.00:1"));
+            expectEquals (ed->getAttackSlider().getTextFromValue (0.1), juce::String ("0.10 ms"));
+            expectEquals (ed->getReleaseSlider().getTextFromValue (100.0), juce::String ("100 ms"));
+            expectEquals (ed->getMixSlider().getTextFromValue (100.0), juce::String ("100%"));
+            expectWithinAbsoluteError (ed->getRatioSlider().getValueFromText ("1.3"), 1.3, 1.0e-6, "typing a value works");
+            expectWithinAbsoluteError (ed->getThresholdSlider().getValueFromText ("-30 dB"), -30.0, 1.0e-6, "typing with the unit works");
+
+            ed->getThresholdSlider().setValue (-40.0, juce::sendNotificationSync);
+            expectWithinAbsoluteError (getParam (p, Comp::thresholdId), -40.0f, 0.1f, "the knob moves the parameter");
+            ed->getThresholdSlider().mouseDoubleClick (juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), {}, juce::ModifierKeys(),
+                0.0f, 0.0f, 0.0f, 0.0f, 0.0f, &ed->getThresholdSlider(), &ed->getThresholdSlider(), juce::Time::getCurrentTime(), {}, juce::Time::getCurrentTime(), 2, false));
+            expectWithinAbsoluteError (getParam (p, Comp::thresholdId), -18.0f, 0.1f, "double-click returns to the default");
+        }
+
+        beginTest ("Choosing a preset sets the knobs, the tooltip explains it, and it is one undo step");
+        {
+            SongsmithCompressorAudioProcessor p;
+            auto ed = make (p, Comp::EditorLayout::defaultWidth);
+            ed->getPresetBox().setSelectedItemIndex (0, juce::sendNotificationSync);
+            expectWithinAbsoluteError (ed->getRatioSlider().getValue(), 1.3, 0.011, "ratio on the knob");
+            expect (ed->getPresetBox().getTooltip().contains ("acoustic guitar"), "tooltip explains the preset");
+            expect (ed->getUndoButton().isEnabled(), "Undo is available");
+            ed->getUndoButton().onClick();
+            expectWithinAbsoluteError (ed->getRatioSlider().getValue(), 2.0, 0.011, "Undo returns the knob");
+        }
+
+        beginTest ("Meters: a click clears them, 0 dBFS marks clipping and below it does not");
+        {
+            SongsmithCompressorAudioProcessor p;
+            auto ed = make (p, Comp::EditorLayout::defaultWidth);
+            auto& in = ed->getInputMeter();
+            in.push (-0.1f, 0.03);
+            expect (! in.isClipped(), "-0.1 dBFS is not a clip");
+            in.push (0.0f, 0.03);
+            expect (in.isClipped(), "0 dBFS is, the same boundary as the Songsmith EQ");
+            in.reset();
+            expect (! in.isClipped());
+            ed->getReductionMeter().push (40.0f, 0.03);
+            expectLessThan (ed->getReductionMeter().getBallistics().getLevel(), 24.01f, "clamped to the scale");
+        }
+
+        beginTest ("Plain words: every text, parameter name and preset, and every label fits at two sizes");
+        for (int width : { Comp::EditorLayout::defaultWidth, Comp::EditorLayout::minWidth })
+        {
+            SongsmithCompressorAudioProcessor p;
+            auto ed = make (p, width);
+            const auto context = "Compressor at " + juce::String (width) + " px";
+            juce::StringArray texts;
+            Songsmith::UI::Wording::collect (*ed, texts);
+            for (auto* prm : p.getParameters())
+                texts.add (prm->getName (100));
+            for (bool in : { true, false })
+                texts.add (p.getBus (in, 0)->getName());
+            for (auto& pr : Comp::getPresets())
+            {
+                texts.add (pr.name);
+                texts.add (pr.hint);
+            }
+            expectGreaterThan (texts.size(), 25, context + ": found the text");
+            Songsmith::UI::Wording::expectPlainWords (*this, texts, context);
+            for (auto* t : { "Threshold", "Ratio", "Attack", "Release", "Knee", "Makeup Gain", "Mix", "Auto Makeup", "Input", "Output", "Gain Reduction" })
+                expect (texts.contains (t), context + ": shows \"" + juce::String (t) + "\"");
+            Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), context);
+        }
+
+        beginTest ("Every control uses the shared bevelled look, the embedded typeface and the type scale");
+        {
+            SongsmithCompressorAudioProcessor p;
+            auto ed = make (p, Comp::EditorLayout::defaultWidth);
+            Songsmith::UI::Testing::checkControlsUseSharedLook (*this, *ed, "Compressor");
+            Songsmith::UI::Testing::checkEditorFonts (*this, *ed, "Compressor editor");
+        }
+    }
+};
+
+static CompressorPluginTests compressorPluginTests;
+static CompressorEditorTests compressorEditorTests;
+
+//==============================================================================
+static SongsmithUITests sharedUITests { "Compressor" };
+static SongsmithDiagnosticsTests sharedDiagnosticsTests { "Compressor" };
+static SongsmithGuidanceTests sharedGuidanceTests { "Compressor" };
+
+struct ConsoleRunner final : juce::UnitTestRunner
+{
+    void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); std::fflush (stdout); }
+};
+
+// CompressorTests --screenshot <file.png> [--scale 2]: renders the editor with some compression on the
+// meters to a PNG, so UI changes can be checked without a host.
+static int renderScreenshot (const juce::File& file, float scale)
+{
+    SongsmithCompressorAudioProcessor p;
+    p.applyPreset (0);
+    prepare (p, 48000.0, 512);
+    std::unique_ptr<SongsmithCompressorAudioProcessorEditor> editor (dynamic_cast<SongsmithCompressorAudioProcessorEditor*> (p.createEditor()));
+    const auto in = noise (96000, 0.5f, 1u);
+    run (p, { in, in }, 512);
+    editor->updateMeters (0.02);
+
+    const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, scale);
+    file.deleteFile();
+    juce::FileOutputStream out (file);
+    if (! out.openedOk() || ! juce::PNGImageFormat().writeImageToStream (image, out))
+        return 1;
+    std::printf ("Wrote %s\n", file.getFullPathName().toRawUTF8());
+
+    CompLookAndFeel lf;
+    Songsmith::UI::Testing::writeControlSheet (lf, CompColours::background, scale,
+        file.getSiblingFile (file.getFileNameWithoutExtension() + "-controls.png"));
+    return 0;
+}
+
+int main (int argc, char* argv[])
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+
+    for (int i = 1; i + 1 < argc; ++i)
+        if (juce::String (argv[i]) == "--screenshot")
+        {
+            float scale = 1.0f;
+            for (int j = 1; j + 1 < argc; ++j)
+                if (juce::String (argv[j]) == "--scale")
+                    scale = juce::jlimit (1.0f, 4.0f, juce::String (argv[j + 1]).getFloatValue());
+            return renderScreenshot (juce::File::getCurrentWorkingDirectory().getChildFile (argv[i + 1]), scale);
+        }
+
+    ConsoleRunner runner;
+    runner.setAssertOnFailure (false);
+    runner.runTestsInCategory ("Compressor");
+
+    int failures = 0, passes = 0;
     for (int i = 0; i < runner.getNumResults(); ++i)
     {
         failures += runner.getResult (i)->failures;
-        checks += runner.getResult (i)->passes + runner.getResult (i)->failures;
+        passes   += runner.getResult (i)->passes;
     }
-    std::printf ("\n==== %d checks passed, %d failed ====\n", checks - failures, failures);
+
+    std::printf ("\n==== %d checks passed, %d failed ====\n", passes, failures);
     return failures == 0 ? 0 : 1;
 }

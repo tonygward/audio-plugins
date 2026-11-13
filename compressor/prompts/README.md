@@ -16,8 +16,9 @@ COMP-01 is too large for one run, so it goes in ordered slices. Each one is its 
 
 | Slice | What | State |
 |---|---|---|
-| 1 | Engine: gain computer, soft knee, attack and release, stereo link, make-up, mix, tests ([engine notes](../docs/engine.md)) | In review |
-| 2 | Plugin shell: JUCE plugin target, stable identity, parameters, state and migration tests, plus CI jobs and installer entries (a person reviews the workflow and installer changes) | To do |
-| 3 | Editor: suite title bar, controls, gain reduction and level meters, resize | To do |
+| 1 | Engine: gain computer, soft knee, attack and release, stereo link, make-up, mix, tests ([engine notes](../docs/engine.md)) | Merged |
+| 2 | Plugin: JUCE plugin target, identity, parameters, state and tests, editor, four presets, and a CI build and test job | In review |
+| 2b | Release wiring: suite installer entries, release checks and the beta website | To do |
+| 3 | (folded into slice 2) | Done |
 | 4 | Analog Warmth: optional saturation, measured | To do |
-| 5 | Presets, including Acoustic Guitar, then release checks (host, installer, beta site) | To do |
+| 5 | Host check, listening notes and further presets | To do |
