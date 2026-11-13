@@ -6,6 +6,10 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - **New plugin: Songsmith Compressor.** A simple, clear compressor with Threshold, Ratio, Attack, Release, Knee, Makeup Gain (or Auto Makeup) and Mix, meters for input, output and Gain Reduction, and four starting presets: Acoustic Guitar, Lead Vocal Control, Drum Bus Glue and Gentle Level Smoothing. It adds no analogue colour, so it is a good choice when you want to even out a sound without changing its tone. It appears as its own tick box in the Windows and macOS installers and as its own plugin in your recording software, next to Songsmith Analog Compressor, which is unchanged. Analog Warmth, an optional colour control, is planned and is not in this version. You do not need to do anything. This has not yet been checked in a DAW.
 
+## 0.5.22
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
 ## 0.5.21
 
 - In Songsmith EQ, the output meter's peak number now sits directly under the **CLIP** label instead of under the bars. A negative number (for example -0.6) is never red; it turns red only when the held peak reaches 0 dBFS or higher. Before, an earlier clip could make a negative number look red. CLIP itself works as before: it lights when a sample reaches 0 dBFS and stays lit while sound continues. The meter measures sample peak, not true peak. Nothing about the sound changes and you do not need to do anything. This has not yet been checked in a DAW.
