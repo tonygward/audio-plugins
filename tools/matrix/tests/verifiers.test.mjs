@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { betaVerifiers } from '../verifiers.mjs';
+import { betaVerifiers, archivedPath } from '../verifiers.mjs';
 import { verifyDelivery } from '../delivery.mjs';
 
 const win = v => `Songsmith-Plugins-${v}-win64-setup.exe`, mac = v => `Songsmith-Plugins-${v}-macOS.pkg`;
@@ -18,6 +18,7 @@ function gh({ site = '0.5.4', changelog = '# 0.5.4\n\n- x\n\n# 0.5.3\n', pages =
     if (url.includes('/commits?path=public/release.json')) return JSON.stringify([{ sha: 'abc' }]);
     if (url.endsWith('/check-runs')) return JSON.stringify({ check_runs: [{ app: { slug: pages ? 'cloudflare-workers-and-pages' : 'other' }, conclusion: 'success' }] });
     if (url.includes('/actions/runs/')) return JSON.stringify(run);
+    if (url.includes('/contents/analog-compressor/prompts/done')) return JSON.stringify(['15-old.md', '20-x.md']);
     if (url.includes('/releases/tags/')) return JSON.stringify([{ name: win('0.5.4'), size: 100, digest: digests.windows }, { name: mac('0.5.4'), size: 200, digest: digests.macos }]);
     throw new Error(`unexpected ${args.join(' ')}`);
   };
@@ -25,7 +26,7 @@ function gh({ site = '0.5.4', changelog = '# 0.5.4\n\n- x\n\n# 0.5.3\n', pages =
 
 test('site reports the website version, changelog versions and Pages deployment', async () => {
   const result = await betaVerifiers(gh()).site();
-  assert.deepEqual(result, { version: '0.5.4', changelogVersions: ['0.5.4', '0.5.3'], deployed: true, commit: 'abc' });
+  assert.deepEqual(result, { version: '0.5.4', changelogVersions: ['0.5.4', '0.5.3'], deployed: true, commit: 'abc', url: 'https://beta.songsmith.uk' });
   assert.equal((await betaVerifiers(gh({ pages: false })).site()).deployed, false);
 });
 
@@ -38,19 +39,16 @@ test('r2 evidence needs a successful distribution run and matching names, sizes 
   assert.deepEqual(wrong.map(o => o.name), [mac('0.5.4')]);
 });
 
-test('downloads stay unconfigured without a protected-route check', async () => {
-  await assert.rejects(betaVerifiers(gh()).downloads('0.5.4'), /not configured/);
+test('downloads are not verified: there is no download verifier', () => {
+  assert.equal(betaVerifiers(gh()).downloads, undefined);
 });
 
-test('downloads compare status and byte length from the protected route', async () => {
-  const calls = [];
-  const head = async (url, headers) => { calls.push([url, headers]); return url.endsWith('/windows') ? { status: 200, contentLength: '100' } : { status: 403, contentLength: '0' }; };
-  const result = await betaVerifiers(gh(), { head, accessHeaders: { token: 't' } }).downloads('0.5.4');
-  assert.deepEqual(result, { windows: { ok: true, bytes: 100 }, macos: { ok: false, bytes: 0 } });
-  assert.equal(calls[0][0], 'https://beta.songsmith.uk/downloads/0.5.4/windows');
-  assert.deepEqual(calls[0][1], { token: 't' });
-  const stale = await betaVerifiers(gh(), { head }).downloads('0.5.5');
-  assert.equal(stale.windows.ok, false);
+test('promptArchived looks for the prompt in its done/ folder on main', async () => {
+  assert.equal(archivedPath('analog-compressor/prompts/20-x.md'), 'analog-compressor/prompts/done/20-x.md');
+  assert.equal(archivedPath('shared/prompts/done/SUI-01-x.md'), 'shared/prompts/done/SUI-01-x.md');
+  const v = betaVerifiers(gh());
+  assert.equal(await v.promptArchived('analog-compressor/prompts/20-x.md'), true);
+  assert.equal(await v.promptArchived('analog-compressor/prompts/21-y.md'), false);
 });
 
 test('a website that missed the release (as 0.5.3 did) blocks delivery', async () => {
@@ -64,15 +62,10 @@ test('a website that missed the release (as 0.5.3 did) blocks delivery', async (
 
 test('an unconfirmed Pages deployment blocks delivery even when versions match', async () => {
   const v = '0.5.4', assets = [{ name: win(v), size: 100 }, { name: mac(v), size: 200 }];
-  const io = { ...betaVerifiers(gh({ pages: false }), { head: async () => ({ status: 200, contentLength: '100' }) }),
-    pull: async () => ({ state: 'MERGED', mergeSha: 'x', url: 'u' }), release: async () => ({ tag: 'v0.5.4', version: v, includesMerge: true, assets }),
-    downloads: async () => ({ windows: { ok: true, bytes: 100 }, macos: { ok: true, bytes: 200 } }) };
+  const io = { ...betaVerifiers(gh({ pages: false })),
+    pull: async () => ({ state: 'MERGED', mergeSha: 'x', url: 'u' }), release: async () => ({ tag: 'v0.5.4', version: v, includesMerge: true, assets }) };
   const result = await verifyDelivery({ repository: 'r', pull: 1 }, io);
   assert.deepEqual(result.missing, ['Beta website deployment is not confirmed']);
 });
 
-test('worker-checked downloads use release.json and are labelled as not exercised', async () => {
-  const result = await betaVerifiers(gh(), { workerChecked: true }).downloads('0.5.4');
-  assert.deepEqual(result, { windows: { ok: true, bytes: 100, exercised: false }, macos: { ok: true, bytes: 200, exercised: false } });
-  assert.equal((await betaVerifiers(gh(), { workerChecked: true }).downloads('0.5.5')).windows.ok, false);
-});
+

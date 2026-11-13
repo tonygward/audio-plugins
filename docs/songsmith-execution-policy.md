@@ -1,40 +1,74 @@
 # Songsmith execution and delivery policy
 
-Owner decisions: 10 November 2026; Doing amended the same day. Applies to issues, prompts, Matrix and release documentation. Supersedes older merge-only completion instructions.
+**This is the one place the development and delivery rules are written down.** Other documents link here and do not restate them.
+Owner decisions: 10 November 2026, revised 13 November 2026 (board columns are the only hold; Sonnet by default; no download check; optional token budget; every finished task keeps a prompt).
 
-## Board and selection
-- Prompts carry no status or execution mode. The board (column and Execution field) is the only authority: wording such as "not queued" or "deferred" inside a prompt or issue holds nothing, and only the Execution value Deferred holds a card back.
-- Backlog: uncommitted/prioritised work. Todo: the overnight queue, in the board view's visible manual order; Matrix takes **one Todo task per London day**, on the first run after `dailyTime` (02:00), and a Todo pickup uses up that day's slot. Doing pickups never use it. Retain the existing Todo name; Ready is its meaning, not a second queue.
-- Doing: work to run now, and work Matrix is running. A Doing card with no claim is a run-now request: Matrix picks it up at the worker's next run (every few minutes), ahead of Todo, in board order, once no job is active and every gate (usage, dependencies, scoped path) passes. Pickup creates the durable job and the starting issue comment. A card whose board Execution is **Separate** is scheduled outside the worker and is never picked up. A card whose board **Execution** field is **Deferred** is never picked up; that field is the only way to defer a card, and any other value (or none) leaves it eligible. A prompt or issue cannot defer a card, whatever it says. A Deferred card stays where it is and does not block other work. A Doing card with an open or merged pull request resumes from that evidence and is never recoded.
-- Blocked: limit reached, cannot proceed, failed checks after bounded repairs, or delivery stalled. Issue stays open. No automatic requeue on each poll; an explicit move back to Todo or Doing resumes saved work.
-- Done: all task-specific acceptance and delivery verified, final evidence comment posted, issue closed, then card marked Done.
-- Board order decides selection regardless of prefix, issue repository or prompt location. Resolve the unique issue, merged canonical prompt and actual implementation repository. Parent epics/historical batch trackers are not separate execution jobs. **A prompt file is not required if the issue has enough detail:** a Doing (or due Todo) card with no prompt is built from its issue when the issue has an objective, scope or implementation notes, acceptance criteria and tests; Matrix generates the canonical prompt from the issue and saves it in the same pull request (the usual archive step then moves it to `done/`). If the detail is missing, Matrix posts one comment naming what is missing (once per version of the issue text) and moves the card to Blocked; move it back to Todo or Doing after editing the issue. Wording in the issue never defers the card; only the board's Execution value Deferred does.
-- Verify actual view order through API and real A/B reordering; fail closed on unavailable rank, partial/stale snapshots or API errors. No priority/ID/pagination fallback. A numeric queue-order alternative requires owner decision.
-- AUTO-11 owns board configuration, selection and atomic claims; AUTO-12 owns the bounded task loop; the release pipeline owns verified delivery and finalisation (AUTO-10, proven live and withdrawn on 12 November 2026). AUTO-11 is running live; AUTO-12 (bounded loop, committed-work resume and CI recovery) and AUTO-14 (pickup reason) are implemented and verified live; documentation alone is never evidence an integration runs.
-- Before rollout, reconcile all existing Doing cards with job/PR/release evidence; an unclaimed Doing card is a run-now request and stays, one marked Deferred on the board is left alone, interrupted/stuck work goes to Blocked with reason. Preserve board ordering and never recode merged work.
+The process has nine parts. Each has one owning document; this page holds the rules for parts 1 to 3 and 8, and points to the rest.
 
-## Execution and limits
-- Matrix schedules/claims one task; standard Claude agentic loop owns implementation, tests, review, merge orchestration and delivery verification through trusted workflows. Reuse the existing worker, not another orchestrator.
-- One task per invocation and one active job globally; batchLimit = maximumPrompts = 1.
-- Start only below 60% verified weekly Claude usage, including scoped meters; unknown/stale/invalid readings block pickup. Recheck before further Claude invocations; no paid fallback.
-- Configurable initial defaults: 120 minutes elapsed/run and three repair iterations total across implementation/review/CI. Record a hard configured Claude turn/token budget at start. The first exhausted limit stops further agent work; CI/publication waiting counts in elapsed time. Persist counters across crash recovery within the run.
-- At a limit or blocker, checkpoint job, prompt revision, branch, SHA, PR, checks, elapsed/repair/usage counters and delivery stage. Comment with reason/limit, completed work, remaining work and precise resume action; move to Blocked and leave open.
-- Resume reconciles existing work and starts from its saved stage. Never duplicate a PR, merge, version bump or release. A crash/stale lease is not permission for duplicate work.
-- Use scoped infrastructure/website execution paths and credentials. Board placement never grants privileges; location/prefix alone never rejects a card. Infrastructure work remains separately scheduled; overnight work prioritises functional changes.
+| # | Part | Owning document |
+|---|---|---|
+| 1 | Backlog: issues and prompts | [Backlog](#1-backlog-issues-and-prompts) below, with the [issue–prompt contract](backlog-issue-prompt-contract.md) for the prompt template |
+| 2 | Selection: what runs next | [Selection](#2-selection-what-runs-next) below |
+| 3 | Bounded execution: limits, Blocked and resume | [Execution](#3-bounded-execution) below; mechanics in the [Matrix README](../tools/matrix/README.md) |
+| 4 | Continuous integration: the two builds | [Pipelines](pipelines.md) |
+| 5 | Merge gate | [Pipelines](pipelines.md) |
+| 6 | Versions and release notes | [Release checkpoints](automatic-release-checkpoints.md) |
+| 7 | Release and distribution | [Release checkpoints](automatic-release-checkpoints.md) and the [R2 runbook](beta-release-r2-runbook.md) |
+| 8 | Finishing a task: final comment, close, Done | [Finishing](#8-finishing-a-task) below |
+| 9 | Archive and traceability | [Prompt README](../shared/prompts/README.md#prompt-identity-and-traceability) |
 
-## Pull requests and beta versions
-- Automatically approve/merge authorised work only after exact-head required checks and relevant native Windows/macOS CI pass. Record approval checks where GitHub prevents self-approval. No routine manual gate; no bypass of failed/missing/stale checks. Changes to Matrix's own code (controller, tests, evidence, container configuration and this policy) merge automatically after the hosted Matrix orchestration tests pass on the exact head commit, through the owner-approved core lane (branch `matrix/core/<name>`, description carrying "Matrix core change: owner-approved lane"; owner decision, 10 November 2026). Workflows, the merge gate (`scripts/matrix`), PowerShell and shell scripts, the Dockerfile, the egress allow-list and plugin source stay outside that lane and need a person. The worker's own edit scope is unchanged. Merging does not rebuild the container: the image keeps its baked code until it is rebuilt.
-- Trusted workflows hold merge/publishing credentials. Claude drives the process and verifies outcomes without holding release/R2/website credentials.
-- Two builds per release: the pull request build (changed plugins only) and one packaging build of everything on the version bump commit, which the release is made from; a plain merge to main builds nothing. Automatically increment the shared beta VERSION third component per qualifying source merge to main, straight after the merge, once the pull request build passed at the merged head. Major/minor changes are deferred. No resets, duplicate bumps from retries, or releases for prompt/documentation-only changes. Published assets stay immutable.
-- Plugin delivery requires one Windows EXE and one macOS PKG suite installer, matching private R2 integrity, beta website version/changelog and authenticated downloads.
-- Website-only tasks verify their deployed site changes and existing downloads; do not manufacture a plugin release. Infrastructure-only tasks verify deployed controller/workflow behaviour and run evidence; no unrelated plugin release or version bump. Discovery/parent milestones use their explicit acceptance, not fabricated installers.
+## 1. Backlog: issues and prompts
 
-## Comments, recovery and Done
-1. Claim durably, move to Doing and post starting comment with task ID, Matrix job/run, prompt revision, repository and limits before development. Reconcile partial claim/status/comment failures; no coding without a recorded claim and successful starting comment.
-2. Comment on meaningful progress, PR/CI outcomes, merge, blockers and limits. Avoid heartbeat spam.
-3. While actively monitoring delivery within limits, stay Doing with explicit release-pending stage. On delivery failure/stall or exhausted limit, Blocked. Preserve merged work.
-4. Verify all task-specific acceptance and delivery, including relevant exact commit/build/deployment identity.
-5. Post final evidence comment, close issue as completed, then mark board Done. A failed final comment blocks closure/Done. If close succeeds but board update fails, retry only finalisation idempotently.
-6. If a comment/status API fails, persist pending reconciliation and expose controller failure; never report Done or silently restart the task.
+- Every task has a GitHub issue whose title starts with a stable ID (`EQ-41`, `ACOMP-16`, `SUI-19`). Search for an existing issue or prompt before creating one.
+- **A prompt file is optional at the start.** A task is ready to run once its card is in **Todo** or **Doing**. If there is no prompt file, Matrix builds one from the issue when it has an objective, scope or implementation notes, acceptance criteria and tests, and saves it in the implementation pull request. If the issue lacks that detail, Matrix comments once on what is missing and moves the card to **Blocked**.
+- **A prompt must exist by Done.** Every finished task has a canonical prompt in a `done/` folder, whether a person wrote it or Matrix generated it. Delivery does not set Done until it is there.
+- Prompts live in `<plugin>/prompts/` (`eq`, `analog-compressor`, `maximiser`, `compressor`) or `shared/prompts/` for work across the suite. There is no other holding folder: a prompt waits because its card is in Backlog, not because of where its file is.
+- A prompt never carries a status or an execution mode. The board owns both, and Matrix ignores any such line.
+- **Model: Sonnet is the default.** Matrix always runs Sonnet. A prompt needs no `model:` line; `model: opus` is only advice for a person running the prompt by hand, and it never holds a card back.
 
-Archived done/ prompts establish merged implementation, not delivered completion. Issue comments are the task audit trail. (A separate remote heartbeat, AUTO-03, was considered and withdrawn on 12 November 2026 as not worth building.)
+## 2. Selection: what runs next
+
+- **The board column is the only hold.** Cards in **Backlog** or **Blocked** wait. Cards in **Todo** or **Doing** run. Nothing else holds a card back: not wording in a prompt or issue ("deferred", "not queued"), not the prompt's folder, not its ID prefix, not a missing `model:` line. The board's old Execution field is no longer read.
+- **Doing** is a run-now request: an unclaimed Doing card is picked up at the worker's next run (every few minutes), ahead of Todo, in board order.
+- **Todo** is the overnight queue in board order. Matrix takes **one Todo card per London day**, on the first run after `dailyTime` (02:00). A Doing pickup does not use that slot.
+- Board order decides. Matrix reads the view's actual order and fails closed if it cannot (no fallback by priority, ID or repository).
+- One task per run and one active job at a time (`batchLimit` = `maximumPrompts` = 1).
+- No new work at or above **60% verified weekly Claude usage**, including scoped meters. An unknown, stale or invalid reading blocks pickup. There is no paid fallback.
+- Unmet dependencies (`dependencies:` in the prompt) skip a card with a reason; it does not block the cards behind it.
+- A card whose work has already merged is never coded again: it goes to delivery.
+- **Current limit:** Matrix only builds in `audio-plugins` (`executionRepositories`). Website tasks are listed but wait for a person. Moving plugin code under a `src` folder is a later refactor.
+
+## 3. Bounded execution
+
+- Matrix claims one task, moves the card to Doing and posts a starting comment (task, Matrix job, prompt revision, repository, limits, and why it was picked up) before any code is written. No code without a recorded claim and starting comment.
+- **Limits** (configured, all enforced):
+  - per attempt: Claude turns, a dollar cost limit and a time limit;
+  - per run: **120 minutes** elapsed from the claim (CI waiting counts) and **3 repairs**;
+  - per run, optional: a **token budget** (`worker.maximumTokens`), an extra safety net on top of the others. It counts input, output and cache-write tokens and is checked before each attempt.
+  - Counters are saved, so a restart cannot reset them.
+- At a limit or blocker, Matrix comments once with the reason, what is done, what is left and how to resume, and moves the card to **Blocked**. Nothing re-queues a Blocked card automatically.
+- **Resume** by moving the card back to Todo or Doing. Committed work carries on from its branch and pull request; nothing is duplicated (pull request, merge, version bump or release).
+
+## 4–7. Build, merge, version and release
+
+- **Two builds per release:** the pull request build (changed plugins only) and one packaging build of everything on the version bump commit. A plain merge to `main` builds nothing. See [pipelines](pipelines.md).
+- Matrix pull requests merge automatically once the exact head commit passed the required CI. Docs-only pull requests get a quick CI run that builds nothing and never trigger a release.
+- Matrix's own code merges automatically through the **core lane** (branch `matrix/core/<name>`, description carrying "Matrix core change: owner-approved lane") after the hosted Matrix orchestration tests pass. Workflows, the merge gate (`scripts/matrix`), PowerShell and shell scripts, the Dockerfile, the egress allow-list and plugin source stay outside that lane and need a person. Merging does not rebuild the container.
+- Every source merge to `main` bumps the third part of `VERSION` and moves the `## Unreleased` changelog notes into the new version. Major and minor increments wait for an owner decision. See [release checkpoints](automatic-release-checkpoints.md).
+- Each release has exactly two public files: one Windows EXE and one macOS PKG suite installer.
+- Trusted workflows hold all merge, publishing, storage and website credentials. The coding agent holds none of them.
+
+## 8. Finishing a task
+
+**Fully hands off.** After the merge, Matrix finishes the task itself:
+
+1. **Verify delivery:** a GitHub release containing the merge, with exactly the two installers; private storage matching the release; the beta website showing that version and its changelog, with the deployment confirmed; and the task's canonical prompt archived in `done/`. Downloads are not tested.
+2. **Comment** on the issue that the task is done, with the pull request, merge commit, version, release, installers and the **download link** (the beta website).
+3. **Close** the issue.
+4. **Move** the card to **Done**.
+
+Each stage is saved. While a check is missing the issue stays open and the card stays in Doing, with one comment saying what is missing. A failed final comment blocks closing and Done; a failed close or Done is retried on its own without a second comment.
+
+## Not proof of anything
+
+A prompt in `done/` shows the implementation merged, not that it reached testers. A Doing card is a request, not proof that work started. Documentation describing an integration is not evidence that it runs. Issue comments are the audit trail.

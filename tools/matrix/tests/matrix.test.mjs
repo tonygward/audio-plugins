@@ -54,8 +54,9 @@ test('Duplicate metadata and malformed front matter rejected', () => {
   assert.throws(() => parsePrompt('eq/prompts/41-x.md', '---\nid: EQ-41'));
   assert.throws(() => prompt('scheduled', 'unknown: value\n'));
 });
-test('Future, completed and blocked prompts excluded', () => {
-  for (const file of ['shared/prompts/future/ADV-01-x.md', 'eq/prompts/done/41-x.md']) assert.equal(select([parsePrompt(file, prose)], {}, 'daily').selected.length, 0);
+test('Completed and blocked prompts excluded; no folder other than done/ or archive holds a prompt back', () => {
+  assert.equal(select([parsePrompt('eq/prompts/done/41-x.md', prose)], {}, 'daily').selected.length, 0);
+  assert.equal(parsePrompt('shared/prompts/future/SUI-41-x.md', prose).excluded, false);
   assert.equal(select([prompt('build-now', 'status: blocked\n')], {}, 'daily').selected.length, 0);
 });
 test('Identity mismatch rejected', () => {
@@ -131,11 +132,13 @@ test('Compatible independent plugin batches and same-plugin/shared conflicts', (
   const shared = prompt('build-now', '', 'shared/prompts/SUI-14-x.md');
   assert.equal(select([...items, shared], {}, 'daily').selected.length, 1);
 });
-test('High/unknown effort and non-Sonnet design recommendations require review', () => {
+test('High/unknown effort requires review; Sonnet is the default model and only model: opus records Opus', () => {
   assert.equal(select([prompt('scheduled', 'effort: high\n')], {}, 'daily').selected.length, 0);
-  const p = parsePrompt('eq/prompts/41-x.md', prose.replace('Sonnet.', 'Opus for design, Sonnet for implementation.'));
-  assert.equal(select([p], {}, 'daily').selected.length, 0);
-  assert.throws(() => claudePlan(p));
+  assert.equal(parsePrompt('eq/prompts/41-x.md', '# EQ-41 — Example\n').model, 'sonnet', 'no model at all');
+  assert.equal(parsePrompt('eq/prompts/41-x.md', prose.replace('Sonnet.', 'Opus for design, Sonnet for implementation.')).model, 'sonnet', 'prose never changes the model');
+  const opus = parsePrompt('eq/prompts/41-x.md', `---\nmodel: opus\n---\n${prose}`);
+  assert.equal(opus.model, 'opus');
+  assert.throws(() => claudePlan(opus));
 });
 test('Claims and completion are idempotent, and only merged archive completes', () => {
   const s = state(), p = prompt('build-now'); reconcile(s, [p], revision);

@@ -4,7 +4,7 @@
 // Off unless config.boardPickup.enabled is true. dryRun defaults to true: decide and report, never claim.
 import path from 'node:path';
 import { atomic, lockedAsync, readState } from './state.mjs';
-import { fetchBoard, fetchPulls, selectFromBoard, pullTaskState, matrixBranchTask, isDeferred } from './board.mjs';
+import { fetchBoard, fetchPulls, selectFromBoard, pullTaskState, matrixBranchTask } from './board.mjs';
 import { reconcileDoing } from './doing.mjs';
 import { PROMPT_FILE } from './backlog.mjs';
 import { pickUp, recoverPickupComments } from './pickup.mjs';
@@ -19,14 +19,12 @@ import { dailyDue, londonDay } from './policy.mjs';
 
 // Unlike state.reconcile (a worker restart marks claimed tasks interrupted), a board tick must keep an
 // active claim intact: it only adds or refreshes tasks that are still unclaimed.
-// Only the board's Execution value Deferred holds a task back; wording inside a prompt never does. Prompts in excluded folders or
-// marked blocked stay withdrawn whatever the board says.
+// The board column decides what runs (Backlog and Blocked hold a card); wording inside a prompt never does. Archived prompts stay withdrawn.
 export function refreshTasks(state, prompts, revision, now = new Date().toISOString(), cards = []) {
   for (const p of prompts) {
     const task = state.tasks[p.id] ??= { id: p.id, state: 'pending', attempts: 0, created: now };
-    const card = cards.find(c => c.taskId === p.id && c.issue);
     if (p.complete && ['pending', 'withdrawn'].includes(task.state)) task.state = 'complete';
-    else if (['pending', 'withdrawn'].includes(task.state)) task.state = isDeferred(card) || p.excluded || p.blocked ? 'withdrawn' : 'pending';
+    else if (['pending', 'withdrawn'].includes(task.state)) task.state = p.excluded || p.blocked ? 'withdrawn' : 'pending';
     if (['pending', 'withdrawn', 'complete'].includes(task.state)) Object.assign(task, { file: p.file, hash: p.hash, execution: p.execution, revision, updated: now });
   }
 }

@@ -1,8 +1,7 @@
 # Matrix development orchestrator
 
-Matrix is the autonomous developer for the Songsmith plugins ([AUTO-01](../../shared/prompts/AUTO-01-matrix-autonomous-development.md)). Policy lives in
-the [execution policy](../../docs/songsmith-execution-policy.md): board order decides pickup, one task and one active job, a 60% weekly Claude stop,
-automatic beta build numbers and delivery only after verified beta deployment.
+Matrix is the autonomous developer for the Songsmith plugins ([AUTO-01](../../shared/prompts/AUTO-01-matrix-autonomous-development.md)). The rules live in
+the [execution policy](../../docs/songsmith-execution-policy.md); this page explains how Matrix carries them out.
 
 ## How it runs today
 
@@ -43,14 +42,14 @@ conflicts: []
 Empty/unknown/duplicate fields, nested YAML,
 aliases/tags, inconsistent IDs and invalid explicit values block the batch visibly.
 Priority accepts a non-negative number or `high`, `medium`, `low` (1, 50, 90).
-Effort is `low`, `medium`, `high`; model must recommend Sonnet for candidate selection.
-Missing model/effort never gets guessed. Opus design work requires owner review.
+Effort is `low`, `medium`, `high`. **Sonnet is the default model** and Matrix always runs Sonnet; `model:` can be left out.
+`model: opus` is recorded as advice for a person running the prompt by hand and never holds a card back.
 
 IDs come from scope-qualified filenames, or the numeric filename plus plugin scope
 (`EQ`, `ACOMP`, `MAX`). The historical `done/S7-...` alias is reported as an archive
 warning and cannot satisfy dependencies; canonical SUI-07 supplies that identity.
 Duplicate active IDs or malformed active metadata block **all** selection.
-Done/future/archive folders and durable non-pending states are excluded. Wording in a prompt such as "not queued" or "deferred" holds nothing: a card the owner puts in Todo or Doing runs, and the board Execution value `Deferred` is the only hold.
+Archived prompts (`done/`, `archive/`) and durable non-pending states are excluded. Wording in a prompt such as "not queued" or "deferred" holds nothing: a card the owner puts in Todo or Doing runs. Backlog and Blocked are the only holds.
 
 Labelled dependency links and `Build after 06` / `Run this after task 06` prose are
 normalised. Explicit `after ID` in a linked local README row adds a dependency; other words in a README row (such as "blocked" or "deferred") hold nothing. Board order decides
@@ -86,11 +85,14 @@ plugin source always need a person. The worker's own scope is unchanged, so it c
     The existing pull request is reused and its description rewritten, so an old Blocked section does not linger. Selection exempts a resumed task from the
     "open pull request already exists" rule.
   - A task whose pull request has merged is never resumed: delivery owns it. A task whose pull request was closed without merging is held (one comment, card back in Blocked).
-- **Only the board defers.** `Deferred` in the card's Execution field holds a task back; any other value, or none, leaves it eligible. Wording in a prompt or
-  issue (such as "deferred" or "not queued") never holds a card. Prompts in excluded folders stay withdrawn whatever the board says (`refreshTasks`).
+- **Only the column holds a card.** Backlog and Blocked wait; Todo and Doing run. The board's old Execution field is not read, and wording in a prompt or
+  issue (such as "deferred" or "not queued") never holds a card. Archived prompts stay withdrawn whatever the board says (`refreshTasks`).
 - **Run budget.** `worker.maximumRunMinutes` (default 120) counts from the first claim, includes CI waiting and is saved in the state, so a restart cannot reset it.
   At the limit no further agent call starts and the run stops with the reason. `maximumRepairs` is 3 (up to 3 allowed). Per-attempt limits (turns, cost,
-  minutes) still apply. There is no separate token budget: the Claude CLI's turn and cost limits are the finite budget.
+  minutes) still apply.
+- **Token budget (optional).** `worker.maximumTokens` (10,000 to 100,000,000) caps the tokens one run may use, as an extra safety net. It counts the
+  input, output and cache-write tokens Claude reports for each attempt (cache reads are re-reads and are left out), is saved with the task (`tokensUsed`)
+  and is checked before each attempt, so the attempt that crosses it finishes and no further one starts. Leave it out to rely on the other limits.
 
 - **Restart during CI is recovered (`recover.mjs`).** A restart marks a claimed task interrupted, but if its branch is pushed and its pull request is open, the tick looks the
   work up again by branch and exact head commit. Passing or still-running checks hand it back to the hosted Build and merge gate (`awaiting-review`); the existing merge hook then
@@ -121,10 +123,9 @@ When the hosted Windows and macOS Build passes for the exact head commit of a ta
 `issue-prompt.mjs`. A Doing card (or a Todo card on the day's slot) whose task has no prompt file, in an execution repository, with no merged or open pull request and no
 existing task state, has its issue read. **Enough detail** means the body has headings for an objective, scope or implementation, acceptance criteria and tests
 (a combined "Acceptance criteria and tests" heading counts for both; each section needs real text). Then the tick generates a canonical prompt
-(`<plugin>/prompts/NN-slug.md` for EQ, ACOMP and MAX, otherwise `shared/prompts/ID-slug.md`; Sonnet, medium; no status or execution, which the board owns) from the issue, hands it to the worker in the
+(`<plugin>/prompts/NN-slug.md` for EQ, ACOMP and MAX, otherwise `shared/prompts/ID-slug.md`; Sonnet (the default), medium; no status or execution, which the board owns) from the issue, hands it to the worker in the
 hand-off (the worker checks it parses and matches the hand-off hash), and the worker **saves it in the same pull request**. **Not enough detail:** one comment lists what is
-missing (marker includes a hash of the missing list and the issue text, so it is not repeated until the issue changes) and the card moves to Blocked. Cards marked Deferred or Separate
-are left alone; wording in the issue never defers a card. A dry run assesses but writes nothing.
+missing (marker includes a hash of the missing list and the issue text, so it is not repeated until the issue changes) and the card moves to Blocked. Cards outside Todo and Doing are left alone; wording in the issue never defers a card. A dry run assesses but writes nothing.
 
 ## Board pickup (AUTO-11)
 
@@ -136,7 +137,7 @@ Each run is two steps in one process, run by `linux-worker.mjs`:
 1. **Board tick** (`board-run.mjs`). Reads the *Songsmith Development* board in its manual order and the open and merged pull requests in
    each repository, then resumes unfinished work: a lost pickup comment, or a merged task still waiting for beta delivery. It checks the Doing
    cards against pull requests and worker state, applies the 60% weekly usage stop, and picks **one** task. **Todo** is the overnight queue, in board order: one task per London day, on the first run after `dailyTime`.
-   **Doing** is a run-now request: a Doing card with no claim is picked up ahead of Todo. A card marked Separate on the board is never picked up. A card whose board **Execution** field is Deferred is left alone and blocks nothing; that field is the only way to defer a card, and a prompt or issue cannot.
+   **Doing** is a run-now request: a Doing card with no claim is picked up ahead of Todo. Backlog and Blocked cards are never picked up; nothing else holds a card back.
    The choice goes to `board-handoff.json` in the state folder.
 2. **Worker** (`linux-worker.mjs`). Under its own lock it re-checks the hand-off against a fresh copy of `main`, claims through its normal path,
    moves the card to Doing, posts the starting comment (task, Matrix job, prompt revision, repository, limits), then builds. If either step fails it writes
@@ -145,9 +146,8 @@ Each run is two steps in one process, run by `linux-worker.mjs`:
 
 Delivery (`delivery.mjs`) runs in the next tick after a merge: verify the beta release, post the final comment, close the issue, then set the card
 to Done. Each stage is saved. A failed or missing check leaves the issue open and the card in Doing. Evidence comes from the existing release
-pipeline (`verifiers.mjs`): the release, the private-storage distribution run, the website `release.json` and changelog, and the Cloudflare Pages
-check. `downloadEvidence: "worker-checked"` accepts the website Worker's own size and hash check on every download. Matrix does not call the
-download route, and the final comment says so.
+pipeline (`verifiers.mjs`): the release, the private-storage distribution run, the website `release.json` and changelog, the Cloudflare Pages
+check, and the task's prompt in its `done/` folder on `main`. Downloads are not tested: the final comment links to the beta website.
 
 Config (all required when enabled; `batchLimit` and `worker.maximumPrompts` must both be 1):
 
@@ -157,12 +157,11 @@ Config (all required when enabled; `batchLimit` and `worker.maximumPrompts` must
   "projectId": "<project node id>", "statusFieldId": "<Status field id>", "doingOptionId": "<Doing option id>", "doneOptionId": "<Done option id>",
   "repositories": ["owner/audio-plugins", "owner/songsmithstudio", "owner/songsmith-website"],
   "executionRepositories": ["owner/audio-plugins"], "promptRepository": "owner/audio-plugins",
-  "downloadEvidence": "worker-checked", "tokenFile": "/absolute/path/to/board-token"
+  "tokenFile": "/absolute/path/to/board-token"
 }
 ```
 
 The token needs to read the project and both repositories, and to comment on and close issues. It must not be able to publish releases.
 `tokenFile` is optional and defaults to the worker's token. A separate board token is recommended.
 
-**Known gaps:** a claimed task whose worker died stays claimed; the tick reports it and picks nothing until the owner clears it (see issue #175).
-RUN NOW as a separate request is not implemented: a Doing card is the run-now request.
+**Known gaps:** only `audio-plugins` is an execution repository, so website tasks wait for a person. A Doing card is the run-now request; there is no separate RUN NOW label.

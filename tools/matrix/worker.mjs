@@ -7,6 +7,7 @@ import { checkClaudeUsage } from './usage.mjs';
 import { usageGate, dailyDue, londonDay } from './policy.mjs';
 import { buildPlan, worktreePlan } from './validation.mjs';
 import { runProcess, limitedEnvironment } from './process.mjs';
+import { tokensUsed } from './budget.mjs';
 
 const plugins = ['eq', 'analog-compressor', 'maximiser'];
 const within = (parent, child) => { const relative = path.relative(path.resolve(parent), path.resolve(child)); return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative); };
@@ -69,7 +70,7 @@ export function validateChanges(files) {
 export function parseAgent(text) {
   let result; try { result = JSON.parse(text); } catch { throw Error('Invalid Claude result'); }
   if (result.type !== 'result' || result.subtype !== 'success' || result.is_error !== false || !Number.isInteger(result.num_turns) || result.num_turns < 1 || !Number.isFinite(result.total_cost_usd) || result.total_cost_usd < 0) throw Error('Claude stopped or returned unsuccessful result');
-  return { turns: result.num_turns, estimatedCostUsd: result.total_cost_usd };
+  return { turns: result.num_turns, estimatedCostUsd: result.total_cost_usd, tokens: tokensUsed(result.usage) };
 }
 
 export function verifyGitPointer(file, expectedHash) {

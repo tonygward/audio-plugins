@@ -58,16 +58,15 @@ export function parsePrompt(file, text) {
   if (!id || !idPattern.test(id) || (inferred && id !== inferred)) throw new Error('Missing or inconsistent stable ID');
   // Status and execution belong to the project board. Whatever a prompt still says about them is ignored.
   const status = '';
-  const excluded = file.split('/').some(p => ['done', 'future', 'archive', 'archived'].includes(p));
+  const excluded = file.split('/').some(p => ['done', 'archive', 'archived'].includes(p));
   const blocked = false;
   const complete = file.split('/').includes('done');
   const dependencies = meta.dependencies ?? [...new Set([...body.matchAll(/\*\*(?:Depends on|Dependency):\*\*([^\n]*)/gi)].flatMap(m => m[1].match(/[A-Z][A-Z0-9]*-\d{2,}/g) ?? []))];
   if (!meta.dependencies && scopes[file.split('/')[0]]) {
     for (const m of body.matchAll(/\b(?:build|run)\s+(?:this\s+)?after\s+(?:task\s+|prompt\s+)?(\d{2,})\b/gi)) dependencies.push(`${scopes[file.split('/')[0]]}-${m[1]}`);
   }
-  const modelText = meta.model ?? (/\*\*Recommended model:\*\*([^\n]*)/i.exec(body)?.[1] ?? '').split('**')[0];
-  // Never silently turn a design/Opus recommendation into a Sonnet implementation.
-  const model = /^sonnet[.\s;]*(?:$|for implementation)/i.test(modelText.trim()) && !/opus for (?:design|initial|architecture)/i.test(modelText) ? 'sonnet' : null;
+  // Sonnet is the default. Only an explicit `model: opus` line records Opus; Matrix itself always runs Sonnet.
+  const model = /^opus\b/i.test(String(meta.model ?? '').trim()) ? 'opus' : 'sonnet';
   const effortText = meta.effort ?? /\*\*(?:Estimated|Relative) effort\s*\/\s*usage:\*\*\s*(Low|Medium|High)/i.exec(body)?.[1] ?? 'unknown';
   // Plain-size words are accepted as aliases, so a natural wording never invalidates a prompt.
   const effort = ({ small: 'low', large: 'high' })[effortText.toLowerCase()] ?? effortText.toLowerCase();
@@ -123,7 +122,6 @@ export function select(prompts, tasks, trigger, limit = 6) {
     if (!reason && p.dependencies.some(id => !complete.has(id))) reason = 'dependency not merged or unknown';
     if (!reason && p.dependencies.includes(p.id)) reason = 'self dependency';
     if (!reason && trigger === 'notify' && p.execution !== 'build-now') reason = 'waiting for daily schedule';
-    if (!reason && !p.model) reason = 'model recommendation requires review';
     if (!reason && !['low', 'medium'].includes(p.effort)) reason = 'large or unknown effort requires review';
     // A shared/unknown footprint takes a batch of one. Plugin-local work never overlaps.
     const area = p.file.split('/')[0];

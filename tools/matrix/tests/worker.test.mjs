@@ -216,6 +216,7 @@ test('Config/path scope and agent tools cannot grant shell, release or credentia
   for (const file of ['docs/CHANGELOG.md', 'CHANGELOG.md.bak', 'README.md', 'sub/CHANGELOG.md', 'changelog.md.exe']) assert.throws(() => validateChanges([file]));
   assert.throws(() => validateWorker({ ...f.config, worker: { ...f.config.worker, worktreeRoot: f.repo } }));
   assert.throws(() => parseAgent('{"type":"result","subtype":"error"}'));
+  assert.equal(parseAgent(JSON.stringify({ type: "result", subtype: "success", is_error: false, num_turns: 2, total_cost_usd: 0.1, usage: { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 7000 } })).tokens, 150);
   assert.equal(limitedEnvironment({ PATH: 'path', GH_TOKEN: 'secret', ANTHROPIC_API_KEY: 'secret' }).GH_TOKEN, undefined);
 });
 test('Async lock remains held across awaits and releases after failure', async t => {

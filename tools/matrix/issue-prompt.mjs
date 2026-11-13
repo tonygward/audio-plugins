@@ -9,7 +9,7 @@ export const REQUIRED = [
   ['acceptance', /accept|done when|definition of done|success criteria/i, 'acceptance criteria (how we know it is finished)'],
   ['tests', /\btests?\b|testing|verification|validat/i, 'tests (what proves it works)']
 ];
-// Issue text never holds a card: wording such as "deferred" or "not queued" is ignored. Only the board's Execution value Deferred does.
+// Issue text never holds a card: wording such as "deferred" or "not queued" is ignored. Only the board column (Backlog or Blocked) does.
 const MIN_CHARS = 30;
 
 /** Split an issue body into { heading, text } sections. Headings are Markdown headings or a line that starts with a bold label. */
@@ -71,7 +71,7 @@ export function needsDetailComment(id, missing, hash) {
 
 /**
  * For Doing/Todo cards with no prompt file: assess the issue. Sufficient issues yield a generated prompt; insufficient ones are
- * commented on once (deduplicated by a marker that includes the issue text) and the card moves to Blocked. Cards marked Deferred or Separate are left alone.
+ * commented on once (deduplicated by a marker that includes the issue text) and the card moves to Blocked.
  * io: { issueBody(repository, issue), hasComment, comment, moveToBlocked }
  * Returns { prompts: generated prompts, blocked: ids, notes: [] }. In a dry run nothing is written.
  */
@@ -80,7 +80,7 @@ export async function resolveFromIssues({ board, prompts, pulls = [], tasks = {}
   for (const card of board.cards) {
     if (!statuses.includes(card.status) || !card.issue || card.state !== 'OPEN' || !card.taskId || known.has(card.taskId)) continue;
     // A task resumed with committed work has an open pull request by design; its generated prompt is rebuilt from the issue so the resume can be selected.
-    if (merged.has(card.taskId) || (open.has(card.taskId) && !tasks[card.taskId]?.resumeWork) || ['Separate', 'Deferred'].includes(card.execution)) continue;
+    if (merged.has(card.taskId) || (open.has(card.taskId) && !tasks[card.taskId]?.resumeWork)) continue;
     if (!executionRepositories.includes(card.repository)) continue;
     if (tasks[card.taskId] && !['pending', 'withdrawn'].includes(tasks[card.taskId].state)) continue;
     try {

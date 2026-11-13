@@ -64,10 +64,10 @@ test('not enough detail: one comment naming what is missing, and the card moves 
   assert.equal(again.log.comments.length, 0); assert.equal(again.log.moves.length, 1);
 });
 
-test('a dry run, deferred or Separate cards, other repositories, existing prompts and existing work are never touched', async () => {
+test('a dry run, other repositories, other columns, existing prompts and existing work are never touched', async () => {
   const { io, log } = fakeIo({ 5: THIN });
   await resolveFromIssues(base([card('ACOMP-12')], io, { dryRun: true }));
-  await resolveFromIssues(base([card('ACOMP-13', { execution: 'Separate' }), card('ACOMP-14', { execution: 'Deferred' }), card('ACOMP-15', { repository: 'o/other' }), card('ACOMP-16', { status: 'Todo' }), card('ACOMP-17')], io,
+  await resolveFromIssues(base([card('ACOMP-15', { repository: 'o/other' }), card('ACOMP-16', { status: 'Todo' }), card('ACOMP-17')], io,
     { statuses: ['Doing'], prompts: [{ id: 'ACOMP-17' }] }));
   await resolveFromIssues(base([card('ACOMP-18'), card('ACOMP-19')], io, { merged: new Set(['ACOMP-18']), open: new Set(['ACOMP-19']) }));
   await resolveFromIssues(base([card('ACOMP-20')], io, { tasks: { 'ACOMP-20': { state: 'interrupted' } } }));

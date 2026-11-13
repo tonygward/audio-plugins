@@ -45,7 +45,6 @@
       "tonygward/audio-plugins"
     ],
     "promptRepository": "tonygward/audio-plugins",
-    "downloadEvidence": "worker-checked",
     "tokenFile": "/run/secrets/board_token"
   }
 }

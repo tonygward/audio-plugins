@@ -41,7 +41,7 @@ function fixture(t) {
 }
 
 // Real git; fake Claude and GitHub. `builds` gives the hosted-build conclusion for each new head commit, in order.
-function adapter({ builds = ['success'], onClaude, claudeFails, prState } = {}) {
+function adapter({ builds = ['success'], onClaude, claudeFails, prState, agentOutput = agentJson } = {}) {
   const seen = { claude: [], gh: [] }, results = new Map(), pr = { existing: [] };
   let counter = 0;
   const run = async (exe, args, o) => {
@@ -55,7 +55,7 @@ function adapter({ builds = ['success'], onClaude, claudeFails, prState } = {}) 
       seen.claude.push({ args, env: o.env, input: o.input, cwd: o.cwd });
       if (claudeFails) throw Object.assign(Error('Process failed'), { stdout: JSON.stringify(claudeFails), stderr: '', exitCode: 1 });
       if (onClaude) onClaude(o.cwd, seen.claude.length); else fs.appendFileSync(path.join(o.cwd, 'eq/Source/example.cpp'), `change ${seen.claude.length}\n`);
-      return { stdout: agentJson, stderr: '' };
+      return { stdout: agentOutput, stderr: '' };
     }
     if (exe === GH) {
       seen.gh.push({ args, env: o.env });
@@ -80,7 +80,7 @@ const body = (f, report) => fs.readFileSync(path.join(f.config.stateDirectory, `
 
 test('config must keep merge and release off, use ci mode and sensible limits', t => {
   const f = fixture(t); validateLinuxConfig(f.config);
-  for (const mutate of [c => { c.autoMerge = true; }, c => { c.releasePublication = true; }, c => { c.worker.mode = 'scheduled'; }, c => { c.worker.maximumRepairs = 4; }, c => { c.worker.maximumRunMinutes = 4; }, c => { c.worker.maximumRunMinutes = 601; }, c => { c.worker.tokenFile = 'relative'; }, c => { c.claudeUsage.enabled = false; }, c => { c.worker.repositorySlug = 'bad slug'; }]) {
+  for (const mutate of [c => { c.autoMerge = true; }, c => { c.releasePublication = true; }, c => { c.worker.mode = 'scheduled'; }, c => { c.worker.maximumRepairs = 4; }, c => { c.worker.maximumRunMinutes = 4; }, c => { c.worker.maximumRunMinutes = 601; }, c => { c.worker.maximumTokens = 5; }, c => { c.worker.maximumTokens = 1.5e5 + 0.5; }, c => { c.worker.tokenFile = 'relative'; }, c => { c.claudeUsage.enabled = false; }, c => { c.worker.repositorySlug = 'bad slug'; }]) {
     const c = structuredClone(f.config); mutate(c); assert.throws(() => validateLinuxConfig(c));
   }
 });
@@ -154,6 +154,15 @@ test('repairs are bounded; a build that keeps failing leaves a Blocked draft', a
   assert.equal(a.seen.claude.length, 3); assert.equal(report.outcomes[0].blocked, true);
   assert.ok(a.seen.gh.some(c => c.args[0] === 'pr' && c.args[1] === 'edit'));
   assert.match(body(f, report), /## Blocked[\s\S]*Hosted Build failed/);
+});
+
+test('an optional token budget stops repairs once the run has used it up', async t => {
+  const f = fixture(t); f.config.worker = { ...f.config.worker, maximumTokens: 15000 };
+  const agentOutput = JSON.stringify({ type: 'result', subtype: 'success', is_error: false, num_turns: 3, total_cost_usd: 0.1, usage: { input_tokens: 9000, output_tokens: 1000 } });
+  const a = adapter({ builds: ['failure'], agentOutput }), report = await runLinuxWorker(f.config, options(f, a));
+  assert.equal(a.seen.claude.length, 2, 'the second attempt uses up the budget, so no third attempt starts');
+  assert.equal(report.outcomes[0].blocked, true);
+  assert.match(body(f, report), /Run token limit of 15000 tokens reached \(20000 used\)/);
 });
 
 test('changes outside the permitted scope stop the run before anything is pushed', async t => {

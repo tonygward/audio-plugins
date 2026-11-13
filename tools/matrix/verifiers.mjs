@@ -1,7 +1,6 @@
-// Read-only beta delivery verifiers for delivery.mjs: private storage, beta website, downloads.
-// They use only an injected `gh(args)` (read access to both repositories) and an optional
-// injected HEAD request for the protected download route. No storage, Cloudflare or release
-// credentials are needed or held here.
+// Read-only beta delivery verifiers for delivery.mjs: private storage, beta website and the archived prompt.
+// They use only an injected `gh(args)` (read access to both repositories). No storage, Cloudflare or release
+// credentials are needed or held here. Downloads are not checked: the final comment publishes the website link.
 //
 // Honest limits:
 // - Private storage is attested, not read directly. The trusted distribution workflow HEADs and reads back
@@ -10,13 +9,13 @@
 //   uses those sizes as the storage evidence.
 // - The deployed site is confirmed from the Cloudflare Pages check on the commit that last changed
 //   release.json, since the live site sits behind Cloudflare Access.
-// - Authenticated downloads need a credential the website's Worker accepts. Its Worker currently
-//   requires an invited tester email, which a Cloudflare service token does not carry, so this
-//   check stays unconfigured (and delivery stays blocked) until the owner decides how to allow it.
 const PAGES_APP = 'cloudflare-workers-and-pages';
 
+// The archive workflow moves a merged prompt from <folder>/prompts/X.md to <folder>/prompts/done/X.md.
+export const archivedPath = file => file.split('/').includes('done') ? file : file.replace(/\/prompts\/(?!.*\/)/, '/prompts/done/');
+
 export function betaVerifiers(gh, { sourceRepo = 'tonygward/audio-plugins', websiteRepo = 'tonygward/songsmith-website',
-  siteUrl = 'https://beta.songsmith.uk', head = null, accessHeaders = {}, workerChecked = false } = {}) {
+  siteUrl = 'https://beta.songsmith.uk' } = {}) {
   const text = async args => gh(args);
   const json = async args => JSON.parse(await gh(args));
   const websiteFile = async file => Buffer.from((await text(['api', `repos/${websiteRepo}/contents/${file}`, '--jq', '.content'])).trim(), 'base64').toString('utf8');
@@ -34,7 +33,7 @@ export function betaVerifiers(gh, { sourceRepo = 'tonygward/audio-plugins', webs
         const runs = await json(['api', `repos/${websiteRepo}/commits/${sha}/check-runs`]);
         deployed = (runs.check_runs ?? []).some(run => run.app?.slug === PAGES_APP && run.conclusion === 'success');
       }
-      return { version: current.version, changelogVersions, deployed, commit: sha ?? null };
+      return { version: current.version, changelogVersions, deployed, commit: sha ?? null, url: siteUrl };
     },
 
     r2: async version => {
@@ -48,22 +47,11 @@ export function betaVerifiers(gh, { sourceRepo = 'tonygward/audio-plugins', webs
         .map(installer => ({ name: installer.name, size: installer.size }));
     },
 
-    downloads: async version => {
-      if (!head && !workerChecked) throw new Error('Authenticated download verifier is not configured');
-      const current = await release();
-      if (!head) {
-        // Owner-accepted evidence: the website Worker checks etag, size and SHA-256 against private storage on
-        // every download. Matrix does not exercise the route, and the evidence says so.
-        return Object.fromEntries(['windows', 'macos'].map(p => [p, current.version === version && current.installers?.[p]?.sha256 ? { ok: true, bytes: current.installers[p].size, exercised: false } : { ok: false, bytes: 0 }]));
-      }
-      const result = {};
-      for (const platform of ['windows', 'macos']) {
-        const installer = current.installers?.[platform];
-        if (current.version !== version || !installer) { result[platform] = { ok: false, bytes: 0 }; continue; }
-        const response = await head(`${siteUrl}/downloads/${version}/${platform}`, accessHeaders);
-        result[platform] = { ok: response.status === 200, bytes: Number(response.contentLength) || 0 };
-      }
-      return result;
+    // Lists the done/ folder on main (it always exists) rather than fetching the file, so "not there yet" is a plain false.
+    promptArchived: async file => {
+      const target = archivedPath(file), folder = target.slice(0, target.lastIndexOf('/'));
+      const names = await json(['api', `repos/${sourceRepo}/contents/${folder}?ref=main`, '--jq', '[.[].name]']);
+      return Array.isArray(names) && names.includes(target.slice(target.lastIndexOf('/') + 1));
     }
   };
 }
