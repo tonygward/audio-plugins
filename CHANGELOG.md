@@ -5,6 +5,7 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 ## Unreleased
 
 - In Songsmith EQ, the output meter's peak number now sits directly under the **CLIP** label instead of under the bars. A negative number (for example -0.6) is never red; it turns red only when the held peak reaches 0 dBFS or higher. Before, an earlier clip could make a negative number look red. CLIP itself works as before: it lights when a sample reaches 0 dBFS and stays lit while sound continues. The meter measures sample peak, not true peak. Nothing about the sound changes and you do not need to do anything. This has not yet been checked in a DAW.
+- In Songsmith EQ, the control that turns every band's boosts and cuts up or down together now reads **Gain Scale** (it used to say only "Scale", which looked like an interface size control). Its hover help now explains it in plain words. It works exactly as before, and your saved sessions and presets sound the same, so you do not need to do anything. This has not yet been checked in a DAW.
 
 ## 0.5.19
 
