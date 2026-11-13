@@ -82,6 +82,7 @@ jobs:
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           RUN_SHA: ${{ github.event.workflow_run.head_sha }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_NAME: ${{ github.event.workflow_run.name }}
         run: |
           set -euo pipefail
           [[ -n "$GH_TOKEN" ]] || { echo '::error::Configure RELEASE_PUBLISH_TOKEN'; exit 1; }
@@ -89,7 +90,7 @@ jobs:
             cat > comment.md <<EOF
           Matrix auto-merge checked and approved this Matrix core change (owner-approved lane):
 
-          - hosted Matrix orchestration tests (Windows, macOS and Linux) succeeded for exactly ${RUN_SHA}: ${RUN_URL}
+          - hosted ${RUN_NAME} succeeded for exactly ${RUN_SHA} (Matrix orchestration tests on Windows, macOS and Linux; Build and test when only Markdown changed): ${RUN_URL}
           - every changed file is Matrix controller code, tests, evidence, container configuration or the execution policy
           - no workflow, merge gate, script, Dockerfile, egress allow-list, plugin source or version file was changed
           - the description carries the Matrix core change statement, on a matrix/core branch from this repository

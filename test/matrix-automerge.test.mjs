@@ -118,6 +118,14 @@ test('core lane: needs the statement, the orchestration tests, the exact head an
   no(f => { f.files = []; }, 'no files');
 });
 
+test('core lane: a Markdown-only change merges on the quick Build and test run; code still needs the orchestration tests', () => {
+  const docs = () => { const f = core(); f.files = ['tools/matrix/README.md', 'docs/songsmith-execution-policy.md']; return f; };
+  const d = docs(); d.run.name = BUILD_RUN; assert.deepEqual(evaluate(d), { merge: true, reasons: [], lane: 'core' });
+  const o = docs(); assert.equal(evaluate(o).merge, false, 'docs-only waits for Build and test, which always runs');
+  const m = docs(); m.files.push('tools/matrix/board.mjs'); m.run.name = BUILD_RUN; assert.equal(evaluate(m).merge, false, 'code plus docs needs the orchestration tests');
+  const s = docs(); s.files = ['tools/matrix-linux/README.md', 'tools/matrix-linux/Dockerfile']; s.run.name = BUILD_RUN; assert.equal(evaluate(s).merge, false, 'scope still applies');
+});
+
 test('core lane: workflows, the gate, scripts, the Dockerfile, the allow-list and plugin code stay manual', () => {
   for (const file of ['.github/workflows/matrix-auto-merge.yml', 'scripts/matrix/automerge.mjs', 'tools/matrix/Notify-Matrix.ps1', 'tools/matrix-linux/entrypoint.sh',
     'tools/matrix-linux/Dockerfile', 'tools/matrix-linux/squid/squid.conf', 'tools/matrix/../../CLAUDE.md', 'tools/matrix/.hidden.mjs', 'eq/Source/Plugin.cpp', 'CHANGELOG.md', 'VERSION', 'tools/matrix/x/y.mjs']) {

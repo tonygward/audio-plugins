@@ -12,7 +12,7 @@ Every GitHub Actions workflow in this repository starts its name with what it is
 | Workflow (as shown in Actions) | File | Runs when | What it does |
 |---|---|---|---|
 | **CI - Build and test** | `build.yml` | Pull requests, and the version bump commit on `main` | On a pull request: builds and tests only the plugins the change touches (a docs-only change builds nothing but still gets a quick run, so Matrix and the merge gate always have a result). On the bump commit: the one packaging build of all three plugins and both suite installers on Windows and macOS, which the release is made from. A plain merge builds nothing. |
-| **CI - Matrix orchestration tests** | `matrix-tests.yml` | Changes to Matrix's own code | Runs Matrix's unit tests on Windows, macOS and Linux. |
+| **CI - Matrix orchestration tests** | `matrix-tests.yml` | Pull requests that change Matrix's own code (Markdown is ignored) | Runs Matrix's unit tests on Windows, macOS and Linux. It does not run again after the merge: the gate already checked the exact head commit. |
 | **CI - Release policy tests** | `auto-release-policy-checks.yml` | Changes to the release scripts or workflows | Tests the version and release rules. |
 | **Gate - Matrix auto-merge** | `matrix-auto-merge.yml` | After a CI run completes | Merges a Matrix pull request once its CI passed for the exact head commit and every rule holds. Matrix's own code uses the core lane (see the [Matrix README](../tools/matrix/README.md#matrix-core-lane-auto-merge-for-matrixs-own-code)). Which files need a person is in the [execution policy](songsmith-execution-policy.md). |
 | **CD - Increment beta version after a source merge** | `auto-beta-version.yml` | Straight after a source merge to `main` | Checks the pull request build passed at the merged head (waiting up to 30 minutes if it is still running), then increases the third part of `VERSION` and moves the changelog notes into the new release. |
@@ -23,7 +23,7 @@ Every GitHub Actions workflow in this repository starts its name with what it is
 ## The two paths
 
 - **A plugin change** has **two builds**: CI - Build and test on the pull request (changed plugins only), then Gate - Matrix auto-merge, then CD - Increment beta version straight after the merge, then CI - Build and test once more on the bump commit (the packaging build of everything), then CD - Publish validated suite release, then CD - Distribute to R2. See [automatic release checkpoints](automatic-release-checkpoints.md).
-- **A change to Matrix's own code:** CI - Matrix orchestration tests, then Gate - Matrix auto-merge. There is no release.
+- **A change to Matrix's own code:** CI - Matrix orchestration tests, then Gate - Matrix auto-merge. A core-lane change to Markdown only skips the tests and merges on the quick CI - Build and test run. There is no release.
 
 ## Names other things depend on
 

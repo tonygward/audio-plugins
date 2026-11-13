@@ -1,10 +1,9 @@
 name: CI - Matrix orchestration tests
+# Pull requests only: the merge gate checks this run on the exact head commit that merges, so a second run on main adds nothing.
+# Markdown is ignored: a docs-only change has no code to test (the gate accepts the quick Build and test run for it).
 on:
   pull_request:
-    paths: ['tools/matrix/**', 'tools/matrix-linux/**', 'scripts/matrix/**', 'test/matrix-automerge.test.mjs', '.github/workflows/matrix-*.yml']
-  push:
-    branches: [main]
-    paths: ['tools/matrix/**', 'tools/matrix-linux/**', 'scripts/matrix/**', 'test/matrix-automerge.test.mjs', '.github/workflows/matrix-*.yml']
+    paths: ['tools/matrix/**', 'tools/matrix-linux/**', 'scripts/matrix/**', 'test/matrix-automerge.test.mjs', '.github/workflows/matrix-*.yml', '!**/*.md']
 permissions:
   contents: read
 jobs:
