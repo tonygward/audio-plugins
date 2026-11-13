@@ -12,6 +12,7 @@ on:
       - 'eq/**'
       - 'analog-compressor/**'
       - 'maximiser/**'
+      - 'compressor/**'
       - 'shared/**'
       - 'installer/**'
       - 'VERSION'
