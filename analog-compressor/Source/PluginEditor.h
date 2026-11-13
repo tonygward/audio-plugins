@@ -13,20 +13,57 @@ public:
     using Formatter = std::function<juce::String (float)>;
 
     FETKnob (juce::AudioProcessorValueTreeState& state, const char* paramId, const juce::String& name,
-             std::vector<std::pair<float, juce::String>> scaleMarks, Formatter format, bool compactLayout = false);
+             std::vector<std::pair<float, juce::String>> scaleMarks, Formatter format);
 
     void paint (juce::Graphics&) override;
     void resized() override;
 
     juce::Slider slider { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::NoTextBox };
     juce::String getValueText() const { return formatter ((float) slider.getValue()); }
-    bool isCompact() const noexcept { return compact; }
 
 private:
-    bool compact;   // knob at the left, name and value at its right (used by Ignore Below)
     juce::String name;
     std::vector<std::pair<float, juce::String>> marks;
     Formatter formatter;
+    juce::AudioProcessorValueTreeState::SliderAttachment attachment;
+};
+
+// ACOMP-16: Ignore Below as a horizontal slider. Row one: the name at the left, an editable live readout at the
+// right ("127 Hz", or "Off"). Row two: the track with its handle. Row three: "20 Hz" and "500 Hz" under the ends.
+// It drives `ignoreBelowHz` (whole Hz, Off or 20 to 500, logarithmic). Double-click returns it to Off.
+class IgnoreBelowControl : public juce::Component, public juce::SettableTooltipClient
+{
+public:
+    explicit IgnoreBelowControl (juce::AudioProcessorValueTreeState& state);
+
+    void paint (juce::Graphics&) override;
+    void resized() override;
+
+    // Dragging, arrow keys and double-click all go through here.
+    struct HorizontalSlider : juce::Slider
+    {
+        HorizontalSlider() : juce::Slider (juce::Slider::LinearHorizontal, juce::Slider::NoTextBox) {}
+        bool keyPressed (const juce::KeyPress&) override;
+    };
+
+    HorizontalSlider slider;
+    juce::Label readout;
+
+    juce::String getValueText() const { return FET::ignoreBelowText ((float) slider.getValue()); }
+    float getHz() const { return FET::ignoreBelowSnap ((float) slider.getValue()); }
+    void setHzAsGesture (float hz);                 // typed entry and tests: one complete automation gesture
+    void commitText (const juce::String& text);     // what the readout does when the musician presses Return
+
+    juce::Rectangle<int> getLabelBounds() const noexcept { return labelBounds; }
+    juce::Rectangle<int> getMinLabelBounds() const noexcept { return minBounds; }
+    juce::Rectangle<int> getMaxLabelBounds() const noexcept { return maxBounds; }
+    static juce::String getMinLabelText() { return "20 Hz"; }
+    static juce::String getMaxLabelText() { return "500 Hz"; }
+
+private:
+    void refreshReadout();
+    juce::RangedAudioParameter& param;
+    juce::Rectangle<int> labelBounds, minBounds, maxBounds;
     juce::AudioProcessorValueTreeState::SliderAttachment attachment;
 };
 
@@ -56,8 +93,7 @@ public:
     juce::Button& getRatioButton (int index) { return *ratioButtons[(size_t) index]; }   // 0..3 = 4, 8, 12, 20; 4 = 2:1
     juce::Button& getAllButton() { return allButton; }
     juce::Rectangle<int> getGrOffBounds() const { return grOffButton.getBounds(); }
-    FETKnob& getIgnoreBelowKnob() noexcept { return ignoreBelow; }
-    static juce::String lowCutText (int index);          // "Off", "60 Hz", "80 Hz" ... (the Ignore Below readout)
+    IgnoreBelowControl& getIgnoreBelow() noexcept { return ignoreBelow; }
     juce::Rectangle<int> getDiagnosticsBounds() const { return diagnostics->getBounds(); }
     juce::ComboBox& getPresetBox() { return presetBox; }
     void advanceMeter (float seconds);
@@ -108,7 +144,7 @@ private:
 
     juce::ComboBox oversampling;
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
-    FETKnob ignoreBelow;   // detector low cut as a stepped rotary, beside Gain Reduction Off, under the meter it affects
+    IgnoreBelowControl ignoreBelow;   // detector cutoff slider, beside Gain Reduction Off, under the meter it affects
     juce::ComboBox presetBox;
     juce::TooltipWindow tooltips { this, 600 };
 

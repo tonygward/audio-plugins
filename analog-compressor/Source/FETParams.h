@@ -32,6 +32,7 @@ namespace FET
         inline constexpr const char* oversampling = "oversampling";   // version hint 2
         inline constexpr const char* detectorLowCut = "detectorLowCut";   // version hint 3
         inline constexpr const char* ratioTwoToOne = "ratioTwoToOne";     // version hint 4
+        inline constexpr const char* ignoreBelowHz = "ignoreBelowHz";     // version hint 5 (ACOMP-16)
     }
 
     inline constexpr int parameterVersion = 1;
@@ -46,6 +47,74 @@ namespace FET
     }
     inline constexpr float lowCutHz[numLowCutSteps] = { 0.0f, 60.0f, 80.0f, 100.0f, 150.0f, 200.0f };   // 0 = Off
     inline constexpr int lowCutDefault = 0;
+
+    // ACOMP-16: Ignore Below as a continuous cutoff. `detectorLowCut` above stays exactly as it was (six-item choice,
+    // version hint 3) so old sessions, presets and host automation keep their meaning; the editor no longer shows it.
+    // `ignoreBelowHz` (version hint 5) is the control the musician sees: whole Hz, 0 = Off, otherwise 20 to 500 Hz.
+    // Off is its own explicit state, not a 0 Hz cutoff: the host-normalised range keeps a short "Off" zone at the very
+    // start, then runs logarithmically from 20 to 500 Hz. Precedence is "last change wins" (docs/detector-low-cut.md).
+    inline constexpr float ignoreBelowMinHz = 20.0f, ignoreBelowMaxHz = 500.0f, ignoreBelowDefaultHz = 0.0f;
+    inline constexpr float ignoreBelowOffZone = 0.04f;   // share of the normalised range that means Off
+
+    inline float ignoreBelowSnap (float hz) noexcept
+    {
+        if (! std::isfinite (hz) || hz < ignoreBelowMinHz * 0.5f)
+            return 0.0f;                                  // below 10 Hz: Off
+        return juce::jlimit (ignoreBelowMinHz, ignoreBelowMaxHz, std::round (hz));
+    }
+    inline float ignoreBelowFromProportion (float n) noexcept
+    {
+        n = juce::jlimit (0.0f, 1.0f, n);
+        if (n < ignoreBelowOffZone * 0.5f)
+            return 0.0f;
+        if (n <= ignoreBelowOffZone)
+            return ignoreBelowMinHz;
+        const double t = ((double) n - ignoreBelowOffZone) / (1.0 - ignoreBelowOffZone);
+        return ignoreBelowSnap ((float) (ignoreBelowMinHz * std::pow ((double) ignoreBelowMaxHz / ignoreBelowMinHz, t)));
+    }
+    inline float ignoreBelowToProportion (float hz) noexcept
+    {
+        hz = ignoreBelowSnap (hz);
+        if (hz <= 0.0f)
+            return 0.0f;
+        const double t = std::log ((double) hz / ignoreBelowMinHz) / std::log ((double) ignoreBelowMaxHz / ignoreBelowMinHz);
+        return (float) (ignoreBelowOffZone + (1.0 - ignoreBelowOffZone) * t);
+    }
+    inline juce::String ignoreBelowText (float hz)
+    {
+        hz = ignoreBelowSnap (hz);
+        return hz <= 0.0f ? juce::String ("Off") : juce::String ((int) hz) + " Hz";
+    }
+    // Typed text -> Hz. Returns -1 when the text is not a frequency. "off", "none" and "0" are Off; "127", "127 Hz",
+    // "0.3 kHz" work; anything between 1 and 19 Hz becomes 20 Hz (the lowest cutoff); above 500 becomes 500.
+    inline float ignoreBelowFromText (const juce::String& text)
+    {
+        const auto t = text.trim().toLowerCase();
+        if (t == "off" || t == "none")
+            return 0.0f;
+        auto digits = t.retainCharacters ("0123456789.");
+        if (digits.isEmpty() || ! (t.containsOnly ("0123456789. khz") ))
+            return -1.0f;
+        double v = digits.getDoubleValue();
+        if (t.contains ("k"))
+            v *= 1000.0;
+        if (v <= 0.0)
+            return 0.0f;
+        return ignoreBelowSnap ((float) juce::jlimit ((double) ignoreBelowMinHz, (double) ignoreBelowMaxHz, v));
+    }
+    // The exact cutoff a legacy `detectorLowCut` choice index means, in Hz (0 = Off).
+    inline float ignoreBelowFromLegacyIndex (int index) noexcept
+    {
+        return lowCutHz[juce::jlimit (0, numLowCutSteps - 1, index)];
+    }
+    inline juce::NormalisableRange<float> ignoreBelowRange()
+    {
+        return juce::NormalisableRange<float> (
+            0.0f, ignoreBelowMaxHz,
+            [] (float, float, float n) { return ignoreBelowFromProportion (n); },
+            [] (float, float, float hz) { return ignoreBelowToProportion (hz); },
+            [] (float, float, float hz) { return ignoreBelowSnap (hz); });
+    }
 
     // Input: drive in dB. Modelling choice: the hardware Input is a passive attenuator ahead of
     // a fixed threshold; a plugin needs gain above unity too, so the knob spans -24..+48 dB.

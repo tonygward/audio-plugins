@@ -77,6 +77,7 @@ struct IdentityTests final : juce::UnitTest
             { "oversampling", 0.0f,  2.0f, 0.0f, 2 },
             { "detectorLowCut", 0.0f, 5.0f, 0.0f, 3 },
             { "ratioTwoToOne", 0.0f, 1.0f, 0.0f, 4 },   // ACOMP-11: the Songsmith 2:1 switch
+            { "ignoreBelowHz", 0.0f, 500.0f, 0.0f, 5 }, // ACOMP-16: continuous Ignore Below (0 = Off, else 20 to 500 Hz)
         };
 
         expectEquals (p.getParameters().size(), (int) std::size (expected), "no parameters added or removed silently");
@@ -281,6 +282,145 @@ struct StateTests final : juce::UnitTest
                 expectEquals ((int) getParam (c, ID::oversampling), 2, "version 2 oversampling is kept");
         }
 
+        beginTest ("ACOMP-16: every saved six-step Low Cut (state versions 3 and 4) loads as exactly the same cutoff, other values untouched");
+        for (int version : { 3, 4 })
+            for (int step = 0; step < FET::numLowCutSteps; ++step)
+            {
+                SongsmithAnalogCompressorProcessor c;
+                setParam (c, ID::input, 30.0f);       // must not leak into the loaded session
+                setParam (c, ID::ignoreBelowHz, 333.0f);
+
+                juce::XmlElement old ("SongsmithAnalogCompressor");
+                old.setAttribute ("stateVersion", version);
+                const auto add = [&old] (const char* id, double v) { auto* e = old.createNewChildElement ("PARAM"); e->setAttribute ("id", id); e->setAttribute ("value", v); };
+                add ("input", 12.0);
+                add ("ratio", 2.0);
+                add ("detectorLowCut", (double) step);
+                juce::MemoryBlock mb;
+                juce::AudioProcessor::copyXmlToBinary (old, mb);
+                c.setStateInformation (mb.getData(), (int) mb.getSize());
+
+                expectEquals (getParam (c, ID::ignoreBelowHz), FET::lowCutHz[step], "effective cutoff of legacy step " + juce::String (step));
+                expectEquals ((int) getParam (c, ID::detectorLowCut), step, "the legacy value is kept as saved");
+                expectWithinAbsoluteError (getParam (c, ID::input), 12.0f, 0.01f);
+                expectEquals ((int) getParam (c, ID::ratio), 2, "ratio untouched");
+            }
+
+        beginTest ("ACOMP-16: a current session keeps any whole-Hz cutoff, and the six legacy mappings are exact");
+        for (float hz : { 0.0f, 20.0f, 73.0f, 127.0f, 245.0f, 499.0f, 500.0f })
+        {
+            SongsmithAnalogCompressorProcessor a, b;
+            setParam (a, ID::ignoreBelowHz, hz);
+            juce::MemoryBlock mb;
+            a.getStateInformation (mb);
+            b.setStateInformation (mb.getData(), (int) mb.getSize());
+            expectEquals (getParam (b, ID::ignoreBelowHz), hz, "recalled " + juce::String (hz));
+        }
+        {
+            const int expectedHz[] = { 0, 60, 80, 100, 150, 200 };
+            for (int i = 0; i < FET::numLowCutSteps; ++i)
+                expectEquals ((int) FET::ignoreBelowFromLegacyIndex (i), expectedHz[i]);
+        }
+
+        beginTest ("ACOMP-16: Ignore Below range, text and snapping");
+        {
+            expectEquals (FET::ignoreBelowText (0.0f), juce::String ("Off"));
+            expectEquals (FET::ignoreBelowText (127.0f), juce::String ("127 Hz"));
+            expectEquals (FET::ignoreBelowFromText ("127 Hz"), 127.0f);
+            expectEquals (FET::ignoreBelowFromText ("0.3 kHz"), 300.0f);
+            expectEquals (FET::ignoreBelowFromText ("Off"), 0.0f);
+            expectEquals (FET::ignoreBelowFromText ("0"), 0.0f);
+            expectEquals (FET::ignoreBelowFromText ("abc"), -1.0f);
+            expectEquals (FET::ignoreBelowSnap (9.0f), 0.0f);
+            expectEquals (FET::ignoreBelowSnap (12.0f), 20.0f);
+            expectEquals (FET::ignoreBelowSnap (600.0f), 500.0f);
+            const auto range = FET::ignoreBelowRange();
+            for (int hz = 20; hz <= 500; ++hz)   // every whole Hz survives the host-normalised round trip
+                expectEquals (range.snapToLegalValue (range.convertFrom0to1 (range.convertTo0to1 ((float) hz))), (float) hz);
+            expectEquals (range.convertFrom0to1 (0.0f), 0.0f);
+            expectEquals (range.convertFrom0to1 (1.0f), 500.0f);
+            float previous = -1.0f;
+            for (int i = 0; i <= 1000; ++i)   // monotonic: dragging never goes backwards
+            {
+                const float v = range.convertFrom0to1 ((float) i / 1000.0f);
+                expectGreaterOrEqual (v, previous);
+                previous = v;
+            }
+        }
+
+        beginTest ("ACOMP-16: old automation of the six-step parameter still sets the cutoff, and the newest change wins");
+        {
+            SongsmithAnalogCompressorProcessor c;
+            c.prepareToPlay (48000.0, 256);
+            juce::AudioBuffer<float> buf (2, 256);
+            juce::MidiBuffer midi;
+            const auto run = [&] { buf.clear(); c.processBlock (buf, midi); };
+            run();
+            expectEquals (c.getEngine().getDetectorLowCutHz(), 0.0f);
+
+            setParam (c, ID::detectorLowCut, 3.0f);                       // old automation: 100 Hz
+            run();
+            expectEquals (c.getEngine().getDetectorLowCutHz(), 100.0f, "legacy automation is heard");
+            setParam (c, ID::ignoreBelowHz, 127.0f);                      // the slider afterwards: it wins
+            run();
+            expectEquals (c.getEngine().getDetectorLowCutHz(), 127.0f, "the newer slider change wins");
+            run();
+            expectEquals (c.getEngine().getDetectorLowCutHz(), 127.0f, "and stays");
+            setParam (c, ID::detectorLowCut, 5.0f);                       // old automation again: it wins
+            run();
+            expectEquals (c.getEngine().getDetectorLowCutHz(), 200.0f);
+            setParam (c, ID::detectorLowCut, 0.0f);
+            run();
+            expectEquals (c.getEngine().getDetectorLowCutHz(), 0.0f, "legacy Off is Off");
+
+            // A loaded session is a baseline, not a change by old automation.
+            setParam (c, ID::ignoreBelowHz, 245.0f);
+            juce::MemoryBlock mb;
+            c.getStateInformation (mb);
+            SongsmithAnalogCompressorProcessor d;
+            d.prepareToPlay (48000.0, 256);
+            setParam (d, ID::detectorLowCut, 2.0f);
+            d.setStateInformation (mb.getData(), (int) mb.getSize());
+            buf.clear();
+            d.processBlock (buf, midi);
+            expectEquals (d.getEngine().getDetectorLowCutHz(), 245.0f, "the saved cutoff, not the stale legacy value");
+        }
+
+        beginTest ("ACOMP-16: presets saved before the continuous cutoff load the same frequency");
+        {
+            SongsmithAnalogCompressorProcessor c;
+            const auto folder = juce::File::createTempFile ("acomp16");
+            folder.createDirectory();
+            c.presets.setUserFolder (folder);
+            juce::String error;
+
+            // A preset file from before ACOMP-16: only the six-step choice, no ignoreBelowHz.
+            for (int step = 0; step < FET::numLowCutSteps; ++step)
+            {
+                juce::XmlElement xml (FET::Presets::rootTag);
+                xml.setAttribute ("version", 1);
+                xml.setAttribute ("input", 6.0);
+                xml.setAttribute ("detectorLowCut", step);
+                const auto file = folder.getChildFile ("Old" + juce::String (step) + FET::Presets::fileExtension);
+                expect (xml.writeTo (file));
+                setParam (c, ID::ignoreBelowHz, 333.0f);
+                expect (c.presets.loadFile (file, error), error);
+                expectEquals (getParam (c, ID::ignoreBelowHz), FET::lowCutHz[step], "old preset, step " + juce::String (step));
+            }
+
+            // A new preset keeps any whole Hz.
+            setParam (c, ID::ignoreBelowHz, 127.0f);
+            expect (c.presets.saveAs ("Check", error), error);
+            setParam (c, ID::ignoreBelowHz, 0.0f);
+            expect (c.presets.loadFile (folder.getChildFile (juce::String ("Check") + FET::Presets::fileExtension), error), error);
+            expectEquals (getParam (c, ID::ignoreBelowHz), 127.0f, "a saved preset recalls 127 Hz");
+
+            // A starting point leaves the detector hearing everything.
+            c.presets.loadFactory (0);
+            expectEquals (getParam (c, ID::ignoreBelowHz), 0.0f);
+            folder.deleteRecursively();
+        }
+
         beginTest ("state carries a version");
         auto xml = juce::AudioProcessor::getXmlFromBinary (saved.getData(), (int) saved.getSize());
         expect (xml != nullptr);
@@ -358,8 +498,8 @@ struct EditorTests final : juce::UnitTest
                 auto& os = ac->getOversamplingBox();
                 auto& inputKnob = ac->getKnob (ID::input);
                 expectEquals (os.getX(), inputKnob.getX(),"Oversampling is at the far left, aligned with Input");
-                expect (os.getX() < ac->getIgnoreBelowKnob().getX(), "Oversampling is left of Ignore Below");
-                expect (! os.getBounds().intersects (ac->getIgnoreBelowKnob().getBounds()), "Oversampling does not overlap Ignore Below");
+                expect (os.getX() < ac->getIgnoreBelow().getX(), "Oversampling is left of Ignore Below");
+                expect (! os.getBounds().intersects (ac->getIgnoreBelow().getBounds()), "Oversampling does not overlap Ignore Below");
                 expect (! os.getBounds().intersects (inputKnob.getBounds()), "Oversampling does not overlap Input");
                 expect (os.getBottom() <= FET::contentHeight, "Oversampling sits inside the control area, above the footer");
             }
@@ -508,45 +648,93 @@ struct EditorRefinementTests final : juce::UnitTest
             }
         }
 
-        beginTest ("Ignore Below is a rotary knob beside Gain Reduction Off and under the Gain Reduction meter, with a plain label and tooltip");
+        beginTest ("Ignore Below is a horizontal slider beside Gain Reduction Off and under the Gain Reduction meter (ACOMP-16)");
         {
-            auto& knob = ed->getIgnoreBelowKnob();
+            auto& ib = ed->getIgnoreBelow();
             const juce::Rectangle<int> slot (lowCutX, lowCutY, lowCutWidth, lowCutHeight);
-            expect (knob.isVisible());
-            expect (slot.contains (knob.getBounds()), "inside its place");
-            expect (juce::Rectangle<int> (0, 0, designWidth, contentHeight).contains (knob.getBounds()), "inside the controls area");
-            expectLessThan (knob.getBottom(), 356, "above the hint line");
-            expect (ed->getGrOffBounds().getRight() < knob.getX(), "to the right of Gain Reduction Off");
-            expect (ed->getGrOffBounds().getBottom() > knob.getY() && ed->getGrOffBounds().getY() < knob.getBottom(), "on the same row");
-            expect (knob.slider.getSliderStyle() == juce::Slider::RotaryHorizontalVerticalDrag, "a rotary, not a dropdown");
-            expectGreaterOrEqual (knob.slider.getWidth(), 40, "a comfortable knob");
-            expectEquals (knob.slider.getTitle(), juce::String ("Ignore Below"));
-            expect (knob.isCompact());
+            expect (ib.isVisible());
+            expect (slot.contains (ib.getBounds()), "inside its place");
+            expect (juce::Rectangle<int> (0, 0, designWidth, contentHeight).contains (ib.getBounds()), "inside the controls area");
+            expectLessThan (ib.getBottom(), 356, "above the hint line");
+            expect (ed->getGrOffBounds().getRight() < ib.getX(), "to the right of Gain Reduction Off");
+            expect (ed->getGrOffBounds().getBottom() > ib.getY() && ed->getGrOffBounds().getY() < ib.getBottom(), "on the same row");
+            expect (ib.slider.getSliderStyle() == juce::Slider::LinearHorizontal, "a horizontal slider, not a rotary");
+            expectEquals (ib.slider.getTitle(), juce::String ("Ignore Below"));
 
-            for (int i = 0; i < numLowCutSteps; ++i)
-            {
-                const auto text = SongsmithAnalogCompressorEditor::lowCutText (i);
-                expectEquals (text, i == 0 ? juce::String ("Off") : juce::String ((int) lowCutHz[i]) + " Hz");
-                expect (Songsmith::UI::Wording::findBanned (text).isEmpty(), "plain words: " + text);
-            }
+            // Layout: row one is the name (left) and the readout (right); row two the track; row three the end labels.
+            expect (ib.getLabelBounds().getRight() <= ib.readout.getX(), "the name is left of the readout");
+            expect (ib.readout.getRight() == ib.getWidth() && ib.getLabelBounds().getX() == 0, "name flush left, readout flush right");
+            expect (ib.readout.getBottom() <= ib.slider.getY(), "the slider is below the name and readout row");
+            expect (ib.slider.getBottom() <= ib.getMinLabelBounds().getY() + 1, "the end labels are below the slider");
+            expectEquals (ib.getMinLabelBounds().getY(), ib.getMaxLabelBounds().getY(), "both end labels on one row");
+            expect (ib.getMinLabelBounds().getX() < ib.getMaxLabelBounds().getX(), "20 Hz at the left end, 500 Hz at the right");
+            expectEquals (IgnoreBelowControl::getMinLabelText(), juce::String ("20 Hz"));
+            expectEquals (IgnoreBelowControl::getMaxLabelText(), juce::String ("500 Hz"));
+            expectGreaterOrEqual (ib.getMinLabelBounds().getHeight(), 14, "room for 11 px end labels");
+            expectGreaterOrEqual (ib.readout.getHeight(), 16, "room for the readout text");
+            expect (ib.readout.isEditable(), "the readout can be typed into");
 
-            expectEquals (knob.getValueText(), juce::String ("Off"), "starts Off");
-            expectEquals (knob.slider.getDoubleClickReturnValue(), 0.0, "double-click returns to Off");
+            expectEquals (ib.getValueText(), juce::String ("Off"), "starts Off");
+            expectEquals (ib.slider.getDoubleClickReturnValue(), 0.0, "double-click returns to Off");
 
-            const auto tip = knob.slider.getTooltip();
-            expectEquals (tip, juce::String ("Ignore bass below this frequency when deciding how much to compress. The bass you hear stays unchanged."));
+            const auto tip = ib.getTooltip();
+            expect (tip.contains ("ignores bass below this frequency") && tip.contains ("The bass you hear stays unchanged"), tip);
             expect (Songsmith::UI::Wording::findBanned (tip).isEmpty(), "plain words: " + Songsmith::UI::Wording::findBanned (tip));
 
-            for (int i = 0; i < numLowCutSteps; ++i)
+            // Any whole Hz, by the slider, by typing and by automation; no jumps between the old steps.
+            for (float hz : { 20.0f, 60.0f, 73.0f, 80.0f, 100.0f, 127.0f, 150.0f, 200.0f, 245.0f, 499.0f, 500.0f })
             {
-                knob.slider.setValue ((double) i, juce::sendNotificationSync);
-                expectEquals ((int) getParam (p, ID::detectorLowCut), i, "turning the knob sets the saved choice");
-                expectEquals (knob.getValueText(), SongsmithAnalogCompressorEditor::lowCutText (i));
+                ib.slider.setValue ((double) hz, juce::sendNotificationSync);
+                expectEquals (getParam (p, ID::ignoreBelowHz), hz, "slider sets the exact frequency");
+                expectEquals (ib.getValueText(), juce::String ((int) hz) + " Hz");
+                expectEquals (ib.readout.getText(), juce::String ((int) hz) + " Hz", "the live readout follows");
+
+                ib.commitText (juce::String ((int) hz + 0) + " Hz");
+                expectEquals (getParam (p, ID::ignoreBelowHz), hz, "typing keeps the exact frequency");
             }
-            setParam (p, ID::detectorLowCut, 2.0f);
-            expectEquals (juce::roundToInt (knob.slider.getValue()), 2, "and the parameter moves the knob (automation)");
-            expectEquals (knob.getValueText(), juce::String ("80 Hz"));
-            setParam (p, ID::detectorLowCut, 0.0f);
+            ib.commitText ("off");
+            expectEquals (getParam (p, ID::ignoreBelowHz), 0.0f, "typing Off");
+            expectEquals (ib.readout.getText(), juce::String ("Off"));
+            ib.commitText ("73");
+            expectEquals (getParam (p, ID::ignoreBelowHz), 73.0f, "typing a bare number");
+            ib.commitText ("nonsense");
+            expectEquals (getParam (p, ID::ignoreBelowHz), 73.0f, "text that is not a frequency changes nothing");
+            expectEquals (ib.readout.getText(), juce::String ("73 Hz"), "and the readout shows the real cutoff again");
+            ib.commitText ("5000");
+            expectEquals (getParam (p, ID::ignoreBelowHz), 500.0f, "above the range clamps to 500 Hz");
+            ib.commitText ("3");
+            expectEquals (getParam (p, ID::ignoreBelowHz), 20.0f, "below the range clamps to 20 Hz");
+
+            setParam (p, ID::ignoreBelowHz, 245.0f);
+            expectEquals (ib.getValueText(), juce::String ("245 Hz"), "automation moves the slider and readout");
+            expectWithinAbsoluteError ((float) ib.slider.getValue(), 245.0f, 0.01f);
+
+            // Keyboard: arrows step one whole Hz, Shift ten; left of 20 Hz is Off, right of Off is 20 Hz.
+            ib.slider.setValue (100.0, juce::sendNotificationSync);
+            ib.slider.keyPressed (juce::KeyPress (juce::KeyPress::rightKey));
+            expectEquals (getParam (p, ID::ignoreBelowHz), 101.0f);
+            ib.slider.keyPressed (juce::KeyPress (juce::KeyPress::leftKey, juce::ModifierKeys::shiftModifier, 0));
+            expectEquals (getParam (p, ID::ignoreBelowHz), 91.0f);
+            ib.slider.keyPressed (juce::KeyPress (juce::KeyPress::homeKey));
+            expectEquals (getParam (p, ID::ignoreBelowHz), 0.0f, "Home is Off");
+            ib.slider.keyPressed (juce::KeyPress (juce::KeyPress::rightKey));
+            expectEquals (getParam (p, ID::ignoreBelowHz), 20.0f, "right from Off is 20 Hz");
+            ib.slider.keyPressed (juce::KeyPress (juce::KeyPress::leftKey));
+            expectEquals (getParam (p, ID::ignoreBelowHz), 0.0f, "left from 20 Hz is Off");
+            ib.slider.keyPressed (juce::KeyPress (juce::KeyPress::endKey));
+            expectEquals (getParam (p, ID::ignoreBelowHz), 500.0f, "End is 500 Hz");
+
+            // The track position is logarithmic: 100 Hz sits left of the middle... and each whole Hz is reachable by position.
+            ib.slider.setValue (0.0, juce::sendNotificationSync);
+            // getPositionOfValue returns float; compare as double so expectLessThan has one ValueType.
+            expectLessThan ((double) ib.slider.getPositionOfValue (0.0), (double) ib.slider.getPositionOfValue (20.0) + 0.5, "Off is at the very start");
+            expectLessThan (ib.slider.getPositionOfValue (20.0), ib.slider.getPositionOfValue (60.0));
+            expectLessThan ((double) ib.slider.getPositionOfValue (60.0), (double) ib.slider.getPositionOfValue (61.0) + 0.001);
+            expectLessThan (ib.slider.getPositionOfValue (200.0), ib.slider.getPositionOfValue (500.0));
+            const double mid = ib.slider.getPositionOfValue (100.0), a = ib.slider.getPositionOfValue (20.0), b = ib.slider.getPositionOfValue (500.0);
+            expect (mid > a + 0.4 * (b - a) && mid < a + 0.6 * (b - a), "100 Hz sits about halfway along (logarithmic)");
+
+            setParam (p, ID::ignoreBelowHz, 0.0f);
         }
 
         beginTest ("The ratio buttons say what they are, and All is called All");

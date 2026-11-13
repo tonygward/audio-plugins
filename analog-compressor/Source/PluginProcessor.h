@@ -19,7 +19,10 @@ public:
     // 3 = adds the detector Low Cut (sessions from 1 and 2 load it Off, as they sounded before).
     // 4 = adds the Songsmith 2:1 ratio switch (sessions from 1-3 load it Off, so they keep their saved
     // 4:1 / 8:1 / 12:1 / 20:1 / All Buttons ratio; the `ratio` choice itself is unchanged).
-    static constexpr int stateVersion = 4;
+    // 5 = adds the continuous Ignore Below cutoff `ignoreBelowHz` (ACOMP-16). Sessions from 1-4 load it from their
+    // saved six-step `detectorLowCut`, which maps to exactly the same cutoff. `detectorLowCut` stays as a
+    // hidden parameter so old automation still works; whichever of the two changed last decides.
+    static constexpr int stateVersion = 5;
 
     SongsmithAnalogCompressorProcessor();
     ~SongsmithAnalogCompressorProcessor() override;
@@ -94,7 +97,9 @@ public:
     static inline const juce::Identifier versionId { "stateVersion" };
 
 private:
-    void timerCallback() override { updateLatencyNow(); }
+    void timerCallback() override { updateLatencyNow(); syncIgnoreBelowFromLegacy(); }
+    float currentIgnoreBelowHz() noexcept;          // audio thread: the cutoff to use this block
+    void syncIgnoreBelowFromLegacy();               // message thread: the editor follows legacy automation
     void restoreFromValueTree (const juce::ValueTree& saved);
     void processChunk (float* const* ch, int numCh, int num) noexcept;
     void runCore (float* const* ch, int numCh, int num) noexcept;
@@ -111,7 +116,16 @@ private:
     std::atomic<float>* grOffParam = nullptr;
     std::atomic<float>* oversamplingParam = nullptr;
     std::atomic<float>* allButtonsParam = nullptr;
-    std::atomic<float>* lowCutParam = nullptr;
+    std::atomic<float>* lowCutParam = nullptr;       // legacy six-step choice (hidden)
+    std::atomic<float>* ignoreBelowParam = nullptr;  // continuous Hz, 0 = Off
+    // Which of the two cutoff parameters last changed (audio thread only, except the atomics).
+    float seenLegacy = 0.0f, seenIgnoreBelow = 0.0f;
+    bool legacyWins = false;
+    std::atomic<bool> detectorResync { false };      // set after a session loads: take the loaded values as the baseline
+    std::atomic<bool> legacySyncPending { false };
+    std::atomic<float> legacySyncHz { 0.0f };
+    std::atomic<float> legacySyncFromHz { 0.0f };    // the slider's value when the old choice moved: a newer slider move cancels the sync
+    bool legacySyncStillApplies() const noexcept;
     std::atomic<float> outputMs { 0.0f };
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> fetFactor { 1.0f };
 

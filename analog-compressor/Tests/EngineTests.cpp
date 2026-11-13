@@ -533,6 +533,201 @@ struct DetectorLowCutTests final : juce::UnitTest
             expect (ok, "finite and bounded, oversampling " + juce::String (os));
         }
 
+        // ---- ACOMP-16: the continuous Ignore Below cutoff ------------------------------------------------------------
+
+        beginTest ("Continuous cutoff (engine): bass gain reduction falls as the cutoff rises, at 44.1, 48 and 96 kHz");
+        {
+            float at73[3] = {};
+            int k = 0;
+            for (double fs : { 44100.0, 48000.0, 96000.0 })
+            {
+                const float off = engineGr (fs, 0.0f, 50.0, -12.0f);
+                expectGreaterThan (off, 3.0f, "compressing without a cutoff");
+                float previous = off;
+                for (float hz : { 20.0f, 73.0f, 127.0f, 245.0f, 499.0f })
+                {
+                    const float gr = engineGr (fs, hz, 50.0, -12.0f);
+                    expectLessThan (gr, previous + 0.05f, "a higher cutoff never compresses bass more: " + juce::String (hz) + " Hz at " + juce::String (fs));
+                    previous = gr;
+                    if (hz == 73.0f)
+                        at73[k] = gr;
+                }
+                expectLessThan (previous, 0.5f, "499 Hz leaves almost no gain reduction from 50 Hz bass");
+                expectLessThan (engineGr (fs, 127.0f, 50.0, -12.0f), off - 3.0f, "127 Hz takes at least 3 dB off");
+                // Mid-range is untouched, even at the highest cutoff (three octaves away at 4 kHz).
+                const float mid = engineGr (fs, 0.0f, 4000.0, -12.0f);
+                expectWithinAbsoluteError (engineGr (fs, 499.0f, 4000.0, -12.0f), mid, 0.3f, "4 kHz unaffected at " + juce::String (fs));
+                ++k;
+            }
+            expectWithinAbsoluteError (at73[0], at73[2], 0.6f, "the same cutoff in Hz at 44.1 and 96 kHz");
+            expectWithinAbsoluteError (at73[1], at73[2], 0.6f, "the same cutoff in Hz at 48 and 96 kHz");
+        }
+
+        beginTest ("Continuous cutoff (detector response): a cutoff at the tone reduces the reading modestly, an octave above reduces it more");
+        for (double fs : { 44100.0, 48000.0, 96000.0 })
+        {
+            // Compare the gain reduction of a fixed bass tone with a cutoff placed at, and an octave above, the tone.
+            // Level changes map to gain reduction by the ratio, so this checks the cutoff's place, not an exact figure.
+            const float untouched = engineGr (fs, 0.0f, 100.0, -12.0f);
+            const float atCutoff = engineGr (fs, 100.0f, 100.0, -12.0f);
+            const float octaveAbove = engineGr (fs, 200.0f, 100.0, -12.0f);
+            expectLessThan (atCutoff, untouched, "a cutoff at the tone reduces the detector's reading");
+            expectLessThan (octaveAbove, atCutoff, "a cutoff an octave above reduces it more");
+            expectGreaterThan (atCutoff, untouched - 6.0f, "a gentle effect at the cutoff, not a hard cut");
+        }
+
+        // The processor, any whole Hz, at several rates and in mono and stereo.
+        const auto processorGrAt = [] (int oversampling, double fs, float hz, double freq, float amp, int channels)
+        {
+            SongsmithAnalogCompressorProcessor p;
+            p.setColourEnabled (false);
+            auto set = [&] (const char* id, float v) { auto* rp = p.apvts.getParameter (id); rp->setValueNotifyingHost (rp->convertTo0to1 (v)); };
+            set (ID::oversampling, (float) oversampling);
+            set (ID::ignoreBelowHz, hz);
+            set (ID::input, 12.0f);
+            p.prepareToPlay (fs, 480);
+            juce::AudioBuffer<float> b (channels, 480);
+            juce::MidiBuffer m;
+            float gr = 0.0f;
+            for (int k = 0; k < 250; ++k)
+            {
+                for (int c = 0; c < channels; ++c)
+                    for (int i = 0; i < 480; ++i)
+                        b.setSample (c, i, amp * (float) std::sin (juce::MathConstants<double>::twoPi * freq * (k * 480 + i) / fs));
+                p.processBlock (b, m);
+                gr = p.takeGainReductionDb();
+            }
+            return gr;
+        };
+
+        beginTest ("Continuous cutoff (processor): 127 Hz takes gain reduction off bass at every rate, oversampling mode, mono and stereo");
+        for (double fs : { 44100.0, 48000.0, 96000.0 })
+            for (int os : { 0, 1, 2 })
+                for (int channels : { 1, 2 })
+                {
+                    const auto label = juce::String (fs) + " Hz, oversampling " + juce::String (os) + ", " + juce::String (channels) + " channel(s)";
+                    const float off = processorGrAt (os, fs, 0.0f, 50.0, 0.25f, channels);
+                    const float on = processorGrAt (os, fs, 127.0f, 50.0, 0.25f, channels);
+                    expectGreaterThan (off, 1.0f, "compressing without it, " + label);
+                    expectLessThan (on, off - 3.0f, "less gain reduction with 127 Hz, " + label);
+                    const float mid = processorGrAt (os, fs, 0.0f, 2000.0, 0.25f, channels);
+                    expectWithinAbsoluteError (processorGrAt (os, fs, 127.0f, 2000.0, 0.25f, channels), mid, 0.3f, "2 kHz unaffected, " + label);
+                }
+
+        beginTest ("Continuous cutoff (processor): the audible path is unfiltered at any cutoff");
+        for (int os : { 0, 2 })
+            for (double freq : { 30.0, 120.0, 1000.0 })
+            {
+                juce::AudioBuffer<float> reference;
+                for (float hz : { 0.0f, 73.0f, 499.0f })
+                {
+                    SongsmithAnalogCompressorProcessor p;
+                    p.setColourEnabled (false);
+                    auto set = [&] (const char* id, float v) { auto* rp = p.apvts.getParameter (id); rp->setValueNotifyingHost (rp->convertTo0to1 (v)); };
+                    set (ID::oversampling, (float) os);
+                    set (ID::ignoreBelowHz, hz);
+                    p.prepareToPlay (44100.0, 480);
+                    juce::AudioBuffer<float> out (2, 480 * 6);
+                    juce::MidiBuffer m;
+                    for (int k = 0; k < 6; ++k)
+                    {
+                        juce::AudioBuffer<float> b (2, 480);
+                        for (int c = 0; c < 2; ++c)
+                            for (int i = 0; i < 480; ++i)
+                                b.setSample (c, i, 0.005f * (float) std::sin (juce::MathConstants<double>::twoPi * freq * (k * 480 + i) / 44100.0));   // below every knee
+                        p.processBlock (b, m);
+                        for (int c = 0; c < 2; ++c)
+                            out.copyFrom (c, k * 480, b, c, 0, 480);
+                    }
+                    if (hz == 0.0f)
+                        reference.makeCopyOf (out);
+                    else
+                    {
+                        bool same = true;
+                        for (int c = 0; c < 2; ++c)
+                            for (int i = 0; i < out.getNumSamples(); ++i)
+                                same = same && out.getSample (c, i) == reference.getSample (c, i);
+                        expect (same, "audio is identical to Off at " + juce::String (hz) + " Hz, " + juce::String (freq) + " Hz tone, oversampling " + juce::String (os));
+                    }
+                }
+            }
+
+        beginTest ("Continuous cutoff: sweeping it every block is click-free, in every oversampling mode");
+        for (int os : { 0, 1, 2 })
+        {
+            SongsmithAnalogCompressorProcessor p;
+            p.setColourEnabled (false);
+            auto* osParam = p.apvts.getParameter (ID::oversampling);
+            osParam->setValueNotifyingHost (osParam->convertTo0to1 ((float) os));
+            p.prepareToPlay (44100.0, 256);
+            auto* hzParam = p.apvts.getParameter (ID::ignoreBelowHz);
+            juce::MidiBuffer m;
+            bool ok = true;
+            float worstStep = 0.0f, last = 0.0f;
+            for (int k = 0; k < 200; ++k)
+            {
+                const float hz = k % 40 == 0 ? 0.0f : 20.0f + (float) ((k * 37) % 481);   // jumps all over 20 to 500, and Off
+                hzParam->setValueNotifyingHost (hzParam->convertTo0to1 (hz));
+                juce::AudioBuffer<float> b (2, 256);
+                for (int c = 0; c < 2; ++c)
+                    for (int i = 0; i < 256; ++i)
+                        b.setSample (c, i, 0.5f * (float) std::sin (juce::MathConstants<double>::twoPi * 70.0 * (k * 256 + i) / 44100.0));
+                p.processBlock (b, m);
+                ok = ok && std::isfinite (b.getMagnitude (0, 256)) && b.getMagnitude (0, 256) <= 0.75f;
+                if (k > 20)   // after the first settling blocks
+                    for (int i = 0; i < 256; ++i)
+                    {
+                        worstStep = juce::jmax (worstStep, std::abs (b.getSample (0, i) - last));
+                        last = b.getSample (0, i);
+                    }
+                else
+                    last = b.getSample (0, 255);
+            }
+            expect (ok, "finite and bounded, oversampling " + juce::String (os));
+            expectLessThan (worstStep, 0.06f, "no sample-to-sample jump from the cutoff changing, oversampling " + juce::String (os));
+        }
+
+        beginTest ("Continuous cutoff: latency is unchanged and bypass is bit-exact");
+        for (int os : { 0, 1, 2 })
+        {
+            int latency[2] = {};
+            for (int pass = 0; pass < 2; ++pass)
+            {
+                SongsmithAnalogCompressorProcessor p;
+                auto set = [&] (const char* id, float v) { auto* rp = p.apvts.getParameter (id); rp->setValueNotifyingHost (rp->convertTo0to1 (v)); };
+                set (ID::oversampling, (float) os);
+                set (ID::ignoreBelowHz, pass == 0 ? 0.0f : 127.0f);
+                p.prepareToPlay (48000.0, 512);
+                p.updateLatencyNow();
+                latency[pass] = p.getLatencySamples();
+            }
+            expectEquals (latency[1], latency[0], "oversampling " + juce::String (os));
+        }
+        {
+            SongsmithAnalogCompressorProcessor p;
+            auto set = [&] (const char* id, float v) { auto* rp = p.apvts.getParameter (id); rp->setValueNotifyingHost (rp->convertTo0to1 (v)); };
+            set (ID::oversampling, 0.0f);
+            set (ID::ignoreBelowHz, 127.0f);
+            p.prepareToPlay (48000.0, 512);
+            set (ID::bypass, 1.0f);
+            juce::MidiBuffer m;
+            juce::AudioBuffer<float> b (2, 512), ref (2, 512);
+            bool exact = true;
+            for (int k = 0; k < 5; ++k)
+            {
+                for (int c = 0; c < 2; ++c)
+                    for (int i = 0; i < 512; ++i)
+                        b.setSample (c, i, 0.5f * (float) std::sin (0.03 * (k * 512 + i)));
+                ref.makeCopyOf (b);
+                p.processBlock (b, m);
+                if (k == 4)   // the first blocks fade into bypass
+                    for (int c = 0; c < 2; ++c)
+                        for (int i = 0; i < 512; ++i)
+                            exact = exact && b.getSample (c, i) == ref.getSample (c, i);
+            }
+            expect (exact, "bypass passes the input untouched with a cutoff set");
+        }
+
         beginTest ("Latency is the same with Low Cut on or off, in every oversampling mode");
         for (int os : { 0, 1, 2 })
         {

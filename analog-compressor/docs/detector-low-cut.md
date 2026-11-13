@@ -6,7 +6,7 @@
 
 The compressor decides how much to turn the sound down by listening to the level. Deep bass carries a lot of level, so a loud kick or bass note can make the whole sound duck. Low Cut removes the deepest bass from **what the compressor listens to** only. The audio you hear is never filtered: the bass stays as it was, and it is simply no longer the reason for the gain reduction.
 
-## ACOMP-12: now the Ignore Below knob
+## ACOMP-12: the Ignore Below knob (superseded by the ACOMP-16 slider above; kept as history)
 
 The dropdown named Low Cut became a round knob named **Ignore Below**, in the same look as Input, Output, Attack and Release. It sits right of Gain Reduction Off (design units x 760, y 302, 176 x 50), clear of the Gain Reduction readout above and the hint line below. The name and the readout (`Off`, `60 Hz`, `80 Hz`, `100 Hz`, `150 Hz`, `200 Hz`) are to the right of the knob. Double-click returns it to Off; arrow keys step through the values.
 
@@ -16,7 +16,42 @@ Tooltip: "Ignore bass below this frequency when deciding how much to compress. T
 
 Not yet verified in a DAW; screenshots are not refreshed in this change because the run could not build the plugin.
 
-## Design choices
+## ACOMP-16: now a continuous slider, 20 to 500 Hz
+
+The knob is replaced by a horizontal slider (no rotary remains): **Ignore Below** on the left, an editable readout on the right (`127 Hz`, or `Off`), the track and handle in the accent colour beneath, and `20 Hz` and `500 Hz` under the ends. It occupies the same place (x 760, y 302, 176 x 50 design units). Dragging, the arrow keys (one whole Hz; Shift, Page Up and Page Down ten; Home is Off; End is 500 Hz), double-click (Off) and typing into the readout all work. Typed text accepts `127`, `127 Hz`, `0.3 kHz`, `off`; below 20 Hz becomes 20 Hz, above 500 becomes 500, and text that is not a frequency changes nothing. Whole Hz only: `127.4` becomes 127.
+
+Tooltip: "Ignore Below: the compressor ignores bass below this frequency when deciding how much to compress. The bass you hear stays unchanged. Drag, use the arrow keys, or click the number to type a frequency from 20 to 500 Hz. Double-click for Off."
+
+### Parameters and compatibility
+
+| Parameter | Type | Role |
+|---|---|---|
+| `ignoreBelowHz` (version hint 5, new) | float, plain value 0 to 500, whole Hz | What the slider shows and what the audio uses. `0` is Off; otherwise 20 to 500 Hz. Default Off. Display name "Ignore Below". |
+| `detectorLowCut` (version hint 3, **unchanged**) | six-item choice, 0 to 5 | Kept exactly as before so saved sessions, presets and host automation keep their meaning. Not shown in the window. Host display name is now "Ignore Below Steps" (the ID is unchanged). |
+
+- **Off is its own state.** The host-normalised range of `ignoreBelowHz` spends its first 4 % on Off (the slider's left end), then runs logarithmically from 20 to 500 Hz (the last 96 %), so 100 Hz sits halfway along the 20 to 500 Hz part. 20 Hz as the lowest cutoff is kept: nothing in the DSP needed a lower one (the filter is second order, so 20 Hz is already far below any note the detector needs to ignore).
+- **State version 5.** Sessions saved at version 1 to 4 have no `ignoreBelowHz`. On load it is set from their saved `detectorLowCut` through the exact mapping Off, 60, 80, 100, 150, 200 Hz (a missing value is Off). Other saved values are not touched. Version 5 sessions load their own `ignoreBelowHz`; the saved `detectorLowCut` is kept but does not override it.
+- **Presets.** Preset files now carry `ignoreBelowHz` and, for older versions of the plugin, a `detectorLowCut` attribute (the exact legacy step, otherwise Off). A preset file with only `detectorLowCut` loads as the same frequency. Factory starting points leave Ignore Below Off.
+- **Which one wins (new versus old automation): the one that changed most recently.** The audio thread watches both. If `detectorLowCut` changes (old automation, an old preset) its frequency is used and the slider follows within about 0.1 s. If `ignoreBelowHz` changes (the slider, new automation, a preset) it takes over. If both change in the same block, `ignoreBelowHz` wins. After a session loads, the loaded values are the starting point, not a change. **Limitation:** a host that writes both parameters continuously (for example a stale lane for each) will have them fight, as with any two automated parameters; write automation for the new one. Hosts and projects that only automate the old parameter keep working with the six frequencies they always had.
+- **Filter and smoothing are unchanged**: the same 12 dB/oct high-pass on the detector only, a 20 ms glide in octaves, double precision, designed at the oversampled rate. A continuous cutoff uses the same glide, so sweeping it every block is click-free (tested). The cutoff is limited to 0.45 times the running sample rate inside the engine, which no value up to 500 Hz reaches.
+
+### Tests added
+
+| Claim | Test |
+|---|---|
+| Frequency response across the range at 44.1, 48 and 96 kHz | `EngineTests.cpp`, "Continuous cutoff (engine)" and "(detector response)": bass gain reduction never rises with the cutoff, 127 Hz takes at least 3 dB off, 499 Hz leaves under 0.5 dB, 4 kHz untouched, the same Hz gives about the same result at 44.1 and 96 kHz |
+| Processor, mono and stereo, every oversampling mode | "Continuous cutoff (processor)": 127 Hz cuts bass gain reduction by at least 3 dB; 2 kHz unaffected |
+| Audible path unfiltered | Output is sample for sample identical at Off, 73 and 499 Hz when no gain reduction applies |
+| Click-free automation | Cutoff jumped every block over 20 to 500 Hz and Off: finite, bounded, no sample-to-sample step above 0.06 |
+| Latency, bypass | Unchanged with a cutoff set; bypass bit-exact |
+| Legacy recall | `AnalogCompressorTests.cpp`: every saved six-step value at state versions 3 and 4 loads the exact Hz and leaves input and ratio alone; whole-Hz round trip; every whole Hz 20 to 500 survives the normalised round trip; text parsing |
+| Precedence | Old automation is heard, then the slider wins, then old automation wins again; a loaded session ignores a stale legacy value |
+| Presets | Preset files without `ignoreBelowHz` load the legacy frequency; a saved preset recalls 127 Hz |
+| Editor | Slider geometry (name left, readout right, track below, `20 Hz` and `500 Hz` under the ends, inside its place), typing, Off, keyboard, tooltip wording, logarithmic track |
+
+**Not yet verified in a DAW**, and the change was written without a local build: it needs a native CI run, a real-host check of old-session recall and old-parameter automation (daw-checks.md, check 11), and refreshed screenshots at the default and minimum window sizes and on a high-DPI display.
+
+## Design choices (ACOMP-07; the six steps below are now the legacy mapping)
 
 | Choice | Value | Why |
 |---|---|---|

@@ -88,8 +88,8 @@ namespace
 
 //==============================================================================
 FETKnob::FETKnob (juce::AudioProcessorValueTreeState& state, const char* paramId, const juce::String& n,
-                  std::vector<std::pair<float, juce::String>> scaleMarks, Formatter format, bool compactLayout)
-    : compact (compactLayout), name (n), marks (std::move (scaleMarks)), formatter (std::move (format)),
+                  std::vector<std::pair<float, juce::String>> scaleMarks, Formatter format)
+    : name (n), marks (std::move (scaleMarks)), formatter (std::move (format)),
       attachment (state, paramId, slider)
 {
     auto* p = state.getParameter (paramId);
@@ -106,12 +106,6 @@ FETKnob::FETKnob (juce::AudioProcessorValueTreeState& state, const char* paramId
 void FETKnob::resized()
 {
     auto r = getLocalBounds();
-    if (compact)
-    {
-        const int side = r.getHeight();
-        slider.setBounds (r.removeFromLeft (side).reduced (2));
-        return;
-    }
     r.removeFromTop (22);
     r.removeFromBottom (24);
     const int side = juce::jmin (r.getWidth(), r.getHeight());
@@ -122,16 +116,6 @@ void FETKnob::resized()
 void FETKnob::paint (juce::Graphics& g)
 {
     auto r = getLocalBounds().toFloat();
-    if (compact)
-    {
-        auto text = r.withTrimmedLeft ((float) getHeight() + 6.0f);
-        g.setColour (Colours::text);
-        g.setFont (font (Type::heading, Weight::SemiBold));
-        g.drawText (name, text.removeFromTop (text.getHeight() * 0.5f), juce::Justification::bottomLeft);
-        g.setFont (numbers (Type::control));
-        g.drawText (getValueText(), text, juce::Justification::topLeft);
-        return;
-    }
     g.setColour (Colours::text);
     g.setFont (font (Type::heading, Weight::SemiBold));
     g.drawText (name, r.removeFromTop (20.0f), juce::Justification::centred);
@@ -158,6 +142,102 @@ void FETKnob::paint (juce::Graphics& g)
 }
 
 //==============================================================================
+bool IgnoreBelowControl::HorizontalSlider::keyPressed (const juce::KeyPress& key)
+{
+    // Arrow keys move one whole Hz (ten with Shift, Page Up or Page Down); Home is Off, End is 500 Hz.
+    const float current = FET::ignoreBelowSnap ((float) getValue());
+    const int code = key.getKeyCode();
+    const bool big = key.getModifiers().isShiftDown() || code == juce::KeyPress::pageUpKey || code == juce::KeyPress::pageDownKey;
+    const float step = big ? 10.0f : 1.0f;
+    const bool up = code == juce::KeyPress::rightKey || code == juce::KeyPress::upKey || code == juce::KeyPress::pageUpKey;
+    const bool down = code == juce::KeyPress::leftKey || code == juce::KeyPress::downKey || code == juce::KeyPress::pageDownKey;
+    float target = current;
+
+    if (up)
+        target = current <= 0.0f ? FET::ignoreBelowMinHz : juce::jmin (FET::ignoreBelowMaxHz, current + step);
+    else if (down)
+        target = current <= FET::ignoreBelowMinHz ? 0.0f : juce::jmax (FET::ignoreBelowMinHz, current - step);
+    else if (code == juce::KeyPress::homeKey)
+        target = 0.0f;
+    else if (code == juce::KeyPress::endKey)
+        target = FET::ignoreBelowMaxHz;
+    else
+        return juce::Slider::keyPressed (key);
+
+    setValue (target, juce::sendNotificationSync);
+    return true;
+}
+
+IgnoreBelowControl::IgnoreBelowControl (juce::AudioProcessorValueTreeState& state)
+    : param (*state.getParameter (FET::ID::ignoreBelowHz)),
+      attachment (state, FET::ID::ignoreBelowHz, slider)
+{
+    slider.setDoubleClickReturnValue (true, 0.0);   // double-click: Off
+    slider.setTitle ("Ignore Below");
+    slider.setDescription ("Detector cutoff in Hz, Off or 20 to 500. Bass below it is not counted when deciding how much to compress.");
+    slider.setColour (juce::Slider::trackColourId, Colours::accent);
+    slider.setWantsKeyboardFocus (true);
+    slider.onValueChange = [this] { refreshReadout(); };
+    addAndMakeVisible (slider);
+
+    readout.setTitle ("Ignore Below value");
+    readout.setFont (juce::Font (numbers (Type::control)));
+    readout.setColour (juce::Label::textColourId, Colours::text);
+    readout.setJustificationType (juce::Justification::centredRight);
+    readout.setEditable (true, true, false);   // click (or double-click) to type a whole number of Hz
+    readout.onTextChange = [this] { commitText (readout.getText()); };
+    addAndMakeVisible (readout);
+    refreshReadout();
+}
+
+void IgnoreBelowControl::refreshReadout()
+{
+    if (! readout.isBeingEdited())
+        readout.setText (getValueText(), juce::dontSendNotification);
+    repaint();
+}
+
+void IgnoreBelowControl::setHzAsGesture (float hz)
+{
+    hz = FET::ignoreBelowSnap (hz);
+    param.beginChangeGesture();
+    param.setValueNotifyingHost (param.convertTo0to1 (hz));
+    param.endChangeGesture();
+}
+
+void IgnoreBelowControl::commitText (const juce::String& text)
+{
+    const float hz = FET::ignoreBelowFromText (text);
+    if (hz >= 0.0f)
+        setHzAsGesture (hz);
+    refreshReadout();   // not a frequency: show the real cutoff again
+}
+
+void IgnoreBelowControl::resized()
+{
+    auto r = getLocalBounds();
+    auto top = r.removeFromTop (18);
+    labelBounds = top.removeFromLeft (juce::roundToInt ((float) r.getWidth() * 0.58f));
+    readout.setBounds (top);
+    slider.setBounds (r.removeFromTop (16));
+    auto ends = r;
+    minBounds = ends.removeFromLeft (ends.getWidth() / 2);
+    maxBounds = ends;
+}
+
+void IgnoreBelowControl::paint (juce::Graphics& g)
+{
+    g.setColour (Colours::text);
+    g.setFont (font (Type::heading, Weight::SemiBold));
+    g.drawText ("Ignore Below", labelBounds.toFloat(), juce::Justification::centredLeft);
+
+    g.setColour (Colours::textDim);
+    g.setFont (numbers (Type::caption, Weight::Medium));
+    g.drawText (getMinLabelText(), minBounds.toFloat(), juce::Justification::centredLeft);
+    g.drawText (getMaxLabelText(), maxBounds.toFloat(), juce::Justification::centredRight);
+}
+
+//==============================================================================
 SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalogCompressorProcessor& p)
     : AudioProcessorEditor (p), proc (p),
       input (p.apvts, ID::input, "Input", dbMarks ({ -24, 0, 24, 48 }), [] (float v) { return dbText (v); }),
@@ -171,8 +251,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
       gentleAttachment (*p.apvts.getParameter (ID::ratioTwoToOne), [this] (float v) { gentleOn = v >= 0.5f; refreshButtons(); }),
       grOffAttachment (p.apvts, ID::grOff, grOffButton),
       bypassAttachment (p.apvts, ID::bypass, bypassButton),
-      ignoreBelow (p.apvts, ID::detectorLowCut, "Ignore Below", {},
-                   [] (float v) { return lowCutText (juce::roundToInt (v)); }, true),
+      ignoreBelow (p.apvts),
       oversamplingAttachment (p.apvts, ID::oversampling, oversampling)
 {
     setLookAndFeel (&lnf);
@@ -236,7 +315,12 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     content.addAndMakeVisible (oversampling);
     oversampling.setSelectedItemIndex ((int) p.apvts.getRawParameterValue (ID::oversampling)->load(), juce::dontSendNotification);
 
-    ignoreBelow.slider.setTooltip ("Ignore bass below this frequency when deciding how much to compress. The bass you hear stays unchanged.");
+    const juce::String ignoreBelowTip ("Ignore Below: the compressor ignores bass below this frequency when deciding how much to compress. "
+                                       "The bass you hear stays unchanged. Drag, use the arrow keys, or click the number to type a frequency "
+                                       "from 20 to 500 Hz. Double-click for Off.");
+    ignoreBelow.setTooltip (ignoreBelowTip);   // covers the name and the end labels; the slider and readout inherit it
+    ignoreBelow.slider.setTooltip (ignoreBelowTip);
+    ignoreBelow.readout.setTooltip (ignoreBelowTip);
     content.addAndMakeVisible (ignoreBelow);
 
     // SUI-18: the Interface size menu is gone from the title bar. Drag the bottom-right corner to resize;
@@ -478,11 +562,6 @@ juce::String SongsmithAnalogCompressorEditor::oversamplingText (int index)
     return index <= 0 ? juce::String ("Oversampling: off") : "Oversampling: " + juce::String (1 << index) + times;
 }
 
-juce::String SongsmithAnalogCompressorEditor::lowCutText (int index)
-{
-    return lowCutNames()[juce::jlimit (0, lowCutNames().size() - 1, index)];
-}
-
 void SongsmithAnalogCompressorEditor::refreshButtons()
 {
     for (int i = 0; i < 4; ++i)
@@ -518,7 +597,6 @@ FETKnob& SongsmithAnalogCompressorEditor::getKnob (const juce::String& id)
 {
     if (id == ID::input)  return input;
     if (id == ID::output) return output;
-    if (id == ID::detectorLowCut) return ignoreBelow;
     if (id == ID::attack) return attack;
     return release;
 }
