@@ -5058,7 +5058,16 @@ public:
                 expect (scale.isVisible() && scale.getY() > 42, context + ": the Scale control is out of the title bar and still visible");
                 expectWithinAbsoluteError (scale.getValue(), 150.0, 0.5, context + ": a saved non-default Gain Scale is kept, not reset to 100 %");
                 expectWithinAbsoluteError ((double) p.getGainScale(), 1.5, 0.01, context + ": and the sound still uses it");
-            }
+
+                // EQ-41: the label says Gain Scale, typing works with or without the words, the help is plain.
+                expect (scale.getTextFromValue (100.0) == "Gain Scale 100%", context + ": reads Gain Scale 100%");
+                expect (scale.getTextFromValue (-100.0) == "Gain Scale -100%", context + ": negative end");
+                for (auto text : { "50", "50%", "Gain Scale 50%" })
+                    expectWithinAbsoluteError (scale.getValueFromText (text), 50.0, 0.001, context + ": typing \"" + juce::String (text) + "\" sets 50");
+                expect (scale.getTooltip().startsWith ("Turns every band's boosts and cuts up or down together."), context + ": plain tooltip");
+                expect (scale.getTooltip().contains ("Double-click to return to 100%."), context + ": tooltip mentions reset");
+                const auto* editorBounds = ed.get();
+                expect (scale.getRight() <= editorBounds->getWidth() && scale.getWidth() > 60, context + ": fits inside the editor");            }
         }
     }
 };
