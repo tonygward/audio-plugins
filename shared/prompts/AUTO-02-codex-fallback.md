@@ -1,5 +1,4 @@
 
-**Current policy:** [Board ordering, one task, 60% usage gate, automatic beta builds and verified issue completion](../../docs/songsmith-execution-policy.md). This policy supersedes historical batches, folder/ID ordering and merge-only completion in older design notes. Automatic approval/merge requires exact-head green CI; issue Done requires beta deployment/download verification and a final issue comment.
 # AUTO-02 — Codex fallback when Claude allowance is exhausted
 
 ## Current execution platform — Linux container on Matrix (9 November 2026)
@@ -8,8 +7,7 @@
 
 **Build handoff:** Agents edit branches/worktrees inside the container; **GitHub-hosted Windows/macOS Actions** perform native plugin/installer validation at the exact PR head SHA. An independently trusted CI/auto-merge path owns merges; verified release/R2/website workflows own distribution. No local Windows build account, Windows task or DPAPI credential is required for this feature.
 
-This documentation change does not enable the fallback; hold its card back with the board's Execution value Deferred until it is intentionally promoted. Reconcile this story with AUTO-05 and the existing `tools/matrix/linux-worker.mjs` provider boundary at implementation time.
-
+This documentation change does not enable the fallback; keep its card in Backlog until it is intentionally promoted. Reconcile this story with AUTO-05 and the existing `tools/matrix/linux-worker.mjs` provider boundary at implementation time.
 
 **Priority:** Future enhancement after AUTO-01 is operational and tested.  
 **Dependency:** [AUTO-01 Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md).  
@@ -48,16 +46,6 @@ This is a **backlog-only proposal**. Recording this requirement must not enable 
 
 **Do not implement AUTO-02 merely because this prompt exists.** It is intentionally excluded from AUTO-01's autonomous eligibility until Tony explicitly promotes it to an active task. Once later implemented and merged, move this same ID to `shared/prompts/done/` and update the roadmap traceability.
 
+## Delivery
 
-## Lifecycle update — 10 November 2026 (authoritative)
-
-This section supersedes older scheduling/status/completion wording in this prompt. Follow [the current execution policy](https://github.com/tonygward/audio-plugins/blob/main/docs/songsmith-execution-policy.md).
-
-- [AUTO-11 #175](https://github.com/tonygward/audio-plugins/issues/175): board statuses, verified visible manual order, atomic claim and handoff. Todo is ready. Doing is a run-now request, picked up ahead of Todo unless the card's board Execution is Deferred; once picked up it is claimed with a start comment. Blocked is excluded from automatic pickup.
-- [AUTO-12 #180](https://github.com/tonygward/audio-plugins/issues/180): standard bounded Claude task loop. Defaults 120 minutes elapsed/run, three total repair iterations and an explicit finite configured Claude turn/token budget. One task/run, one active job; verified weekly/scoped usage below 60%, unknown/stale blocks new agent work.
-- On limit/blocker, save branch/SHA/PR/checks/delivery stage, comment with progress, actual reason, remaining work and resume action, leave open and set Blocked. No automatic next-poll retry. Explicit Todo/run-now resumes saved work without duplicate coding or publication.
-- [AUTO-10 #157](https://github.com/tonygward/audio-plugins/issues/157): trusted delivery and finalisation. Exact-head required checks and relevant native CI precede automatic merge. Plugin changes require release, both suite installers, private R2 and matching authenticated beta downloads. Website-only tasks verify live deployment; infrastructure-only tasks verify deployed runtime/workflows; no unrelated plugin release. Parent epics/historical trackers are not additional jobs.
-- Final task-appropriate acceptance evidence comment must succeed before issue close and board Done. A failed board update after close retries finalisation only. Keep merged work intact while delivery is pending. Prompt archives alone are not delivery evidence.
-- Qualifying plugin main builds automatically increment only the third beta VERSION component. Major/minor increments deferred; documentation-only changes do not bump or publish.
-
-This specification update does not activate Matrix or demonstrate operational board integration.
+Follow the [execution policy](../../docs/songsmith-execution-policy.md). The board decides when this runs; Sonnet is the default model.

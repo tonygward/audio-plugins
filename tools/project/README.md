@@ -10,18 +10,23 @@ This is the **shared portfolio board** across `audio-plugins`, `songsmith-websit
 
 The script is safe to rerun: it reuses a project named **Songsmith Development**, adds any missing fields and links the named issue/PR cards.
 
-Open the project URL printed by the script. Use the GitHub UI to create/select a **Board** view, group by **Stage**, and set up columns **Backlog → Ready → Running → Done**. You can add new issue cards from any linked repository at any time. The script does **not** automate Matrix pickup or deployment.
+Open the project URL printed by the script.
 
-## Board fields
+> **Out of date:** this script was the one-time seeding tool. It still creates the old **Stage** and **Execution** fields, which Matrix no longer reads. Use the board as described below; delete those two fields on the board.
 
-- **Stage:** Backlog, Ready, Running, Done
-- **Priority:** High, Medium, Low
-- **Product:** Suite, Suite UI, EQ, Analog Compressor, Maximiser, Beta Website, Matrix, Release, Other
-- **Execution:** Run Now, Scheduled, Deferred, Separate, Completed
-- **Matrix Job:** optional actual worker job ID, never fabricated
-- **Release Version:** product/version target, not evidence of a published release
+## How the board is used
 
-Only move a card to **Running** with verified worker/job activity. Mark **Done** when the scope is actually merged, recording the PR. Track release/deployment separately from implementation completion.
+Matrix reads the built-in **Status** field. The [execution policy](../../docs/songsmith-execution-policy.md#2-selection-what-runs-next) owns the rules; in short:
+
+| Column | Meaning |
+|---|---|
+| **Backlog** | Not ready. Matrix never picks it up. |
+| **Todo** | The overnight queue, in board order: one card per day. |
+| **Doing** | Run now (picked up at the next worker run, ahead of Todo), or being worked on. |
+| **Blocked** | Stopped with a reason in the issue. Move it back to Todo or Doing to resume. |
+| **Done** | Delivered: Matrix moves it here after the final comment and closing the issue. |
+
+Other fields (**Priority**, **Product**, **Matrix Job**, **Release Version**) are for people; Matrix does not read them.
 
 ## Growing the board
 

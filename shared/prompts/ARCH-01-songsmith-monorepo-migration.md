@@ -12,7 +12,7 @@ conflicts: []
 **Tracking issue:** [ARCH-01 #194](https://github.com/tonygward/audio-plugins/issues/194)  
 **Target:** `tonygward/songsmith-plugins` (proposed, NOT yet created or renamed)  
 **Owner approval:** Required before any repository rename, history migration, permissions changes, Cloudflare deployment or cutover.  
-**Policy:** [Songsmith execution and delivery](../../../docs/songsmith-execution-policy.md).
+**Policy:** [Songsmith execution and delivery](../../docs/songsmith-execution-policy.md).
 
 ## Objective and user value
 
@@ -70,3 +70,6 @@ Test prompt-path resolution, issue/board links, project status and selection, co
 Depends on **verified** AUTO-11, AUTO-12 and AUTO-10 end-to-end operation, not merely merged code or closed issues. Infrastructure-only migration changes must not fabricate plugin version bumps or releases. Website-only deployments should not trigger plugin releases. Do not change existing repos, website routing, project status or Matrix execution from this future-specification prompt.
 
 **Model:** Sonnet for inventory/specification and straightforward implementation; Opus only for difficult architecture/security decisions with a recorded rationale. Any execution has bounded budgets and owner-approved scheduling.
+## Delivery
+
+Follow the [execution policy](../../docs/songsmith-execution-policy.md). The board decides when this runs; Sonnet is the default model.

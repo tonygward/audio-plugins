@@ -1,6 +1,6 @@
 # AUTO-01: trusted dry-run worker before agent activation
 
-Status: implemented foundation; live development/release activation blocked.
+Status: **superseded** by [AUTO-05, the Linux agent container](AUTO-05-linux-agent-container.md). Kept for history: the Windows Task Scheduler, DPAPI and build-broker design below is retired. Current behaviour is in the [Matrix README](../../tools/matrix/README.md) and the rules are in the [execution policy](../songsmith-execution-policy.md).
 Canonical prompt: [AUTO-01](../../shared/prompts/AUTO-01-matrix-autonomous-development.md).
 
 Phase C follow-up: the controlled worker (its Windows deployment notes have since been retired; see the [Matrix README](../../tools/matrix/README.md)) now executes
@@ -35,7 +35,7 @@ environment are verified. Accounts lacking that capability use daily fetch alone
 
 Prompt speed is not authority. Default scheduling supports legacy files. Explicit
 deferred policy beats omitted/default execution (superseded on 10 November 2026: prompts
-carry no execution, and only the board's Execution value Deferred holds a card back); malformed explicit metadata blocks
+carry no execution; since 13 November only the board column, Backlog or Blocked, holds a card back); malformed explicit metadata blocks
 selection. Conservative plugin footprints limit overlap; dependencies need merged
 archives. Free-form requirements cannot be completely interpreted by regex and need
 owner review/explicit metadata before live development. This implementation selects

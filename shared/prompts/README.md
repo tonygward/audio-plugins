@@ -1,54 +1,36 @@
 # Songsmith suite prompts
 
-## Current rules — 9 November 2026
-[Execution and delivery policy](../../docs/songsmith-execution-policy.md) is authoritative.
+This folder holds the prompts for work across the whole suite. The rules for when a prompt runs and how a task finishes are in the [execution policy](../../docs/songsmith-execution-policy.md); what a prompt contains is in the [issue and prompt template](../../docs/backlog-issue-prompt-contract.md). Neither is repeated here.
 
-- Board Todo order decides overnight pickup; Doing requests immediate work behind the active job. Only the board's Execution value Deferred holds a card back; a prompt or issue cannot defer it, whatever it says. Never reject due to issue repository, prompt location or ID prefix. Validate the actual view order; no priority/ID fallback.
-- One task per invocation and one active job. Stop new work at >=60% verified weekly Claude usage, including scoped meters; unknown usage blocks pickup.
-- Automatically approve/merge only after current-head required CI/tests pass. Trusted workflows automatically increment the beta third-component build/patch number; major/minor increments are deferred.
-- Comment on actual pickup, progress, failure, merge and deployment. Verify matching beta website deployment and both installer downloads, post the final completion comment, then close the issue and finally set its board card Done.
-- Archived prompts mean merged implementation, not verified delivery. No duplicate implementation while a release is pending.
-- AUTO-11 (board pickup) is done and running in the container; AUTO-12 (bounded loop, resume) and AUTO-14 (pickup reason) are done and verified live. Infrastructure/website tasks require their scoped execution path and credentials, not a location-based rejection.
+## Open prompts
 
-## Canonical issue and prompt links
-Every implementation item needs a unique stable ID, issue and canonical prompt linked both ways. Follow [the issue/prompt contract](../../docs/backlog-issue-prompt-contract.md). A Doing card is a run-now request, not proof of pickup.
-
-| ID | Canonical prompt | Tracking issue | Evidence / status |
-|---|---|---|---|
-| VER-01 | [Version baseline](done/VER-01-standardise-suite-version-0.5.0.md) | [songsmithstudio #2](https://github.com/tonygward/songsmithstudio/issues/2) | Implementation #152 merged; later beta build numbers advance automatically. Verify delivery before issue Done. |
-| SUI-15 | [Footer version label](done/SUI-15-footer-version-before-processing-load.md) | [songsmithstudio #3](https://github.com/tonygward/songsmithstudio/issues/3) | #174 merged; v0.5.2 release and website source manifest exist. Authenticated live delivery still needs recorded verification. |
-| SUI-16 | [Fix truncated version text](done/SUI-16-version-label-fully-visible.md) | [songsmithstudio #4](https://github.com/tonygward/songsmithstudio/issues/4) | Restored as a distinct truncation bug, not a duplicate of SUI-15. #177 merged; beta publication/download verification pending at reconciliation. |
-| WEB-01 | [Private beta portal](WEB-01-private-beta-portal.md) | [website #21](https://github.com/tonygward/songsmith-website/issues/21) | Reconcile implemented portal against remaining acceptance criteria; do not rebuild it blindly. |
-| WEB-02 | [Distribution hardening](https://github.com/tonygward/songsmith-website/blob/main/prompts/WEB-02-release-distribution-hardening.md) | [website #22](https://github.com/tonygward/songsmith-website/issues/22) | Website-owned implementation and end-to-end acceptance. |
-| WEB-03 | [Plugin Features section](WEB-03-beta-plugin-features-section.md) | [website #19](https://github.com/tonygward/songsmith-website/issues/19) | Requested website work; verify actual pickup and deployment separately. |
-
-## Open implementation / validation prompts
-Order below is an index, not the execution queue. The board decides order.
+This is an index, not the queue: the board decides what runs and in what order. Cards in Backlog wait, whichever folder their prompt is in.
 
 | ID | Canonical prompt | Tracking issue |
 |---|---|---|
-| ARCH-01 | [Future monorepo migration — plugins, Matrix and two websites](future/ARCH-01-songsmith-monorepo-migration.md) | [#194](https://github.com/tonygward/audio-plugins/issues/194) |
-| REC-01 | [Standalone file Recording and Streaming Advisor](future/REC-01-file-recording-advisor.md) | [#173](https://github.com/tonygward/audio-plugins/issues/173) |
-| ADV-02 | [Reference-mix guided review](future/ADV-02-reference-mix-guided-review.md) | [#172](https://github.com/tonygward/audio-plugins/issues/172) |
+| ARCH-01 | [Monorepo migration — plugins, Matrix and two websites](ARCH-01-songsmith-monorepo-migration.md) (parent epic, not one Matrix job) | [#194](https://github.com/tonygward/audio-plugins/issues/194) |
+| REC-01 | [Standalone file Recording and Streaming Advisor](REC-01-file-recording-advisor.md) | [#173](https://github.com/tonygward/audio-plugins/issues/173) |
+| ADV-02 | [Reference-mix guided review](ADV-02-reference-mix-guided-review.md) | [#172](https://github.com/tonygward/audio-plugins/issues/172) |
 | PEQ-01 | [Pultec-style EQ](classics/PEQ-01-pultec-eq.md) | [#170](https://github.com/tonygward/audio-plugins/issues/170) |
 | OPT-01 | [Optical Leveller](classics/OPT-01-optical-leveller.md) | [#169](https://github.com/tonygward/audio-plugins/issues/169) |
 | COMP-01 | [Songsmith Compressor](../../compressor/prompts/01-songsmith-compressor.md) (supersedes CLN-01, #168, withdrawn) | [#235](https://github.com/tonygward/audio-plugins/issues/235) |
 | BUS-01 | [SSL-style bus compressor](classics/BUS-01-ssl.md) | [#167](https://github.com/tonygward/audio-plugins/issues/167) |
 | AUTO-04 | [Independent test-writing agent and TDD workflow](AUTO-04-independent-tdd-test-agent.md) | [#165](https://github.com/tonygward/audio-plugins/issues/165) |
 | AUTO-02 | [Codex fallback when Claude allowance is exhausted](AUTO-02-codex-fallback.md) | [#163](https://github.com/tonygward/audio-plugins/issues/163) |
-| AUTO-01 | [Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) | [#162](https://github.com/tonygward/audio-plugins/issues/162) |
-| EQ-41 | [Label the Gain Scale control](../../eq/prompts/41-gain-scale-main-toolbox.md) (the move itself shipped with SUI-18) | [#203](https://github.com/tonygward/audio-plugins/issues/203) |
-| EQ-42 | [Accurate clipping indication and peak readout](../../eq/prompts/42-clip-meter-readout.md) | [#232](https://github.com/tonygward/audio-plugins/issues/232) |
-| ACOMP-16 | [Continuous Ignore Below up to 500 Hz](../../analog-compressor/prompts/16-ignore-below-continuous-500hz.md) | [#237](https://github.com/tonygward/audio-plugins/issues/237) |
+| AUTO-01 | [Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) (parent epic) | [#162](https://github.com/tonygward/audio-plugins/issues/162) |
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
+| EQ-41 | [Label the Gain Scale control](../../eq/prompts/41-gain-scale-main-toolbox.md) | [#203](https://github.com/tonygward/audio-plugins/issues/203) |
+| EQ-42 | [Accurate clipping indication and peak readout](../../eq/prompts/42-clip-meter-readout.md) | [#232](https://github.com/tonygward/audio-plugins/issues/232) |
+| ACOMP-16 | [Continuous Ignore Below up to 500 Hz](../../analog-compressor/prompts/16-ignore-below-continuous-500hz.md) | [#237](https://github.com/tonygward/audio-plugins/issues/237) |
+| WEB-01 | [Private beta portal](WEB-01-private-beta-portal.md) (code in `songsmith-website`; Matrix does not build there yet) | [website #21](https://github.com/tonygward/songsmith-website/issues/21) |
+| WEB-02 | [Distribution hardening](https://github.com/tonygward/songsmith-website/blob/main/prompts/WEB-02-release-distribution-hardening.md) (prompt kept in `songsmith-website`) | [website #22](https://github.com/tonygward/songsmith-website/issues/22) |
+| WEB-03 | [Plugin Features section](WEB-03-beta-plugin-features-section.md) (code in `songsmith-website`) | [website #19](https://github.com/tonygward/songsmith-website/issues/19) |
 
-AUTO-01 is a parent tracking epic (AUTO-05, the Linux agent container, is built and withdrawn as an epic). AUTO-06/07 are archived code foundations. AUTO-08/09 retain runtime and development/CI evidence respectively (AUTO-10, distribution, was proven and withdrawn). Real Matrix PRs #174/#177 show execution has occurred; they do not prove every isolation/recovery/distribution acceptance criterion.
-
-ARCH-01 is a parent architecture epic requiring an approved, staged migration after the current SDLC proves end-to-end. It is not an executable Matrix job. Keep AUTO-02 provider fallback and the classic plugin designs held back with the board's Execution value Deferred until they are intentionally promoted; prompts in `future/` are excluded from pickup. A board card cannot bypass unmet dependencies or execution permissions.
+`classics/` groups the hardware-inspired plugin designs; it is only a folder and holds nothing back. AUTO-05 (the Linux agent container), AUTO-06, AUTO-07, AUTO-10 and AUTO-11 to AUTO-14 are built; their prompts are in `done/` or were withdrawn.
 
 ## Merged implementation archive
-These links prevent completed features being selected again. Verify each ticket's delivery separately; the archive is not board Done.
+These links prevent completed features being selected again. An archived prompt means the work merged; the card reaches Done only after delivery.
 
 ### shared
 - [ADV-01-musician-guidance](done/ADV-01-musician-guidance.md)
@@ -145,10 +127,9 @@ These links prevent completed features being selected again. Verify each ticket'
 - [07-loudness-meter](../../maximiser/prompts/done/07-loudness-meter.md)
 - [08-faceplate-and-meter-polish](../../maximiser/prompts/done/08-faceplate-and-meter-polish.md)
 - [09-integrated-lufs-beside-dial](../../maximiser/prompts/done/09-integrated-lufs-beside-dial.md)
-- [overnight-prompt](../../maximiser/prompts/done/overnight-prompt.md)
 
 ## Product direction
 The current suite comprises EQ, Analog Compressor and Maximiser. The planned Songsmith Compressor (COMP-01) has its own `compressor/prompts/` folder until it has source. Planned classics, guidance tools and Channel Strip remain future work until implemented and released. Keep [the EQ roadmap](../../eq/ROADMAP.md) for product direction, not current queue order or software versions.
 
 ## Prompt identity and traceability
-Keep IDs stable when archiving. Repair relative links and issue links at the same time; record implementation PRs and verified release/deployment evidence. Preserve historical acceptance requirements but clearly label superseded policy and merged implementation status. Use Sonnet by default and explicitly scope any Opus design escalation.
+Keep IDs stable when archiving. Repair relative links and issue links at the same time; record implementation PRs and verified release/deployment evidence. Preserve historical acceptance requirements but clearly label superseded policy and merged implementation status. Sonnet is the default model; Matrix always runs Sonnet.

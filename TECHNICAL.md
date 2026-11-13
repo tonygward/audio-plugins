@@ -45,13 +45,10 @@ To build it on a Mac: build the three plugins (Release), then run `installer/mac
 
 Every plugin, installer and release shares one version number, kept in the `VERSION` file (one line, `x.y.z`). Nothing else holds a version: the plugins' `CMakeLists.txt`, every installer script and the CI zip steps read that file, and `installer/check-version.ps1` (run by CI) fails if anything starts holding its own, or if a built plugin reports a different version. There is one tag and one GitHub release per version, `vX.Y.Z`, titled **Songsmith Plugins vX.Y.Z**. Older tags (`v0.5.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`) stay as they are.
 
-To release (the overnight runner in `shared/prompts/overnight-prompt.md` does the same):
+Releasing is automatic; nobody edits `VERSION` or publishes by hand. Each source merge to `main` is followed by a `[beta-version]` commit that raises the third part of `VERSION` and moves the `## Unreleased` notes in `CHANGELOG.md` into the new version. That commit gets the one full packaging build, and the release is published from it with exactly two files, `Songsmith-Plugins-X.Y.Z-win64-setup.exe` and `Songsmith-Plugins-X.Y.Z-macOS.pkg`, then copied to the beta website. Details, switches and recovery: [release checkpoints](docs/automatic-release-checkpoints.md) and [pipelines](docs/pipelines.md).
 
-1. Confirm the agreed release milestone and delivered scope in `shared/prompts/README.md`. Update the shared `VERSION` once per validated release checkpoint rather than once per feature PR. Use a patch increment for compatible fixes, minor for compatible features and a reviewed major increment for significant compatibility/product changes. Do not renumber older tags. EQ roadmap phase headings are historical and not suite release numbers.
-2. Add the entry to the root `CHANGELOG.md` (a section per version, a heading per plugin) and merge the pull request.
-3. Wait for the **Build** run of the merge commit on `main` to finish and pass.
-4. Download **only** the validated suite artifacts from that exact build run: `gh run download <run id> -n Songsmith-Plugins-Windows-setup -D release-assets/windows` and `gh run download <run id> -n Songsmith-Plugins-macOS-pkg -D release-assets/macos`. Verify filenames, matching VERSION, provenance and successful suite installer tests.
-5. Publish exactly **two** public assets: `Songsmith-Plugins-X.Y.Z-win64-setup.exe` and `Songsmith-Plugins-X.Y.Z-macOS.pkg`. For example `gh release create vX.Y.Z --target <merge commit> --title "Songsmith Plugins vX.Y.Z" release-assets/windows/Songsmith-Plugins-X.Y.Z-win64-setup.exe release-assets/macos/Songsmith-Plugins-X.Y.Z-macOS.pkg` (plus plain-language release notes). There must be **no separate plugin installers, ZIP archives, individual VST3/AU bundles, or screenshots attached to releases**. Internal CI artifacts remain for building and testing the suite; useful screenshots belong in PRs and READMEs. Check the published release asset list has exactly two files. Existing releases with extra assets can be cleaned up separately without replacing their working suite installers.
+What you do in a pull request: if musicians will notice the change, add plain-language bullets under `## Unreleased` at the top of `CHANGELOG.md`.
+
 ### What keeps the name Songsmith Studio
 
 **Songsmith Plugins** is the name of the family. **Songsmith Studio** is the publisher, so it stays wherever a name identifies something that already exists on a computer or in a session: the VST3 and Audio Unit manufacturer (hosts list the plugins under Songsmith Studio), the `Program Files\Songsmith Studio` folder, the preset folders (`%APPDATA%\Songsmith Studio`, `~/Library/Songsmith Studio`), the installers' application and package IDs, the plugin codes and bundle IDs, and the release tags already published (`studio-v1.0.0` and the others). Changing any of those would orphan installs, presets or projects.
@@ -167,7 +164,7 @@ You need [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSo
 .\installer\test-installer.ps1         # builds it, then installs, upgrades and uninstalls it inside a temp folder
 ```
 
-The version comes from `project(... VERSION ...)` in `CMakeLists.txt`. The script is `installer\SongsmithEQ.iss`. The test never touches your real VST3 folder or presets. CI builds both as internal test artifacts (`Songsmith-EQ-Windows-setup` and `Songsmith-EQ-Windows-zip`); they are never published. Releases carry only the two suite installers.
+The version comes from the shared `VERSION` file (see [Releasing](#releasing)). The script is `installer\SongsmithEQ.iss`. The test never touches your real VST3 folder or presets. CI builds both as internal test artifacts (`Songsmith-EQ-Windows-setup` and `Songsmith-EQ-Windows-zip`); they are never published. Releases carry only the two suite installers.
 
 ---
 
@@ -241,7 +238,7 @@ After a Release build, from the `eq` folder (needs Xcode's `pkgbuild` and `produ
 installer/macos/build-installer.sh   # -> build/installer/Songsmith-EQ-<version>-macOS.pkg
 ```
 
-The version comes from `project(... VERSION ...)` in `CMakeLists.txt`. The installer's layout and pages are in `installer/macos/` (`distribution.xml`, `resources/`, and the `preinstall`/`postinstall` scripts in `scripts/`). It isn't signed or notarised. CI builds it as an internal test artifact (`Songsmith-EQ-macOS-pkg`, next to the zip); it is never published. Releases carry only the two suite installers.
+The version comes from the shared `VERSION` file (see [Releasing](#releasing)). The installer's layout and pages are in `installer/macos/` (`distribution.xml`, `resources/`, and the `preinstall`/`postinstall` scripts in `scripts/`). It isn't signed or notarised. CI builds it as an internal test artifact (`Songsmith-EQ-macOS-pkg`, next to the zip); it is never published. Releases carry only the two suite installers.
 
 `installer/macos/test-installer.sh` is CI's end-to-end test. It really installs system-wide (and removes legacy plug-ins), so it refuses to run outside CI unless you pass `--i-know-this-installs-system-wide`.
 

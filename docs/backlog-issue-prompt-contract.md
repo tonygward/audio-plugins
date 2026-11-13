@@ -1,14 +1,36 @@
-# Songsmith backlog: issue ↔ canonical Claude prompt contract
+# Songsmith backlog: issue and prompt template
 
-**Applies to every new Songsmith implementation backlog item**, irrespective of repository. A GitHub issue without its linked canonical Markdown implementation prompt is an **incomplete backlog entry**, not an executable task. Historical entries may be reconciled incrementally; do not create duplicates.
+When a task is ready to run, and when a prompt has to exist, is set by the [execution policy](songsmith-execution-policy.md#1-backlog-issues-and-prompts). This page only says what an issue and a prompt contain.
 
-1. **Search before creation.** Look across `audio-plugins`, `songsmithstudio` and `songsmith-website` for the stable ID, matching issues, prompt files and completed work. Update the existing item instead of duplicating.
-2. **One stable issue ID, one canonical prompt.** Keep plugin prompts in `eq/prompts/`, `analog-compressor/prompts/`, `maximiser/prompts/` and cross-suite / portal / infrastructure prompts in `audio-plugins/shared/prompts/`, following `shared/prompts/README.md`. Implementation may live in another repository; document which repository owns the code.
-3. **Link both ways.** Put the exact issue URL near the top of the prompt. Put the exact canonical prompt path + permalink in the issue body. Record links to implementing PRs and validated release/deployment after completion. Avoid just repeating instructions inside issues without the file.
-4. **Ready-for-execution gate.** A newly created issue is not ready for Matrix until its prompt is merged into `main`, appears in the appropriate README index, has valid metadata/eligibility and dependencies, and an actual queue/dispatch can be verified. A `RUN NOW` label/issue-body request is *not* proof of queued, started or finished execution.
-5. **Prompt minimum contract:** ID/title; objective and user value; actual vs desired behaviour; scope/repo; implementation guidance; acceptance criteria; tests; dependencies/risks; platform builds; version/release expectations; model and effort. **Do not put status or execution in a prompt:** the project board (column and Execution field) owns both, and Matrix ignores them. Distinguish requested, queued, running, tested, merged, released and deployed. Do not invent evidence.
-6. **Execution selection and isolation.** Follow [the current policy](songsmith-execution-policy.md). Board order decides selection regardless of issue repository, prompt location or prefix. Resolve the real implementation repository and scoped execution path. One task per invocation/one active task; stop at >=60% weekly Claude usage. AUTO-11 must implement and verify board ordering before it is described as live; the current Markdown allowlist is a legacy implementation limitation to replace, not the desired policy.
-7. **Lifecycle.** Comment on genuine pickup, progress, PR/CI results, failure, merge and release blockers. Automatically approve/merge passing exact-head PRs through trusted automation. Archive merged prompts to avoid repeat coding and update all links. Keep the issue open and board Doing/release-pending until the beta website is deployed and matching Windows/macOS installer downloads are verified. Post the final completion comment with evidence, then close the issue and finally set board Done. Automatic beta build/patch increments apply; major/minor increments are deferred.
+## The issue
 
-## Implementation workflow
-Create or update the GitHub issue and canonical prompt in a documentation PR; merge that PR before submitting an eligible execution task. For cross-repository work, link the issue in the other repo to the canonical prompt in audio-plugins and open an implementation PR in its owning repository. A prompt file is the preferred route, but not a requirement: if an issue has an objective, scope or implementation notes, acceptance criteria and tests, Matrix generates the canonical prompt from it when it picks the card up and saves it in the implementation pull request. Without that detail Matrix comments on what is missing and moves the card to Blocked. Where the prompt cannot yet be merged, describe it as **prompt drafted / PR pending**, never as ready or running.
+- **Title** starts with the stable ID: `ACOMP-16: Continuous Ignore Below up to 500 Hz`. Search `audio-plugins`, `songsmithstudio` and `songsmith-website` for the ID and for similar work first, and update what exists instead of duplicating it.
+- **Body**: enough for Matrix to build the prompt when there is no prompt file. Use these headings, each with real text:
+  - `## Objective` (and the user value)
+  - `## Scope` or `## Implementation`
+  - `## Acceptance criteria`
+  - `## Tests` (a combined `## Acceptance criteria and tests` counts for both)
+- If a prompt file exists, link it near the top of the issue (path and permalink).
+
+## The prompt
+
+- **Where:** `<plugin>/prompts/` for one plugin (`eq`, `analog-compressor`, `maximiser`, `compressor`), `shared/prompts/` for work across the suite. Name it `NN-slug.md` in a plugin folder or `ID-slug.md` in `shared/prompts/`. If the code lives in another repository, say which.
+- **Metadata** (optional; the restricted format is in the [Matrix README](../tools/matrix/README.md#metadata-and-normalisation)):
+
+  ```yaml
+  ---
+  id: EQ-41
+  priority: medium
+  effort: low
+  dependencies: ["EQ-32"]
+  conflicts: []
+  ---
+  ```
+
+  Leave out `model:`: Sonnet is the default and Matrix always runs Sonnet. Never add a status or execution line; the board owns both.
+- **Body**, in this order: the issue link; objective and user value; current and desired behaviour; scope; implementation guidance; acceptance criteria; tests; dependencies and risks; build and release expectations (which plugins, whether users will notice, so a changelog note is needed).
+- Do not repeat the execution policy in a prompt. End with a link to it if you like, nothing more.
+
+## Writing it down is not running it
+
+Creating an issue or a prompt does not mean Matrix queued, started, merged or delivered it. Say what actually happened: requested, running, merged, released, delivered. Never invent evidence.
