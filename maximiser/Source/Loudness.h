@@ -7,6 +7,7 @@
 #include <complex>
 #include <vector>
 #include "MaxParams.h"
+#include "SongsmithKWeighting.h"
 
 // Loudness metering to ITU-R BS.1770-4 (K-weighting, channel weights, gating) with the EBU R 128
 // windows (Momentary 400 ms, Short Term 3 s, Integrated). A Songsmith addition: the L1 had no such meter.
@@ -20,58 +21,10 @@ namespace Max::Loudness
     constexpr double stepSeconds = 0.1;
     constexpr double resetMarker = -1.0;   // a FIFO entry that is not a step: "start measuring again"
 
-    // One second-order section, transposed direct form II, in double precision.
-    struct Biquad
-    {
-        double b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
-
-        double process (double x) noexcept
-        {
-            const double y = b0 * x + z1;
-            z1 = b1 * x - a1 * y + z2;
-            z2 = b2 * x - a2 * y;
-            return y;
-        }
-        void clear() noexcept { z1 = z2 = 0.0; }
-    };
-
-    // BS.1770-4 gives coefficients for 48 kHz only. These are the analogue prototype (stage 1: a high
-    // shelf of +4 dB around 1.68 kHz; stage 2: a 38 Hz high pass), mapped to any rate by the bilinear
-    // transform. At 48 kHz they reproduce the standard's published coefficients (tested).
-    inline void kWeightingCoefficients (double fs, Biquad& shelf, Biquad& highPass) noexcept
-    {
-        constexpr double pi = 3.14159265358979323846;
-        {
-            const double f0 = 1681.974450955533, gain = 3.999843853973347, q = 0.7071752369554196;
-            const double k = std::tan (pi * f0 / fs);
-            const double vh = std::pow (10.0, gain / 20.0), vb = std::pow (vh, 0.4996667741545416);
-            const double a0 = 1.0 + k / q + k * k;
-            shelf.b0 = (vh + vb * k / q + k * k) / a0;
-            shelf.b1 = 2.0 * (k * k - vh) / a0;
-            shelf.b2 = (vh - vb * k / q + k * k) / a0;
-            shelf.a1 = 2.0 * (k * k - 1.0) / a0;
-            shelf.a2 = (1.0 - k / q + k * k) / a0;
-        }
-        {
-            const double f0 = 38.13547087602444, q = 0.5003270373238773;
-            const double k = std::tan (pi * f0 / fs);
-            const double a0 = 1.0 + k / q + k * k;
-            highPass.b0 = 1.0; highPass.b1 = -2.0; highPass.b2 = 1.0;
-            highPass.a1 = 2.0 * (k * k - 1.0) / a0;
-            highPass.a2 = (1.0 - k / q + k * k) / a0;
-        }
-    }
-
-    // Magnitude of the two stages together at 'freq', for the response test.
-    inline double kWeightingMagnitudeDb (double fs, double freq) noexcept
-    {
-        Biquad s, h;
-        kWeightingCoefficients (fs, s, h);
-        const double w = 2.0 * 3.14159265358979323846 * freq / fs;
-        const std::complex<double> z1 = std::polar (1.0, -w), z2 = std::polar (1.0, -2.0 * w);
-        auto mag = [&] (const Biquad& b) { return (b.b0 + b.b1 * z1 + b.b2 * z2) / (1.0 + b.a1 * z1 + b.a2 * z2); };
-        return 20.0 * std::log10 (std::abs (mag (s) * mag (h)));
-    }
+    // K-weighting (BS.1770-4) comes from the shared library, so Songsmith EQ's Auto Gain uses the same filter.
+    using Biquad = Songsmith::KWeighting::Biquad;
+    inline void kWeightingCoefficients (double fs, Biquad& shelf, Biquad& highPass) noexcept { Songsmith::KWeighting::coefficients (fs, shelf, highPass); }
+    inline double kWeightingMagnitudeDb (double fs, double freq) noexcept { return Songsmith::KWeighting::magnitudeDb (fs, freq); }
 
     inline double meanSquareToLufs (double meanSquare) noexcept
     {
