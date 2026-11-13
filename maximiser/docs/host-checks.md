@@ -56,7 +56,7 @@ No Waves L1 instance was available on the build machines, so this comparison has
 1. Use the same source, the same settings (Threshold −6 dB, Output Ceiling −1 dB, Release 1 ms, then 5 ms), the L1's IDR off, and Songsmith in Sample peak mode with Auto Release off.
 2. Render both and level-match by integrated loudness (LUFS) before listening.
 3. Compare four things:
-   - **Transient handling:** look at the attack shape on drum hits. Songsmith ramps the gain linearly over its 1.5 ms look-ahead.
+   - **Transient handling:** look at the attack shape on drum hits. Songsmith moves the gain in an S-curve over its 1.5 ms look-ahead.
    - **Ceiling:** sample peak and true peak of each render.
    - **Gain reduction:** the maximum and average attenuation.
    - **Latency:** reported in samples. Songsmith reports look-ahead + 12 samples.
