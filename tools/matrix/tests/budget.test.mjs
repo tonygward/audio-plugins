@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { budgetStop, runMinutes, DEFAULT_RUN_MINUTES } from '../budget.mjs';
+import { budgetStop, runMinutes, DEFAULT_RUN_MINUTES, tokenStop, tokensUsed } from '../budget.mjs';
 
 const start = Date.parse('2026-11-10T10:00:00Z');
 const task = { runStartedAt: new Date(start).toISOString() };
@@ -20,4 +20,17 @@ test('the run stops at the limit, not before, and says why', () => {
 test('no recorded start means no stop (nothing to count from), and bad dates never stop a run by accident', () => {
   assert.equal(budgetStop({}, {}, start + 9e9), null);
   assert.equal(budgetStop({ runStartedAt: 'not a date' }, {}, start + 9e9), null);
+});
+
+test('the optional token budget counts input, output and cache writes, not cache reads', () => {
+  assert.equal(tokensUsed({ input_tokens: 10, output_tokens: 20, cache_creation_input_tokens: 5, cache_read_input_tokens: 9999 }), 35);
+  assert.equal(tokensUsed(undefined), 0);
+  assert.equal(tokensUsed({ input_tokens: -3, output_tokens: 'x' }), 0);
+});
+
+test('the token budget stops a run once it is used up, and is off when not configured', () => {
+  assert.equal(tokenStop({ tokensUsed: 9e9 }, {}), null, 'no maximumTokens: no token limit');
+  assert.equal(tokenStop({ tokensUsed: 999 }, { maximumTokens: 1000 }), null);
+  assert.match(tokenStop({ tokensUsed: 1000 }, { maximumTokens: 1000 }), /Run token limit of 1000 tokens reached/);
+  assert.equal(tokenStop({}, { maximumTokens: 1000 }), null, 'a fresh run starts at zero');
 });

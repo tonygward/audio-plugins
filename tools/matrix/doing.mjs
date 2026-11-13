@@ -2,11 +2,11 @@
 // every restart. Compares each Doing card with merged and open pull requests, the archived
 // prompt and the durable worker state, so stale prose in an older issue can never decide.
 // Read-only: it returns findings and never changes a card, an issue or the state file.
-import { matrixBranchTask, isDeferred } from './board.mjs';
+import { matrixBranchTask } from './board.mjs';
 
 /**
  * kinds: active (our claimed job) | in-review (open pull request) | release-pending (merged, delivery not verified)
- *        | requested (Doing without a claim: run-now, picked ahead of Todo) | deferred (Doing, board Execution Deferred: left alone) | blocked (interrupted or dead-lettered)
+ *        | requested (Doing without a claim: run-now, picked ahead of Todo) | blocked (interrupted or dead-lettered)
  *        | unready (Doing, no canonical prompt on main yet: skipped, non-blocking) | inconsistent (blocks enabling)
  */
 export function reconcileDoing(snapshot, prompts, pulls, tasks = {}) {
@@ -39,7 +39,6 @@ export function reconcileDoing(snapshot, prompts, pulls, tasks = {}) {
     else if (task?.state === 'claimed') add(card, 'active',`Claimed by job ${task.job ?? 'unknown'}${openPulls.length ? `; open pull request #${openPulls.join(', #')}` : ''}`);
     else if (task && ['interrupted', 'dead-letter'].includes(task.state)) add(card, 'blocked', `Durable state ${task.state}: move to Blocked with the reason; resume only on an explicit decision`);
     else if (openPulls.length) add(card, 'in-review', `Open pull request #${openPulls.join(', #')} already covers this task`);
-    else if (isDeferred(card)) add(card, 'deferred', 'Deferred on the board (Execution field): the card stays in Doing and is not picked up');
     else add(card, 'requested', 'Doing without a claim is a run-now request: picked up next, ahead of Todo, once no job is active and the gates pass');
   }
   // A claimed task whose card is missing from Doing or Todo means board and state disagree.

@@ -16,8 +16,9 @@ export const blockerMarker = (task, hash) => `<!-- matrix-blocker:${task}:${hash
  * io.pull(repository, number)       -> { state, mergeSha, url }
  * io.release(mergeSha, repository) -> { tag, url, sourceSha, includesMerge, version, assets: [{ name, size }] } | null  (the release is built from the automatic version-bump commit after the merge, so it must contain the merge commit, not equal it)
  * io.r2(version)                    -> [{ name, size }]            private storage objects
- * io.site()                         -> { version, changelogVersions: [] }   deployed beta website
- * io.downloads(version)             -> { windows: { ok, bytes }, macos: { ok, bytes } }   authenticated
+ * io.site()                         -> { version, changelogVersions: [], url }   deployed beta website
+ * io.promptArchived(file)           -> true when the task's canonical prompt is in a done/ folder on main
+ * Downloads are not checked: the final comment publishes the beta website link instead.
  */
 export async function verifyDelivery(delivery, io) {
   const missing = [], evidence = {};
@@ -44,11 +45,12 @@ export async function verifyDelivery(delivery, io) {
         if (!site.changelogVersions?.includes(release.version)) missing.push('Beta website changelog does not list this version');
         if (site.deployed === false) missing.push('Beta website deployment is not confirmed');
       }
-      const downloads = await attempt('Authenticated downloads', () => io.downloads(release.version));
-      if (downloads) for (const [key, name] of [['windows', names[0]], ['macos', names[1]]]) {
-        if (!downloads[key]?.ok || downloads[key].bytes !== sizes.get(name)) missing.push(`Authenticated ${key} download failed or wrong size`);
-      }
-      evidence.deployment = { websiteVersion: site?.version ?? null, privateStorage: names, downloads: { windows: !!downloads?.windows?.ok, macos: !!downloads?.macos?.ok, exercised: downloads?.windows?.exercised !== false } };
+      evidence.deployment = { websiteVersion: site?.version ?? null, websiteUrl: site?.url ?? null, privateStorage: names };
+    }
+    // Every finished task keeps a canonical prompt, including one generated from its issue.
+    if (delivery.prompt && typeof io.promptArchived === 'function') {
+      try { if (!(await io.promptArchived(delivery.prompt))) missing.push(`Canonical prompt is not archived in done/ yet: ${delivery.prompt}`); }
+      catch (error) { missing.push(`Canonical prompt could not be checked: ${String(error.message).slice(0, 120)}`); }
     }
   } catch (error) {
     return { verified: false, missing: [`Verification could not complete: ${String(error.message).slice(0, 160)}`], evidence };
@@ -64,8 +66,7 @@ export function finalComment({ taskId, job, evidence }) {
     `- Beta version: ${release.version} (${release.url ?? release.tag})${release.firstShipped ? `; this change first shipped in ${release.firstShipped} and is included in the live beta` : ''}`,
     `- Installers: ${release.assets.join(' and ')}`,
     `- Private storage matches the release; beta website shows ${deployment.websiteVersion} with this version in its changelog`,
-    deployment.downloads.exercised ? `- Authenticated downloads checked: Windows ${deployment.downloads.windows ? 'passed' : 'failed'}, macOS ${deployment.downloads.macos ? 'passed' : 'failed'}`
-      : '- Download route: not exercised by Matrix; the beta website checks installer size and SHA-256 against private storage on every download', '',
+    `- Download: ${deployment.websiteUrl ?? 'https://beta.songsmith.uk'}`, '',
     'Closing this issue and moving the card to Done.'].join('\n');
 }
 
@@ -127,6 +128,6 @@ export function recordMerge(state, taskId, { repository, pull, releaseTag = null
   const task = state.tasks[taskId];
   if (!task?.job || !task.issue || !task.itemId) throw new Error('Task has no pickup record');
   state.deliveries ??= {};
-  state.deliveries[taskId] ??= { stage: 'pending', repository, pull, issue: task.issue, issueRepository: task.issueRepository ?? task.repository, itemId: task.itemId, job: task.job, releaseTag, firstShipped, mergedRecordedAt: new Date().toISOString() };
+  state.deliveries[taskId] ??= { stage: 'pending', repository, pull, issue: task.issue, issueRepository: task.issueRepository ?? task.repository, itemId: task.itemId, job: task.job, prompt: task.file ?? null, releaseTag, firstShipped, mergedRecordedAt: new Date().toISOString() };
   return state.deliveries[taskId];
 }

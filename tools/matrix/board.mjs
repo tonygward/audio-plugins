@@ -17,7 +17,6 @@ export const BOARD_QUERY = `query($id: ID!, $after: String) {
       nodes {
         id
         status: fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
-        execution: fieldValueByName(name: "Execution") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
         content { __typename ... on Issue { number title state repository { nameWithOwner } } }
       }
     }
@@ -97,15 +96,11 @@ export function pullTaskState(pulls) {
   return { merged, open };
 }
 
-// Deferral. Only the board's Execution value Deferred holds a card back. Prompts and issues carry no status or execution:
-// wording such as "deferred" or "not queued" inside them holds nothing.
-export function isDeferred(card) {
-  return card?.execution === 'Deferred';
-}
-
+// The board column is the only hold: Backlog and Blocked cards wait; Todo and Doing cards run. Prompts and issues carry no
+// status: wording such as "deferred" or "not queued" inside them holds nothing.
 export function normaliseCard(node, index) {
   const issue = node.content?.__typename === 'Issue' ? node.content : null;
-  return { position: index, itemId: node.id, status: node.status?.name ?? null, execution: node.execution?.name ?? null, issue: issue?.number ?? null,
+  return { position: index, itemId: node.id, status: node.status?.name ?? null, issue: issue?.number ?? null,
     state: issue?.state ?? null, repository: issue?.repository?.nameWithOwner ?? null,
     taskId: issue ? taskPattern.exec(issue.title)?.[1] ?? null : null, title: issue?.title ?? node.content?.title ?? '' };
 }
@@ -129,7 +124,7 @@ export function selectFromBoard(snapshot, prompts, context) {
 
   const byId = new Map(prompts.map(p => [p.id, p]));
   const complete = new Set(prompts.filter(p => p.complete).map(p => p.id));
-  // Doing is a run-now request and is offered first (a card marked Deferred is skipped); Todo is the ready queue. Each in board order.
+  // Only Doing and Todo cards run. Doing is a run-now request and is offered first; Todo is the ready queue. Each in board order.
   const queue = statuses.flatMap(status => snapshot.cards.filter(card => card.status === status));
   const decisions = [], seen = new Set();
   let selected = null;
@@ -143,9 +138,7 @@ export function selectFromBoard(snapshot, prompts, context) {
       : mergedTaskIds.has(card.taskId) || complete.has(card.taskId) ? 'implementation merged; release pending, do not recode'
       : openPullTaskIds.has(card.taskId) && !task?.resumeWork ? 'open pull request already exists for task'
       : !prompt ? 'no canonical prompt found'
-      : prompt.excluded ? 'prompt is in an excluded folder (future or archive)'
-      : card.execution === 'Separate' ? 'card is marked Separate on the board (scheduled separately)'
-      : isDeferred(card) ? 'card is marked Deferred on the board'
+      : prompt.excluded ? 'prompt is archived'
       : prompt.blocked ? 'prompt is blocked'
       : task && ['claimed', 'interrupted', 'awaiting-review', 'complete', 'dead-letter', 'withdrawn'].includes(task.state) ? `durable state: ${task.state}`
       : !executionPaths.has(repository) ? `no scoped execution path for ${repository}` : null;

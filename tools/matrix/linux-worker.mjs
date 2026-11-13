@@ -21,7 +21,7 @@ import { boardTick, ghGraphql, promptLoader } from './board-run.mjs';
 import { readHandoff, adoptHandoff, boardFields, clearHandoff } from './handoff.mjs';
 import { postPickupComment } from './pickup.mjs';
 import { postCiPassedComment } from './ci-comment.mjs';
-import { budgetStop, runMinutes } from './budget.mjs';
+import { budgetStop, runMinutes, tokenStop, tokensUsed } from './budget.mjs';
 import { parsePrompt } from './backlog.mjs';
 
 export const CI_VALIDATION = 'Hosted Windows and macOS builds and tests decide; this worker ran no local build.';
@@ -42,6 +42,7 @@ export function validateLinuxConfig(config) {
   if (!int(w.maximumPrompts, 1, 6) || !int(w.maximumTurns, 1, 60) || !Number.isFinite(w.maximumBudgetUsd) || w.maximumBudgetUsd <= 0 || w.maximumBudgetUsd > 20) throw Error('Invalid worker budget');
   if (!int(w.timeoutSeconds, 60, 1800) || !int(w.ciTimeoutSeconds, 300, 7200) || !int(w.maximumRepairs, 0, 3) || !int(w.pollSeconds, 5, 300)) throw Error('Invalid worker timing');
   if (w.maximumRunMinutes !== undefined && !int(w.maximumRunMinutes, 5, 600)) throw Error('Invalid worker timing');
+  if (w.maximumTokens !== undefined && !int(w.maximumTokens, 10000, 100000000)) throw Error('Invalid worker token budget');
   if (!int(config.batchLimit, 1, 6)) throw Error('batchLimit must be 1-6');
   if (typeof config.enabled !== 'boolean') throw Error('enabled must be a boolean');
   validateBoardConfig(config);
@@ -58,7 +59,6 @@ export function validateBoardConfig(config) {
   if (['statusFieldId', 'doneOptionId', 'doingOptionId'].some(key => typeof b[key] !== 'string' || !b[key])) throw Error('boardPickup needs statusFieldId, doingOptionId and doneOptionId');
   if (b.blockedOptionId !== undefined && (typeof b.blockedOptionId !== 'string' || !b.blockedOptionId)) throw Error('Invalid blockedOptionId');
   if (b.tokenFile !== undefined && !path.isAbsolute(b.tokenFile)) throw Error('boardPickup.tokenFile must be absolute');
-  if (b.downloadEvidence !== undefined && b.downloadEvidence !== 'worker-checked') throw Error('Unknown downloadEvidence');
   if (b.dryRun !== undefined && typeof b.dryRun !== 'boolean') throw Error('dryRun must be a boolean');
 }
 
@@ -70,7 +70,7 @@ export function boardIo(gh, config, verifiers = {}) {
 // The limits this run actually enforces, quoted in the starting comment.
 export function limitsText(config) {
   const w = config.worker;
-  return `up to ${w.maximumTurns} Claude turns and a ${w.maximumBudgetUsd} dollar budget per attempt, ${Math.round(w.timeoutSeconds / 60)} minutes per attempt, ${w.maximumRepairs} CI repairs, ${runMinutes(w)} minutes in total per run; no new work at or above ${WEEKLY_LIMIT_PERCENT}% weekly Claude usage`;
+  return `up to ${w.maximumTurns} Claude turns and a ${w.maximumBudgetUsd} dollar budget per attempt, ${Math.round(w.timeoutSeconds / 60)} minutes per attempt, ${w.maximumRepairs} CI repairs, ${runMinutes(w)} minutes in total per run${w.maximumTokens ? `, ${w.maximumTokens} tokens in total per run` : ''}; no new work at or above ${WEEKLY_LIMIT_PERCENT}% weekly Claude usage`;
 }
 
 // Run the board tick, then the worker. The tick holds no Claude access: it decides, delivers and hands off.
@@ -87,7 +87,7 @@ export async function runBoardWorker(config, options = {}) {
   const git = async args => (await run(w.gitExecutable, [...hooks, '-c', 'credential.helper=', '-c', `credential.helper=!${w.ghExecutable} auth git-credential`, ...args],
     { cwd: config.repository, env: { ...base, GH_TOKEN: token() }, timeoutMs: 120000 })).stdout.trimEnd();
   const gh = async args => (await run(w.ghExecutable, args, { cwd: config.repository, env: { ...base, GH_TOKEN: token() }, timeoutMs: 120000 })).stdout;
-  const verifiers = betaVerifiers(gh, b.downloadEvidence === 'worker-checked' ? { workerChecked: true } : {});
+  const verifiers = betaVerifiers(gh);
   const io = boardIo(gh, config, verifiers);
   const jobId = `matrix-${new Date(clock()).toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`;
   const tick = await boardTick(config, { graphql: ghGraphql(gh), io, loadUsage, loadPrompts: promptLoader(git), jobId, clock, handoff: true, limits: limitsText(config) });
@@ -225,6 +225,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
       const task = state.tasks[p.id];
       if (!claim(state, p, initial.revision)) { save(); continue; }
       task.runStartedAt = new Date(clock()).toISOString(); // the run budget starts at the claim and survives a restart
+      task.tokensUsed = 0; // so does the token count
       if (handoff) {
         // Durable claim first, then the pickup comment. A failed comment keeps the claim and is retried by the next tick.
         Object.assign(task, boardFields(handoff, new Date(clock()).toISOString())); clearHandoff(dir);
@@ -270,7 +271,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
         if (Buffer.byteLength(basePrompt) > 512 * 1024) throw Error('Prompt exceeds input bound');
         let usedTurns = 0, spentUsd = 0, feedback = '', files = [];
         const implement = async attempt => {
-          const over = budgetStop(task, w, clock()); if (over) return over;
+          const over = budgetStop(task, w, clock()) ?? tokenStop(task, w); if (over) return over;
           if (attempt) { const next = loadUsage(config.claudeUsage); if (!next.allowed || !usageGate(next.snapshot, clock()).allowed || next.extraUsageEnabled !== false) return 'Repair stopped by usage policy'; }
           if (spentUsd >= w.maximumBudgetUsd) return 'Repair stopped by per-prompt turn/cost bounds';
           log(p.id, 'agent-started', { attempt: attempt + 1 });
@@ -281,7 +282,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
               { env: { ...env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: '8192' }, input: basePrompt + feedback, timeoutMs: w.timeoutSeconds * 1000 });
           } catch (error) {
             // Say why Claude stopped (result fields only; never the model's text), so an interruption can be explained.
-            let why = {}; try { const r = JSON.parse(error.stdout); why = { subtype: r.subtype, turns: r.num_turns, costUsd: r.total_cost_usd, isError: r.is_error }; }
+            let why = {}; try { const r = JSON.parse(error.stdout); why = { subtype: r.subtype, turns: r.num_turns, costUsd: r.total_cost_usd, isError: r.is_error }; task.tokensUsed = (task.tokensUsed ?? 0) + tokensUsed(r.usage); save(); }
             catch { why = { exitCode: error.exitCode, stderr: String(error.stderr ?? '').replace(/\s+/g, ' ').slice(-200) }; }
             log(p.id, 'agent-failed', why);
             // A limit is a deliberate stop, reported with its reason on the issue; anything else keeps the generic interruption message.
@@ -289,6 +290,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
             throw limit ? Object.assign(Error(limit), { blocked: true }) : error;
           }
           const metrics = parseAgent(response.stdout); usedTurns += metrics.turns; spentUsd += metrics.estimatedCostUsd;
+          task.tokensUsed = (task.tokensUsed ?? 0) + metrics.tokens; save();
           if (metrics.turns > w.maximumTurns * TURN_RUNAWAY_FACTOR || spentUsd > w.maximumBudgetUsd) throw Error(`Agent exceeded configured bounds (turns ${metrics.turns}/${w.maximumTurns}, cost ${spentUsd.toFixed(2)}/${w.maximumBudgetUsd} USD)`);
           log(p.id, 'agent-finished', metrics);
           files = await changes(plan.directory); validateChanges(files);

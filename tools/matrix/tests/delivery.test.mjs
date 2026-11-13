@@ -27,7 +27,6 @@ function fakeIo(over = {}) {
     release: release(good),
     r2: async () => good,
     site: async () => ({ version, changelogVersions: [version, '0.5.3'] }),
-    downloads: async () => ({ windows: { ok: true, bytes: 100 }, macos: { ok: true, bytes: 200 } }),
     hasComment: async (repo, issue, marker) => io.comments.some(c => c.includes(marker)),
     comment: async (repo, issue, body) => { io.log.push('comment'); if (over.failComment?.(body)) throw new Error('GitHub down'); io.comments.push(body); },
     closeIssue: async () => { io.log.push('close'); if (over.failClose) throw new Error('close refused'); },
@@ -41,7 +40,7 @@ test('verified delivery posts the final comment, then closes, then sets Done', a
   const dir = setup(), io = fakeIo();
   assert.deepEqual(await advanceDelivery(dir, 'MAX-07', io), { stage: 'done', blocked: null });
   assert.deepEqual(io.log, ['comment', 'close', 'done']);
-  for (const text of ['MAX-07', '180', sha.slice(0, 12), version, win, mac, 'Windows passed', 'macOS passed', 'job-1']) assert.ok(io.comments[0].includes(text), text);
+  for (const text of ['MAX-07', '180', sha.slice(0, 12), version, win, mac, 'Download: https://beta.songsmith.uk', 'job-1']) assert.ok(io.comments[0].includes(text), text);
 });
 
 test('each blocker keeps the issue open and the card in Doing, with one comment', async () => {
@@ -54,7 +53,6 @@ test('each blocker keeps the issue open and the card in Doing, with one comment'
     'private storage mismatch': { r2: async () => [{ name: win, size: 99 }, good[1]] },
     'website shows old version': { site: async () => ({ version: '0.5.3', changelogVersions: ['0.5.3'] }) },
     'changelog missing version': { site: async () => ({ version, changelogVersions: ['0.5.3'] }) },
-    'download rejected': { downloads: async () => ({ windows: { ok: false, bytes: 0 }, macos: { ok: true, bytes: 200 } }) },
     'verification throws': { r2: async () => { throw new Error('timeout'); } }
   };
   for (const [name, io] of Object.entries(cases)) {
@@ -108,17 +106,31 @@ test('recordMerge needs a pickup record and is idempotent; unknown tasks are ref
 });
 
 test('verifyDelivery reports every missing item together', async () => {
-  const io = fakeIo({ io: { r2: async () => [], site: async () => ({ version: '0.0.1', changelogVersions: [] }), downloads: async () => ({}) } });
+  const io = fakeIo({ io: { r2: async () => [], site: async () => ({ version: '0.0.1', changelogVersions: [] }) } });
   const result = await verifyDelivery({ repository: 'r', pull: 1 }, io);
   assert.equal(result.verified, false);
-  assert.ok(result.missing.length >= 6, result.missing.join(' | '));
+  assert.ok(result.missing.length >= 4, result.missing.join(' | '));
 });
 
-test('final comment does not claim downloads were exercised when they were not', async () => {
-  const dir = setup(), io = fakeIo({ io: { downloads: async () => ({ windows: { ok: true, bytes: 100, exercised: false }, macos: { ok: true, bytes: 200, exercised: false } }) } });
+test('downloads are not checked: the final comment publishes the website link', async () => {
+  const dir = setup(), io = fakeIo({ io: { site: async () => ({ version, changelogVersions: [version], url: 'https://beta.example.test' }) } });
   assert.equal((await advanceDelivery(dir, 'MAX-07', io)).stage, 'done');
-  assert.match(io.comments[0], /not exercised by Matrix/);
-  assert.doesNotMatch(io.comments[0], /Authenticated downloads checked/);
+  assert.match(io.comments[0], /Download: https:\/\/beta\.example\.test/);
+  assert.doesNotMatch(io.comments[0], /download route|downloads checked/i);
+});
+
+test('a task keeps a canonical prompt: Done waits until it is archived in done/', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'delivery-'));
+  const state = readState(dir);
+  state.tasks['ACOMP-20'] = { id: 'ACOMP-20', state: 'claimed', job: 'job-2', issue: 300, itemId: 'item-2', file: 'analog-compressor/prompts/20-x.md', issueRepository: 'tonygward/audio-plugins' };
+  recordMerge(state, 'ACOMP-20', { repository: 'tonygward/audio-plugins', pull: 301 });
+  atomic(path.join(dir, 'state.json'), state);
+  const asked = [];
+  const missing = fakeIo({ io: { promptArchived: async file => { asked.push(file); return false; } } });
+  const first = await advanceDelivery(dir, 'ACOMP-20', missing);
+  assert.equal(first.stage, 'pending'); assert.match(first.blocked, /Canonical prompt is not archived in done\/ yet: analog-compressor\/prompts\/20-x\.md/);
+  assert.deepEqual(asked, ['analog-compressor/prompts/20-x.md']);
+  assert.equal((await advanceDelivery(dir, 'ACOMP-20', fakeIo({ io: { promptArchived: async () => true } }))).stage, 'done');
 });
 
 test('finishing delivery moves a claimed or reviewed task to complete so it cannot hold the job slot', async () => {

@@ -1,6 +1,6 @@
 // GitHub-backed io for pickup.mjs and delivery.mjs. Every call goes through an injected `gh(args)`
 // that returns stdout, so tests need no network and the caller decides which token it holds.
-// Private storage, website and download checks come from verifiers.mjs. Any that is not supplied
+// Private storage, website and archived-prompt checks come from verifiers.mjs. Any that is not supplied
 // throws, and delivery verification fails closed (the issue stays open, the card stays in Doing).
 // Card moves use the GraphQL mutation: `gh project item-edit` needs the read:org scope, which the board token does not have.
 const MOVE = 'mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){projectV2Item{id}}}';
@@ -54,6 +54,6 @@ export function githubIo(gh, { projectId, statusFieldId, doneOptionId, doingOpti
     },
     r2: verifiers.r2 ?? notConfigured('Private storage'),
     site: verifiers.site ?? notConfigured('Beta website'),
-    downloads: verifiers.downloads ?? notConfigured('Authenticated download')
+    promptArchived: verifiers.promptArchived ?? notConfigured('Archived prompt')
   };
 }

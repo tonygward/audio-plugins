@@ -24,7 +24,7 @@ function harness({ cards, pulls = [], usage = { allowed: true, extraUsageEnabled
     release: async () => ({ tag: 't', url: 'u', sourceSha: 'b'.repeat(40), includesMerge: true, version: '0.5.4', assets: [{ name: 'Songsmith-Plugins-0.5.4-win64-setup.exe', size: 1 }, { name: 'Songsmith-Plugins-0.5.4-macOS.pkg', size: 2 }] }),
     r2: async () => [{ name: 'Songsmith-Plugins-0.5.4-win64-setup.exe', size: 1 }, { name: 'Songsmith-Plugins-0.5.4-macOS.pkg', size: 2 }],
     site: async () => ({ version: '0.5.4', changelogVersions: ['0.5.4'] }),
-    downloads: async () => ({ windows: { ok: true, bytes: 1 }, macos: { ok: true, bytes: 2 } })
+    promptArchived: async () => true
   };
   const graphql = async (query, vars) => vars.owner
     ? { data: { repository: { pullRequests: { pageInfo: { hasNextPage: false }, nodes: pulls.filter(p => p.state === vars.states[0]) } } } }
@@ -253,25 +253,20 @@ test('in a dry run the issue is assessed but nothing is commented or moved', asy
   assert.equal(h.comments.length, 0); assert.ok(!h.calls.includes('blocked:item-9'));
 });
 
-// ---- Only the board Execution value Deferred holds a task back; a prompt cannot ----
-test('Deferred on the card withdraws a task; any other value, or no card, leaves it pending', () => {
-  const p = prompt('A-01'), liveCard = (execution, id = 'A-01') => ({ taskId: id, issue: 1, execution, status: 'Doing' });
-  for (const [execution, expected] of [['Run Now', 'pending'], ['Scheduled', 'pending'], [null, 'pending'], ['Deferred', 'withdrawn']]) {
+// ---- The board column decides; an old Execution value or wording in a prompt holds nothing ----
+test('an old Execution value on a card no longer withdraws a task; a previously withdrawn task is released', () => {
+  const p = prompt('A-01'), liveCard = execution => ({ taskId: 'A-01', issue: 1, execution, status: 'Doing' });
+  for (const execution of ['Run Now', 'Deferred', 'Separate', null]) {
     const state = { tasks: {} }; refreshTasks(state, [p], revision, undefined, [liveCard(execution)]);
-    assert.equal(state.tasks['A-01'].state, expected, String(execution));
+    assert.equal(state.tasks['A-01'].state, 'pending', String(execution));
   }
-  // A task a previous tick withdrew is released once the card is no longer Deferred.
   const stale = { tasks: { 'A-01': { id: 'A-01', state: 'withdrawn' } } };
-  refreshTasks(stale, [p], revision, undefined, [liveCard('Run Now')]); assert.equal(stale.tasks['A-01'].state, 'pending');
-  // A Deferred card for another task, or no cards at all, does not hold this one.
-  const other = { tasks: {} }; refreshTasks(other, [p], revision, undefined, [liveCard('Deferred', 'B-01')]); assert.equal(other.tasks['A-01'].state, 'pending');
-  const none = { tasks: {} }; refreshTasks(none, [p], revision); assert.equal(none.tasks['A-01'].state, 'pending');
+  refreshTasks(stale, [p], revision); assert.equal(stale.tasks['A-01'].state, 'pending');
 });
 
-test('the board cannot release a prompt in an excluded folder or marked blocked, and Deferred holds back a normal prompt', () => {
-  const run = (extra, execution) => { const state = { tasks: {} }; refreshTasks(state, [prompt('A-01', extra)], revision, undefined, [{ taskId: 'A-01', issue: 1, execution, status: 'Doing' }]); return state.tasks['A-01'].state; };
-  assert.equal(run({ excluded: true }, 'Run Now'), 'withdrawn');
-  assert.equal(run({ blocked: true }, 'Run Now'), 'withdrawn');
-  assert.equal(run({}, 'Deferred'), 'withdrawn');
-  assert.equal(run({}, 'Run Now'), 'pending');
+test('an archived or blocked prompt stays withdrawn whatever the board says', () => {
+  const run = extra => { const state = { tasks: {} }; refreshTasks(state, [prompt('A-01', extra)], revision, undefined, [{ taskId: 'A-01', issue: 1, status: 'Doing' }]); return state.tasks['A-01'].state; };
+  assert.equal(run({ excluded: true }), 'withdrawn');
+  assert.equal(run({ blocked: true }), 'withdrawn');
+  assert.equal(run({}), 'pending');
 });
