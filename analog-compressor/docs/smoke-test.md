@@ -10,7 +10,7 @@ Don't run any system-wide install script during development. Copy the bundle by 
 4. **Controls.** Move Input and Output and hear the level change. Ratio, Attack, Release, Gain Reduction Off and Oversampling switch without clicks. All Buttons lights all four ratio buttons; pressing one ratio leaves it.
 5. **Host bypass.** Use Studio One's own bypass button on the insert. It stays in sync with the plugin's Bypass parameter, and the fade is click-free.
    With Oversampling at 2x or 4x, Studio One shows 4 or 6 samples of plugin delay. A track with the plugin stays phase-aligned with a duplicate track without it, whether the plugin is bypassed or not.
-6. **Automation.** Show automation for the track. Input, Output, Attack, Release, Ratio, All Buttons, Gain Reduction Off, Bypass and Oversampling are listed. Record a move on Input and play it back.
+6. **Automation.** Show automation for the track. Input, Output, Attack, Release, Ratio, Ratio 2:1, All Buttons, Gain Reduction Off, Ignore Below, Ignore Below Steps (kept for older projects), Bypass and Oversampling are listed. Record a move on Input and play it back.
 7. **Recall.** Set every control away from its default, save the song, close it and reopen it. Every control comes back as it was.
 8. **Several instances.** Run four instances at once. Each keeps its own settings.
 9. **Unload.** Remove the instances and close the song. Studio One doesn't crash or hang.
@@ -19,7 +19,7 @@ Record the Studio One version, the Windows version, and pass or fail for each st
 
 ## Editor checks (step 4)
 
-1. **Sizes.** Size menu 100 %, 150 %, 200 %: the window resizes, everything stays sharp, nothing overlaps. Reopen the song: the size comes back.
+1. **Sizes.** Drag the window corner to about 100 %, 150 % and 200 %: the window resizes, everything stays sharp, nothing overlaps. Reopen the song: the size comes back.
 2. **Meter.** GR, +4, +8: with a -18 dBFS RMS tone and Output 0, +4 reads about 0 VU and +8 about -4 VU. The needle swings smoothly (about 300 ms), whatever the buffer size.
 3. **Gestures.** Record automation while clicking ratio buttons, All, GR Off and Bypass, and while dragging and double-clicking knobs. Each click writes one clean step, and the knobs write smooth ramps.
 4. **Values.** Hover isn't needed: each knob shows its value (Attack and Release show the time too).

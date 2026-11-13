@@ -4,7 +4,7 @@
 |---|---|---|---|---|
 | Songsmith EQ | Yes (reference) | Width, height, interface size | Yes | Unchanged. |
 | Songsmith Maximiser | Yes, fixed proportions | Width | Yes | Unchanged. |
-| Songsmith Analog Compressor | **Added**: 100 % to 200 %, fixed proportions | **Width added** (`editorWidth`); older sessions reopen at their saved interface size | Yes (tested) | Interface size menu kept; it shows the nearest step after a drag. |
+| Songsmith Analog Compressor | **Added**: 100 % to 200 %, fixed proportions | **Width added** (`editorWidth`); older sessions reopen at their saved interface size | Yes (tested) | Interface size menu kept; it shows the nearest step after a drag. (SUI-18 later removed the menu; dragging is now the only way.) |
 
 Analog Compressor help: every button and menu has a tooltip and an accessible name that matches its visible label (tested). The ratio panel button reads **All**; its tooltip says it presses all four ratio buttons at once.
 
