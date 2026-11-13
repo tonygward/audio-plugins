@@ -9,7 +9,7 @@ the [execution policy](../../docs/songsmith-execution-policy.md); this page expl
   The worker code in this folder is baked into the container image, so a code change reaches the worker only after the image is rebuilt and the worker restarted.
 - **Entry point:** `linux-worker.mjs`, run every five minutes by the container's `entrypoint.sh`. Each run is a board tick (`board-run.mjs`) followed by the worker.
 - **Builds:** never in the container. Native Windows and macOS builds and tests run on GitHub-hosted runners (`build.yml`); the worker waits for them.
-- **What decides what runs:** the project board (its column and its Execution field), nothing in a prompt. See [Board pickup](#board-pickup-auto-11).
+- **What decides what runs:** the project board column (Todo and Doing run; Backlog and Blocked wait), nothing in a prompt or issue. See [Board pickup](#board-pickup-auto-11).
 - **Tests:** `node --test tools/matrix/tests/*.test.mjs test/*.test.mjs`. No npm packages are needed (Node.js 24 or newer).
 
 Older Windows-account machinery (the scheduled worker task, build broker, supervised fixtures and their validation notes) has been retired; the Linux container
@@ -25,7 +25,7 @@ GitHub (main, pull requests, the board and issue comments) remains the durable a
 
 ## Metadata and normalisation
 
-A prompt carries no status and no execution mode: **the project board owns both** (its column and Execution field). Any `status:` or `execution:` left in a file is ignored,
+A prompt carries no status and no execution mode: **the project board column decides** whether and when it runs. Any `status:` or `execution:` left in a file is ignored,
 and the repository test fails if a prompt still has one. Metadata supports the following restricted YAML subset (scalars and inline JSON arrays):
 
 ```yaml
