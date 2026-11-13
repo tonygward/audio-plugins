@@ -65,7 +65,7 @@ with a missing, circular or unmerged dependency is skipped with a reason). Prior
 
 `matrix-auto-merge.yml` has a second, owner-approved lane. A pull request from a branch named `matrix/core/<name>`, whose description contains
 `Matrix core change: owner-approved lane`, merges automatically when the hosted **Matrix orchestration tests** (Windows, macOS, Linux) succeed on its exact head
-commit and every changed file is Matrix code: `tools/matrix/*.mjs|json|md`, `tools/matrix/tests` and `evidence`, `tools/matrix-linux/worker.config.json` and `README.md`,
+commit (when only Markdown changed, those tests do not run and the quick **CI - Build and test** run counts instead) and every changed file is Matrix code: `tools/matrix/*.mjs|json|md`, `tools/matrix/tests` and `evidence`, `tools/matrix-linux/worker.config.json` and `README.md`,
 or `docs/songsmith-execution-policy.md`. Workflows, the gate itself (`scripts/matrix`), PowerShell and shell scripts, the Dockerfile, the egress allow-list and
 plugin source always need a person. The worker's own scope is unchanged, so it cannot edit this code. Merging does not rebuild the container; rebuild the image
 (`Start-MatrixAgent.ps1 -Action Build`) and restart it to run the new code.

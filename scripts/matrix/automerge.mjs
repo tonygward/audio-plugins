@@ -18,7 +18,8 @@ export function inScope(file) {
 }
 
 // Matrix core lane (owner decision, 10 November 2026): changes to Matrix's own controller code, tests and container
-// configuration merge automatically after the hosted Matrix orchestration tests pass on the exact head commit.
+// configuration merge automatically after the hosted Matrix orchestration tests pass on the exact head commit
+// (a Markdown-only change, which those tests skip, after the quick Build and test run instead).
 // The worker's own scope (tools/matrix/worker.mjs validateChanges) is unchanged, so the worker still cannot edit this code:
 // only pull requests the owner raises can use this lane. Workflows, this gate (scripts/matrix), PowerShell and shell
 // scripts, the Dockerfile and the egress allow-list stay manual because they decide what may merge or run.
@@ -70,7 +71,11 @@ function evaluateCore({ repository, pr, files, run }) {
   if (!String(pr?.body ?? '').includes(CORE_STATEMENT)) no('Description does not carry the Matrix core change statement');
   if (!Array.isArray(files) || files.length === 0 || files.length > 100) no('Unexpected number of changed files');
   else for (const file of files) if (!inCoreScope(file)) no(`Changed file outside the Matrix core scope: ${String(file).slice(0, 120)}`);
-  if (!run || run.conclusion !== 'success' || run.event !== 'pull_request' || run.name !== CORE_RUN) no('Hosted Matrix orchestration tests have not succeeded for the pull request');
+  // A Markdown-only change does not start the orchestration tests (matrix-tests.yml ignores *.md), so the quick
+  // Build and test run, which every pull request gets, is its check. Any other file still needs the orchestration tests.
+  const docsOnly = Array.isArray(files) && files.length > 0 && files.every(file => typeof file === 'string' && /.md$/.test(file));
+  const required = docsOnly ? BUILD_RUN : CORE_RUN;
+  if (!run || run.conclusion !== 'success' || run.event !== 'pull_request' || run.name !== required) no(docsOnly ? 'Build and test has not succeeded for the pull request' : 'Hosted Matrix orchestration tests have not succeeded for the pull request');
   if (run && pr && run.head_sha !== pr.headRefOid) no('Test result is for an older commit than the pull request head');
   return { merge: reasons.length === 0, reasons, lane: 'core' };
 }
