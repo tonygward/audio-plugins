@@ -118,6 +118,7 @@ These links prevent completed features being selected again. An archived prompt 
 - [14-ratio-button-tooltips](../../analog-compressor/prompts/done/14-ratio-button-tooltips.md)
 - [15-oversampling-far-left](../../analog-compressor/prompts/done/15-oversampling-far-left.md)
 - [16-ignore-below-continuous-500hz](../../analog-compressor/prompts/done/16-ignore-below-continuous-500hz.md)
+- [18-control-voltage-release-and-bypass](../../analog-compressor/prompts/done/18-control-voltage-release-and-bypass.md)
 
 ### maximiser
 - [01-maximiser-shell](../../maximiser/prompts/done/01-maximiser-shell.md)

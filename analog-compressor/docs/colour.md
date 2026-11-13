@@ -63,27 +63,28 @@ At 44.1 kHz, 1 kHz tone, level-matched:
 
 | Drive | GR | THD with compression | THD with GR off | Alias with compression, off / 2x / 4x | Alias with GR off, off / 2x / 4x |
 |---|---|---|---|---|---|
-| +6 dB | 8.1 dB | 0.25 % | 0.035 % | -75 / -95 / -114 dB | -121 / -119 / -117 dB |
-| +18 dB | 16.9 dB | 0.49 % | 0.051 % | -77 / -99 / -105 dB | -124 / -123 / -117 dB |
-| +30 dB | 25.9 dB | 0.75 % | 0.072 % | -84 / -88 / -111 dB | -122 / -118 / -117 dB |
+| +6 dB | 8.1 dB | 0.25 % | 0.035 % | -74 / -91 / -108 dB | -121 / -119 / -117 dB |
+| +18 dB | 16.9 dB | 0.49 % | 0.051 % | -72 / -89 / -106 dB | -124 / -123 / -117 dB |
+| +30 dB | 25.9 dB | 0.75 % | 0.072 % | -72 / -89 / -107 dB | -122 / -118 / -117 dB |
 
-The same at 48 kHz, 1 kHz tone, has compression aliasing of -74 / -96 / -98 dB (+6 dB drive), -78 / -82 / -109 dB (+18 dB) and -76 / -80 / -94 dB (+30 dB).
+The same at 48 kHz, 1 kHz tone, has compression aliasing of -71 / -86 / -108 dB (+6 dB drive), -70 / -85 / -109 dB (+18 dB) and -70 / -87 / -109 dB (+30 dB).
 
 At 7 kHz, where the harmonics fold back:
 
 | fs | Drive | Alias with compression, off / 2x / 4x | Alias with GR off, off / 2x / 4x |
 |---|---|---|---|
-| 44.1 kHz | +18 dB | -78 / -84 / -90 dB | -123 / -121 / -116 dB |
-| 44.1 kHz | +30 dB | -76 / -81 / -84 dB | -116 / -120 / -116 dB |
-| 48 kHz | +18 dB | -76 / -78 / -92 dB | -121 / -121 / -119 dB |
-| 48 kHz | +30 dB | -73 / -77 / -89 dB | -115 / -119 / -116 dB |
+| 44.1 kHz | +18 dB | -80 / -83 / -85 dB | -123 / -121 / -116 dB |
+| 44.1 kHz | +30 dB | -80 / -83 / -85 dB | -116 / -120 / -116 dB |
+| 48 kHz | +18 dB | -70 / -82 / -95 dB | -121 / -121 / -119 dB |
+| 48 kHz | +30 dB | -70 / -83 / -94 dB | -115 / -119 / -116 dB |
 
 What the numbers say:
 
 - At these output levels (-14 to -20 dBFS), the **output stage alone** is clean enough that its aliasing sits at the measurement floor (about -115 to -125 dB) at every setting. It only matters when Output drives it hard (about 0 dBFS and above).
 - Almost all aliasing comes from the **compression itself**. The fast gain modulation (the detector follows the rectified waveform, as the hardware does) has a wide spectrum.
-  - **2x** helps a lot on some material (about 20 dB on a 1 kHz tone at 44.1 kHz). On other material it barely helps: 2-4 dB at 48 kHz, or on a 7 kHz tone.
-  - **4x** is 8-38 dB better than off in every case measured.
+  - **2x** gains about 15-17 dB on a 1 kHz tone, and 3-13 dB on a 7 kHz tone.
+  - **4x** is 5-38 dB better than off in every case measured: 34-38 dB on a 1 kHz tone, but only about 5 dB on a 7 kHz tone at 44.1 kHz.
+- **Since ACOMP-18** (release in the gain cell's control-voltage domain, [engine.md](engine.md)) the figures above were re-measured. The new release law ripples less within each cycle, so odd-order distortion fell by 3-8 dB (H3 on a 1 kHz tone about -82 to -85 dB, was -74 to -82). It also moved where the folded components land: with oversampling off, aliasing on a 1 kHz tone rose by 4-10 dB to about -70 to -74 dB, which 4x now removes almost completely. Every figure stays at least 69 dB below the tone.
 - THD barely changes with oversampling. The harmonics are the same, and only the folded parts go.
 
 ## Oversampling (evaluated)
@@ -98,7 +99,7 @@ The new `oversampling` parameter (state version 2, version hint 2) has three set
 
 CPU is the percentage of one core (`AnalogCompressorTests --bench`, Windows Release).
 
-**Default: Off.** Step 3 first chose 4x because it cuts compression aliasing by 8-38 dB. The default is now Off, because a compressor often runs on many tracks at once and on tracks being recorded, where zero latency and low processing power matter more than aliasing, which is hard to hear at normal settings. Turn on 2x or 4x for a cleaner top end when compressing hard. The measurements above are unchanged. Sessions saved with version 2 keep the setting they saved (including 4x). Version 1 sessions load as Off, which is how they sounded. Factory presets never store oversampling.
+**Default: Off.** Step 3 first chose 4x because it cut compression aliasing by 8-38 dB (5-38 dB since ACOMP-18). The default is now Off, because a compressor often runs on many tracks at once and on tracks being recorded, where zero latency and low processing power matter more than aliasing, which is hard to hear at normal settings. Turn on 2x or 4x for a cleaner top end when compressing hard. The measurements above are unchanged. Sessions saved with version 2 keep the setting they saved (including 4x). Version 1 sessions load as Off, which is how they sounded. Factory presets never store oversampling.
 
 **Default: 4x** (a decision made without a human). It's the only setting that reliably reduces the compression aliasing, by 8-38 dB in every measured case. The cost is about 2.4 % of a core per stereo instance and 6 samples of latency (0.13 ms at 48 kHz). 2x halves the CPU, but gains only 2-4 dB on some material. Off has zero latency, for tracking or for lots of instances.
 
