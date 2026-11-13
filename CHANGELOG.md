@@ -4,7 +4,7 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 ## Unreleased
 
-- Songsmith Analog Compressor now lets go of heavy compression more like the 1176 it is inspired by: after a lot of gain reduction it recovers at a steadier pace, so drums and vocals pumped hard sound smoother and more natural. Light compression sounds the same as before. The Gain Reduction meter also keeps moving while the plugin is bypassed, so you can see what it would do. Projects you saved may sound slightly different on heavily compressed parts; you do not need to do anything.
+- Songsmith Analog Compressor now lets go of heavy compression more like the 1176 it is inspired by: after a lot of gain reduction it recovers at a steadier pace instead of rushing back at first, so heavily compressed parts let go more gradually. Light compression sounds the same as before. The Gain Reduction meter also keeps moving while the plugin is bypassed, so you can see what it would do. Projects you saved may sound slightly different on heavily compressed parts; you do not need to do anything.
 
 ## 0.5.21
 
