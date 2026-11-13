@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- In Songsmith EQ, the control that turns every band's boosts and cuts up or down together now reads **Gain Scale** (it used to say only "Scale", which looked like an interface size control). Its hover help now explains it in plain words. It works exactly as before, and your saved sessions and presets sound the same, so you do not need to do anything. This has not yet been checked in a DAW.
+
 ## 0.5.19
 
 Behind-the-scenes improvements and fixes. There is nothing you need to do.

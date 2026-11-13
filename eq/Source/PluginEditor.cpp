@@ -160,7 +160,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     // Scale the whole curve (double-click: 100 %).
     scaleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
         processor.apvts, EQ::gainScaleId, scaleSlider);
-    scaleSlider.textFromValueFunction = [] (double pct) { return "Scale " + juce::String (juce::roundToInt (pct)) + "%"; };
+    scaleSlider.textFromValueFunction = [] (double pct) { return "Gain Scale " + juce::String (juce::roundToInt (pct)) + "%"; };
     scaleSlider.valueFromTextFunction = [] (const juce::String& t)
     {
         return t.retainCharacters ("-0123456789.").getDoubleValue();
@@ -169,8 +169,9 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     scaleSlider.setTextBoxIsEditable (true);
     scaleSlider.setColour (juce::Slider::trackColourId, EQColours::band (3));
     scaleSlider.setColour (juce::Slider::textBoxTextColourId, EQColours::text);
-    scaleSlider.setTooltip ("Scale every band's gain together: 0 % = flat, 100 % = as set, negative inverts "
-                            "(cuts and notches are unaffected). Double-click: 100 %");
+    scaleSlider.setTooltip ("Turns every band's boosts and cuts up or down together. 100% uses the values you set, "
+                            "0% flattens them, and negative values turn boosts into cuts. Low Cut, High Cut and Notch "
+                            "bands are not affected. Double-click to return to 100%.");
     scaleSlider.updateText();
     content.addAndMakeVisible (scaleSlider);
 
@@ -542,7 +543,7 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
 
         // The Scale control (gain scale, a real sound parameter) now lives in the toolbox beside the other
         // gain controls, and the band count sits next to it when there is room (both moved out of the header).
-        scaleSlider.setBounds (row.removeFromRight (barWidth ({ "Scale -100%", "Scale 200%" })));
+        scaleSlider.setBounds (row.removeFromRight (barWidth ({ "Gain Scale -100%", "Gain Scale 200%" })));
         row.removeFromRight (gap);
         const int countWidth = (int) std::ceil (textWidth ("24 / 24 bands", EQColours::numbers (EQColours::Type::control))) + 8;
         const bool countFits = row.getWidth() >= countWidth + gap * 2;
