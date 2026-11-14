@@ -6,6 +6,10 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - Songsmith EQ has a new **Accurate Highs** button, beside Oversampling. With it on, bells, and shelves of up to 18 dB, set near the top of the range (around 10 kHz and above) keep the shape the curve shows, instead of getting narrower and weaker as they approach the top, and without the delay that Oversampling adds. It is on in a new Songsmith EQ. Projects you saved before open with it off, so they sound exactly as they did; turn it on if you want. The tom starting points are now 0.5 dB quieter to stay level-matched with it on.
 
+## 0.5.25
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
 ## 0.5.24
 
 - In Songsmith Compressor, there is a new **Analog Warmth** button, off to begin with. Switch it on to add a little smooth, rounded colour to the compressed sound. Quiet and normal levels keep the same loudness; only the loudest peaks are rounded off slightly. It adds no delay and does not change how the compressor works. Your saved sessions and presets are unchanged: they open with Analog Warmth off and sound exactly as before, and loading a preset switches it off. You do not need to do anything. This has not yet been checked in a DAW or by ear on real recordings.
