@@ -373,6 +373,13 @@ namespace EQ
         // comparing both designs each time: coefficients are rebuilt every 16 samples while gains move.
         if (type != FilterType::Bell && wp > 0.9 * pi)
             return false;
+
+        // Shelves only where the matched design is the better one (found with the grid test): a corner below
+        // fs / 16 is already accurate with the bilinear design; a corner above 0.4 fs, a steep shelf (Q over 1.5)
+        // and a very large gain (over 18 dB) were each matched worse than the bilinear design in some cases.
+        // Bells are always matched.
+        if (type != FilterType::Bell && (freq < sampleRate / 16.0 || freq > 0.4 * sampleRate || q > 1.5 || std::abs (gainDb) > 18.0))
+            return false;
         double a1;
         if (z <= 1.0) a1 = -2.0 * std::exp (-z * wp) * std::cos (std::sqrt (1.0 - z * z) * wp);
         else          a1 = -2.0 * std::exp (-z * wp) * std::cosh (std::sqrt (z * z - 1.0) * wp);

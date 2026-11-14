@@ -6010,7 +6010,6 @@ public:
         {
             bool ok = true;
             int badCount = 0;
-            int badBy[8][5] {};
             juce::String firstBad, allBad;
             for (double fs : { 44100.0, 48000.0, 96000.0, 192000.0 })
                 for (auto type : { FilterType::Bell, FilterType::LowShelf, FilterType::HighShelf, FilterType::Notch, FilterType::LowCut, FilterType::HighCut })
@@ -6034,7 +6033,6 @@ public:
                                 if (! (finite && stable && same && notWorse))
                                 {
                                     ++badCount;
-                                    badBy[(int) type][q < 0.5 ? 0 : q < 1.0 ? 1 : q < 5.0 ? 2 : q < 20.0 ? 3 : 4] += notWorse ? 0 : 1;
                                     if (badCount <= 6)
                                         allBad << juce::String ((int) type) << " " << f0 << " Hz q " << q << " gain " << gain << " at " << fs << (notWorse ? "; " : " (worse); ");
                                 }
@@ -6044,8 +6042,6 @@ public:
                                     firstBad = juce::String ((int) type) + " " + juce::String (f0) + " Hz q " + juce::String (q) + " gain " + juce::String (gain) + " at " + juce::String (fs) + (notWorse ? "" : " (matched worse)");
                                 }
                             }
-            for (int ty = 0; ty < 8; ++ty)
-                logMessage ("  type " + juce::String (ty) + " worse by q (0.1, 0.7, 2, 10, 40): " + juce::String (badBy[ty][0]) + " " + juce::String (badBy[ty][1]) + " " + juce::String (badBy[ty][2]) + " " + juce::String (badBy[ty][3]) + " " + juce::String (badBy[ty][4]));
             expect (ok, juce::String (badCount) + " bad cases, first: " + allBad);
         }
 

@@ -4,7 +4,7 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 ## Unreleased
 
-- Songsmith EQ has a new **Accurate Highs** button, beside Oversampling. With it on, bells and shelves set near the top of the range (around 10 kHz and above) keep the shape the curve shows, instead of getting narrower and weaker as they approach the top, and without the delay that Oversampling adds. It is on in a new Songsmith EQ. Projects you saved before open with it off, so they sound exactly as they did; turn it on if you want. The tom starting points are now 0.5 dB quieter to stay level-matched with it on.
+- Songsmith EQ has a new **Accurate Highs** button, beside Oversampling. With it on, bells, and shelves of up to 18 dB, set near the top of the range (around 10 kHz and above) keep the shape the curve shows, instead of getting narrower and weaker as they approach the top, and without the delay that Oversampling adds. It is on in a new Songsmith EQ. Projects you saved before open with it off, so they sound exactly as they did; turn it on if you want. The tom starting points are now 0.5 dB quieter to stay level-matched with it on.
 
 ## 0.5.24
 
