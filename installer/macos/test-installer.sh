@@ -5,7 +5,7 @@
 #       --pkg <suite pkg> --eq-pkg <pkg> --fet-pkg <pkg> --max-pkg <pkg> --comp-pkg <pkg>
 #
 # --eq-pkg, --fet-pkg, --max-pkg and --comp-pkg are the plugins' own installers: the EQ's is installed before
-# the suite to check that the suite replaces it, and all three are used to build an "older"
+# the suite to check that the suite replaces it, and all four are used to build an "older"
 # suite (an older version derived from VERSION) for the upgrade test. Without --pkg, the suite is built from them first.
 #
 # WARNING: this installs for real, system-wide (sudo installer -target /), removes every
@@ -97,9 +97,9 @@ expect_installed() {
 
 # Exactly one bundle per plugin in each folder (no "Songsmith EQ 2.vst3" and the like).
 one_copy_each() {
-    test "$(ls -d "$VST3_DIR"/Songsmith* 2>/dev/null | wc -l | tr -d ' ')" -le 3 &&
-    test "$(ls -d "$AU_DIR"/Songsmith* 2>/dev/null | wc -l | tr -d ' ')" -le 3 &&
-    test "$(ls -d /Applications/Songsmith* 2>/dev/null | wc -l | tr -d ' ')" -le 3
+    test "$(ls -d "$VST3_DIR"/Songsmith* 2>/dev/null | wc -l | tr -d ' ')" -le 4 &&
+    test "$(ls -d "$AU_DIR"/Songsmith* 2>/dev/null | wc -l | tr -d ' ')" -le 4 &&
+    test "$(ls -d /Applications/Songsmith* 2>/dev/null | wc -l | tr -d ' ')" -le 4
 }
 
 presets=()
