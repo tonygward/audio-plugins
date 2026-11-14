@@ -10,9 +10,10 @@
 class SongsmithCompressorAudioProcessor : public juce::AudioProcessor
 {
 public:
-    // Saved-state format. 1 = the eight sound parameters, bypass and the editor width.
+    // Saved-state format. 1 = the eight sound parameters, bypass and the editor width. 2 = adds Analog Warmth
+    // (sessions saved before it open with it off, which is exactly how they sounded).
     // Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 1;
+    static constexpr int stateVersion = 2;
 
     SongsmithCompressorAudioProcessor();
 
@@ -83,6 +84,7 @@ private:
     std::atomic<float>* makeupRaw = nullptr;
     std::atomic<float>* mixRaw = nullptr;
     juce::AudioParameterBool* autoMakeupParam = nullptr;
+    juce::AudioParameterBool* warmthParam = nullptr;
     juce::AudioParameterBool* bypassParam = nullptr;
 
     SongsmithComp::Engine engine;

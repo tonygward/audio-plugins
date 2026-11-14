@@ -21,6 +21,9 @@ namespace Comp
     inline constexpr const char* mixId        = "mix";           // %
     inline constexpr const char* bypassId     = "bypass";        // the host's native bypass
 
+    // --- Added in version 2 (Analog Warmth) ---------------------------------------------
+    inline constexpr const char* warmthId     = "warmth";        // off by default: the clean compressor
+
     // --- Defaults: gentle and musically useful -------------------------------------------
     constexpr float defaultThresholdDb = -18.0f, defaultRatio = 2.0f, defaultAttackMs = 10.0f, defaultReleaseMs = 100.0f,
                     defaultKneeDb = 6.0f, defaultMakeupDb = 0.0f, defaultMixPercent = 100.0f;

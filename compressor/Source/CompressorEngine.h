@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <array>
 #include <cmath>
 
 // Songsmith Compressor engine (COMP-01, slice 1): a clean, feed-forward, stereo-linked compressor.
@@ -10,9 +11,11 @@
 //         -> gain computer (threshold, continuous ratio, soft knee)
 //         -> smoothing of the gain reduction (attack when it grows, release when it falls)
 //         -> one gain applied to every channel (stereo link), then make-up gain
+//         -> optional Analog Warmth (gentle saturation of the compressed signal, anti-aliased, no latency)
 //         -> mix with the untouched input (parallel compression)
 //
-// No latency, no look-ahead, no oversampling. The Analog Warmth stage is a later slice.
+// No latency, no look-ahead, no oversampling: Analog Warmth removes aliasing with first-order antiderivative
+// anti-aliasing (ADAA) rather than oversampling, so it adds no delay.
 // process() does not allocate, lock or log. prepare() and reset() are for the message thread.
 namespace SongsmithComp
 {
@@ -26,6 +29,7 @@ namespace SongsmithComp
         float makeupDb    = 0.0f;     // 0 to 24, used when autoMakeup is off
         bool  autoMakeup  = false;    // level-match at autoMakeupReferenceDb instead of makeupDb
         float mix         = 1.0f;     // 0 to 1 (1 = fully compressed)
+        bool  warmth      = false;    // Analog Warmth: off is exactly the clean compressor
     };
 
     inline constexpr float minThresholdDb = -60.0f, maxThresholdDb = 0.0f;
@@ -83,6 +87,9 @@ namespace SongsmithComp
         // The gain reduction now (a positive number of dB), for tests and meters.
         float getGainReductionDb() const noexcept { return -grDb; }
 
+        // The warmth curve for one steady sample (no anti-aliasing, no DC blocking), for tests and notes.
+        static double warmthCurve (double x) noexcept;
+
     private:
         void updateCoefficients() noexcept;
 
@@ -92,5 +99,13 @@ namespace SongsmithComp
         float grDb = 0.0f;   // smoothed gain reduction, zero or negative
         juce::SmoothedValue<float> makeupGain { 1.0f }, mix { 1.0f };
         float meterGr = 0.0f, meterIn = 0.0f, meterOut = 0.0f;
+
+        // Analog Warmth: a smoothed 0..1 amount (so switching never clicks) and, per channel, the state of the
+        // anti-aliased shaper and its DC blocker.
+        juce::SmoothedValue<float> warmthAmount { 0.0f };
+        struct WarmState { double xPrev = 0.0, dcIn = 0.0, dcOut = 0.0; bool primed = false; };
+        std::array<WarmState, maxChannels> warm {};
+        double dcCoeff = 0.9995;
+        double warmShape (WarmState& s, double x) noexcept;
     };
 }
