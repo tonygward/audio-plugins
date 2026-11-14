@@ -525,8 +525,22 @@ void SongsmithEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                 juce::FloatVectorOperations::copy (dryBuffer.getWritePointer (c), ch[c], num);
         }
 
+        // Auto Gain compares the output with the input it came from: when the path has latency
+        // (linear phase, oversampling), that is the delayed input, which dryBuffer now holds (EQ-43).
         if (agOn)
-            autoGain.measureInput (ch, numCh, num);
+        {
+            if (pathLatency > 0)
+            {
+                const float* delayedIn[EQ::Engine::maxChannels] = {};
+                for (int c = 0; c < numCh; ++c)
+                    delayedIn[c] = dryBuffer.getReadPointer (c);
+                autoGain.measureInput (delayedIn, numCh, num);
+            }
+            else
+            {
+                autoGain.measureInput (ch, numCh, num);
+            }
+        }
 
         if (lpActive)
         {

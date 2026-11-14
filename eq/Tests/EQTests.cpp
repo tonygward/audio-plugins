@@ -2540,6 +2540,39 @@ public:
             expectWithinAbsoluteError (rel * 1000.0, (double) release, release * 0.2, "release " + juce::String (release) + " ms");
         }
 
+        beginTest ("EQ-43: a low band's dynamic gain does not wobble with the waveform");
+        for (float freq : { 50.0f, 100.0f, 400.0f })
+        {
+            Engine e;
+            e.prepare (fs);
+            auto band = dynBell (0.0f, -12.0f, -12.0f, 1.0f, 10.0f);   // fast attack and release expose any ripple
+            band.freq = freq;
+            e.setBand (0, band);
+            for (int b = 1; b < numBands; ++b) e.setBand (b, BandSettings {});
+            e.snapToTargets();
+
+            // A steady tone 6 dB over the threshold: half the range, inside the gain computer's ramp,
+            // so level ripple goes straight into the gain.
+            constexpr int hop = 16;
+            const int settle = (int) (1.0 * fs) / hop, total = settle + (int) (0.5 * fs) / hop;
+            std::vector<float> l (hop), r (hop);
+            float lo = 1.0e9f, hi = -1.0e9f;
+            for (int k = 0; k < total; ++k)
+            {
+                for (int i = 0; i < hop; ++i)
+                    l[(size_t) i] = r[(size_t) i] = (float) (0.5 * std::sin (2.0 * pi * freq * (k * hop + i) / fs));
+                float* ch[] = { l.data(), r.data() };
+                e.process (ch, 2, hop);
+                if (k >= settle)
+                {
+                    lo = juce::jmin (lo, e.getDynamicGainDb (0));
+                    hi = juce::jmax (hi, e.getDynamicGainDb (0));
+                }
+            }
+            expectLessThan (hi - lo, 0.15f, "gain ripple at " + juce::String (freq) + " Hz (peak to peak, dB)");
+            expectWithinAbsoluteError (0.5f * (hi + lo), -6.0f, 0.5f, "still half the range at " + juce::String (freq) + " Hz");
+        }
+
         beginTest ("Dynamics off is bit-identical (whatever the dynamic settings)");
         {
             BandSettings plain { true, FilterType::Bell, 800.0f, 5.0f, 1.5f };
@@ -2855,6 +2888,28 @@ public:
             for (size_t n = 0; n < h.size(); ++n)
                 if ((int) n != latency) rest = std::max (rest, (double) std::abs (h[n]));
             expectLessThan (rest, 1.0e-4, "nothing elsewhere");
+        }
+
+        beginTest ("EQ-43: Auto Gain compares the delayed input with the output in linear phase");
+        {
+            SongsmithEQAudioProcessor p;
+            for (int b = 0; b < numBands; ++b) p.setBandUsed (b, false);   // flat: the right correction is 0 dB
+            setParam (p, "auto_gain", 1.0f);
+            expect (prepareLinear (p, 2), "IR loaded");   // the longest delay (N/2 samples)
+
+            // Noise whose level jumps every 250 ms: comparing undelayed input with delayed output
+            // would see different audio at each end of the window and pull the correction away from 0 dB.
+            juce::Random rng (4321);
+            float level = 0.1f;
+            const int total = (int) (8.0 * fs);
+            runProcessor (p, fs, block, total, [&] (int n)
+            {
+                if (n % (int) (0.25 * fs) == 0)
+                    level = 0.02f + 0.3f * rng.nextFloat();
+                return level * (2.0f * rng.nextFloat() - 1.0f);
+            }, [] (int) {});
+
+            expectWithinAbsoluteError (p.autoGainAppliedDb.load(), 0.0f, 0.15f, "no correction for a flat EQ");
         }
 
         beginTest ("Stereo modes in linear phase (Left-only band leaves the right channel alone)");

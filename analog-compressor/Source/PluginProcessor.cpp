@@ -243,14 +243,6 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
     engine.setDetectorLowCutHz (currentIgnoreBelowHz());   // detector only; the audio path is never filtered
     fetFactor.setTargetValue (isAllButtonsOn() ? FET::FetCell::allButtonsFactor : 1.0f);
 
-    // Fully bypassed and settled with no latency to keep: leave the buffer untouched.
-    if (! bypassMix.isSmoothing() && bypassMix.getTargetValue() >= 1.0f
-        && osActive == 0 && getOversamplingIndex() == 0)
-    {
-        inputGain.skip (n);
-        return;
-    }
-
     for (int pos = 0; pos < n; pos += chunkSize)
     {
         const int num = juce::jmin (chunkSize, n - pos);
@@ -344,7 +336,15 @@ void SongsmithAnalogCompressorProcessor::processChunk (float* const* ch, int num
                 ch[c][i] *= g;
         }
 
-    if (bypassMix.isSmoothing() || bypassMix.getTargetValue() > 0.0f)
+    // Bypass. The engine has run either way (ACOMP-18), so un-bypassing continues from the gain
+    // reduction the current audio implies instead of a value frozen when bypass engaged, as in
+    // Songsmith EQ and Songsmith Maximiser. Fully bypassed: the delayed dry signal, bit-exact.
+    if (! bypassMix.isSmoothing() && bypassMix.getTargetValue() >= 1.0f)
+    {
+        for (int c = 0; c < numCh; ++c)
+            juce::FloatVectorOperations::copy (ch[c], dry.getReadPointer (c), num);
+    }
+    else if (bypassMix.isSmoothing() || bypassMix.getTargetValue() > 0.0f)
         for (int i = 0; i < num; ++i)
         {
             const float m = bypassMix.getNextValue();

@@ -3,56 +3,12 @@
 #include <array>
 #include <cmath>
 #include <algorithm>
+#include "SongsmithKWeighting.h"
 
 namespace EQ
 {
-    // ITU-R BS.1770 K-weighting (pre-filter high shelf + RLB high-pass), designed for any
-    // sample rate with the bilinear-transform formulas used by libebur128.
-    class KWeighting
-    {
-    public:
-        void prepare (double sampleRate)
-        {
-            constexpr double kPi = 3.14159265358979323846;
-
-            {   // Stage 1: +4 dB high shelf around 1.7 kHz (head acoustics)
-                const double f0 = 1681.974450955533, G = 3.999843853973347, Q = 0.7071752369554196;
-                const double K = std::tan (kPi * f0 / sampleRate);
-                const double Vh = std::pow (10.0, G / 20.0), Vb = std::pow (Vh, 0.4996667741545416);
-                const double a0 = 1.0 + K / Q + K * K;
-                s1 = { (Vh + Vb * K / Q + K * K) / a0, 2.0 * (K * K - Vh) / a0, (Vh - Vb * K / Q + K * K) / a0,
-                       2.0 * (K * K - 1.0) / a0, (1.0 - K / Q + K * K) / a0 };
-            }
-            {   // Stage 2: RLB high-pass around 38 Hz
-                const double f0 = 38.13547087602444, Q = 0.5003270373238773;
-                const double K = std::tan (kPi * f0 / sampleRate);
-                const double a0 = 1.0 + K / Q + K * K;
-                s2 = { 1.0, -2.0, 1.0, 2.0 * (K * K - 1.0) / a0, (1.0 - K / Q + K * K) / a0 };
-            }
-            reset();
-        }
-
-        void reset() noexcept { z1 = {}; z2 = {}; }
-
-        double process (double x) noexcept
-        {
-            return run (s2, z2, run (s1, z1, x));
-        }
-
-    private:
-        struct Biquad { double b0, b1, b2, a1, a2; };
-
-        static double run (const Biquad& c, std::array<double, 2>& z, double x) noexcept
-        {
-            const double y = c.b0 * x + z[0];
-            z[0] = c.b1 * x - c.a1 * y + z[1];
-            z[1] = c.b2 * x - c.a2 * y;
-            return y;
-        }
-
-        Biquad s1 {}, s2 {};
-        std::array<double, 2> z1 {}, z2 {};
-    };
+    // ITU-R BS.1770 K-weighting, shared with Songsmith Maximiser's loudness meter (same coefficients).
+    using KWeighting = Songsmith::KWeighting::Filter;
 
     // Loudness-matching correction for the EQ (auto gain).
     //

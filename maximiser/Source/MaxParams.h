@@ -41,9 +41,12 @@ namespace Max
     constexpr float minThresholdDb = -30.0f, maxThresholdDb = 0.0f, defaultThresholdDb = 0.0f;
     constexpr float minCeilingDb   = -30.0f, maxCeilingDb   = 0.0f, defaultCeilingDb   = 0.0f;
 
-    // The manual's release range, 0.01 to 1000 ms, on a logarithmic control. The default is
-    // the legacy manual's general-purpose 1 ms (it suggests 3-7 ms as a mastering start).
-    constexpr float minReleaseMs = 0.01f, maxReleaseMs = 1000.0f, defaultReleaseMs = 1.0f;
+    // The manual's release range, 0.01 to 1000 ms, on a logarithmic control. Default 100 ms (MAX-10),
+    // the default the current L1 manual gives (p. 17, as quoted by secondary sources; not checked against
+    // the PDF). The legacy manual only suggests 1 ms for many sources and 3-7 ms as a mastering start,
+    // which the starting points keep; 1 ms as the default put about 17 % distortion on sustained bass
+    // (README, "Auto release vs manual"). Saved sessions keep their own Release.
+    constexpr float minReleaseMs = 0.01f, maxReleaseMs = 1000.0f, defaultReleaseMs = 100.0f;
 
     // Practical finite dB floor. The manual shows silence and full attenuation as minus
     // infinity; here every gain/level conversion stops at -120 dB (well below 24-bit noise,

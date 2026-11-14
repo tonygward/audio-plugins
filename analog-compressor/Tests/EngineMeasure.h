@@ -9,7 +9,9 @@
 // and report the time until GR first reaches 63.2 % (1 - 1/e) of its settled value, linearly
 // interpolated between samples.
 // Release time: settle at threshold + `over` dB, step down to threshold - 40 dB, and report the
-// time until GR first falls to 36.8 % (1/e) of the value it had at the step.
+// time until the gain cell's control voltage u = 10^(GR/20) - 1 first falls to 36.8 % (1/e) of
+// its value at the step. Since ACOMP-18 the release is an exponential in u (the timing capacitor
+// discharging), not in GR dB; for shallow GR the two are the same.
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -87,7 +89,10 @@ namespace Measure
         runConstant (e, t - 40.0f, (int) (fs * 4.0), &gr);
         // The "previous" value for interpolation before the first sample is the GR at the step.
         gr.insert (gr.begin(), start);
-        const double t37 = crossing (gr, start * std::exp (-1.0f), false, fs);
+        for (auto& g : gr)
+            g = std::pow (10.0f, g / 20.0f) - 1.0f;   // control voltage u
+        const float startU = gr.front();
+        const double t37 = crossing (gr, startU * std::exp (-1.0f), false, fs);
         return t37 < 0.0 ? -1.0 : t37 - 1.0 / fs;
     }
 

@@ -114,9 +114,9 @@ namespace EQ
                 SvfCoeffs detector;
                 bool running = false;          // detector ran last chunk (state is fresh)
                 std::array<SvfState, maxChannels> detState {};
-                std::array<double, maxChannels> power {};
+                std::array<double, maxChannels> power {}, power2 {};   // two smoothing stages (EQ-43)
                 std::array<SvfState, maxChannels> scState {};   // detector state for the sidechain input
-                std::array<double, maxChannels> scPower {};
+                std::array<double, maxChannels> scPower {}, scPower2 {};
                 double gainDb = 0.0;           // smoothed dynamic gain added to the static gain
                 double appliedDb = 0.0;        // value the current coefficients were built with
 
@@ -125,7 +125,9 @@ namespace EQ
                     for (auto& s : detState) s.reset();
                     for (auto& s : scState)  s.reset();
                     power.fill (0.0);
+                    power2.fill (0.0);
                     scPower.fill (0.0);
+                    scPower2.fill (0.0);
                     gainDb = appliedDb = 0.0;
                 }
             } dyn;

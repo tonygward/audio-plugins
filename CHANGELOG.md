@@ -6,6 +6,15 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - Songsmith EQ has a new **Accurate Highs** button, beside Oversampling. With it on, bells, and shelves of up to 18 dB, set near the top of the range (around 10 kHz and above) keep the shape the curve shows, instead of getting narrower and weaker as they approach the top, and without the delay that Oversampling adds. It is on in a new Songsmith EQ. Projects you saved before open with it off, so they sound exactly as they did; turn it on if you want. The tom starting points are now 0.5 dB quieter to stay level-matched with it on.
 
+## 0.5.29
+
+- In Songsmith EQ, a dynamic band set to a low frequency (around 50 to 100 Hz) now follows the level smoothly instead of wobbling slightly with each cycle of the bass, so it sounds cleaner with fast attack settings. Auto Gain is also more accurate in Linear phase and with Oversampling on, because it now compares the same moment of the input and the output. Your settings are unchanged; you do not need to do anything.
+
+- Songsmith Analog Compressor now lets go of heavy compression more like the 1176 it is inspired by: after a lot of gain reduction it recovers at a steadier pace instead of rushing back at first, so heavily compressed parts let go more gradually. Light compression sounds the same as before. The Gain Reduction meter also keeps moving while the plugin is bypassed, so you can see what it would do. Projects you saved may sound slightly different on heavily compressed parts; you do not need to do anything.
+
+- Songsmith Maximiser limits more cleanly: when it turns a loud peak down, the change now starts and finishes gently instead of in a straight line, so hard limiting adds less distortion. It still never goes above your Output Ceiling, and the delay your recording software compensates for is unchanged. Projects you saved will sound very slightly cleaner on loud peaks; you do not need to do anything.
+- A new Songsmith Maximiser now starts with **Release** at 100 ms instead of 1 ms, which keeps bass and sustained notes cleaner. Your saved projects and the starting points keep their own Release setting.
+
 ## 0.5.25
 
 Behind-the-scenes improvements and fixes. There is nothing you need to do.

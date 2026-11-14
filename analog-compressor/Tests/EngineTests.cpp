@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <cmath>
 #include <random>
+#include <tuple>
 #include <vector>
 #include "FETEngine.h"
 #include "FETParams.h"
@@ -244,6 +245,33 @@ struct EngineBehaviourTests final : juce::UnitTest
                 pos += 1000;
             }
             expectLessThan (maxStep, 0.01f, "largest sample step " + juce::String (maxStep, 4));
+        }
+
+        beginTest ("ACOMP-18: release follows the control voltage, so deep gain reduction lets go more slowly");
+        {
+            // GR left after one release time, as a fraction of the GR at the step, from a settled level
+            // 'over' dB above the 4:1 threshold. u = 10^(GR/20) - 1 decays by 1/e in one release time.
+            auto remaining = [] (float over)
+            {
+                constexpr double fs = 48000.0;
+                Engine e;
+                Measure::configure (e, fs, 0, 4.0f);   // 4:1, attack and release knob 4 (235 ms)
+                const float t = Engine::thresholdsDb[0];
+                Measure::runConstant (e, t + over, (int) (fs * 0.3));
+                const float start = e.getGainReductionDb();
+                Measure::runConstant (e, t - 40.0f, (int) (Engine::releaseSeconds (4.0f) * fs));
+                const float end = e.getGainReductionDb();
+                const float expectedU = (std::pow (10.0f, start / 20.0f) - 1.0f) * std::exp (-1.0f);
+                return std::make_tuple (start, end / start, 20.0f * std::log10 (1.0f + expectedU) / start);
+            };
+
+            const auto [deepStart, deep, deepModel] = remaining (30.0f);
+            const auto [shallowStart, shallow, shallowModel] = remaining (1.5f);
+            expectGreaterThan (deepStart, 18.0f, "deep case compresses hard");
+            expectLessThan (shallowStart, 3.0f, "shallow case compresses gently");
+            expectWithinAbsoluteError (deep, deepModel, 0.02f, "deep: follows the control-voltage law");
+            expectGreaterThan (deep, 0.6f, "deep: about two thirds of the GR is left after one release time (a dB exponential would leave 37 %)");
+            expectWithinAbsoluteError (shallow, 0.37f, 0.05f, "shallow: as before, about 1/e is left");
         }
 
         beginTest ("gain reduction off fades GR out and then passes audio unchanged");

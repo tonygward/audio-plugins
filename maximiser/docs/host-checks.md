@@ -14,7 +14,7 @@ Before you start:
 | # | Check | How | Expected |
 |---|---|---|---|
 | 1 | Scan | Rescan plug-ins (Options → Locations → VST Plug-ins → Reset Blocklist, then restart) | Listed under Songsmith Studio as **Songsmith Maximiser**, next to Songsmith EQ, not replacing it |
-| 2 | Stereo | Insert on a stereo track and play | Audio passes; Atten meter moves when you lower Threshold |
+| 2 | Stereo | Insert on a stereo track and play | Audio passes; the Gain Reduction meter moves when you lower Threshold |
 | 3 | Mono | Insert on a mono track | Mono in / mono out, no channel doubling or silence |
 | 4 | Automation | Write automation for Threshold, Output Ceiling and Release, and toggle Peak Mode and Auto Release | Plays back smoothly with no clicks. With **Link** on, automating Threshold doesn't move Output Ceiling |
 | 5 | Recall | Set non-default values (Link on, window resized, Dither 16-bit), save, close and reopen the song | Everything comes back, including Link and the window size |
@@ -56,7 +56,7 @@ No Waves L1 instance was available on the build machines, so this comparison has
 1. Use the same source, the same settings (Threshold −6 dB, Output Ceiling −1 dB, Release 1 ms, then 5 ms), the L1's IDR off, and Songsmith in Sample peak mode with Auto Release off.
 2. Render both and level-match by integrated loudness (LUFS) before listening.
 3. Compare four things:
-   - **Transient handling:** look at the attack shape on drum hits. Songsmith ramps the gain linearly over its 1.5 ms look-ahead.
+   - **Transient handling:** look at the attack shape on drum hits. Songsmith moves the gain in an S-curve over its 1.5 ms look-ahead.
    - **Ceiling:** sample peak and true peak of each render.
    - **Gain reduction:** the maximum and average attenuation.
    - **Latency:** reported in samples. Songsmith reports look-ahead + 12 samples.
