@@ -343,6 +343,178 @@ public:
             expectEquals (again.inputPeak, 0.0f);
             expectEquals (again.gainReductionDb, 0.0f);
         }
+        // ---- Analog Warmth ------------------------------------------------------------------------
+        auto sineThrough = [] (bool warmth, double fs, double freq, float peakDb, float ratio, int seconds, std::vector<float>& out)
+        {
+            Engine e; e.prepare (fs);
+            auto p = base(); p.ratio = ratio; p.thresholdDb = 0.0f; p.warmth = warmth; p.kneeDb = 0.0f;
+            e.setParams (p); e.reset();
+            const int n = (int) (fs * seconds);
+            out.resize ((size_t) n);
+            const float a = std::pow (10.0f, peakDb / 20.0f);
+            for (int i = 0; i < n; ++i)
+                out[(size_t) i] = a * (float) std::sin (2.0 * juce::MathConstants<double>::pi * freq * (double) i / fs);
+            float* ch[] = { out.data() };
+            e.process (ch, 1, n);
+        };
+        // The level of one frequency in the second half of a signal, in dB (a single-bin DFT).
+        auto binDb = [] (const std::vector<float>& x, double fs, double freq)
+        {
+            double re = 0.0, im = 0.0;
+            const size_t start = x.size() / 2;
+            for (size_t i = start; i < x.size(); ++i)
+            {
+                const double w = 2.0 * juce::MathConstants<double>::pi * freq * (double) i / fs;
+                re += (double) x[i] * std::cos (w); im += (double) x[i] * std::sin (w);
+            }
+            const double mag = 2.0 * std::sqrt (re * re + im * im) / (double) (x.size() - start);
+            return (float) (20.0 * std::log10 (mag + 1.0e-12));
+        };
+
+        beginTest ("Analog Warmth off is the clean compressor, bit for bit");
+        {
+            std::vector<float> a, b;
+            sineThrough (false, 48000.0, 1000.0, -6.0f, 4.0f, 1, a);
+            Engine e; e.prepare (48000.0);
+            auto p = base(); p.ratio = 4.0f; p.thresholdDb = 0.0f; p.kneeDb = 0.0f;
+            e.setParams (p); e.reset();
+            b.resize (a.size());
+            for (size_t i = 0; i < b.size(); ++i) b[i] = std::pow (10.0f, -6.0f / 20.0f) * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 1000.0 * (double) i / 48000.0);
+            float* ch[] = { b.data() };
+            e.process (ch, 1, (int) b.size());
+            expect (a == b, "warmth false is identical to a run that never heard of it");
+        }
+
+        beginTest ("Analog Warmth on: small signals keep their level, peaks are rounded, harmonics are added and are small");
+        {
+            std::vector<float> out;
+            for (float peakDb : { -60.0f, -40.0f, -24.0f, -18.0f })
+            {
+                sineThrough (true, 48000.0, 1000.0, peakDb, 1.0f, 1, out);
+                expectWithinAbsoluteError (binDb (out, 48000.0, 1000.0), peakDb, peakDb <= -24.0f ? 0.05f : 0.25f, "level kept at " + juce::String (peakDb) + " dBFS");
+            }
+            sineThrough (true, 48000.0, 1000.0, 0.0f, 1.0f, 1, out);
+            const float full = binDb (out, 48000.0, 1000.0);
+            expectLessThan (full, 0.0f, "full-scale peaks are rounded off");
+            expectGreaterThan (full, -3.0f, "but by under 3 dB");
+
+            sineThrough (true, 48000.0, 1000.0, -12.0f, 1.0f, 1, out);
+            const float fundamental = binDb (out, 48000.0, 1000.0);
+            const float second = binDb (out, 48000.0, 2000.0) - fundamental, third = binDb (out, 48000.0, 3000.0) - fundamental;
+            expectGreaterThan (second, -80.0f, "even harmonics are there");
+            expectGreaterThan (third, -70.0f, "odd harmonics are there");
+            expectLessThan (juce::jmax (second, third), -25.0f, "and stay small at -12 dBFS");
+
+            sineThrough (false, 48000.0, 1000.0, -12.0f, 1.0f, 1, out);
+            expectLessThan (binDb (out, 48000.0, 3000.0) - binDb (out, 48000.0, 1000.0), -100.0f, "off adds none");
+        }
+
+        beginTest ("Analog Warmth does not dull or brighten: a quiet tone keeps its level from 50 Hz to 15 kHz");
+        for (double fs : { 44100.0, 48000.0, 96000.0 })
+            for (double f : { 50.0, 1000.0, 5000.0, 10000.0, 15000.0 })
+            {
+                std::vector<float> out;
+                sineThrough (true, fs, f, -40.0f, 1.0f, 1, out);
+                expectWithinAbsoluteError (binDb (out, fs, f), -40.0f, 0.1f, juce::String (f) + " Hz at " + juce::String (fs));
+            }
+
+        beginTest ("Analog Warmth does not alias: a loud 15 kHz tone leaves its folded-back harmonics far below it");
+        for (double fs : { 44100.0, 48000.0, 96000.0 })
+        {
+            std::vector<float> out;
+            sineThrough (true, fs, 15000.0, -6.0f, 1.0f, 1, out);
+            // The third harmonic (45 kHz) folds back to |45000 - fs| at 44.1 and 48 kHz; the fifth (75 kHz) too.
+            const float fundamental = binDb (out, fs, 15000.0);
+            const double alias3 = std::abs (45000.0 - fs), alias5 = std::abs (75000.0 - fs);
+
+            // The same curve with no anti-aliasing at all, for comparison.
+            std::vector<float> naive (out.size());
+            const float a = std::pow (10.0f, -6.0f / 20.0f);
+            for (size_t i = 0; i < naive.size(); ++i)
+                naive[i] = (float) Engine::warmthCurve ((double) a * std::sin (2.0 * juce::MathConstants<double>::pi * 15000.0 * (double) i / fs));
+            const float naiveFundamental = binDb (naive, fs, 15000.0);
+
+            for (double f : { alias3, alias5 })
+                if (f > 100.0 && f < fs * 0.5 && std::abs (f - 15000.0) > 200.0)
+                {
+                    const float adaa = binDb (out, fs, f) - fundamental, plain = binDb (naive, fs, f) - naiveFundamental;
+                    expectLessThan (adaa, -40.0f, "alias at " + juce::String (f) + " Hz, fs " + juce::String (fs) + ": " + juce::String (adaa) + " dB");
+                    expectLessThan (adaa, plain - 6.0f, "clearly better than no anti-aliasing at " + juce::String (f) + " Hz (" + juce::String (plain) + " dB)");
+                }
+        }
+
+        beginTest ("Analog Warmth leaves no DC offset, keeps silence silent, and is safe with odd input");
+        {
+            std::vector<float> out;
+            sineThrough (true, 48000.0, 220.0, -6.0f, 1.0f, 2, out);
+            double mean = 0.0;
+            for (size_t i = out.size() / 2; i < out.size(); ++i) mean += out[i];
+            expectLessThan (std::abs ((float) (mean / (double) (out.size() / 2))), 0.001f, "no DC");
+
+            Engine e; e.prepare (48000.0);
+            auto p = base(); p.warmth = true;
+            e.setParams (p); e.reset();
+            std::vector<float> silence (48000, 0.0f);
+            float* ch[] = { silence.data() };
+            e.process (ch, 1, (int) silence.size());
+            for (auto s : silence) expectEquals (s, 0.0f, "exact silence");
+
+            std::vector<float> bad (256, std::numeric_limits<float>::infinity());
+            bad[5] = std::numeric_limits<float>::quiet_NaN();
+            float* bc[] = { bad.data() };
+            e.process (bc, 1, (int) bad.size());
+            for (auto s : bad) expect (std::isfinite (s));
+        }
+
+        beginTest ("Switching Analog Warmth on and off while playing glides: no click, and it follows the switch");
+        {
+            Engine e; e.prepare (48000.0);
+            auto p = base(); p.thresholdDb = 0.0f; p.warmth = false;
+            e.setParams (p); e.reset();
+            std::vector<float> out;
+            for (int i = 0; i < 48000; ++i)
+            {
+                if (i == 12000) { p.warmth = true; e.setParams (p); }
+                if (i == 30000) { p.warmth = false; e.setParams (p); }
+                float x = 0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 200.0 * (double) i / 48000.0);
+                float ref = x;
+                float* ch[] = { &x };
+                e.process (ch, 1, 1);
+                out.push_back (x - ref);   // the difference the stage makes
+            }
+            float maxStep = 0.0f;
+            for (size_t i = 1; i < out.size(); ++i) maxStep = juce::jmax (maxStep, std::abs (out[i] - out[i - 1]));
+            expectLessThan (maxStep, 0.02f, "no step when switching");
+            float lateDiff = 0.0f;
+            for (size_t i = 46000; i < out.size(); ++i) lateDiff = juce::jmax (lateDiff, std::abs (out[i]));
+            expectEquals (lateDiff, 0.0f, "back to the exact clean signal once off");
+        }
+
+        beginTest ("Analog Warmth does not change the compressor: the gain reduction is the same on or off, in either block size");
+        {
+            auto gr = [] (bool warmth, int block)
+            {
+                Engine e; e.prepare (48000.0);
+                auto p = base(); p.warmth = warmth; p.kneeDb = 6.0f;
+                e.setParams (p); e.reset();
+                juce::Random rng (21);
+                float worst = 0.0f;
+                std::vector<float> x (4800);
+                for (int b = 0; b < 20; ++b)
+                {
+                    for (auto& s : x) s = (rng.nextFloat() * 2.0f - 1.0f) * 0.7f;
+                    for (int pos = 0; pos < (int) x.size(); pos += block)
+                    {
+                        float* ch[] = { x.data() + pos };
+                        e.process (ch, 1, juce::jmin (block, (int) x.size() - pos));
+                    }
+                    worst = juce::jmax (worst, e.readMeters().gainReductionDb);
+                }
+                return worst;
+            };
+            expectWithinAbsoluteError (gr (true, 480), gr (false, 480), 1.0e-5f, "same reduction");
+            expectWithinAbsoluteError (gr (true, 7), gr (true, 480), 1.0e-5f, "block size does not matter with it on");
+        }
     }
 };
 

@@ -88,6 +88,11 @@ SongsmithCompressorAudioProcessorEditor::SongsmithCompressorAudioProcessorEditor
     autoMakeupAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Comp::autoMakeupId, autoMakeupButton);
     content.addAndMakeVisible (autoMakeupButton);
 
+    warmthButton.setClickingTogglesState (true);
+    warmthButton.setTooltip ("Analog Warmth: adds a little smooth, rounded colour to the compressed sound. Off keeps the sound clean. Quiet and normal levels stay the same loudness; only the loudest peaks are rounded off slightly");
+    warmthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Comp::warmthId, warmthButton);
+    content.addAndMakeVisible (warmthButton);
+
     bypassButton.setClickingTogglesState (true);
     bypassButton.setTooltip ("Bypass: the sound passes through untouched");
     Songsmith::UI::styleBypassButton (bypassButton);   // the suite's Bypass red
@@ -208,7 +213,8 @@ void SongsmithCompressorAudioProcessorEditor::layoutContent()
     place (releaseLabel, releaseSlider, 3, row1Label, row1Knob);
     place (kneeLabel, kneeSlider, 0, row2Label, row2Knob);
     place (makeupLabel, makeupSlider, 1, row2Label, row2Knob);
-    autoMakeupButton.setBounds (column (2) + 4, row2Knob + 40, knobW - 8, 28);
+    autoMakeupButton.setBounds (column (2) + 4, row2Knob + 16, knobW - 8, 28);   // beside Makeup Gain
+    warmthButton.setBounds (column (2) + 4, row2Knob + 64, knobW - 8, 28);
     place (mixLabel, mixSlider, 3, row2Label, row2Knob);
 
     const int meterLeft = left + 4 * colW + 28, meterTop = row1Label + 36, meterBottom = designH - 24;

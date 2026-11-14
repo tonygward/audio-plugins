@@ -20,5 +20,5 @@ COMP-01 is too large for one run, so it goes in ordered slices. Each one is its 
 | 2 | Plugin: JUCE plugin target, identity, parameters, state and tests, editor, four presets, and a CI build and test job | In review |
 | 2b | Release wiring: suite installer entries, release checks and the beta website | To do |
 | 3 | (folded into slice 2) | Done |
-| 4 | Analog Warmth: optional saturation, measured | To do |
+| 4 | Analog Warmth: optional saturation, measured ([engine notes](../docs/engine.md#analog-warmth)) | In review |
 | 5 | Host check, listening notes and further presets | To do |

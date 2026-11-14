@@ -14,6 +14,64 @@ namespace SongsmithComp
         }
 
         float sane (float x) noexcept { return std::isfinite (x) ? x : 0.0f; }
+
+        // Analog Warmth design constants (documented in docs/engine.md).
+        constexpr double warmDrive = 0.8;    // how hard the curve bends: small signals are untouched, peaks are rounded
+        constexpr double warmBias  = 0.08;   // a small asymmetry, which adds even harmonics as well as odd ones
+
+        double lnCosh (double u) noexcept   // ln(cosh(u)) without overflow
+        {
+            const double a = std::abs (u);
+            return a + std::log1p (std::exp (-2.0 * a)) - 0.6931471805599453;
+        }
+
+        // Slope at zero, so the curve is scaled to a gain of exactly 1 for small signals.
+        double warmNorm() noexcept
+        {
+            const double t = std::tanh (warmDrive * warmBias);
+            return warmDrive * (1.0 - t * t);
+        }
+    }
+
+    double Engine::warmthCurve (double x) noexcept
+    {
+        return (std::tanh (warmDrive * (x + warmBias)) - std::tanh (warmDrive * warmBias)) / warmNorm();
+    }
+
+    // First-order antiderivative anti-aliasing (ADAA): the average of a curve between this sample and the last,
+    // which removes much of the aliasing a plain waveshaper makes, with no oversampling and no latency.
+    // It is applied only to the curve's non-linear part (the curve minus the straight line it follows for small
+    // signals). Averaging the straight part as well would act as a low-pass filter and dull the highs, so that
+    // part passes through exactly: small signals keep their level and tone at every frequency.
+    // Then a very gentle high-pass (about 5 Hz) takes out the DC the asymmetry would make.
+    double Engine::warmShape (WarmState& s, double x) noexcept
+    {
+        if (! s.primed)
+        {
+            s.xPrev = x;
+            s.dcIn = s.dcOut = 0.0;
+            s.primed = true;
+        }
+        const double d = x - s.xPrev;
+        const double t0 = std::tanh (warmDrive * warmBias), norm = warmNorm();
+        double residual;   // the curve minus the straight line y = x, averaged over the last step
+        if (std::abs (d) < 1.0e-6)
+        {
+            const double mid = 0.5 * (x + s.xPrev);
+            residual = warmthCurve (mid) - mid;
+        }
+        else
+        {
+            auto antiderivative = [&] (double v) { return (lnCosh (warmDrive * (v + warmBias)) / warmDrive - t0 * v) / norm - 0.5 * v * v; };
+            residual = (antiderivative (x) - antiderivative (s.xPrev)) / d;
+        }
+        const double y = x + residual;
+        s.xPrev = x;
+
+        const double hp = y - s.dcIn + dcCoeff * s.dcOut;
+        s.dcIn = y;
+        s.dcOut = std::abs (hp) < 1.0e-20 ? 0.0 : hp;
+        return s.dcOut;
     }
 
     void Engine::prepare (double sampleRate)
@@ -21,6 +79,8 @@ namespace SongsmithComp
         fs = juce::jmax (8000.0, sampleRate);
         makeupGain.reset (fs, 0.02);
         mix.reset (fs, 0.02);
+        warmthAmount.reset (fs, 0.02);
+        dcCoeff = 1.0 - 2.0 * juce::MathConstants<double>::pi * 5.0 / fs;
         updateCoefficients();
         reset();
     }
@@ -30,6 +90,8 @@ namespace SongsmithComp
         grDb = 0.0f;
         makeupGain.setCurrentAndTargetValue (makeupGain.getTargetValue());
         mix.setCurrentAndTargetValue (mix.getTargetValue());
+        warmthAmount.setCurrentAndTargetValue (warmthAmount.getTargetValue());
+        warm = {};
         meterGr = meterIn = meterOut = 0.0f;
     }
 
@@ -54,6 +116,8 @@ namespace SongsmithComp
         const float makeup = params.autoMakeup ? autoMakeupDb (params) : params.makeupDb;
         makeupGain.setTargetValue (juce::Decibels::decibelsToGain (makeup));
         mix.setTargetValue (params.mix);
+        params.warmth = p.warmth;
+        warmthAmount.setTargetValue (params.warmth ? 1.0f : 0.0f);
     }
 
     void Engine::process (float* const* channels, int numChannels, int numSamples) noexcept
@@ -81,11 +145,18 @@ namespace SongsmithComp
 
             const float gain = juce::Decibels::decibelsToGain (grDb) * makeupGain.getNextValue();
             const float wet = mix.getNextValue();
+            const float warmAmount = warmthAmount.getNextValue();
+            const bool warmActive = warmAmount > 0.0f || warmthAmount.isSmoothing();
+            if (! warmActive)
+                for (auto& s : warm) s.primed = false;   // starts clean when it is next switched on
             float peakOut = 0.0f;
             for (int c = 0; c < n; ++c)
             {
                 const float dry = sane (channels[c][i]);
-                const float out = dry + wet * (dry * gain - dry);   // dry at mix 0, compressed at mix 1
+                float compressed = dry * gain;
+                if (warmActive)
+                    compressed += warmAmount * ((float) warmShape (warm[(size_t) c], (double) compressed) - compressed);
+                const float out = dry + wet * (compressed - dry);   // dry at mix 0, compressed (and warmed) at mix 1
                 channels[c][i] = out;
                 peakOut = juce::jmax (peakOut, std::abs (out));
             }

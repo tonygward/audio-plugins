@@ -1,6 +1,6 @@
 # Songsmith Compressor
 
-A simple, clear compressor: it turns the louder parts of a sound down so the level stays more even. It is separate from [Songsmith Analog Compressor](../analog-compressor/README.md), which is modelled on a fast, analogue-style design. Songsmith Compressor has ordinary Threshold, Ratio, Attack and Release controls and no analogue character, so it is a good choice when you want to smooth a sound without changing its tone.
+A simple, clear compressor: it turns the louder parts of a sound down so the level stays more even. It is separate from [Songsmith Analog Compressor](../analog-compressor/README.md), which is modelled on a fast, analogue-style design. Songsmith Compressor has ordinary Threshold, Ratio, Attack and Release controls and, unless you switch on Analog Warmth, no analogue character, so it is a good choice when you want to smooth a sound without changing its tone.
 
 ![Songsmith Compressor](docs/images/comp-01/compressor.png)
 
@@ -13,6 +13,7 @@ A simple, clear compressor: it turns the louder parts of a sound down so the lev
 - **Knee:** how gradually the turning down begins around Threshold. 0 is abrupt; larger is smoother.
 - **Makeup Gain** and **Auto Makeup:** raise the level after compression. Auto Makeup matches the level for a typical signal of -18 dBFS, so you do not have to; switch it off to set Makeup Gain yourself.
 - **Mix:** blends the compressed sound with the original, for parallel compression.
+- **Analog Warmth:** an on and off button, off to begin with. When on, it adds a little smooth, rounded colour to the compressed sound. Quiet and normal levels keep the same loudness, and only the loudest peaks are rounded off slightly. It does not change how the compressor works. Leave it off if you want the sound to stay clean; there is no right or wrong setting, so choose by ear.
 - **Preset:** starting points for a kind of sound: Acoustic Guitar, Lead Vocal Control, Drum Bus Glue and Gentle Level Smoothing. Adjust Threshold by ear afterwards.
 - **Undo, Redo and Bypass** work as in every Songsmith plugin.
 
@@ -20,9 +21,9 @@ The meters show the input and output peak and how much the compressor is turning
 
 Do you need to do anything? Not much. Pick a preset, then move Threshold until Gain Reduction moves a little on the loud parts. If it never moves, the compressor is not changing the sound.
 
-## What it does not have yet
+## Good to know
 
-Analog Warmth (an optional, subtle colour control) is planned and is not in this version. There is no latency and no look-ahead.
+There is no latency, no look-ahead and no oversampling, including with Analog Warmth on.
 
 This version has not yet been checked in a DAW.
 

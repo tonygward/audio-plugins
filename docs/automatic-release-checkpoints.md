@@ -7,7 +7,7 @@ How a merged change becomes a version, a release and a beta website update. The 
 **Two builds per release.**
 
 1. **The pull request build** (`CI - Build and test`, `build.yml`) builds and tests only the plugins the pull request changed. A change to shared code, the installers or the workflows builds everything.
-2. **The packaging build** is one full build of everything (all three plugins on Windows and macOS, plus both suite installers). It runs on the version bump commit, and the release is made from it.
+2. **The packaging build** is one full build of everything (all four plugins on Windows and macOS, plus both suite installers). It runs on the version bump commit, and the release is made from it.
 
 A plain merge to `main` builds nothing. The version bump follows the merge directly (see below), and the bump commit is the packaging build. Once **all**
 platform/plugin/suite jobs of that build succeed, `auto-publish-release.yml`
