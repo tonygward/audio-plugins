@@ -177,6 +177,10 @@ namespace FET
             a = 1.0f - std::pow (1.0f - a, 1.0f / mul);
         }
 
+        if (target0 <= g0)
+            return solveRelease (levelDb, g0, a, extra);
+
+        // Attack, in dB (calibrated to the published attack times, docs/engine.md):
         // f(G) = G - g0 - a (k knee(L - G - T) - g0) is increasing in G, so the root is unique
         // and lies between g0 and the explicit step g0 + a (target0 - g0).
         float lo = g0, hi = g0 + a * (target0 - g0);
@@ -199,6 +203,51 @@ namespace FET
             g = next;
         }
         return std::max (0.0f, g);
+    }
+
+    // Release (ACOMP-18), in the gain cell's control-voltage domain. The cell is a divider, R5 over the
+    // FET (UG p. 8, Figs. 3-4): gain = 1 / (1 + u), with u = R5 x the FET's conductance, which in its
+    // linear region is proportional to the gate voltage on the timing capacitor. That capacitor
+    // discharges exponentially through the release pot (UG p. 10, Fig. 5), so u, not GR in dB, decays
+    // exponentially:  u = 10^(G/20) - 1,  u[n] = u0 + a (u(target(G[n])) - u0).
+    // Near 0 dB, u is proportional to G, so shallow release is exactly as before. Deep GR recovers at
+    // an almost steady number of dB per second instead, so heavy compression lets go more slowly:
+    // the programme-dependent release the 1176 is known for. No new constants (a modelling choice,
+    // docs/engine.md and docs/references.md).
+    //   f(G) = u(G) - u0 - a (u(T(G)) - u0) is increasing in G (T falls as G rises), f(g0) >= 0, and
+    //   f(G_explicit) <= 0, so the root is unique and lies between the explicit step and g0.
+    float Engine::solveRelease (float levelDb, float g0f, float af, float extra) const noexcept
+    {
+        // Double precision with expm1 / log1p: u = 10^(G/20) - 1 is tiny for small GR, and computing it
+        // as exp() - 1 in float cancels most of its digits (rounding noise near -80 dB).
+        constexpr double c = 0.11512925464970229;   // ln(10) / 20
+        auto u  = [] (double g) { return std::expm1 (g * c); };
+        auto du = [] (double g) { return c * std::exp (g * c); };
+        auto gOf = [] (double uu) { return std::log1p (std::max (0.0, uu)) / c; };
+        auto target = [&] (double g) { return (double) (k * knee (levelDb - (float) g - thresholdDb, kneeDb) + extra); };
+
+        const double g0 = g0f, a = af, u0 = u (g0);
+        double lo = gOf (u0 + a * (u (target (g0)) - u0)), hi = g0;
+        if (lo > hi) std::swap (lo, hi);
+
+        double x = lo;   // start at the explicit step
+        for (int it = 0; it < 8; ++it)
+        {
+            const double over = (double) levelDb - x - (double) thresholdDb;
+            const double tg = target (x);
+            const double f = u (x) - u0 - a * (u (tg) - u0);
+            if (std::abs (f) < 1.0e-12 * (1.0 + u0))
+                break;
+
+            if (f > 0.0) hi = x; else lo = x;
+
+            const double df = du (x) + a * du (tg) * k * kneeSlope ((float) over, kneeDb);
+            double next = x - f / df;
+            if (! (next > lo && next < hi))
+                next = 0.5 * (lo + hi);   // Newton left the bracket: bisect
+            x = next;
+        }
+        return (float) std::max (0.0, x);
     }
 
     void Engine::process (float* const* channels, int numChannels, int numSamples, float* gainOut) noexcept

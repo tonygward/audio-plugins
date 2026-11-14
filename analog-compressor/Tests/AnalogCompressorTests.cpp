@@ -173,6 +173,31 @@ struct TransparencyTests final : juce::UnitTest
             expect (exact, "output equals input sample for sample");
         }
 
+        beginTest ("ACOMP-18: the engine keeps running while bypassed, and the output stays bit-exact");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            setParam (p, ID::oversampling, 0.0f);
+            p.prepareToPlay (48000.0, 512);
+            setParam (p, ID::input, 24.0f);
+            setParam (p, ID::bypass, 1.0f);
+
+            juce::MidiBuffer m;
+            juce::AudioBuffer<float> b (2, 512), ref (2, 512);
+            bool exact = true;
+            for (int k = 0; k < 40; ++k)
+            {
+                fillSine (b, 48000.0, 440.0, 0.5f, k * 512);
+                ref.makeCopyOf (b);
+                p.processBlock (b, m);
+                if (k >= 4)
+                    for (int c = 0; c < 2; ++c)
+                        for (int i = 0; i < 512; ++i)
+                            exact = exact && b.getSample (c, i) == ref.getSample (c, i);
+            }
+            expect (exact, "bypassed output is the input, bit-exact");
+            expectGreaterThan (p.takeGainReductionDb(), 6.0f, "the engine follows the loud input while bypassed");
+        }
+
         beginTest ("bypass settles to bit-exact pass-through");
         {
             SongsmithAnalogCompressorProcessor p;
