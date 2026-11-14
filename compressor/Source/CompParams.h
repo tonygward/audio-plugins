@@ -61,11 +61,11 @@ namespace Comp
     // The editor is laid out once at a design size and scaled as a whole, so every size looks the same.
     namespace EditorLayout
     {
-        constexpr int designWidth = 900, contentHeight = 372;   // the controls sit in the top 372
+        constexpr int designWidth = 960, contentHeight = 480;   // the graph and the controls sit in the top 480
         constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
         constexpr int designHeight = contentHeight + footerHeight;
         constexpr int defaultWidth = designWidth;
-        constexpr int minWidth = 675, maxWidth = 2700;           // 75 % to 300 %
+        constexpr int minWidth = 720, maxWidth = 2880;           // 75 % to 300 %
 
         inline int constrainWidth (int width) noexcept { return juce::jlimit (minWidth, maxWidth, width); }
         inline int heightFor (int width) noexcept      { return juce::roundToInt ((double) width * designHeight / designWidth); }

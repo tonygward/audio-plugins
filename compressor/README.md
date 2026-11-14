@@ -2,7 +2,13 @@
 
 A simple, clear compressor: it turns the louder parts of a sound down so the level stays more even. It is separate from [Songsmith Analog Compressor](../analog-compressor/README.md), which is modelled on a fast, analogue-style design. Songsmith Compressor has ordinary Threshold, Ratio, Attack and Release controls and, unless you switch on Analog Warmth, no analogue character, so it is a good choice when you want to smooth a sound without changing its tone.
 
-![Songsmith Compressor](docs/images/comp-01/compressor.png)
+![Songsmith Compressor](docs/images/comp-02/compressor.png)
+
+## What you see
+
+A graph of the last 8 seconds fills the window: **grey is the sound going in, red is the sound coming out**. When the red line falls below the grey one, the compressor is turning the level down. The dashed line is your Threshold. **Pause** holds the picture so you can look at it; the sound carries on.
+
+The controls float in a panel on the graph. Drag it by its background to move it out of the way; it remembers where you put it. On the right, **Gain Reduction** shows how much the level is being turned down, and the output meter is the same one as in Songsmith EQ (it shows each channel, and the held peak with a CLIP warning).
 
 ## Controls
 
@@ -27,7 +33,7 @@ There is no latency, no look-ahead and no oversampling, including with Analog Wa
 
 This version has not yet been checked in a DAW.
 
-More detail: [engine notes](docs/engine.md), [preset notes](docs/presets.md).
+More detail: [engine notes](docs/engine.md), [graph, panel and meters](docs/display.md), [preset notes](docs/presets.md).
 
 ## Building
 

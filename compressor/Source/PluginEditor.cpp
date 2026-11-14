@@ -4,6 +4,11 @@ namespace
 {
     constexpr int designW = Comp::EditorLayout::designWidth, designH = Comp::EditorLayout::contentHeight;
 
+    // The floating panel: seven knobs in a row, then the two buttons.
+    constexpr int panelPad = 14, knobColumn = 86, knobCount = 7, labelH = 18, knobH = 96, buttonH = 28, panelGap = 8;
+    constexpr int panelW = panelPad * 2 + knobColumn * knobCount;
+    constexpr int panelH = 12 + labelH + knobH + panelGap + buttonH + 12;
+
     juce::String formatMs (double ms)
     {
         return juce::String (ms, ms < 1.0 ? 2 : (ms < 10.0 ? 1 : (ms < 100.0 ? 1 : 0))) + " ms";
@@ -22,25 +27,46 @@ SongsmithCompressorAudioProcessorEditor::SongsmithCompressorAudioProcessorEditor
     content.onPaint = [this] (juce::Graphics& g) { paintContent (g); };
     content.onResize = [this] { layoutContent(); };
 
-    auto setupLabel = [this] (juce::Label& l, const juce::String& text)
+    // The graph fills the window; the controls float over it.
+    content.addAndMakeVisible (graph);
+    graph.setThresholdDb (proc.getEngineParams().thresholdDb);
+    graph.setTitle ("Level graph");
+
+    pauseButton.setClickingTogglesState (true);
+    pauseButton.setTooltip ("Pause: hold the graph as it is so you can look at it. Sound and meters carry on. Click again to continue");
+    pauseButton.onClick = [this] { graph.setPaused (pauseButton.getToggleState()); };
+    content.addAndMakeVisible (pauseButton);
+
+    content.addAndMakeVisible (panel);
+    panel.setAccent (CompColours::accent);
+    panel.setTitle ("Compressor controls");
+    panel.onUserMoved = [this]
+    {
+        const auto at = panel.getRelativePosition();
+        proc.panelX.store (at.x);
+        proc.panelY.store (at.y);
+    };
+
+    auto setupLabel = [this] (juce::Component& parent, juce::Label& l, const juce::String& text)
     {
         l.setText (text, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
         l.setFont (juce::Font (CompColours::font (CompColours::Type::control, CompColours::Weight::Medium)));
         l.setColour (juce::Label::textColourId, CompColours::label);
         l.setInterceptsMouseClicks (false, false);
-        content.addAndMakeVisible (l);
+        parent.addAndMakeVisible (l);
     };
-    setupLabel (thresholdLabel, "Threshold");
-    setupLabel (ratioLabel, "Ratio");
-    setupLabel (attackLabel, "Attack");
-    setupLabel (releaseLabel, "Release");
-    setupLabel (kneeLabel, "Knee");
-    setupLabel (makeupLabel, "Makeup Gain");
-    setupLabel (mixLabel, "Mix");
-    setupLabel (inLabel, "Input");
-    setupLabel (grLabel, "Gain Reduction");
-    setupLabel (outLabel, "Output");
+    setupLabel (panel, thresholdLabel, "Threshold");
+    setupLabel (panel, ratioLabel, "Ratio");
+    setupLabel (panel, attackLabel, "Attack");
+    setupLabel (panel, releaseLabel, "Release");
+    setupLabel (panel, kneeLabel, "Knee");
+    setupLabel (panel, makeupLabel, "Makeup Gain");
+    setupLabel (panel, mixLabel, "Mix");
+    setupLabel (content, grLabel, "Gain Reduction");
+    setupLabel (content, grValue, "0.0 dB");
+    grValue.setFont (juce::Font (CompColours::numbers (CompColours::Type::control)));
+    grValue.setColour (juce::Label::textColourId, CompColours::text);
 
     auto setupKnob = [this] (juce::Slider& s, const char* id, const juce::String& tip,
                              std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>& attachment,
@@ -48,7 +74,7 @@ SongsmithCompressorAudioProcessorEditor::SongsmithCompressorAudioProcessorEditor
     {
         s.setColour (juce::Slider::rotarySliderFillColourId, CompColours::accent);
         s.setColour (juce::Slider::textBoxOutlineColourId, CompColours::panelEdge);
-        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 96, 22);
+        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 80, 22);
         attachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, id, s);
         auto* param = proc.apvts.getParameter (id);
         s.setDoubleClickReturnValue (true, (double) param->convertFrom0to1 (param->getDefaultValue()));
@@ -56,12 +82,12 @@ SongsmithCompressorAudioProcessorEditor::SongsmithCompressorAudioProcessorEditor
         s.valueFromTextFunction = std::move (parse);
         s.setTooltip (tip);
         s.updateText();
-        content.addAndMakeVisible (s);
+        panel.addAndMakeVisible (s);
     };
     auto number = [] (const juce::String& t) { return t.retainCharacters ("-0123456789.").getDoubleValue(); };
 
     setupKnob (thresholdSlider, Comp::thresholdId,
-               "Threshold: the level above which the sound is turned down. Lower it to compress more of the sound",
+               "Threshold: the level above which the sound is turned down. Lower it to compress more of the sound. The dashed line on the graph shows it",
                thresholdAttachment, [] (double v) { return juce::String (v, 1) + " dB"; }, number);
     setupKnob (ratioSlider, Comp::ratioId,
                "Ratio: how firmly the sound above Threshold is turned down. Near 1 to 1 is very gentle; higher is firmer",
@@ -86,12 +112,12 @@ SongsmithCompressorAudioProcessorEditor::SongsmithCompressorAudioProcessorEditor
     autoMakeupButton.setTooltip ("Auto Makeup: raises the level to make up for the compression, matched for a typical level of -18 dBFS. "
                                  "Switch it off to set Makeup Gain yourself");
     autoMakeupAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Comp::autoMakeupId, autoMakeupButton);
-    content.addAndMakeVisible (autoMakeupButton);
+    panel.addAndMakeVisible (autoMakeupButton);
 
     warmthButton.setClickingTogglesState (true);
     warmthButton.setTooltip ("Analog Warmth: adds a little smooth, rounded colour to the compressed sound. Off keeps the sound clean. Quiet and normal levels stay the same loudness; only the loudest peaks are rounded off slightly");
     warmthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Comp::warmthId, warmthButton);
-    content.addAndMakeVisible (warmthButton);
+    panel.addAndMakeVisible (warmthButton);
 
     bypassButton.setClickingTogglesState (true);
     bypassButton.setTooltip ("Bypass: the sound passes through untouched");
@@ -132,16 +158,21 @@ SongsmithCompressorAudioProcessorEditor::SongsmithCompressorAudioProcessorEditor
     redoButton.setExplicitFocusOrder (3);
     bypassButton.setExplicitFocusOrder (4);
 
-    inputMeter.setTooltip ("Input peak (click to reset). The red mark means a sample reached 0 dBFS. This is sample peak, not true peak");
-    reductionMeter.setTooltip ("Gain Reduction: how much the compressor is turning the level down, 0 to 24 dB");
-    outputMeter.setTooltip ("Output peak (click to reset). The red mark means a sample reached 0 dBFS. This is sample peak, not true peak");
-    for (auto* m : { &inputMeter, &reductionMeter, &outputMeter })
-        content.addAndMakeVisible (*m);
+    reductionMeter.setTooltip ("Gain Reduction: how much the compressor is turning the level down right now, 0 to 24 dB. "
+                               "This is the reduction alone; Makeup Gain is separate and is not subtracted");
+    outputMeter.setTooltip ("Output level for each channel, after compression, Makeup Gain, Analog Warmth, Mix and Bypass. "
+                            "The number under the clip warning is the highest sample level held for 1.5 seconds: negative means below 0 dBFS, "
+                            "positive means over it and is red. The warning lights when a sample reaches 0 dBFS and stays lit while "
+                            "sound continues. This is sample peak, not true peak. Click to clear the held number");
+    content.addAndMakeVisible (reductionMeter);
+    content.addAndMakeVisible (outputMeter);
 
     diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (proc, proc.loadMeter, JucePlugin_Name);
     content.addAndMakeVisible (*diagnostics);
     content.addAndMakeVisible (titleHint);   // the plugin name explains the plugin
 
+    // What the audio thread has already measured is old: start the graph from now.
+    proc.graphFifo.clear();
     syncFromParameters();
 
     setResizable (true, true);
@@ -196,34 +227,49 @@ void SongsmithCompressorAudioProcessorEditor::layoutContent()
         bypassButton.setBounds (header.bypass);
     }
 
-    // Two rows of knobs on the left; the three meters on the right. The knob that shapes the sound
-    // most (Threshold) comes first, and Auto Makeup sits beside Makeup Gain.
-    constexpr int colW = 156, left = 16, knobW = 128, knobH = 118;
-    auto column = [&] (int c) { return left + c * colW + (colW - knobW) / 2; };
-    const int row1Label = 64, row1Knob = row1Label + 22, row2Label = row1Knob + knobH + 8, row2Knob = row2Label + 22;
+    // Right edge: the output meter, the same size and place as the Songsmith EQ's (full height, at the far right),
+    // with the Gain Reduction bar beside it, its bar starting level with the meter's bars.
+    const int top = (int) Songsmith::UI::titleBarHeight + 8, bottom = designH - 12, height = bottom - top;
+    const int meterX = designW - 16 - Songsmith::UI::OutputMeterDisplay::preferredWidth;
+    outputMeter.setBounds (meterX, top, Songsmith::UI::OutputMeterDisplay::preferredWidth, height);
 
-    auto place = [&] (juce::Label& label, juce::Slider& knob, int c, int labelY, int knobY)
+    const int barsTop = top + 46, barsBottom = top + height - (int) Songsmith::UI::OutputMeterDisplay::bottomRow;
+    constexpr int grWidth = 88, grBarWidth = 26;
+    const int grX = meterX - 14 - grWidth;
+    grLabel.setBounds (grX, top + 4, grWidth, 36);
+    reductionMeter.setBounds (grX + (grWidth - grBarWidth) / 2, barsTop, grBarWidth, barsBottom - barsTop);
+    grValue.setBounds (grX, barsBottom + 2, grWidth, (int) Songsmith::UI::OutputMeterDisplay::bottomRow - 4);
+
+    // The graph fills the rest.
+    const juce::Rectangle<int> graphArea (16, top, grX - 12 - 16, height);
+    graph.setBounds (graphArea);
+    pauseButton.setBounds (graphArea.getRight() - 70, graphArea.getY() + 6, 64, 24);
+
+    // The floating panel: fixed size, kept whole inside the graph, and back where the musician left it.
+    panel.setSize (panelW, panelH);
+    panel.setLimits (graphArea.reduced (8));
+    panel.setRelativePosition ({ proc.panelX.load(), proc.panelY.load() });
+
+    const int knobTop = 12 + labelH;
+    int x = panelPad;
+    auto place = [&] (juce::Label& label, juce::Slider& knob)
     {
-        label.setBounds (column (c), labelY, knobW, 20);
-        knob.setBounds (column (c), knobY, knobW, knobH);
+        label.setBounds (x, 12, knobColumn, labelH);
+        knob.setBounds (x + 3, knobTop, knobColumn - 6, knobH);
+        x += knobColumn;
     };
-    place (thresholdLabel, thresholdSlider, 0, row1Label, row1Knob);
-    place (ratioLabel, ratioSlider, 1, row1Label, row1Knob);
-    place (attackLabel, attackSlider, 2, row1Label, row1Knob);
-    place (releaseLabel, releaseSlider, 3, row1Label, row1Knob);
-    place (kneeLabel, kneeSlider, 0, row2Label, row2Knob);
-    place (makeupLabel, makeupSlider, 1, row2Label, row2Knob);
-    autoMakeupButton.setBounds (column (2) + 4, row2Knob + 16, knobW - 8, 28);   // beside Makeup Gain
-    warmthButton.setBounds (column (2) + 4, row2Knob + 64, knobW - 8, 28);
-    place (mixLabel, mixSlider, 3, row2Label, row2Knob);
+    place (thresholdLabel, thresholdSlider);
+    place (ratioLabel, ratioSlider);
+    place (attackLabel, attackSlider);
+    place (releaseLabel, releaseSlider);
+    place (kneeLabel, kneeSlider);
+    place (makeupLabel, makeupSlider);
+    place (mixLabel, mixSlider);
 
-    const int meterLeft = left + 4 * colW + 28, meterTop = row1Label + 36, meterBottom = designH - 24;
-    inLabel.setBounds (meterLeft, row1Label, 60, 34);
-    inputMeter.setBounds (meterLeft + 18, meterTop, 24, meterBottom - meterTop);
-    grLabel.setBounds (meterLeft + 64, row1Label, 84, 34);
-    reductionMeter.setBounds (meterLeft + 94, meterTop, 24, meterBottom - meterTop);
-    outLabel.setBounds (meterLeft + 152, row1Label, 60, 34);
-    outputMeter.setBounds (meterLeft + 170, meterTop, 24, meterBottom - meterTop);
+    // Auto Makeup sits under Makeup Gain, the knob it switches off.
+    const int buttonTop = knobTop + knobH + panelGap;
+    autoMakeupButton.setBounds (panelPad + knobColumn * 5 - 10, buttonTop, 112, buttonH);
+    warmthButton.setBounds (panelPad, buttonTop, 130, buttonH);
 
     diagnostics->setBounds (0, designH, designW, Comp::EditorLayout::footerHeight);
 }
@@ -234,10 +280,6 @@ void SongsmithCompressorAudioProcessorEditor::paintContent (juce::Graphics& g)
     Songsmith::UI::LookAndFeelBase::drawPanel (g, area);
     Songsmith::UI::LookAndFeelBase::drawTitleBar (g, area.withHeight (Songsmith::UI::titleBarHeight));
     Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, CompColours::text, CompColours::accent);
-
-    // A fine vertical line sets the meters apart from the controls.
-    g.setColour (CompColours::panelEdge);
-    g.drawVerticalLine (inLabel.getX() - 14, (float) Songsmith::UI::titleBarHeight + 16.0f, (float) designH - 16.0f);
 }
 
 //==============================================================================
@@ -245,13 +287,32 @@ void SongsmithCompressorAudioProcessorEditor::syncFromParameters()
 {
     // Makeup Gain does nothing while Auto Makeup is on, so it is greyed out (its tooltip says why).
     makeupSlider.setEnabled (! autoMakeupButton.getToggleState());
+    graph.setThresholdDb (proc.getEngineParams().thresholdDb);
 }
 
 void SongsmithCompressorAudioProcessorEditor::updateMeters (double elapsedSeconds)
 {
-    inputMeter.push (Comp::gainToDb (SongsmithCompressorAudioProcessor::readAndReset (proc.inputPeak)), elapsedSeconds);
-    outputMeter.push (Comp::gainToDb (SongsmithCompressorAudioProcessor::readAndReset (proc.outputPeak)), elapsedSeconds);
+    // The graph: every column the audio thread has finished since the last call, oldest first.
+    Comp::GraphColumn columns[256];
+    for (int n; (n = proc.graphFifo.popAll (columns, 256)) > 0;)
+        for (int i = 0; i < n; ++i)
+            graph.push (columns[i]);
+    graph.refreshIfChanged();
+
+    // The Gain Reduction bar and its number (a positive amount: how much the level is turned down).
     reductionMeter.push (SongsmithCompressorAudioProcessor::readAndReset (proc.gainReductionDb), elapsedSeconds);
+    grValue.setText (juce::String (reductionMeter.getBallistics().getLevel(), 1) + " dB", juce::dontSendNotification);
+
+    // The output meter, exactly as the Songsmith EQ feeds it.
+    {
+        auto& m = proc.outputMeter;
+        m.readAndReset();   // the all-channel peak isn't shown; the per-channel ones are
+        m.clipped.store (false, std::memory_order_relaxed);
+        outputMeter.update (m.readAndResetChannel (0), m.readAndResetChannel (1),
+                            m.channels.load (std::memory_order_relaxed),
+                            m.clipLatched.load (std::memory_order_relaxed),
+                            juce::Time::getMillisecondCounterHiRes() * 0.001, elapsedSeconds);
+    }
 }
 
 void SongsmithCompressorAudioProcessorEditor::refreshHistoryButtons()

@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- Songsmith Compressor has a new look. A graph of the last 8 seconds shows the sound going in (grey) and coming out (red), so you can see the compressor working: where red falls below grey, the level is being turned down. A dashed line shows your Threshold, and a Pause button holds the picture. The controls now float in a panel you can drag out of the way; it remembers where you put it. On the right, a Gain Reduction bar shows how much the level is turned down, and the output meter is now the same one as in Songsmith EQ (each channel, a CLIP warning and the held peak). The sound, your settings and your saved sessions are unchanged, and older sessions open with the panel in its usual place. You do not need to do anything. This has not yet been checked in a DAW.
+
 ## 0.5.25
 
 Behind-the-scenes improvements and fixes. There is nothing you need to do.

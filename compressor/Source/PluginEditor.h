@@ -4,10 +4,15 @@
 #include "PluginProcessor.h"
 #include "CompLookAndFeel.h"
 #include "CompMeter.h"
+#include "DynamicsGraph.h"
 #include "../../shared/Source/SongsmithGuidance.h"
+#include "../../shared/Source/SongsmithFloatingPanel.h"
+#include "../../shared/Source/SongsmithOutputMeter.h"
 
-// Songsmith Compressor editor. Everything sits in one content component laid out at the design size
-// (900 x 400) and scaled as a whole, so the window can be resized (75 % to 300 %, fixed aspect)
+// Songsmith Compressor editor (COMP-02). A scrolling graph of the sound going in and coming out fills the window; a
+// floating panel, which can be dragged like the Songsmith EQ's band panel, holds the controls; and on the right are the
+// Gain Reduction bar and the same output meter as the Songsmith EQ. Everything sits in one content component laid out
+// at the design size (960 x 508) and scaled as a whole, so the window can be resized (75 % to 300 %, fixed aspect)
 // without anything getting cramped. Vector drawing and the embedded Inter font throughout.
 class SongsmithCompressorAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
@@ -25,6 +30,7 @@ public:
     juce::Button& getBypassButton() noexcept      { return bypassButton; }
     juce::Button& getAutoMakeupButton() noexcept  { return autoMakeupButton; }
     juce::Button& getWarmthButton() noexcept      { return warmthButton; }
+    juce::Button& getPauseButton() noexcept       { return pauseButton; }
     juce::ComboBox& getPresetBox() noexcept       { return presetBox; }
     juce::Slider& getThresholdSlider() noexcept   { return thresholdSlider; }
     juce::Slider& getRatioSlider() noexcept       { return ratioSlider; }
@@ -33,16 +39,18 @@ public:
     juce::Slider& getKneeSlider() noexcept        { return kneeSlider; }
     juce::Slider& getMakeupSlider() noexcept      { return makeupSlider; }
     juce::Slider& getMixSlider() noexcept         { return mixSlider; }
-    CompMeter& getInputMeter() noexcept           { return inputMeter; }
     CompMeter& getReductionMeter() noexcept       { return reductionMeter; }
-    CompMeter& getOutputMeter() noexcept          { return outputMeter; }
+    Songsmith::UI::OutputMeterDisplay& getOutputMeter() noexcept { return outputMeter; }
+    Comp::DynamicsGraph& getGraph() noexcept      { return graph; }
+    Songsmith::UI::FloatingPanel& getPanel() noexcept { return panel; }
+    juce::Label& getReductionValue() noexcept     { return grValue; }
     juce::Component& getContent() noexcept        { return content; }
     juce::Component& getTitleHint() noexcept      { return titleHint; }
     juce::Rectangle<int> getTitleBounds() const noexcept { return titleBounds; }
     float getContentScale() const noexcept        { return contentScale; }
 
-    // What the timer does: pull parameter changes made by the host into the controls, and feed the
-    // meters (elapsed = seconds since the last update).
+    // What the timer does: pull parameter changes made by the host into the controls, move what the audio thread
+    // measured into the graph and the meters (elapsed = seconds since the last update).
     void syncFromParameters();
     void updateMeters (double elapsedSeconds);
 
@@ -66,6 +74,11 @@ private:
 
     juce::TooltipWindow tooltips { &content, 600 };
 
+    Comp::DynamicsGraph graph;
+    juce::TextButton pauseButton { "Pause" };
+
+    // The floating panel and everything in it.
+    Songsmith::UI::FloatingPanel panel;
     juce::Slider thresholdSlider { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Slider ratioSlider     { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Slider attackSlider    { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
@@ -73,18 +86,22 @@ private:
     juce::Slider kneeSlider      { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Slider makeupSlider    { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Slider mixSlider       { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
-    juce::TextButton autoMakeupButton { "Auto Makeup" }, warmthButton { "Analog Warmth" }, bypassButton { "Bypass" }, undoButton { "Undo" }, redoButton { "Redo" };
+    juce::Label thresholdLabel, ratioLabel, attackLabel, releaseLabel, kneeLabel, makeupLabel, mixLabel;
+    juce::TextButton autoMakeupButton { "Auto Makeup" }, warmthButton { "Analog Warmth" };
+
+    juce::TextButton bypassButton { "Bypass" }, undoButton { "Undo" }, redoButton { "Redo" };
     juce::ComboBox presetBox;
-    juce::Label thresholdLabel, ratioLabel, attackLabel, releaseLabel, kneeLabel, makeupLabel, mixLabel,
-                inLabel, grLabel, outLabel;
     juce::Rectangle<int> titleBounds;   // the product name, painted
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> thresholdAttachment, ratioAttachment, attackAttachment,
                                                                           releaseAttachment, kneeAttachment, makeupAttachment, mixAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoMakeupAttachment, warmthAttachment, bypassAttachment;
 
-    CompMeter inputMeter { CompMeter::Kind::level }, reductionMeter { CompMeter::Kind::reduction },
-              outputMeter { CompMeter::Kind::level };
+    // Right edge: the Gain Reduction bar (how much the compressor is turning the level down) and the Songsmith EQ's
+    // output meter (sample peak, CLIP warning and the signed held peak).
+    juce::Label grLabel, grValue;
+    CompMeter reductionMeter { CompMeter::Kind::reduction };
+    Songsmith::UI::OutputMeterDisplay outputMeter;
 
     // Latency and the optional Processing Load readout, in the strip below the controls.
     std::unique_ptr<Songsmith::Diagnostics::Bar> diagnostics;

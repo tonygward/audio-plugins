@@ -22,3 +22,4 @@ COMP-01 is too large for one run, so it goes in ordered slices. Each one is its 
 | 3 | (folded into slice 2) | Done |
 | 4 | Analog Warmth: optional saturation, measured ([engine notes](../docs/engine.md#analog-warmth)) | In review |
 | 5 | Host check, listening notes and further presets | To do |
+| COMP-02 | Level graph, floating panel and the Songsmith EQ meter ([notes](../docs/display.md)) | In review |
