@@ -26,7 +26,7 @@ import { parsePrompt } from './backlog.mjs';
 
 export const CI_VALIDATION = 'Hosted Windows and macOS builds and tests decide; this worker ran no local build.';
 const TURN_RUNAWAY_FACTOR = 3;
-const plugins = ['eq', 'analog-compressor', 'maximiser'];
+const plugins = ['eq', 'analog-compressor', 'maximiser', 'compressor'];
 const UI_NOTE = 'UI changes require retained before/after screenshots and visual review before marking this draft ready';
 const FORBIDDEN_ENV = /^(RELEASE_PUBLISH_TOKEN|CLOUDFLARE_|R2_|WEBSITE_|NPM_TOKEN|AWS_|GH_TOKEN|GITHUB_TOKEN)/;
 

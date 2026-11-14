@@ -12,8 +12,8 @@ export function inScope(file) {
   if (typeof file !== 'string' || !file || /[\\\x00-\x1f]/.test(file)) return false;
   if (file.split('/').some(part => part === '..' || part.startsWith('.'))) return false;
   if (/\.(exe|dll|cmd|bat|ps1|sh|cmake)$/i.test(file)) return false;
-  return /^(eq|analog-compressor|maximiser|shared)\/(Source|Tests|Resources|docs)\//.test(file)
-    || /^(eq|analog-compressor|maximiser)\/README\.md$/.test(file)
+  return /^(eq|analog-compressor|maximiser|compressor|shared)\/(Source|Tests|Resources|docs)\//.test(file)
+    || /^(eq|analog-compressor|maximiser|compressor)\/README\.md$/.test(file)
     || file === 'CHANGELOG.md';
 }
 
