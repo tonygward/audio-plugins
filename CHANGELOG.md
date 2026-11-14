@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- In Songsmith EQ, a dynamic band set to a low frequency (around 50 to 100 Hz) now follows the level smoothly instead of wobbling slightly with each cycle of the bass, so it sounds cleaner with fast attack settings. Auto Gain is also more accurate in Linear phase and with Oversampling on, because it now compares the same moment of the input and the output. Your settings are unchanged; you do not need to do anything.
+
 ## 0.5.28
 
 - Songsmith Analog Compressor now lets go of heavy compression more like the 1176 it is inspired by: after a lot of gain reduction it recovers at a steadier pace instead of rushing back at first, so heavily compressed parts let go more gradually. Light compression sounds the same as before. The Gain Reduction meter also keeps moving while the plugin is bypassed, so you can see what it would do. Projects you saved may sound slightly different on heavily compressed parts; you do not need to do anything.
