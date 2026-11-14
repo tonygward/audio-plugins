@@ -53,6 +53,8 @@ test('refuses any changed file outside the worker scope', () => {
   }
   const none = good(); none.files = []; assert.equal(evaluate(none).merge, false);
   assert.equal(inScope('maximiser/Source/Engine.cpp'), true);
+  assert.equal(inScope('compressor/Source/Engine.cpp'), true);
+  assert.equal(inScope('compressor/README.md'), true);
   assert.equal(inScope('shared/Resources/font.ttf'), true);
 });
 

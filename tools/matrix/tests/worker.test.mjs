@@ -212,7 +212,7 @@ test('Config/path scope and agent tools cannot grant shell, release or credentia
   const args = agentArguments(f.config.worker); assert.ok(args.includes('--restricted')); assert.ok(args.includes('acceptEdits')); assert.ok(!args.includes('dontAsk'));
   assert.ok(!args.join(' ').includes('Bash')); assert.ok(!args.join(' ').includes('bypassPermissions'));
   for (const file of ['VERSION', '.github/workflows/a.yml', 'tools/matrix/worker.mjs', 'eq/prompts/41-x.md', 'eq/Source/../escape.cpp', 'eq/Source/a.ps1', 'eq/Source/a\n.cpp']) assert.throws(() => validateChanges([file]));
-  validateChanges(['CHANGELOG.md', 'eq/Source/a.cpp']);
+  validateChanges(['CHANGELOG.md', 'eq/Source/a.cpp', 'compressor/Source/a.cpp', 'compressor/README.md']);
   for (const file of ['docs/CHANGELOG.md', 'CHANGELOG.md.bak', 'README.md', 'sub/CHANGELOG.md', 'changelog.md.exe']) assert.throws(() => validateChanges([file]));
   assert.throws(() => validateWorker({ ...f.config, worker: { ...f.config.worker, worktreeRoot: f.repo } }));
   assert.throws(() => parseAgent('{"type":"result","subtype":"error"}'));
