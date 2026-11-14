@@ -1,8 +1,8 @@
 ; Songsmith Plugins - one Windows installer for every plugin (Inno Setup 6).
 ;
 ; Build it with build-installer.ps1, which reads the one version from VERSION and passes the build folders:
-;   iscc /DSuiteVersion=<VERSION> /DEqVersion=<VERSION> /DFetVersion=<VERSION> /DMaxVersion=<VERSION>
-;        /DEqDir=<...\SongsmithEQ_artefacts\Release> /DFetDir=<...> /DMaxDir=<...> /O<out> SongsmithStudio.iss
+;   iscc /DSuiteVersion=<VERSION> /DEqVersion=<VERSION> /DFetVersion=<VERSION> /DMaxVersion=<VERSION> /DCompVersion=<VERSION>
+;        /DEqDir=<...\SongsmithEQ_artefacts\Release> /DFetDir=<...> /DMaxDir=<...> /DCompDir=<...> /O<out> SongsmithStudio.iss
 ;
 ; Each plugin is one component, ticked by default, and brings its standalone app with it.
 ; Every plugin goes where its own installer puts it: the VST3 into the fixed
@@ -43,6 +43,7 @@
 #define EqName       "Songsmith EQ"
 #define FetName      "Songsmith Analog Compressor"
 #define MaxName      "Songsmith Maximiser"
+#define CompName     "Songsmith Compressor"
 
 [Setup]
 AppId={#SuiteAppIdSetup}
@@ -53,12 +54,12 @@ AppPublisher={#AppPublisher}
 AppPublisherURL={#AppURL}
 AppSupportURL={#AppURL}/issues
 AppUpdatesURL={#AppURL}/releases
-AppComments={#EqName} {#EqVersion}, {#FetName} {#FetVersion}, {#MaxName} {#MaxVersion}
+AppComments={#EqName} {#EqVersion}, {#FetName} {#FetVersion}, {#MaxName} {#MaxVersion}, {#CompName} {#CompVersion}
 VersionInfoVersion={#SuiteVersion}
 VersionInfoProductName={#AppName}
 VersionInfoCompany={#AppPublisher}
 ; The Settings > Apps entry names every plugin's own version.
-UninstallDisplayName={#AppName} (EQ {#EqVersion}, Analog Compressor {#FetVersion}, Maximiser {#MaxVersion})
+UninstallDisplayName={#AppName} (EQ {#EqVersion}, Analog Compressor {#FetVersion}, Maximiser {#MaxVersion}, Compressor {#CompVersion})
 
 ; The standalone apps (each in its own folder) and the uninstaller live here.
 DefaultDirName={autopf}\{#AppPublisher}
@@ -90,7 +91,7 @@ SetupLogging=yes
 SetupAppTitle=Songsmith Plugins
 SetupWindowTitle=Songsmith Plugins %1
 WelcomeLabel1=Songsmith Plugins
-WelcomeLabel2=This installs Songsmith Plugins on your computer:%n%n    {#EqName} {#EqVersion}%n    {#FetName} {#FetVersion}%n    {#MaxName} {#MaxVersion}%n%nOn the next page, untick any plugin you don't want. Each plugin goes into the standard VST3 folder (Common Files\VST3), where every VST3 host looks for it, and comes with a standalone app that runs on its own.%n%nPlease close your recording software before continuing.
+WelcomeLabel2=This installs Songsmith Plugins on your computer:%n%n    {#EqName} {#EqVersion}%n    {#FetName} {#FetVersion}%n    {#MaxName} {#MaxVersion}%n    {#CompName} {#CompVersion}%n%nOn the next page, untick any plugin you don't want. Each plugin goes into the standard VST3 folder (Common Files\VST3), where every VST3 host looks for it, and comes with a standalone app that runs on its own.%n%nPlease close your recording software before continuing.
 SelectComponentsLabel2=Tick the plugins to install. Unticking a plugin that is already installed removes it. Your presets are always kept.
 FinishedLabel=Setup has installed Songsmith Plugins on your computer.%n%nRescan plugins in your recording software (or restart it) to find them under Songsmith Studio.
 
@@ -103,12 +104,14 @@ Name: "custom"; Description: "Choose plugins"; Flags: iscustom
 Name: "eq";             Description: "{#EqName} {#EqVersion}: shape the tone of a track";                        Types: full custom; Flags: checkablealone
 Name: "fet";            Description: "{#FetName} {#FetVersion}: even out the level and add analogue warmth";     Types: full custom; Flags: checkablealone
 Name: "max";            Description: "{#MaxName} {#MaxVersion}: make a finished mix louder without clipping";    Types: full custom; Flags: checkablealone
+Name: "comp";           Description: "{#CompName} {#CompVersion}: even out the level with simple, clear controls";  Types: full custom; Flags: checkablealone
 
 [InstallDelete]
 ; Replace each ticked plugin's bundle cleanly: files from an older version must not linger.
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#EqName}.vst3";  Components: eq
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#FetName}.vst3"; Components: fet
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#MaxName}.vst3"; Components: max
+Type: filesandordirs; Name: "{code:Vst3Dir}\{#CompName}.vst3"; Components: comp
 ; Songsmith EQ's earlier names. Same plugin ID, so they'd show up twice.
 Type: filesandordirs; Name: "{code:Vst3Dir}\TW Pro EQ.vst3";  Components: eq
 Type: filesandordirs; Name: "{code:Vst3Dir}\3-Band EQ.vst3";  Components: eq
@@ -118,17 +121,21 @@ Type: filesandordirs; Name: "{code:Vst3Dir}\3-Band EQ.vst3";  Components: eq
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#EqName}.vst3";      Components: not eq;  Check: SuiteHad ('eq')
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#FetName}.vst3";     Components: not fet; Check: SuiteHad ('fet')
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#MaxName}.vst3";     Components: not max; Check: SuiteHad ('max')
+Type: filesandordirs; Name: "{code:Vst3Dir}\{#CompName}.vst3";     Components: not comp; Check: SuiteHad ('comp')
 ; ...and its standalone app and Start menu shortcut go with it. An earlier suite 1.x install
 ; may have recorded "eq\standalone" as well; the plugin's own entry is the one that decides.
 Type: files;          Name: "{app}\{#EqName}\{#EqName}.exe";      Components: not eq;  Check: SuiteHad ('eq')
 Type: files;          Name: "{app}\{#FetName}\{#FetName}.exe";    Components: not fet; Check: SuiteHad ('fet')
 Type: files;          Name: "{app}\{#MaxName}\{#MaxName}.exe";    Components: not max; Check: SuiteHad ('max')
+Type: files;          Name: "{app}\{#CompName}\{#CompName}.exe";    Components: not comp; Check: SuiteHad ('comp')
 Type: files;          Name: "{autoprograms}\{#EqName}.lnk";       Components: not eq;  Check: SuiteHad ('eq')
 Type: files;          Name: "{autoprograms}\{#FetName}.lnk";      Components: not fet; Check: SuiteHad ('fet')
 Type: files;          Name: "{autoprograms}\{#MaxName}.lnk";      Components: not max; Check: SuiteHad ('max')
+Type: files;          Name: "{autoprograms}\{#CompName}.lnk";      Components: not comp; Check: SuiteHad ('comp')
 Type: dirifempty;     Name: "{app}\{#EqName}";                    Components: not eq;  Check: SuiteHad ('eq')
 Type: dirifempty;     Name: "{app}\{#FetName}";                   Components: not fet; Check: SuiteHad ('fet')
 Type: dirifempty;     Name: "{app}\{#MaxName}";                   Components: not max; Check: SuiteHad ('max')
+Type: dirifempty;     Name: "{app}\{#CompName}";                   Components: not comp; Check: SuiteHad ('comp')
 
 [Dirs]
 ; The shared VST3 folder holds other plugins: never remove it on uninstall.
@@ -138,14 +145,17 @@ Name: "{code:Vst3Dir}"; Flags: uninsneveruninstall
 Source: "{#EqDir}\VST3\{#EqName}.vst3\*";   DestDir: "{code:Vst3Dir}\{#EqName}.vst3";  Components: eq;  Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#FetDir}\VST3\{#FetName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#FetName}.vst3"; Components: fet; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MaxDir}\VST3\{#MaxName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#MaxName}.vst3"; Components: max; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#CompDir}\VST3\{#CompName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#CompName}.vst3"; Components: comp; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#EqDir}\Standalone\{#EqName}.exe";   DestDir: "{app}\{#EqName}";  Components: eq;  Flags: ignoreversion
 Source: "{#FetDir}\Standalone\{#FetName}.exe"; DestDir: "{app}\{#FetName}"; Components: fet; Flags: ignoreversion
 Source: "{#MaxDir}\Standalone\{#MaxName}.exe"; DestDir: "{app}\{#MaxName}"; Components: max; Flags: ignoreversion
+Source: "{#CompDir}\Standalone\{#CompName}.exe"; DestDir: "{app}\{#CompName}"; Components: comp; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#EqName}";  Filename: "{app}\{#EqName}\{#EqName}.exe";   Components: eq
 Name: "{autoprograms}\{#FetName}"; Filename: "{app}\{#FetName}\{#FetName}.exe"; Components: fet
 Name: "{autoprograms}\{#MaxName}"; Filename: "{app}\{#MaxName}\{#MaxName}.exe"; Components: max
+Name: "{autoprograms}\{#CompName}"; Filename: "{app}\{#CompName}\{#CompName}.exe"; Components: comp
 
 ; Uninstall removes only what Setup installed (the bundles, the apps, the shortcuts). User
 ; presets in %APPDATA%\Songsmith Studio\<plugin> (and the old %APPDATA%\TW Pro EQ) belong to
@@ -297,7 +307,7 @@ end;
 
 function NothingSelected(): Boolean;
 begin
-  Result := not (Selected ('eq') or Selected ('fet') or Selected ('max'));
+  Result := not (Selected ('eq') or Selected ('fet') or Selected ('max') or Selected ('comp'));
 end;
 
 function NextButtonClick (CurPageID: Integer): Boolean;
@@ -325,6 +335,7 @@ begin
   if Removing ('eq') then Removed := Removed + Space + '{#EqName}' + NewLine;
   if Removing ('fet') then Removed := Removed + Space + '{#FetName}' + NewLine;
   if Removing ('max') then Removed := Removed + Space + '{#MaxName}' + NewLine;
+  if Removing ('comp') then Removed := Removed + Space + '{#CompName}' + NewLine;
 
   Result := MemoComponentsInfo;
   if Replaced <> '' then
@@ -348,6 +359,7 @@ begin
   Result := InUse ('eq', '{#EqName}');
   if Result = '' then Result := InUse ('fet', '{#FetName}');
   if Result = '' then Result := InUse ('max', '{#MaxName}');
+  if Result = '' then Result := InUse ('comp', '{#CompName}');
   if Result <> '' then
   begin
     Result := Result + #13#10#13#10 + 'Close it and run Setup again. Nothing has been changed.';

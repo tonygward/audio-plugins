@@ -10,7 +10,7 @@ Sizes (design units): preset 220, Undo and Redo 60 each, Bypass 84, 26 high. Key
 
 | Plugin | Control | New place | Why there |
 |---|---|---|---|
-| Songsmith EQ | Scale (Gain Scale, `gain_scale`) | Second row, left of Auto Gain and Output | A real sound parameter, so it stays visible beside the other gain controls. Its ID, saved value and automation are untouched. This is its toolbox place; EQ-41 adds the label and tooltip. |
+| Songsmith EQ | Gain Scale (`gain_scale`) | Second row, left of Auto Gain and Output | A real sound parameter, so it stays visible beside the other gain controls. Its ID, saved value and automation are untouched. This is its toolbox place; EQ-41 added the "Gain Scale" label and plain tooltip. |
 | Songsmith EQ | Band count | Second row, left of Scale, when there is room | Hidden at the narrowest widths rather than squeezed. |
 | Songsmith Analog Compressor | Interface size menu | Removed | Drag the bottom-right corner; size is still saved, and the old saved interface size still sets the starting width. |
 | Songsmith Analog Compressor | Oversampling | Far left of the processing area, under Input (ACOMP-15) | A processing setting, at a predictable place on the left edge. It was briefly below Ignore Below. |

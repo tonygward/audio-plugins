@@ -1,17 +1,18 @@
 # Builds the Songsmith Plugins Windows installer (Inno Setup 6): every plugin in one Setup, each
-# one ticked by default. Uses existing Release builds of the three plugins.
+# one ticked by default. Uses existing Release builds of the four plugins.
 #
 #   .\installer\windows\build-installer.ps1                  # -> build\suite-installer\Songsmith-Plugins-<version>-win64-setup.exe
 #   .\installer\windows\build-installer.ps1 -EqDir <folder>  # a plugin's Release artefacts from somewhere else (CI)
 #   .\installer\windows\build-installer.ps1 -SuiteVersion <older version> -OutDir <folder>   # tests: an "older" suite
 #
 # Every plugin and the suite share the one version in VERSION at the repository root.
-# Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser).
+# Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser, compressor).
 # Writes the path of the installer to the output.
 param(
     [string]$EqDir,
     [string]$FetDir,
     [string]$MaxDir,
+    [string]$CompDir,
     [string]$SuiteVersion,
     [string]$OutDir,
     [string]$Config = "Release"
@@ -32,7 +33,8 @@ if ($SuiteVersion -notmatch '^\d+\.\d+\.\d+$') { throw "Suite version '$SuiteVer
 $plugins = @(
     @{ Key = "Eq";  Folder = "eq";                Target = "SongsmithEQ";               Name = "Songsmith EQ";                Dir = $EqDir },
     @{ Key = "Fet"; Folder = "analog-compressor"; Target = "SongsmithAnalogCompressor"; Name = "Songsmith Analog Compressor"; Dir = $FetDir },
-    @{ Key = "Max"; Folder = "maximiser";         Target = "SongsmithMaximiser";        Name = "Songsmith Maximiser";         Dir = $MaxDir }
+    @{ Key = "Max"; Folder = "maximiser";         Target = "SongsmithMaximiser";        Name = "Songsmith Maximiser";         Dir = $MaxDir },
+    @{ Key = "Comp"; Folder = "compressor";       Target = "SongsmithCompressor";       Name = "Songsmith Compressor";        Dir = $CompDir }
 )
 
 $defines = @("/DSuiteVersion=$SuiteVersion")

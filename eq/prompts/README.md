@@ -19,7 +19,7 @@ References use the stable **EQ-##** IDs (for example EQ-27 means prompt 27 in th
 | [35 Piano footer placement](done/35-piano-footer.md) | **Done** in #81: Piano button pinned to the far right of the bottom strip beside the piano-note strip, with [SUI-12](../../shared/prompts/done/SUI-12-processing-load-footer.md). Shipped in 1.2.0 |
 | [33 filter shape icons](done/33-filter-shape-icons.md) | **Done** in #80: a response picture beside each filter type in the band panel and the right-click menu. Shipped in 1.2.0 |
 | [34 Linear Phase tooltip](done/34-linear-phase-tooltip.md) | **Done** in #79: the processing-mode selector explains when to try Linear phase, why it adds delay and why Zero latency suits recording. Shipped in 1.2.0 (UI milestone) |
-| [41 Gain Scale label](41-gain-scale-main-toolbox.md) | To do ([#203](https://github.com/tonygward/audio-plugins/issues/203)). The move into the toolbox already shipped with SUI-18 in 0.5.10; what is left is the label and tooltip |
+| [41 Gain Scale label](done/41-gain-scale-main-toolbox.md) | To do ([#203](https://github.com/tonygward/audio-plugins/issues/203)). The move into the toolbox already shipped with SUI-18 in 0.5.10; what is left is the label and tooltip |
 | [42 Clipping indication and peak readout](42-clip-meter-readout.md) | To do ([#232](https://github.com/tonygward/audio-plugins/issues/232)) |
 | [43 Steadier dynamic detector and latency-aligned Auto Gain](done/43-dynamic-detector-and-auto-gain-alignment.md) | Done ([#277](https://github.com/tonygward/audio-plugins/issues/277)) |
 

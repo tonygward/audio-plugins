@@ -20,7 +20,7 @@ This is an index, not the queue: the board decides what runs and in what order. 
 | AUTO-01 | [Matrix autonomous development orchestrator](AUTO-01-matrix-autonomous-development.md) (parent epic) | [#162](https://github.com/tonygward/audio-plugins/issues/162) |
 | AUTO-09 | [Prove end-to-end Matrix development and CI pilot](AUTO-09-container-development-ci-and-merge-pilot.md) | [#156](https://github.com/tonygward/audio-plugins/issues/156) |
 | AUTO-08 | [Validate Matrix Linux container deployment](AUTO-08-linux-container-deployment-validation.md) | [#155](https://github.com/tonygward/audio-plugins/issues/155) |
-| EQ-41 | [Label the Gain Scale control](../../eq/prompts/41-gain-scale-main-toolbox.md) | [#203](https://github.com/tonygward/audio-plugins/issues/203) |
+| EQ-41 | [Label the Gain Scale control](../../eq/prompts/done/41-gain-scale-main-toolbox.md) | [#203](https://github.com/tonygward/audio-plugins/issues/203) |
 | EQ-42 | [Accurate clipping indication and peak readout](../../eq/prompts/42-clip-meter-readout.md) | [#232](https://github.com/tonygward/audio-plugins/issues/232) |
 | ACOMP-09 | [Guided compressor calibration](../../analog-compressor/prompts/09-guided-compressor-calibration.md) | [#264](https://github.com/tonygward/audio-plugins/issues/264) |
 | ACOMP-10 | [Switchable FET compressor models](../../analog-compressor/prompts/10-switchable-fet-models.md) | [#265](https://github.com/tonygward/audio-plugins/issues/265) |

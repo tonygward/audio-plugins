@@ -5122,7 +5122,8 @@ public:
                 expect (scale.getTooltip().startsWith ("Turns every band's boosts and cuts up or down together."), context + ": plain tooltip");
                 expect (scale.getTooltip().contains ("Double-click to return to 100%."), context + ": tooltip mentions reset");
                 const auto* editorBounds = ed.get();
-                expect (scale.getRight() <= editorBounds->getWidth() && scale.getWidth() > 60, context + ": fits inside the editor");            }
+                expect (scale.getRight() <= editorBounds->getWidth() && scale.getWidth() > 60, context + ": fits inside the editor");
+            }
         }
     }
 };

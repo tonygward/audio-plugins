@@ -1,0 +1,24 @@
+#!/bin/sh
+# VST3 component, before the payload is laid down:
+#  - remove the installed Songsmith Compressor.vst3, so files from an older version don't linger;
+#  - remove a copy in the console user's ~/Library/Audio/Plug-Ins/VST3 (from a manual zip install),
+#    which hosts would otherwise list next to the installed one.
+. "$(dirname "$0")/common.sh"
+
+root=$(target_root "$3")
+dir="$root/Library/Audio/Plug-Ins/VST3"
+
+for name in "Songsmith Compressor"; do
+    remove_bundle "$dir/$name.vst3"
+done
+
+if [ -z "$root" ]; then
+    home=$(console_user_home)
+    if [ -n "$home" ]; then
+        for name in "Songsmith Compressor"; do
+            remove_bundle "$home/Library/Audio/Plug-Ins/VST3/$name.vst3"
+        done
+    fi
+fi
+
+exit 0
