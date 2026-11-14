@@ -9,7 +9,7 @@ The four factory presets are in `Source/CompPresets.h`. They are starting points
 | Drum Bus Glue | -18 dB | 2:1 | 30 ms | 100 ms | 6 dB | Songsmith starting point. |
 | Gentle Level Smoothing | -20 dB | 1.5:1 | 20 ms | 150 ms | 12 dB | Songsmith starting point. |
 
-All four use Auto Makeup and Mix at 100%.
+All four use Auto Makeup and Mix at 100%, and loading any preset switches Analog Warmth off, so a preset is always the clean compressor until you choose otherwise.
 
 - **Names:** the Acoustic Guitar preset keeps that plain name. The tutorial's own wording and the presenter's name stay in this note and are not shown in the plugin.
 - **Not endorsed:** nothing here says Joe Gilder or any other educator endorses the plugin.

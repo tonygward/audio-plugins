@@ -30,7 +30,8 @@ SongsmithCompressorAudioProcessor::SongsmithCompressorAudioProcessor()
     mixRaw       = apvts.getRawParameterValue (Comp::mixId);
     autoMakeupParam = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Comp::autoMakeupId));
     bypassParam     = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Comp::bypassId));
-    jassert (thresholdRaw && ratioRaw && attackRaw && releaseRaw && kneeRaw && makeupRaw && mixRaw && autoMakeupParam && bypassParam);
+    warmthParam     = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Comp::warmthId));
+    jassert (thresholdRaw && ratioRaw && attackRaw && releaseRaw && kneeRaw && makeupRaw && mixRaw && autoMakeupParam && warmthParam && bypassParam);
 
     dryBuffer.setSize (2, 512, false, true);   // resized in prepareToPlay
 }
@@ -78,6 +79,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithCompressorAudioProc
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { Comp::bypassId, 1 }, "Bypass", false));
 
+    // Version 2: Analog Warmth, off by default so version-1 sessions sound the same.
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { Comp::warmthId, 2 }, "Analog Warmth", false));
+
     return layout;
 }
 
@@ -91,6 +96,7 @@ SongsmithComp::Params SongsmithCompressorAudioProcessor::getEngineParams() const
     p.kneeDb      = kneeRaw->load (std::memory_order_relaxed);
     p.makeupDb    = makeupRaw->load (std::memory_order_relaxed);
     p.autoMakeup  = autoMakeupParam->get();
+    p.warmth      = warmthParam->get();
     p.mix         = mixRaw->load (std::memory_order_relaxed) * 0.01f;
     return p;
 }
@@ -269,6 +275,7 @@ void SongsmithCompressorAudioProcessor::applyPreset (int index)
     set (Comp::makeupId, preset.makeupDb);
     set (Comp::autoMakeupId, preset.autoMakeup ? 1.0f : 0.0f);
     set (Comp::mixId, preset.mixPercent);
+    set (Comp::warmthId, 0.0f);   // every preset is the clean compressor; Analog Warmth is the musician's choice
 }
 
 //==============================================================================

@@ -103,7 +103,10 @@ public:
                 expectWithinAbsoluteError (getParam (p, r.id), r.def, 1.0e-3f, juce::String (r.id) + " default");
             }
             expect (p.apvts.getParameter (Comp::autoMakeupId) != nullptr && p.apvts.getParameter (Comp::bypassId) != nullptr);
-            expectEquals (p.getParameters().size(), 9, "nine parameters");
+            expectEquals (p.getParameters().size(), 10, "ten parameters");
+            expect (p.apvts.getParameter (Comp::warmthId) != nullptr, "Analog Warmth exists");
+            expectWithinAbsoluteError (getParam (p, Comp::warmthId), 0.0f, 1.0e-6f, "and is off by default");
+            expectEquals (p.apvts.getParameter (Comp::warmthId)->getName (100), juce::String ("Analog Warmth"));
             expect (p.getBypassParameter() != nullptr, "native host bypass");
 
             // The ratio control is finest at the gentle end: 1.3 sits well inside the first half of the travel.
@@ -187,6 +190,7 @@ public:
             setParam (a, Comp::makeupId, 4.0f);
             setParam (a, Comp::autoMakeupId, 0.0f);
             setParam (a, Comp::mixId, 40.0f);
+            setParam (a, Comp::warmthId, 1.0f);
             a.editorWidth = 1000;
 
             juce::MemoryBlock block;
@@ -194,7 +198,7 @@ public:
             SongsmithCompressorAudioProcessor b;
             b.setStateInformation (block.getData(), (int) block.getSize());
             for (auto* id : { Comp::thresholdId, Comp::ratioId, Comp::attackId, Comp::releaseId, Comp::kneeId, Comp::makeupId,
-                              Comp::autoMakeupId, Comp::mixId, Comp::bypassId })
+                              Comp::autoMakeupId, Comp::mixId, Comp::warmthId, Comp::bypassId })
                 expectWithinAbsoluteError (getParam (b, id), getParam (a, id), 1.0e-3f, juce::String (id) + " restored");
             expectEquals (b.editorWidth.load(), 1000);
 
@@ -212,6 +216,16 @@ public:
             expectWithinAbsoluteError (getParam (c, Comp::kneeId), 6.0f, 1.0e-3f, "missing Knee is the default");
             expectWithinAbsoluteError (getParam (c, Comp::thresholdId), -31.5f, 0.1f, "known values kept");
             expectEquals (c.editorWidth.load(), Comp::EditorLayout::defaultWidth, "default size");
+
+            // A version-1 session (saved before Analog Warmth existed) opens with it off and everything else as saved.
+            auto v1 = a.createState();
+            v1.setProperty ("version", 1, nullptr);
+            v1.removeChild (v1.getChildWithProperty ("id", Comp::warmthId), nullptr);
+            SongsmithCompressorAudioProcessor old;
+            old.restoreFromValueTree (v1);
+            expectWithinAbsoluteError (getParam (old, Comp::warmthId), 0.0f, 1.0e-6f, "an older session opens with Analog Warmth off");
+            expectWithinAbsoluteError (getParam (old, Comp::ratioId), 1.3f, 0.011f, "and keeps its other settings");
+            expect (! old.getEngineParams().warmth, "and sounds as it did");
 
             // A newer version with an unknown extra parameter and an absurd value: kept in range, extras ignored.
             auto newer = a.createState();
@@ -271,6 +285,34 @@ public:
             p.applyPreset (0);
             expect (p.isBypassed(), "loading a preset leaves Bypass alone");
             p.applyPreset (99);   // out of range: ignored
+
+            setParam (p, Comp::warmthId, 1.0f);
+            p.applyPreset (1);
+            expect (! p.getEngineParams().warmth, "every preset is the clean compressor (Analog Warmth off)");
+        }
+
+        beginTest ("Analog Warmth in the plugin: off is bit-identical to a plugin without it, on changes the sound a little");
+        {
+            const auto in = noise (24000, 0.4f, 8);
+            auto render = [&] (bool warmth)
+            {
+                SongsmithCompressorAudioProcessor p;
+                setParam (p, Comp::thresholdId, -20.0f);
+                setParam (p, Comp::warmthId, warmth ? 1.0f : 0.0f);
+                prepare (p, 48000.0, 512);
+                return run (p, { in, in }, 512);
+            };
+            const auto off = render (false), on = render (true), off2 = render (false);
+            expect (off == off2, "deterministic");
+            expect (off != on, "on is different");
+            float diff = 0.0f;
+            for (size_t i = 0; i < in.size(); ++i) diff = std::max (diff, std::abs (on[0][i] - off[0][i]));
+            expectLessThan (diff, 0.3f, "by a small amount");
+            SongsmithCompressorAudioProcessor p;
+            prepare (p, 48000.0, 512);
+            expectEquals (p.getLatencySamples(), 0);
+            setParam (p, Comp::warmthId, 1.0f);
+            expectEquals (p.getLatencySamples(), 0, "Analog Warmth adds no latency");
         }
 
         beginTest ("Auto make-up keeps the level of a -18 dBFS signal; manual make-up adds its decibels");
@@ -338,7 +380,7 @@ public:
             auto ed = make (p, Comp::EditorLayout::defaultWidth);
             std::vector<juce::Component*> parts { &ed->getThresholdSlider(), &ed->getRatioSlider(), &ed->getAttackSlider(),
                                                   &ed->getReleaseSlider(), &ed->getKneeSlider(), &ed->getMakeupSlider(),
-                                                  &ed->getMixSlider(), &ed->getAutoMakeupButton() };
+                                                  &ed->getMixSlider(), &ed->getAutoMakeupButton(), &ed->getWarmthButton() };
             for (size_t i = 0; i < parts.size(); ++i)
             {
                 expect (parts[i]->getY() > 52, "below the title bar");
@@ -424,7 +466,7 @@ public:
             }
             expectGreaterThan (texts.size(), 25, context + ": found the text");
             Songsmith::UI::Wording::expectPlainWords (*this, texts, context);
-            for (auto* t : { "Threshold", "Ratio", "Attack", "Release", "Knee", "Makeup Gain", "Mix", "Auto Makeup", "Input", "Output", "Gain Reduction" })
+            for (auto* t : { "Threshold", "Ratio", "Attack", "Release", "Knee", "Makeup Gain", "Mix", "Auto Makeup", "Analog Warmth", "Input", "Output", "Gain Reduction" })
                 expect (texts.contains (t), context + ": shows \"" + juce::String (t) + "\"");
             Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), context);
         }

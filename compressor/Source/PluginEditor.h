@@ -24,6 +24,7 @@ public:
     juce::Button& getRedoButton() noexcept        { return redoButton; }
     juce::Button& getBypassButton() noexcept      { return bypassButton; }
     juce::Button& getAutoMakeupButton() noexcept  { return autoMakeupButton; }
+    juce::Button& getWarmthButton() noexcept      { return warmthButton; }
     juce::ComboBox& getPresetBox() noexcept       { return presetBox; }
     juce::Slider& getThresholdSlider() noexcept   { return thresholdSlider; }
     juce::Slider& getRatioSlider() noexcept       { return ratioSlider; }
@@ -72,7 +73,7 @@ private:
     juce::Slider kneeSlider      { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Slider makeupSlider    { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Slider mixSlider       { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
-    juce::TextButton autoMakeupButton { "Auto Makeup" }, bypassButton { "Bypass" }, undoButton { "Undo" }, redoButton { "Redo" };
+    juce::TextButton autoMakeupButton { "Auto Makeup" }, warmthButton { "Analog Warmth" }, bypassButton { "Bypass" }, undoButton { "Undo" }, redoButton { "Redo" };
     juce::ComboBox presetBox;
     juce::Label thresholdLabel, ratioLabel, attackLabel, releaseLabel, kneeLabel, makeupLabel, mixLabel,
                 inLabel, grLabel, outLabel;
@@ -80,7 +81,7 @@ private:
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> thresholdAttachment, ratioAttachment, attackAttachment,
                                                                           releaseAttachment, kneeAttachment, makeupAttachment, mixAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoMakeupAttachment, bypassAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoMakeupAttachment, warmthAttachment, bypassAttachment;
 
     CompMeter inputMeter { CompMeter::Kind::level }, reductionMeter { CompMeter::Kind::reduction },
               outputMeter { CompMeter::Kind::level };
