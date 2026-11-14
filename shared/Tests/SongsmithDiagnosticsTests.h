@@ -417,5 +417,67 @@ public:
             expect (real.getFileName() == "Diagnostics.xml");
             Settings::fileOverrideForTests() = settings.folder.getChildFile ("Diagnostics.xml");   // restored by the destructor
         }
+
+        beginTest ("SUI-21: Processing Load starts off for clean, old, empty and damaged settings");
+        {
+            expect (! Settings::processingLoadDefault, "the suite-wide default is off");
+            TemporarySettings settings;
+            const auto f = Settings::file ("Test");
+
+            expect (! f.existsAsFile(), "clean settings: no file yet");
+            expect (! Settings::loadEnabled ("Test"), "clean settings: off");
+
+            f.replaceWithText ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<PROPERTIES>\n</PROPERTIES>\n");
+            expect (! Settings::loadEnabled ("Test"), "an older file without the key: off");
+
+            f.replaceWithText ({});
+            expect (! Settings::loadEnabled ("Test"), "an empty file: off");
+
+            f.replaceWithText ("this is not xml <<<");
+            expect (! Settings::loadEnabled ("Test"), "a damaged file: off");
+
+            f.replaceWithText ("<PROPERTIES><VALUE name=\"processingLoad\" val=\"maybe\"/></PROPERTIES>");
+            expect (! Settings::loadEnabled ("Test"), "an unreadable value: off");
+        }
+
+        beginTest ("SUI-21: a new strip is off, reading or opening it never changes the saved choice, and a deliberate choice is remembered");
+        {
+            TemporarySettings settings;
+            const auto f = Settings::file ("Test");
+            LoadMeter meter;
+            juce::AudioProcessorGraph graph;   // any processor will do: the strip only reads it
+
+            for (int reopen = 0; reopen < 3; ++reopen)
+            {
+                Bar bar (graph, meter, "Test");
+                expect (! bar.getLoadSwitch().getToggleState(), "a new strip starts off");
+                expect (! meter.isEnabled() && ! bar.isReadoutShown(), "no timing and no readout while off");
+            }
+            expect (! f.existsAsFile(), "opening and closing editors never writes the setting");
+
+            {
+                Bar bar (graph, meter, "Test");
+                bar.getLoadSwitch().setToggleState (true, juce::sendNotificationSync);
+                expect (meter.isEnabled() && bar.isReadoutShown(), "switched on: timing and the readout appear");
+            }
+            expect (! meter.isEnabled(), "closing the editor stops timing");
+            expect (Settings::loadEnabled ("Test"), "the deliberate choice is remembered");
+
+            {
+                LoadMeter second;
+                Bar again (graph, second, "Test");
+                expect (again.getLoadSwitch().getToggleState() && second.isEnabled(), "reopened or a second instance of the same plugin: on, as chosen");
+            }
+
+            // Each plugin type has its own file in the real location, so one plugin's choice never reaches another.
+            Settings::fileOverrideForTests() = juce::File();
+            expect (Settings::file ("Songsmith EQ") != Settings::file ("Songsmith Maximiser"), "each plugin type has its own setting file");
+            Settings::fileOverrideForTests() = f;
+
+            Settings::saveEnabled ("Test", false);
+            expect (! Settings::loadEnabled ("Test"), "off again once chosen");
+            f.deleteFile();
+            expect (! Settings::loadEnabled ("Test"), "a reset (file removed): off");
+        }
     }
 };

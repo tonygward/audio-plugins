@@ -191,13 +191,18 @@ namespace Songsmith::Diagnostics
                        .getChildFile ("Songsmith Studio").getChildFile (pluginName).getChildFile ("Diagnostics.xml");
         }
 
+        // SUI-21: the one suite-wide default. Every plugin starts with Processing Load off; only a
+        // person's own click (saveEnabled) can turn it on, and a missing, old, empty or unreadable file,
+        // or one without the key, all mean "off". Reading never writes the file.
+        inline constexpr bool processingLoadDefault = false;
+
         inline bool loadEnabled (const juce::String& pluginName)
         {
             const auto f = file (pluginName);
             if (! f.existsAsFile())
-                return false;   // off by default
-            juce::PropertiesFile settings (f, {});
-            return settings.getBoolValue ("processingLoad", false);
+                return processingLoadDefault;
+            juce::PropertiesFile settings (f, {});   // only reads: nothing is set, so nothing is saved
+            return settings.getBoolValue ("processingLoad", processingLoadDefault);
         }
 
         inline void saveEnabled (const juce::String& pluginName, bool on)
