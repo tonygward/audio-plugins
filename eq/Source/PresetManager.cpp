@@ -168,7 +168,7 @@ namespace EQ
                                 { T::Bell,    670.0f,  -11.9f, 1.7f },
                                 { T::Bell,    4070.0f,   5.9f, 1.0f },
                                 { T::Bell,    10320.0f,  3.3f, 0.7f } },
-                  -2.6f, "Tony's rack-tom EQ from Between You and Me. Lower the 670 Hz cut if the tom sounds hollow.", true },
+                  -3.1f, "Tony's rack-tom EQ from Between You and Me. Lower the 670 Hz cut if the tom sounds hollow.", true },
                 // Floor tom: Yesterday's Toy Floor Tom (line 2147), the album-era file; You Want More (2304) is a 2023 remix.
                 { "Floor tom", { { T::LowShelf,  122.0f,    7.8f, defaultQ },
                                  { T::Bell,      930.0f,   -6.6f, 1.7f },

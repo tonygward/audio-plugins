@@ -73,6 +73,7 @@ public:
     int getLinearPhaseQuality() const noexcept  { return lpQualityParam->getIndex(); }
     int getLinearPhaseLength() const noexcept   { return EQ::LinearPhaseEQ::firLength (getLinearPhaseQuality(), currentSampleRate); }
     int getOversamplingIndex() const noexcept   { return oversamplingParam->getIndex(); }
+    bool isHighFrequencyAccurate() const noexcept { return hfAccuracyParam->get(); }
     int getOversamplingFactor() const noexcept  { return 1 << getOversamplingIndex(); }
     double getDesignSampleRate() const noexcept { return currentSampleRate * getOversamplingFactor(); }   // rate filters are designed at
     EQ::LinearPhaseBands gatherLinearPhaseBands() const;
@@ -240,6 +241,7 @@ private:
     // prepared up front. Linear-phase mode instead designs its FIR from coefficients at the
     // oversampled rate (same un-cramped response, no extra latency).
     juce::AudioParameterChoice* oversamplingParam = nullptr;
+    juce::AudioParameterBool* hfAccuracyParam = nullptr;
     std::array<std::unique_ptr<juce::dsp::Oversampling<float>>, 3> oversamplers;   // [1] 2x, [2] 4x
     std::array<int, 3> oversamplerLatency {};
     int osActive = 0;                          // audio thread: 0 off, 1 = 2x, 2 = 4x
