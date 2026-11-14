@@ -4,7 +4,7 @@ These checks need a real host. Before release, run them in **Studio One** (VST3,
 
 Load the plugin from an installer build: the CI artifacts `Songsmith-Analog-Compressor-Windows-setup` and `Songsmith-Analog-Compressor-macOS-pkg`.
 
-## Executed automatically (CI and AnalogCompressorTests, every push)
+## Executed automatically (CI and AnalogCompressorTests, on pull requests that change the plugin and on each version bump commit)
 
 | Check | Where |
 |---|---|

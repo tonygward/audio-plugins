@@ -101,8 +101,6 @@ CPU is the percentage of one core (`AnalogCompressorTests --bench`, Windows Rele
 
 **Default: Off.** Step 3 first chose 4x because it cut compression aliasing by 8-38 dB (5-38 dB since ACOMP-18). The default is now Off, because a compressor often runs on many tracks at once and on tracks being recorded, where zero latency and low processing power matter more than aliasing, which is hard to hear at normal settings. Turn on 2x or 4x for a cleaner top end when compressing hard. The measurements above are unchanged. Sessions saved with version 2 keep the setting they saved (including 4x). Version 1 sessions load as Off, which is how they sounded. Factory presets never store oversampling.
 
-**Default: 4x** (a decision made without a human). It's the only setting that reliably reduces the compression aliasing, by 8-38 dB in every measured case. The cost is about 2.4 % of a core per stereo instance and 6 samples of latency (0.13 ms at 48 kHz). 2x halves the CPU, but gains only 2-4 dB on some material. Off has zero latency, for tracking or for lots of instances.
-
 Changing the setting during playback fades the output out over 10 ms, switches, and fades back in (tested click-free). The new latency is reported to the host from the message thread within 100 ms.
 
 ## Latency and aligned bypass
