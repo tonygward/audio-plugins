@@ -613,7 +613,8 @@ void EQDisplay::computeCurves (juce::Rectangle<float> area)
                                           processor.getBandValue (b, EQ::Param::Freq),
                                           processor.getBandValue (b, EQ::Param::Q),
                                           EQ::typeHasGain (type) ? processor.getBandValue (b, EQ::Param::Gain) * processor.getGainScale() : 0.0f,
-                                          (int) std::lround (processor.getBandValue (b, EQ::Param::Slope))));
+                                          (int) std::lround (processor.getBandValue (b, EQ::Param::Slope)),
+                                          processor.isHighFrequencyAccurate()));
         c.bands.push_back (b);
         c.enabled.push_back (isEnabled (b));
         c.inView.push_back (isInCurveView (b));
@@ -662,7 +663,8 @@ void EQDisplay::computeCurves (juce::Rectangle<float> area)
         const auto type = getType (b);
         const auto live = EQ::makeFilter (type, sr, processor.getBandValue (b, EQ::Param::Freq), processor.getBandValue (b, EQ::Param::Q),
                                           processor.getBandValue (b, EQ::Param::Gain) * processor.getGainScale() + dyn,
-                                          (int) std::lround (processor.getBandValue (b, EQ::Param::Slope)));
+                                          (int) std::lround (processor.getBandValue (b, EQ::Param::Slope)),
+                                          processor.isHighFrequencyAccurate());
         c.live[k].resize (n);
         for (size_t i = 0; i < n; ++i)
             c.live[k][i] = (float) EQ::getMagnitudeDb (live, freqs[i], sr);

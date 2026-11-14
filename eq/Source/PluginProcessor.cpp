@@ -61,6 +61,7 @@ EQ::LinearPhaseBands SongsmithEQAudioProcessor::gatherLinearPhaseBands() const
         lb.gain   = getBandValue (b, Param::Gain) * scale;
         lb.slope  = (int) std::lround (getBandValue (b, Param::Slope));
         lb.mode   = EQ::stereoModeFromIndex ((int) std::lround (getBandValue (b, Param::Stereo)));
+        lb.matched = isHighFrequencyAccurate();
     }
     return bands;
 }
@@ -80,7 +81,7 @@ bool SongsmithEQAudioProcessor::updateLinearPhaseDesign (bool force)
     // Cheap change detection over everything the design depends on.
     std::size_t hash = std::hash<double>() (getDesignSampleRate()) ^ ((std::size_t) length << 1) ^ (mono ? 0x9e37u : 0u);
     for (const auto& b : bands)
-        for (float v : { b.active ? 1.0f : 0.0f, (float) b.type, b.freq, b.q, b.gain, (float) b.slope, (float) b.mode })
+        for (float v : { b.active ? 1.0f : 0.0f, (float) b.type, b.freq, b.q, b.gain, (float) b.slope, (float) b.mode, b.matched ? 1.0f : 0.0f })
             hash = hash * 1099511628211ull ^ std::hash<float>() (v);
 
     if (! force && hash == lastDesignHash && designedLength.load() == length)
@@ -145,6 +146,8 @@ SongsmithEQAudioProcessor::SongsmithEQAudioProcessor()
     jassert (phaseModeParam != nullptr && lpQualityParam != nullptr);
     oversamplingParam = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (EQ::oversamplingId));
     jassert (oversamplingParam != nullptr);
+    hfAccuracyParam = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (EQ::hfAccuracyId));
+    jassert (hfAccuracyParam != nullptr);
 
     // A new instance opens at the UI size last chosen on this machine (a session overrides it).
     uiScale.store (loadMachineUiScale());
@@ -265,6 +268,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithEQAudioProcessor::c
     // Optional oversampling (v1.0). Off by default (identical to before).
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { EQ::oversamplingId, 9 }, "Oversampling", juce::StringArray { "Off", "2x", "4x" }, 0));
+
+    // High Frequency Accuracy (EQ-44): bells and shelves keep their shape up to Nyquist (matched design)
+    // instead of being squeezed by the bilinear transform. On for new instances; sessions saved before
+    // it existed load with it off, so they sound exactly as they did (restoreFromValueTree).
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { EQ::hfAccuracyId, 10 }, "Accurate Highs", true));
 
     // Loudness-matched output (v0.5). Applied before the output gain.
     layout.add (std::make_unique<juce::AudioParameterBool> (
@@ -396,6 +405,9 @@ void SongsmithEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     using EQ::Param;
     const float gainScale = getGainScale();
+    // Before the bands, so a band that snaps this block is built with the design it will keep (EQ-44).
+    engine.setMatched (isHighFrequencyAccurate());
+
     for (int b = 0; b < numBands; ++b)
     {
         const auto& raw = rawValues[(size_t) b];
@@ -737,6 +749,10 @@ void SongsmithEQAudioProcessor::restoreFromValueTree (const juce::ValueTree& sav
 
         float value = rp->convertFrom0to1 (rp->getDefaultValue());
         const auto child = saved.getChildWithProperty ("id", rp->paramID);
+
+        // EQ-44: a session from before High Frequency Accuracy used the bilinear design: keep it.
+        if (rp->paramID == EQ::hfAccuracyId && ! (child.isValid() && child.hasProperty ("value")))
+            value = 0.0f;
 
         if (child.isValid() && child.hasProperty ("value"))
             value = rp->getNormalisableRange().snapToLegalValue ((float) child.getProperty ("value"));

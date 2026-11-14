@@ -102,6 +102,7 @@ These links prevent completed features being selected again. An archived prompt 
 - [38-frequency-guide-instrument-icons](../../eq/prompts/done/38-frequency-guide-instrument-icons.md)
 - [39-stereo-meter-clip-latch](../../eq/prompts/done/39-stereo-meter-clip-latch.md)
 - [40-organise-starting-points](../../eq/prompts/done/40-organise-starting-points.md)
+- [44-accurate-highs](../../eq/prompts/done/44-accurate-highs.md)
 
 ### analog-compressor
 - [01-plugin-shell](../../analog-compressor/prompts/done/01-plugin-shell.md)

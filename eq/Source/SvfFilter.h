@@ -38,13 +38,9 @@ namespace EQ
         return std::clamp (freq, 10.0, sampleRate * 0.48);
     }
 
-    inline SvfCoeffs makeCoeffs (FilterType type, double sampleRate, double freq, double q, double gainDb)
+    // The SVF for prototype frequency w (= tan (pi f / fs) for the bilinear transform).
+    inline SvfCoeffs makeCoeffsForW (FilterType type, double w, double q, double gainDb)
     {
-        freq   = clampFreqForSampleRate (freq, sampleRate);
-        q      = std::clamp (q, 0.025, 100.0);
-        gainDb = std::clamp (gainDb, -48.0, 48.0);
-
-        const double w = std::tan (pi * freq / sampleRate);
         const double A = std::pow (10.0, gainDb / 40.0);
 
         SvfCoeffs c;
@@ -80,6 +76,26 @@ namespace EQ
         c.a2 = c.g * c.a1;
         c.a3 = c.g * c.a2;
         return c;
+    }
+
+    inline bool makeMatchedCoeffs (FilterType type, double sampleRate, double freq, double q, double gainDb, SvfCoeffs& out);
+
+    // 'matched' (EQ-44, "High Frequency Accuracy"): bells and shelves use a design matched to the analog
+    // prototype up to Nyquist instead of the bilinear transform, which squeezes them near the top of
+    // the range. Other types, and any case the matched design cannot handle, use the bilinear transform.
+    inline SvfCoeffs makeCoeffs (FilterType type, double sampleRate, double freq, double q, double gainDb, bool matched = false)
+    {
+        freq   = clampFreqForSampleRate (freq, sampleRate);
+        q      = std::clamp (q, 0.025, 100.0);
+        gainDb = std::clamp (gainDb, -48.0, 48.0);
+
+        if (matched)
+        {
+            SvfCoeffs m;
+            if (makeMatchedCoeffs (type, sampleRate, freq, q, gainDb, m))
+                return m;
+        }
+        return makeCoeffsForW (type, std::tan (pi * freq / sampleRate), q, gainDb);
     }
 
     // Band-pass normalised to unity gain at 'freq': H(s) = k s / (s^2 + k s + 1).
@@ -221,14 +237,14 @@ namespace EQ
         return sections;
     }
 
-    inline FilterCoeffs makeFilter (FilterType type, double sampleRate, double freq, double q, double gainDb, int slopeIndex)
+    inline FilterCoeffs makeFilter (FilterType type, double sampleRate, double freq, double q, double gainDb, int slopeIndex, bool matched = false)
     {
         FilterCoeffs f;
         const int order = typeHasSlope (type) ? slopeOrder (slopeIndex) : 2;
 
         if (order == 2)
         {
-            f.svf[0] = makeCoeffs (type, sampleRate, freq, q, gainDb);   // unchanged single-stage path
+            f.svf[0] = makeCoeffs (type, sampleRate, freq, q, gainDb, matched);   // single-stage path
             return f;
         }
 
@@ -290,4 +306,117 @@ namespace EQ
     {
         return 20.0 * std::log10 (std::max (getMagnitude (c, freq, sampleRate), 1.0e-12));
     }
+
+    //==========================================================================
+    // EQ-44: matched second-order designs (Vicanek, "Matched Second Order Digital Filters", 2016).
+    //
+    // Poles: impulse invariance of the analog prototype's poles (eq. 12), so a high band is not squeezed
+    // towards Nyquist. Numerator: matched in |H|^2 = (B0 phi0 + B1 phi1 + B2 phi2) / (A0 phi0 + A1 phi1 + A2 phi2)
+    // (eqs. 25-27), then the minimum-phase b0, b1, b2 from B0, B1, B2 (eq. 29).
+    //  * Bell: Vicanek's matched peaking EQ (eqs. 42-45): unity at DC, the prototype's gain G at the
+    //    centre, and a maximum or minimum there.
+    //  * Shelves: the paper has none, so the same scheme matches three points (a Songsmith choice):
+    //    DC, the corner frequency (half the shelf's gain in dB) and Nyquist, all to the analog prototype.
+    // The digital biquad is then written as the SVF whose bilinear form it equals (svfFromBiquad), so
+    // processing, smoothing and the drawn curve (getMagnitude) work exactly as for every other band.
+
+    // Magnitude of the unwarped analog prototype of makeCoeffs at 'freq'.
+    inline double analogMagnitude (FilterType type, double sampleRate, double f0, double q, double gainDb, double freq)
+    {
+        const auto c = makeCoeffsForW (type, pi * f0 / sampleRate, q, gainDb);   // w = pi f0 / fs: no prewarping
+        const std::complex<double> s (0.0, (pi * freq / sampleRate) / c.g);
+        return std::abs (c.m0 + (c.m1 * s + c.m2) / (s * s + c.k * s + 1.0));
+    }
+
+    // The SVF equal to the digital biquad (b0 + b1 z^-1 + b2 z^-2) / (1 + a1 z^-1 + a2 z^-2), by inverting
+    // the bilinear map of H(s) = m0 + (m1 s + m2) / (s^2 + k s + 1). False if the poles are not stable.
+    inline bool svfFromBiquad (double b0, double b1, double b2, double a1, double a2, SvfCoeffs& c)
+    {
+        const double p = 1.0 + a1 + a2, n = 1.0 - a1 + a2;
+        if (! (p > 0.0 && n > 0.0))
+            return false;
+
+        const double g2 = p / n, g = std::sqrt (g2);
+        const double d = 4.0 / n;                     // 1 + g k + g^2
+        const double k = (d - 1.0 - g2) / g;
+        if (! (k > 0.0) || ! std::isfinite (k))
+            return false;
+
+        // Numerator of the bilinear form: n0, n1, n2 = b * d, with
+        //   n0 = N2 + N1 g + N0 g^2,  n1 = 2 (N0 g^2 - N2),  n2 = N2 - N1 g + N0 g^2,
+        // where H(s) has numerator N2 s^2 + N1 s + N0.
+        const double n0 = b0 * d, n1 = b1 * d, n2 = b2 * d;
+        const double N2 = 0.25 * (n0 - n1 + n2), N1 = (n0 - n2) / (2.0 * g), N0 = (n0 + n1 + n2) / (4.0 * g2);
+
+        c.g = g;  c.k = k;
+        c.m0 = N2;  c.m1 = N1 - N2 * k;  c.m2 = N0 - N2;
+        c.a1 = 1.0 / (1.0 + g * (g + k));
+        c.a2 = g * c.a1;
+        c.a3 = g * c.a2;
+        return std::isfinite (c.m0) && std::isfinite (c.m1) && std::isfinite (c.m2);
+    }
+
+    inline bool makeMatchedCoeffs (FilterType type, double sampleRate, double freq, double q, double gainDb, SvfCoeffs& out)
+    {
+        if (gainDb == 0.0 || ! (type == FilterType::Bell || type == FilterType::LowShelf || type == FilterType::HighShelf))
+            return false;
+
+        // The prototype's denominator s'^2 + k s' + 1 in s' = s / wp: poles at wp (radians per sample) with
+        // damping k / 2 (Vicanek's q).
+        const auto proto = makeCoeffsForW (type, pi * freq / sampleRate, q, gainDb);
+        const double wp = 2.0 * proto.g, z = 0.5 * proto.k;
+
+        // A shelf's poles sit at f0 / sqrt (A) or f0 x sqrt (A). Once they reach about 0.45 fs, impulse
+        // invariance folds them and the matched shelf is no better than the bilinear one (measured:
+        // a 16 kHz, 12 dB shelf at 48 kHz has its poles at 0.47 fs and matches worse), so keep the
+        // bilinear design there. Bells were better in every case measured. A cheap rule instead of
+        // comparing both designs each time: coefficients are rebuilt every 16 samples while gains move.
+        if (type != FilterType::Bell && wp > 0.9 * pi)
+            return false;
+        double a1;
+        if (z <= 1.0) a1 = -2.0 * std::exp (-z * wp) * std::cos (std::sqrt (1.0 - z * z) * wp);
+        else          a1 = -2.0 * std::exp (-z * wp) * std::cosh (std::sqrt (z * z - 1.0) * wp);
+        const double a2 = std::exp (-2.0 * z * wp);
+
+        const double A0 = (1.0 + a1 + a2) * (1.0 + a1 + a2), A1 = (1.0 - a1 + a2) * (1.0 - a1 + a2), A2 = -4.0 * a2;
+        const double w0 = 2.0 * pi * freq / sampleRate;
+        const double phi1 = std::sin (0.5 * w0) * std::sin (0.5 * w0), phi0 = 1.0 - phi1, phi2 = 4.0 * phi0 * phi1;
+        const double den0 = A0 * phi0 + A1 * phi1 + A2 * phi2;   // |denominator|^2 at w0
+
+        double B0, B1, B2;
+        if (type == FilterType::Bell)
+        {
+            const double G2 = std::pow (10.0, gainDb / 10.0);    // |H(w0)|^2
+            B0 = A0;
+            const double R1 = den0 * G2;
+            const double R2 = (-A0 + A1 + 4.0 * (phi0 - phi1) * A2) * G2;
+            B2 = (R1 - R2 * phi1 - B0) / (4.0 * phi1 * phi1);
+            B1 = R2 + B0 + 4.0 * (phi1 - phi0) * B2;
+        }
+        else
+        {
+            auto mag2 = [&] (double fr) { const double m = analogMagnitude (type, sampleRate, freq, q, gainDb, fr); return m * m; };
+            B0 = A0 * mag2 (0.0);
+            B1 = A1 * mag2 (0.5 * sampleRate);
+            B2 = (den0 * mag2 (freq) - B0 * phi0 - B1 * phi1) / phi2;
+        }
+
+        if (! (B0 >= 0.0 && B1 >= 0.0) || ! std::isfinite (B2))
+            return false;
+        const double sB0 = std::sqrt (B0), sB1 = std::sqrt (B1);
+        const double W = 0.5 * (sB0 + sB1), disc = W * W + B2;
+        if (! (disc >= 0.0))
+            return false;
+        const double b0 = 0.5 * (W + std::sqrt (disc));
+        if (! (b0 > 0.0))
+            return false;
+        const double b1 = 0.5 * (sB0 - sB1), b2 = -B2 / (4.0 * b0);
+
+        SvfCoeffs c;
+        if (! svfFromBiquad (b0, b1, b2, a1, a2, c))
+            return false;
+        out = c;
+        return true;
+    }
+
 }

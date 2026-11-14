@@ -36,6 +36,8 @@ public:
     juce::Component& getContent() noexcept   { return content; }
     EQDisplay& getDisplay() noexcept         { return display; }
     OutputMeterDisplay& getOutputMeter() noexcept { return outputMeter; }
+    juce::Button& getAccurateHighsButton() noexcept { return accurateHighsButton; }   // tests (EQ-44)
+    juce::ComboBox& getOversamplingBox() noexcept   { return oversamplingBox; }
     juce::Slider& getScaleSlider() noexcept  { return scaleSlider; }   // Gain Scale, in the toolbox (SUI-18)
     float getContentScale() const noexcept   { return contentScale; }   // design units -> window pixels
     float getLayoutStep() const noexcept     { return layoutStep; }
@@ -83,11 +85,11 @@ private:
     juce::Slider outputSlider { juce::Slider::LinearBar, juce::Slider::TextBoxLeft };
     juce::Slider scaleSlider { juce::Slider::LinearBar, juce::Slider::TextBoxLeft };
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> scaleAttachment;
-    juce::TextButton bypassButton { "Bypass" }, autoGainButton { "Auto Gain" };
+    juce::TextButton bypassButton { "Bypass" }, autoGainButton { "Auto Gain" }, accurateHighsButton { "Accurate Highs" };
     juce::TextButton guideButton { "Frequency Guide" };   // EQ-32: the listening regions behind the graph
     juce::ComboBox guideBox;                              // which instrument the guide is for
     juce::TextButton pianoButton { "Piano" };   // piano strip on/off (task 28)
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoGainAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoGainAttachment, accurateHighsAttachment;
     juce::TextButton analyserSettingsButton { "..." };   // analyser settings popup
     void showAnalyserMenu();
     juce::Rectangle<int> titleBounds;   // the product name, painted

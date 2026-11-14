@@ -76,6 +76,7 @@ namespace EQ
     {
         b.type = b.target.type;
         b.slope = effectiveSlope (b.target);
+        b.matched = matched;
         b.stereo = b.target.stereo;
         b.logFreq.reset (std::log (clampFreqForSampleRate (b.target.freq, sampleRate)));
         b.gainDb.reset (b.target.gain);
@@ -136,7 +137,7 @@ namespace EQ
         // so rapid type automation never drops a fade half-way through.
         const int targetSlope = effectiveSlope (b.target);
 
-        if ((b.type != b.target.type || b.slope != targetSlope) && ! b.crossfading)
+        if ((b.type != b.target.type || b.slope != targetSlope || b.matched != matched) && ! b.crossfading)
         {
             const bool audible = b.wet.current > 0.0 || b.wet.target > 0.0;
 
@@ -151,6 +152,7 @@ namespace EQ
 
             b.type = b.target.type;
             b.slope = targetSlope;
+            b.matched = matched;
             b.coeffsDirty = true;
         }
 
@@ -161,7 +163,8 @@ namespace EQ
                                    std::exp (b.logFreq.current),
                                    std::exp (b.logQ.current),
                                    b.gainDb.current + b.dyn.gainDb,   // static (ramped) + dynamic
-                                   b.slope);
+                                   b.slope,
+                                   b.matched);
             b.coeffsDirty = false;
             b.dyn.appliedDb = b.dyn.gainDb;
         }

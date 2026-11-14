@@ -62,6 +62,11 @@ namespace EQ
         // audition filter (see makeSoloFilter). Switching between soloed bands fades out and in.
         void setSolo (int band) noexcept { soloTarget = band; }
 
+        // EQ-44: matched (high-frequency accurate) bells and shelves. Call once per block (before process).
+        // Each audible band cross-fades from its old filter to the new one, as for a type change.
+        void setMatched (bool on) noexcept { matched = on; }
+        bool isMatched() const noexcept { return matched; }
+
         // Sidechain for dynamic bands set to "external" (call before process; may be null).
         void setSidechain (const float* const* channels, int numChannels) noexcept { sidechain = channels; numSidechain = numChannels; }
 
@@ -90,6 +95,7 @@ namespace EQ
 
             FilterType type = FilterType::Bell;
             int slope = defaultSlope;         // effective slope (always the default for non-cut types)
+            bool matched = false;             // design the current coefficients use (EQ-44)
             StereoMode stereo = StereoMode::Stereo;   // changes only while the band is silent (fade out, switch, fade in)
             Ramp logFreq, gainDb, logQ;
             bool coeffsDirty = true;
@@ -154,5 +160,6 @@ namespace EQ
         const float* const* sidechain = nullptr;
         int numSidechain = 0;
         int soloTarget = -1;
+        bool matched = false;
     };
 }

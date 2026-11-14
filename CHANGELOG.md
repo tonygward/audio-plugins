@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- Songsmith EQ has a new **Accurate Highs** button, beside Oversampling. With it on, bells and shelves set near the top of the range (around 10 kHz and above) keep the shape the curve shows, instead of getting narrower and weaker as they approach the top, and without the delay that Oversampling adds. It is on in a new Songsmith EQ. Projects you saved before open with it off, so they sound exactly as they did; turn it on if you want. The tom starting points are now 0.5 dB quieter to stay level-matched with it on.
+
 ## 0.5.21
 
 - In Songsmith EQ, the output meter's peak number now sits directly under the **CLIP** label instead of under the bars. A negative number (for example -0.6) is never red; it turns red only when the held peak reaches 0 dBFS or higher. Before, an earlier clip could make a negative number look red. CLIP itself works as before: it lights when a sample reaches 0 dBFS and stays lit while sound continues. The meter measures sample peak, not true peak. Nothing about the sound changes and you do not need to do anything. This has not yet been checked in a DAW.
