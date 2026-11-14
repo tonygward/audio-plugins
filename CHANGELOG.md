@@ -7,6 +7,22 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 - Songsmith Maximiser limits more cleanly: when it turns a loud peak down, the change now starts and finishes gently instead of in a straight line, so hard limiting adds less distortion. It still never goes above your Output Ceiling, and the delay your recording software compensates for is unchanged. Projects you saved will sound very slightly cleaner on loud peaks; you do not need to do anything.
 - A new Songsmith Maximiser now starts with **Release** at 100 ms instead of 1 ms, which keeps bass and sustained notes cleaner. Your saved projects and the starting points keep their own Release setting.
 
+## 0.5.25
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
+## 0.5.24
+
+- In Songsmith Compressor, there is a new **Analog Warmth** button, off to begin with. Switch it on to add a little smooth, rounded colour to the compressed sound. Quiet and normal levels keep the same loudness; only the loudest peaks are rounded off slightly. It adds no delay and does not change how the compressor works. Your saved sessions and presets are unchanged: they open with Analog Warmth off and sound exactly as before, and loading a preset switches it off. You do not need to do anything. This has not yet been checked in a DAW or by ear on real recordings.
+
+## 0.5.23
+
+- **New plugin: Songsmith Compressor.** A simple, clear compressor with Threshold, Ratio, Attack, Release, Knee, Makeup Gain (or Auto Makeup) and Mix, meters for input, output and Gain Reduction, and four starting presets: Acoustic Guitar, Lead Vocal Control, Drum Bus Glue and Gentle Level Smoothing. It adds no analogue colour, so it is a good choice when you want to even out a sound without changing its tone. It appears as its own tick box in the Windows and macOS installers and as its own plugin in your recording software, next to Songsmith Analog Compressor, which is unchanged. Analog Warmth, an optional colour control, is planned and is not in this version. You do not need to do anything. This has not yet been checked in a DAW.
+
+## 0.5.22
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
 ## 0.5.21
 
 - In Songsmith EQ, the output meter's peak number now sits directly under the **CLIP** label instead of under the bars. A negative number (for example -0.6) is never red; it turns red only when the held peak reaches 0 dBFS or higher. Before, an earlier clip could make a negative number look red. CLIP itself works as before: it lights when a sample reaches 0 dBFS and stays lit while sound continues. The meter measures sample peak, not true peak. Nothing about the sound changes and you do not need to do anything. This has not yet been checked in a DAW.

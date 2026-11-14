@@ -1,0 +1,22 @@
+#!/bin/sh
+# Audio Unit component, before the payload is laid down. Same clean-up as the VST3 one,
+# for .component bundles in /Library/Audio/Plug-Ins/Components and the user's copy of it.
+. "$(dirname "$0")/common.sh"
+
+root=$(target_root "$3")
+dir="$root/Library/Audio/Plug-Ins/Components"
+
+for name in "Songsmith Compressor"; do
+    remove_bundle "$dir/$name.component"
+done
+
+if [ -z "$root" ]; then
+    home=$(console_user_home)
+    if [ -n "$home" ]; then
+        for name in "Songsmith Compressor"; do
+            remove_bundle "$home/Library/Audio/Plug-Ins/Components/$name.component"
+        done
+    fi
+fi
+
+exit 0

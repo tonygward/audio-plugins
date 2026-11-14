@@ -6,7 +6,7 @@
 #   installer/macos/uninstall.sh --yes    # no question (for scripts and CI)
 #
 # Removes the VST3 plugins, Audio Units and standalone apps of Songsmith EQ, Songsmith Analog
-# Compressor and Songsmith Maximiser, and makes macOS forget their package receipts. Your
+# Compressor, Songsmith Maximiser and Songsmith Compressor, and makes macOS forget their package receipts. Your
 # presets in ~/Library/Songsmith Studio/<plugin>/Presets are NOT touched, and nothing else in the
 # plugin folders is. Quit your recording software first. Asks for an administrator password.
 set -u
@@ -20,9 +20,9 @@ for arg in "$@"; do
     esac
 done
 
-names=("Songsmith EQ" "Songsmith Analog Compressor" "Songsmith Maximiser")
+names=("Songsmith EQ" "Songsmith Analog Compressor" "Songsmith Maximiser" "Songsmith Compressor")
 # The package receipts the installers record (never change these ids).
-prefixes=("com.songsmithstudio.songsmitheq" "com.songsmithstudio.songsmithanalogcompressor" "com.songsmithstudio.songsmithmaximiser")
+prefixes=("com.songsmithstudio.songsmitheq" "com.songsmithstudio.songsmithanalogcompressor" "com.songsmithstudio.songsmithmaximiser" "com.songsmithstudio.songsmithcompressor")
 
 bundles=()
 for name in "${names[@]}"; do

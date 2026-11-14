@@ -25,6 +25,7 @@ on:
       - 'eq/**'
       - 'analog-compressor/**'
       - 'maximiser/**'
+      - 'compressor/**'
       - 'shared/**'
       - 'installer/**'
       - 'VERSION'
@@ -58,6 +59,7 @@ jobs:
       eq: ${{ steps.pick.outputs.eq }}
       analog-compressor: ${{ steps.pick.outputs.analog-compressor }}
       maximiser: ${{ steps.pick.outputs.maximiser }}
+      compressor: ${{ steps.pick.outputs.compressor }}
       suite: ${{ steps.pick.outputs.suite }}
     steps:
       - uses: actions/checkout@v4
@@ -78,7 +80,7 @@ jobs:
           BUMP_ENABLED: ${{ vars.AUTO_BETA_VERSION_ENABLED }}
         run: |
           set -euo pipefail
-          eq=false; analog=false; max=false; all=false
+          eq=false; analog=false; max=false; comp=false; all=false
           if [ "$EVENT" = "push" ]; then
             # Two builds per release: this pull request's changed plugins were built when it was reviewed, and the version bump follows the merge.
             # So a plain source merge builds nothing; the bump commit is the one packaging build (everything, plus both installers) the release is made from.
@@ -95,11 +97,12 @@ jobs:
             if echo "$files" | grep -q '^eq/'; then eq=true; fi
             if echo "$files" | grep -q '^analog-compressor/'; then analog=true; fi
             if echo "$files" | grep -q '^maximiser/'; then max=true; fi
+            if echo "$files" | grep -q '^compressor/'; then comp=true; fi
             # Anything unexpected at the top level: build everything rather than guess.
-            if [ -n "$files" ] && echo "$files" | grep -q -v -E '^(eq/|analog-compressor/|maximiser/|shared/|installer/|\.github/|\.gitattributes$|VERSION$)'; then all=true; fi
+            if [ -n "$files" ] && echo "$files" | grep -q -v -E '^(eq/|analog-compressor/|maximiser/|compressor/|shared/|installer/|\.github/|\.gitattributes$|VERSION$)'; then all=true; fi
           fi
-          if [ "$all" = true ]; then eq=true; analog=true; max=true; fi
-          { echo "eq=$eq"; echo "analog-compressor=$analog"; echo "maximiser=$max"; echo "suite=$all"; } | tee -a "$GITHUB_OUTPUT"
+          if [ "$all" = true ]; then eq=true; analog=true; max=true; comp=true; fi
+          { echo "eq=$eq"; echo "analog-compressor=$analog"; echo "maximiser=$max"; echo "compressor=$comp"; echo "suite=$all"; } | tee -a "$GITHUB_OUTPUT"
 
   version:
     name: One version number
@@ -566,13 +569,120 @@ jobs:
             maximiser/build/SongsmithMaximiser_artefacts/Release/AU/
             maximiser/build/SongsmithMaximiser_artefacts/Release/Standalone/
 
+  # Songsmith Compressor (compressor/): its own build and tests, independent of the other jobs. Its macOS package is
+  # built and tested here; the Windows installer is the suite's (there is no separate Compressor setup).
+  compressor:
+    name: Compressor - ${{ matrix.name }}
+    needs: changes
+    if: needs.changes.outputs.compressor == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (VS, x64)
+            os: windows-latest
+            configure: -A x64
+            tests: compressor/build/CompressorTests_artefacts/Release/CompressorTests.exe
+          - name: macOS (Xcode, ${{ github.event_name == 'pull_request' && 'arm64' || 'universal' }})
+            os: macos-latest
+            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="${{ github.event_name == 'pull_request' && 'arm64' || 'arm64;x86_64' }}"
+            tests: compressor/build/CompressorTests_artefacts/Release/CompressorTests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE ${{ env.JUCE_VERSION }}
+        id: juce-cache
+        uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-${{ env.JUCE_VERSION }}-${{ runner.os }}
+
+      - name: Check out JUCE ${{ env.JUCE_VERSION }}
+        if: steps.juce-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: ${{ env.JUCE_VERSION }}
+          path: JUCE
+
+      - name: Configure
+        shell: bash
+        run: cmake -S compressor -B compressor/build ${{ matrix.configure }} -DJUCE_DIR="${{ github.workspace }}/JUCE"
+
+      - name: Build (Release)
+        shell: bash
+        run: cmake --build compressor/build --config Release --parallel 4
+
+      - name: Check the build reports the shared version
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./installer/check-version.ps1 -Built -Plugin compressor
+
+      - name: Run CompressorTests
+        shell: bash
+        run: ${{ matrix.tests }}
+
+      - name: Render editor screenshots
+        shell: bash
+        run: |
+          mkdir -p screenshots
+          ${{ matrix.tests }} --screenshot screenshots/compressor-1x.png
+          ${{ matrix.tests }} --screenshot screenshots/compressor-2x.png --scale 2
+
+      - name: Upload editor screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Compressor-screenshots-${{ runner.os }}
+          path: screenshots/*.png
+
+      - name: Validate the Audio Unit (auval)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          rm -rf ~/Library/Audio/Plug-Ins/Components/"Songsmith Compressor.component"
+          cp -R compressor/build/SongsmithCompressor_artefacts/Release/AU/"Songsmith Compressor.component" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 2
+          auval -a | grep -i "Tnyw" || true
+          auval -v aufx Cmp1 Tnyw
+
+      # Unsigned .pkg, built and tested end to end on the throwaway runner: installs system-wide,
+      # runs auval on the installed component, reinstalls, deselects the app and uninstalls.
+      - name: Build and test the macOS installer
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          pkg=$(compressor/installer/macos/build-installer.sh | tail -n 1)
+          compressor/installer/macos/test-installer.sh --pkg "$pkg"
+
+      - name: Upload macOS installer
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Compressor-macOS-pkg
+          path: compressor/build/installer/*-macOS.pkg
+
+      - name: Upload plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Compressor-${{ runner.os }}
+          if-no-files-found: warn
+          path: |
+            compressor/build/SongsmithCompressor_artefacts/Release/VST3/
+            compressor/build/SongsmithCompressor_artefacts/Release/AU/
+            compressor/build/SongsmithCompressor_artefacts/Release/Standalone/
+
   # Songsmith Plugins: one Windows installer with every plugin (installer/windows). Built from the
   # Release builds the three plugin jobs upload, then tested end to end (per-user, in a temp
   # folder), including replacing Songsmith EQ's own installer. (needs: waits for each job's
   # macOS leg too; a job's matrix legs can't be waited for separately.)
   suite-windows:
     name: Songsmith Plugins installer - Windows
-    needs: [changes, eq, analog-compressor, maximiser]
+    needs: [changes, eq, analog-compressor, maximiser, compressor]
     if: needs.changes.outputs.suite == 'true'
     runs-on: windows-latest
     steps:
@@ -596,6 +706,12 @@ jobs:
           name: Songsmith-Maximiser-Windows
           path: suite/max
 
+      - name: Download Songsmith Compressor (Windows build)
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-Compressor-Windows
+          path: suite/comp
+
       - name: Download Songsmith EQ's own installer
         uses: actions/download-artifact@v4
         with:
@@ -609,7 +725,7 @@ jobs:
               -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
             choco install innosetup -y --no-progress
           }
-          $builds = @{ EqDir = "suite/eq"; FetDir = "suite/fet"; MaxDir = "suite/max" }
+          $builds = @{ EqDir = "suite/eq"; FetDir = "suite/fet"; MaxDir = "suite/max"; CompDir = "suite/comp" }
           $setup = installer/windows/build-installer.ps1 @builds | Select-Object -Last 1
           $eqSetup = (Get-ChildItem suite/eq-setup/*-win64-setup.exe | Select-Object -First 1).FullName
           installer/windows/test-installer.ps1 -Installer $setup -EqInstaller $eqSetup @builds
@@ -627,7 +743,7 @@ jobs:
   # (needs: waits for the Windows legs too; a job's matrix legs can't be waited for separately.)
   suite-macos:
     name: Songsmith Plugins installer - macOS
-    needs: [changes, eq, analog-compressor, maximiser]
+    needs: [changes, eq, analog-compressor, maximiser, compressor]
     if: needs.changes.outputs.suite == 'true'
     runs-on: macos-latest
     steps:
@@ -651,15 +767,22 @@ jobs:
           name: Songsmith-Maximiser-macOS-pkg
           path: suite/max
 
+      - name: Download Songsmith Compressor's installer
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-Compressor-macOS-pkg
+          path: suite/comp
+
       - name: Build and test the suite installer
         shell: bash
         run: |
           eq_pkg=$(ls suite/eq/*-macOS.pkg | head -n 1)
           fet_pkg=$(ls suite/fet/*-macOS.pkg | head -n 1)
           max_pkg=$(ls suite/max/*-macOS.pkg | head -n 1)
-          pkg=$(installer/macos/build-installer.sh --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" | tail -n 1)
+          comp_pkg=$(ls suite/comp/*-macOS.pkg | head -n 1)
+          pkg=$(installer/macos/build-installer.sh --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" --comp-pkg "$comp_pkg" | tail -n 1)
           installer/macos/test-installer.sh --i-know-this-installs-system-wide \
-              --pkg "$pkg" --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg"
+              --pkg "$pkg" --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" --comp-pkg "$comp_pkg"
 
       - name: Upload the suite installer
         uses: actions/upload-artifact@v4

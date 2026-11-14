@@ -18,6 +18,9 @@ namespace Songsmith::Guidance
         if (pluginName.containsIgnoreCase ("Analog Compressor"))
             return "Evens out louder and quieter parts and can add analogue-style character. "
                    "Listen for lost punch if you compress too hard.";
+        if (pluginName.containsIgnoreCase ("Compressor"))   // after the Analog Compressor above
+            return "Evens out loud and quiet parts with plain controls. "
+                   "Make small changes and listen for lost punch.";
         if (pluginName.containsIgnoreCase ("Maximiser"))
             return "Controls peaks and raises loudness. "
                    "Compare at the same listening level, so that louder does not automatically seem better.";

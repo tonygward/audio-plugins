@@ -7,6 +7,7 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 | **Songsmith EQ**: parametric EQ with a spectrum analyser | [`eq/`](eq/) | VST3, AU (macOS), Standalone |
 | **Songsmith Analog Compressor**: FET feedback compressor inspired by the 1176LN, see [`analog-compressor/README.md`](analog-compressor/README.md) | [`analog-compressor/`](analog-compressor/) | VST3, AU (macOS), Standalone |
 | **Songsmith Maximiser**: look-ahead brickwall maximiser with a loudness meter, see [`maximiser/README.md`](maximiser/README.md) | [`maximiser/`](maximiser/) | VST3, AU (macOS), Standalone |
+| **Songsmith Compressor**: clean, conventional compressor with Threshold, Ratio, Attack, Release and Knee, see [`compressor/README.md`](compressor/README.md) | [`compressor/`](compressor/) | VST3, AU (macOS), Standalone |
 
 Every plugin shares one look: the same typeface, type sizes and title, from the shared UI library in [`shared/`](shared/). See the [style guide](docs/style-guide.md).
 
@@ -34,11 +35,11 @@ Every editor uses [Inter](https://rsms.me/inter/) (Regular, Medium and SemiBold,
 
 Running it again (or a newer version) remembers what you ticked. Unticking a plugin that's installed removes it. If you installed a plugin with its own installer before, the suite replaces that install, so each plugin is installed once and there's one **Songsmith Plugins** entry in **Settings → Apps**. Uninstalling it there removes every plugin and keeps your presets.
 
-To build it: build the three plugins (Release), then run `.\installer\windows\build-installer.ps1` (Inno Setup 6, see below). `.\installer\windows\test-installer.ps1` builds it and tests installing, choosing plugins, upgrading, replacing a per-plugin install, a plugin in use and uninstalling, all inside a temp folder. Every plugin and the installer share the one version in the `VERSION` file at the top of the repository.
+To build it: build the four plugins (Release), then run `.\installer\windows\build-installer.ps1` (Inno Setup 6, see below). `.\installer\windows\test-installer.ps1` builds it and tests installing, choosing plugins, upgrading, replacing a per-plugin install, a plugin in use and uninstalling, all inside a temp folder. Every plugin and the installer share the one version in the `VERSION` file at the top of the repository.
 
 **On a Mac**, the same suite is `Songsmith-Plugins-<version>-macOS.pkg` (CI artifact `Songsmith-Plugins-macOS-pkg`), a universal installer for Apple Silicon and Intel (the CI builds on pull requests are Apple Silicon only to save time; the release comes from the universal build of `main`). It isn't signed or notarised, so the first time macOS blocks it: try to open it, then go to **System Settings → Privacy & Security** and click **Open Anyway**. Everything is selected; click **Customize** to leave out a plugin. Each plugin comes with its VST3 plugin, its Audio Unit (for Logic Pro and GarageBand) and a standalone app that runs without recording software. It replaces a plugin you installed with its own installer, so there's one copy. To uninstall, run `installer/macos/uninstall.sh`: it lists what it will remove, asks first, and keeps your presets.
 
-To build it on a Mac: build the three plugins (Release), then run `installer/macos/build-installer.sh`. It builds each plugin's own `.pkg` and makes the suite from the same component packages, so the two can't drift apart. `installer/macos/test-installer.sh` installs for real, system-wide, so it only runs on CI (or with `--i-know-this-installs-system-wide`).
+To build it on a Mac: build the four plugins (Release), then run `installer/macos/build-installer.sh`. It builds each plugin's own `.pkg` and makes the suite from the same component packages, so the two can't drift apart. `installer/macos/test-installer.sh` installs for real, system-wide, so it only runs on CI (or with `--i-know-this-installs-system-wide`).
 
 ---
 
