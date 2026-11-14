@@ -39,6 +39,7 @@
         <line choice="eq"/>
         <line choice="fet"/>
         <line choice="max"/>
+        <line choice="comp"/>
     </choices-outline>
 
     <!-- Songsmith EQ -->
@@ -65,6 +66,14 @@
         <pkg-ref id="com.songsmithstudio.songsmithmaximiser.app"/>
     </choice>
 
+    <!-- Songsmith Compressor -->
+    <choice id="comp" title="Songsmith Compressor @COMP_VERSION@" start_selected="true"
+            description="Songsmith Compressor: even out the level with simple, clear controls. Installs the VST3 plugin, the Audio Unit (for Logic Pro and GarageBand) and a standalone app that runs without recording software.">
+        <pkg-ref id="com.songsmithstudio.songsmithcompressor.vst3"/>
+        <pkg-ref id="com.songsmithstudio.songsmithcompressor.au"/>
+        <pkg-ref id="com.songsmithstudio.songsmithcompressor.app"/>
+    </choice>
+
     <pkg-ref id="com.songsmithstudio.songsmitheq.vst3" version="@EQ_VERSION@" onConclusion="none">songsmitheq-vst3.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmitheq.au"   version="@EQ_VERSION@" onConclusion="none">songsmitheq-au.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmitheq.app"  version="@EQ_VERSION@" onConclusion="none">songsmitheq-app.pkg</pkg-ref>
@@ -74,4 +83,7 @@
     <pkg-ref id="com.songsmithstudio.songsmithmaximiser.vst3" version="@MAX_VERSION@" onConclusion="none">songsmithmaximiser-vst3.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithmaximiser.au"   version="@MAX_VERSION@" onConclusion="none">songsmithmaximiser-au.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithmaximiser.app"  version="@MAX_VERSION@" onConclusion="none">songsmithmaximiser-app.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithcompressor.vst3" version="@COMP_VERSION@" onConclusion="none">songsmithcompressor-vst3.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithcompressor.au"   version="@COMP_VERSION@" onConclusion="none">songsmithcompressor-au.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithcompressor.app"  version="@COMP_VERSION@" onConclusion="none">songsmithcompressor-app.pkg</pkg-ref>
 </installer-gui-script>

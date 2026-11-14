@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- **New plugin: Songsmith Compressor.** A simple, clear compressor with Threshold, Ratio, Attack, Release, Knee, Makeup Gain (or Auto Makeup) and Mix, meters for input, output and Gain Reduction, and four starting presets: Acoustic Guitar, Lead Vocal Control, Drum Bus Glue and Gentle Level Smoothing. It adds no analogue colour, so it is a good choice when you want to even out a sound without changing its tone. It appears as its own tick box in the Windows and macOS installers and as its own plugin in your recording software, next to Songsmith Analog Compressor, which is unchanged. Analog Warmth, an optional colour control, is planned and is not in this version. You do not need to do anything. This has not yet been checked in a DAW.
+
 ## 0.5.22
 
 Behind-the-scenes improvements and fixes. There is nothing you need to do.
