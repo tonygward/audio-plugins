@@ -32,6 +32,6 @@ Prompt: `shared/prompts/SUI-09-preset-library.md`. This is the audit, what chang
 ## What a preset recalls
 
 - **EQ:** every band (used or not, type, slope, frequency, gain, Q, on/off, dynamic settings) and Output Gain. Never Bypass, editor size or analyser settings.
-- **Analog Compressor:** Input, Output, Attack, Release, Ratio, All Buttons and Gain Reduction Off. Never Bypass, Oversampling or editor size.
+- **Analog Compressor:** Input, Output, Attack, Release, Ratio, All Buttons and Gain Reduction Off. Never Bypass, Oversampling or editor size. (Presets now also store 2:1 and Ignore Below; see [presets.md](../../analog-compressor/docs/presets.md).)
 - **Maximiser starting points:** Threshold, Output Ceiling, Release, Peak Mode, Auto Release and Dither (always off). Never Bypass or Link.
 - No parameter ID, state version or user folder location changed, so host sessions and automation are unaffected.

@@ -14,7 +14,9 @@ namespace Max
         needRing.assign ((size_t) window, 1.0f);
         dqVal.assign ((size_t) window + 1, 1.0f);
         dqIdx.assign ((size_t) window + 1, 0);
-        boxRing.assign ((size_t) window, 1.0f);
+        const int l1 = lookAhead / 2 + 1;
+        box1.prepare (l1);
+        box2.prepare (lookAhead - l1 + 2);
         for (auto& d : preDelay)
             d.assign ((size_t) TruePeakDetector::delaySamples + 1, 0.0f);
 
@@ -29,10 +31,9 @@ namespace Max
         for (auto& d : delay)
             std::fill (d.begin(), d.end(), 0.0f);
         std::fill (needRing.begin(), needRing.end(), 1.0f);
-        std::fill (boxRing.begin(), boxRing.end(), 1.0f);
-        writePos = boxPos = 0;
-        boxSum = (double) window;
-        resumCountdown = window;
+        box1.reset();
+        box2.reset();
+        writePos = 0;
         dqHead = dqSize = 0;
         sampleIndex = 0;
         env = sustained = 1.0f;
@@ -66,7 +67,12 @@ namespace Max
 
     void BrickwallLimiter::setReleaseMs (float ms) noexcept
     {
-        releaseMs = juce::jlimit (minReleaseMs, maxReleaseMs, ms);
+        const float clamped = juce::jlimit (minReleaseMs, maxReleaseMs, ms);
+        if (clamped == releaseMs && coefRate == fs)
+            return;   // called every block: only the four exp() calls below are worth skipping
+
+        releaseMs = clamped;
+        coefRate = fs;
         auto coef = [this] (double timeMs) { return (float) std::exp (-1.0 / (timeMs * 0.001 * fs)); };
         releaseCoef = coef ((double) releaseMs);
 
@@ -109,7 +115,6 @@ namespace Max
     {
         numChannels = juce::jlimit (0, maxChannels, numChannels);
         const float relGain = 1.0f - releaseCoef;
-        const double invWindow = 1.0 / (double) window;
 
         for (int i = 0; i < numSamples; ++i)
         {
@@ -151,26 +156,13 @@ namespace Max
                 sustained += (env - sustained) * (1.0f - (env < sustained ? sustainDownCoef : sustainUpCoef));
             }
 
-            // Sliding minimum, then the box-car mean over the same window.
-            const float m = slidingMin (env);
-            boxSum += (double) m - (double) boxRing[(size_t) boxPos];
-            boxRing[(size_t) boxPos] = m;
-            boxPos = boxPos + 1 == window ? 0 : boxPos + 1;
-
-            // Re-add the window exactly now and then, so the running sum never drifts.
-            if (--resumCountdown <= 0)
-            {
-                double s = 0.0;
-                for (float v : boxRing)
-                    s += (double) v;
-                boxSum = s;
-                resumCountdown = window;
-            }
+            // Sliding minimum, then two cascaded box-car means (an S-shaped attack over L samples).
+            const float smoothed = box2.push (box1.push (slidingMin (env)));
 
             // The oldest slot (one past the write position) holds sample n-L.
             const int readPos = writePos + 1 == window ? 0 : writePos + 1;
             needRing[(size_t) writePos] = need;
-            const float g = juce::jmin ((float) (boxSum * invWindow), needRing[(size_t) readPos], 1.0f);
+            const float g = juce::jmin (smoothed, needRing[(size_t) readPos], 1.0f);
 
             for (int ch = 0; ch < numChannels; ++ch)
                 channels[ch][i] = delay[ch][(size_t) readPos] * g;

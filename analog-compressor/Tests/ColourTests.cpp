@@ -122,7 +122,11 @@ struct OversamplingTests final : juce::UnitTest
             }
             const auto txt = juce::String (alias[0], 1) + " / " + juce::String (alias[1], 1) + " / " + juce::String (alias[2], 1) + " dB";
             expectLessThan (alias[1], alias[0], "2x better than off at " + juce::String (fs, 0) + ": " + txt);
-            expectLessThan (alias[2], alias[0] - 10.0, "4x at least 10 dB better than off: " + txt);
+            // ACOMP-18 (release in the control-voltage domain) moved where the folded components land:
+            // on this 7 kHz tone at 44.1 kHz 4x gains about 5 dB (was about 12), while at 1 kHz it gains
+            // about 35 dB (docs/colour.md). Claim what holds everywhere: clearly better, and low in absolute terms.
+            expectLessThan (alias[2], alias[0] - 4.0, "4x at least 4 dB better than off: " + txt);
+            expectLessThan (alias[2], -80.0, "4x aliasing below -80 dB: " + txt);
         }
 
         beginTest ("envelope timing is the same in every rate domain");

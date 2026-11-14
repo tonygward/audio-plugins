@@ -156,7 +156,7 @@ public:
 
             expectEquals (p.getThresholdDb(), 0.0f, "threshold default exactly 0 dB");
             expectEquals (p.getCeilingDb(), 0.0f, "ceiling default exactly 0 dB");
-            expectWithinAbsoluteError (getParam (p, Max::releaseId), 1.0f, 1.0e-6f, "release default 1 ms");
+            expectWithinAbsoluteError (getParam (p, Max::releaseId), 100.0f, 1.0e-3f, "release default 100 ms (MAX-10)");
             expect (! p.isBypassed(), "bypass off");
 
             // Logarithmic release control: each decade gets the same travel.
@@ -546,6 +546,55 @@ public:
             expect (allBelow, "no impulse overshoots the ceiling");
             expect (allReach, "every impulse lands on the ceiling (not over-limited)");
             expect (allOnTime, "the peak sample is the delayed impulse");
+        }
+
+        beginTest ("MAX-10: the attack is an S-curve inside the look-ahead and still lands on time");
+        {
+            for (double fs : { 44100.0, 48000.0, 96000.0 })
+            {
+                Max::BrickwallLimiter lim;
+                lim.setThresholdDb (-6.0f);   // baseline +5 dB
+                lim.setCeilingDb (-1.0f);
+                lim.setReleaseMs (1000.0f);   // no recovery inside the window we look at
+                lim.prepare (fs);
+                const int D = lim.getLatencySamples();
+                const int look = Max::BrickwallLimiter::lookAheadSamples (fs);
+                const float b = Max::dbToGain (5.0f), c = Max::dbToGain (-1.0f);
+
+                // Quiet DC (no limiting), then a step to a level that needs about -6 dB.
+                const int at = 4096;
+                std::vector<float> in (8192, 0.1f);
+                for (size_t i = (size_t) at; i < in.size(); ++i)
+                    in[i] = 1.0f;
+                const auto out = runLimiter (lim, { in }, 64);
+
+                // Gain applied to each output sample: out / (delayed input * baseline).
+                auto gainAt = [&] (int n) { return out[0][(size_t) n] / (in[(size_t) (n - D)] * b); };
+                const int arrive = at + D;               // first output sample of the step
+                const float target = c / b;              // what the step needs
+                const float g0 = gainAt (arrive - look - 1);
+                const float linearStep = (g0 - target) / (float) look;
+
+                bool monotonic = true;
+                float firstStep = 0.0f, lastStep = 0.0f, largestStep = 0.0f;
+                for (int n = arrive - look; n < arrive; ++n)
+                {
+                    const float step = gainAt (n - 1) - gainAt (n);
+                    monotonic = monotonic && step >= -1.0e-6f;
+                    largestStep = juce::jmax (largestStep, step);
+                    if (n == arrive - look) firstStep = step;
+                    lastStep = step;
+                }
+
+                const juce::String rate (fs / 1000.0, 1);
+                expectWithinAbsoluteError (g0, 1.0f, 1.0e-5f, "no limiting before the look-ahead window at " + rate + " kHz");
+                expect (monotonic, "the gain only falls while it approaches the step at " + rate + " kHz");
+                expect (firstStep < 0.5f * linearStep, "the move starts gently (" + juce::String (firstStep / linearStep, 3) + " of a straight ramp) at " + rate + " kHz");
+                expect (lastStep < 0.5f * linearStep, "the move finishes gently (" + juce::String (lastStep / linearStep, 3) + " of a straight ramp) at " + rate + " kHz");
+                expect (largestStep > 1.5f * linearStep, "the middle of the move is steeper than a straight ramp at " + rate + " kHz");
+                expect (gainAt (arrive) <= target * (1.0f + 1.0e-5f) && gainAt (arrive) >= target * 0.999f,
+                        "the step lands exactly on the ceiling, on time, at " + rate + " kHz");
+            }
         }
 
         beginTest ("Threshold / ceiling interaction below threshold");
