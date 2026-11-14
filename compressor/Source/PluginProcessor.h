@@ -4,6 +4,8 @@
 #include "CompParams.h"
 #include "CompPresets.h"
 #include "CompressorEngine.h"
+#include "DynamicsGraph.h"
+#include "../../shared/Source/SongsmithOutputMeter.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
 #include "../../shared/Source/SongsmithHeader.h"
 
@@ -68,8 +70,18 @@ public:
     static constexpr double bypassFadeSeconds = 0.02;
 
     // Meters, written by the audio thread after every block and read (and reset) by the UI.
-    // Peaks are linear; gain reduction is the deepest reduction since the last read, as positive dB.
-    std::atomic<float> inputPeak { 0.0f }, outputPeak { 0.0f }, gainReductionDb { 0.0f };
+    // Gain reduction is the deepest reduction since the last read, as positive dB (0 while bypassed).
+    std::atomic<float> gainReductionDb { 0.0f };
+
+    // The output meter, shared with the Songsmith EQ: a peak per channel, the channel count and the latched CLIP
+    // warning (EQ-39, EQ-42). Sample peak, after compression, Makeup Gain, Analog Warmth, Mix and Bypass.
+    Songsmith::UI::OutputMeterState outputMeter;
+
+    // The graph's data: one column for every 10 ms of audio (see DynamicsGraph.h), handed over without locks.
+    Comp::ColumnFifo graphFifo;
+
+    // UI state saved with the session (not automatable): where the floating panel sits, as fractions of its free travel.
+    std::atomic<float> panelX { 0.03f }, panelY { 1.0f };
     static float readAndReset (std::atomic<float>& meter) noexcept { return meter.exchange (0.0f, std::memory_order_relaxed); }
 
     // Optional timing of processBlock for the editor's Processing Load readout.
@@ -88,6 +100,10 @@ private:
     juce::AudioParameterBool* bypassParam = nullptr;
 
     SongsmithComp::Engine engine;
+
+    // The column being filled for the graph (audio thread only).
+    int columnLength = 480, columnRemaining = 480;
+    float columnIn = 0.0f, columnOut = 0.0f, columnReduction = 0.0f;
 
     // Bypass: a short linear cross-fade between the processed and the dry signal. No latency, so
     // the dry signal needs no delay.

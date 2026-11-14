@@ -1,5 +1,7 @@
 # Output meter and CLIP warning
 
+*The meter itself now lives in the shared library (`shared/Source/SongsmithOutputMeter.h`), and Songsmith Compressor uses the same one. Nothing about how it behaves has changed.*
+
 The meter on the right of the graph matches your track: **two bars (Left and Right) on a stereo track, one bar on a mono track**. Each bar shows the level of that channel after the EQ and the output gain. From the top, the meter shows the **CLIP** warning, the **held peak number** directly beneath it, the channel names, and then the bars.
 
 ## The held peak number

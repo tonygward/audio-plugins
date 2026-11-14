@@ -123,6 +123,13 @@ void SongsmithCompressorAudioProcessor::prepareToPlay (double sampleRate, int sa
     engine.setParams (getEngineParams());
     engine.reset();
 
+    columnLength = juce::jmax (1, juce::roundToInt (sampleRate * Comp::graphColumnSeconds));
+    columnRemaining = columnLength;
+    columnIn = columnOut = columnReduction = 0.0f;
+    graphFifo.clear();
+    outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, getMainBusNumOutputChannels()), std::memory_order_relaxed);
+    outputMeter.resetLatch (sampleRate);   // a new session or layout starts without a warning
+
     setLatencySamples (0);
 }
 
@@ -148,11 +155,14 @@ void SongsmithCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
     engine.setParams (getEngineParams());
 
-    float inPeak = 0.0f, outPeak = 0.0f, reduction = 0.0f;
+    float blockPeak = 0.0f, reduction = 0.0f;
+    const bool bypassedNow = bypassParam->get();
 
-    for (int pos = 0; pos < total; pos += chunk)
+    for (int pos = 0; pos < total;)
     {
-        const int num = juce::jmin (chunk, total - pos);
+        // Chunks also end where a 10 ms graph column ends, so every column covers exactly the same time at any block size.
+        const int num = juce::jmin (chunk, total - pos, columnRemaining);
+        float inPeak = 0.0f;
 
         float* ch[SongsmithComp::Engine::maxChannels] = {};
         for (int c = 0; c < numCh; ++c)
@@ -164,7 +174,8 @@ void SongsmithCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
 
         // The engine always runs, even when bypassed, so un-bypassing never glitches.
         engine.process (ch, numCh, num);
-        reduction = juce::jmax (reduction, engine.readMeters().gainReductionDb);
+        const float chunkReduction = engine.readMeters().gainReductionDb;
+        reduction = juce::jmax (reduction, chunkReduction);
 
         if (bypassMix.isSmoothing())
         {
@@ -181,13 +192,35 @@ void SongsmithCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
                 juce::FloatVectorOperations::copy (ch[c], dryBuffer.getReadPointer (c), num);   // bit-exact dry
         }
 
+        float outPeak = 0.0f;
         for (int c = 0; c < numCh; ++c)
-            outPeak = juce::jmax (outPeak, buffer.getMagnitude (c, pos, num));
+        {
+            const float channelPeak = buffer.getMagnitude (c, pos, num);
+            outPeak = juce::jmax (outPeak, channelPeak);
+            outputMeter.pushChannel (c, channelPeak);
+        }
+        blockPeak = juce::jmax (blockPeak, outPeak);
+
+        // Fill the graph column; when it is full, hand it to the editor.
+        columnIn = juce::jmax (columnIn, inPeak);
+        columnOut = juce::jmax (columnOut, outPeak);
+        columnReduction = juce::jmax (columnReduction, bypassedNow ? 0.0f : chunkReduction);
+        columnRemaining -= num;
+        if (columnRemaining <= 0)
+        {
+            graphFifo.push ({ juce::Decibels::gainToDecibels (columnIn, -120.0f), juce::Decibels::gainToDecibels (columnOut, -120.0f),
+                              columnReduction, bypassedNow });
+            columnIn = columnOut = columnReduction = 0.0f;
+            columnRemaining = columnLength;
+        }
+
+        pos += num;
     }
 
-    pushPeak (inputPeak, inPeak);
-    pushPeak (outputPeak, outPeak);
-    pushPeak (gainReductionDb, bypassParam->get() ? 0.0f : reduction);
+    outputMeter.push (blockPeak);
+    outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, numOut), std::memory_order_relaxed);
+    outputMeter.updateClipLatch (blockPeak, total);
+    pushPeak (gainReductionDb, bypassedNow ? 0.0f : reduction);
 }
 
 //==============================================================================
@@ -203,6 +236,8 @@ juce::ValueTree SongsmithCompressorAudioProcessor::createState()
 
     juce::ValueTree ui (uiId);
     ui.setProperty ("editorWidth", editorWidth.load(), nullptr);
+    ui.setProperty ("panelX", panelX.load(), nullptr);
+    ui.setProperty ("panelY", panelY.load(), nullptr);
     state.appendChild (ui, nullptr);
     return state;
 }
@@ -248,6 +283,15 @@ void SongsmithCompressorAudioProcessor::restoreFromValueTree (const juce::ValueT
     history.clear();   // a loaded session starts with a clean Undo history
 
     const auto ui = saved.getChildWithName (uiId);
+    // Where the floating panel sits (added with COMP-02; older sessions open with it at its default place).
+    auto fraction = [&] (const char* name, float fallback)
+    {
+        const float v = ui.isValid() ? (float) ui.getProperty (name, fallback) : fallback;
+        return std::isfinite (v) ? juce::jlimit (0.0f, 1.0f, v) : fallback;
+    };
+    panelX.store (fraction ("panelX", 0.03f));
+    panelY.store (fraction ("panelY", 1.0f));
+
     editorWidth.store (Comp::EditorLayout::constrainWidth (ui.isValid() ? (int) ui.getProperty ("editorWidth", Comp::EditorLayout::defaultWidth)
                                                                         : Comp::EditorLayout::defaultWidth));
 }
