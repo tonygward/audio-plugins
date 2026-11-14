@@ -147,6 +147,7 @@ namespace Max
         float slowCoef = 0.0f, sustainDownCoef = 0.0f, sustainUpCoef = 0.0f;
         float releaseCoef = 0.0f;  // a = exp (-1 / (release * fs))
         float releaseMs = 1.0f;
+        double coefRate = 0.0;     // sample rate the release coefficients were built for
 
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> baseline { 1.0f };
         juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> ceiling { 1.0f };

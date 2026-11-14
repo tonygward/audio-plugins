@@ -67,7 +67,12 @@ namespace Max
 
     void BrickwallLimiter::setReleaseMs (float ms) noexcept
     {
-        releaseMs = juce::jlimit (minReleaseMs, maxReleaseMs, ms);
+        const float clamped = juce::jlimit (minReleaseMs, maxReleaseMs, ms);
+        if (clamped == releaseMs && coefRate == fs)
+            return;   // called every block: only the four exp() calls below are worth skipping
+
+        releaseMs = clamped;
+        coefRate = fs;
         auto coef = [this] (double timeMs) { return (float) std::exp (-1.0 / (timeMs * 0.001 * fs)); };
         releaseCoef = coef ((double) releaseMs);
 

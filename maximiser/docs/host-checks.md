@@ -14,7 +14,7 @@ Before you start:
 | # | Check | How | Expected |
 |---|---|---|---|
 | 1 | Scan | Rescan plug-ins (Options → Locations → VST Plug-ins → Reset Blocklist, then restart) | Listed under Songsmith Studio as **Songsmith Maximiser**, next to Songsmith EQ, not replacing it |
-| 2 | Stereo | Insert on a stereo track and play | Audio passes; Atten meter moves when you lower Threshold |
+| 2 | Stereo | Insert on a stereo track and play | Audio passes; the Gain Reduction meter moves when you lower Threshold |
 | 3 | Mono | Insert on a mono track | Mono in / mono out, no channel doubling or silence |
 | 4 | Automation | Write automation for Threshold, Output Ceiling and Release, and toggle Peak Mode and Auto Release | Plays back smoothly with no clicks. With **Link** on, automating Threshold doesn't move Output Ceiling |
 | 5 | Recall | Set non-default values (Link on, window resized, Dither 16-bit), save, close and reopen the song | Everything comes back, including Link and the window size |

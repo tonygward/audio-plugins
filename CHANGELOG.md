@@ -7,6 +7,10 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 - Songsmith Maximiser limits more cleanly: when it turns a loud peak down, the change now starts and finishes gently instead of in a straight line, so hard limiting adds less distortion. It still never goes above your Output Ceiling, and the delay your recording software compensates for is unchanged. Projects you saved will sound very slightly cleaner on loud peaks; you do not need to do anything.
 - A new Songsmith Maximiser now starts with **Release** at 100 ms instead of 1 ms, which keeps bass and sustained notes cleaner. Your saved projects and the starting points keep their own Release setting.
 
+## 0.5.26
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
 ## 0.5.25
 
 Behind-the-scenes improvements and fixes. There is nothing you need to do.

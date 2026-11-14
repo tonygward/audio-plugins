@@ -4,10 +4,11 @@ An original vector editor. Its control layout is informed by the hardware's fron
 
 - the large **Input** and **Output** knobs on the left;
 - **Attack** above **Release** in the middle;
-- the **ratio buttons** 20 / 12 / 8 / 4, top to bottom as on the hardware, plus **All**;
-- the needle **meter** with its **GR / +4 / +8** buttons on the right;
-- **GR Off** and **Bypass** under the meter;
-- **Oversampling** and **Size** in the top bar.
+- the **ratio buttons** 20 / 12 / 8 / 4, top to bottom as on the hardware, then **2:1** (a Songsmith addition) and **All**;
+- the needle **meter** with its **Gain Reduction / Output +4 / Output +8** modes on the right;
+- **Gain Reduction Off** and the **Ignore Below** slider under the meter;
+- **Oversampling** under the Input knob;
+- the shared title bar (name, **Preset**, **Undo**, **Redo**, **Bypass** at the far right) and the Processing Load strip along the bottom.
 
 It uses the same embedded Inter fonts, type sizes, title, colours and slightly bevelled controls as every Songsmith plugin, from the shared UI library in `shared/` (fonts in `shared/Resources/Fonts`, SIL OFL 1.1). The bevelled look started here, on this editor's knobs. See `docs/style-guide.md`.
 
