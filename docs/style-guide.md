@@ -54,7 +54,7 @@ Why these numbers: 11, 12 and 13 px are the minimums set for Songsmith EQ (roadm
 
 Every plugin draws its name with `Songsmith::UI::drawTitle`: "Songsmith" in SemiBold in the text colour, a space, then the product name ("EQ", "Analog Compressor", "Maximiser") in Regular in the plugin's accent colour, both at 18 px. It sits at the top left, 24 px from the editor's left edge (`titleInset`), centred in a 52 px title bar (`titleBarHeight`). The compressor's title bar is the model.
 
-Songsmith EQ's title bar is its first top-bar row (42 px tall, 12 px from the left), laid out by the shared header like the others: name, Preset, Undo, Redo and Bypass, nothing else (see [title bar](../shared/docs/title-bar.md)). It has to fit at the 760 px minimum width. Interface size is in the `...` menu.
+Songsmith EQ's title bar is its first top-bar row (42 px tall, 12 px from the left), laid out by the shared header like the others: name, Preset, Undo, Redo and Bypass, nothing else (see [title bar](../shared/docs/title-bar.md)). It has to fit at the 980 px minimum width. Interface size is in the `...` menu.
 
 ## Colours
 
@@ -150,5 +150,5 @@ The check (`Songsmith::UI::Wording::findBanned`) fails on a banned word (`SC`, `
 
 ### Known naming questions
 
-- Some factory presets shipped before the preset naming rule in `CLAUDE.md` (for example "Lead vocal", "Abbey Road reverb", "Rack tom"). They are renamed for their use case in [SUI-19](https://github.com/tonygward/audio-plugins/issues/266); until then, new presets follow the rule.
+- Some factory preset text predates the preset naming rule in `CLAUDE.md`: the Analog Compressor and Maximiser menus show sentence case ("Lead vocal", "Mix bus"), and the Songsmith EQ tom hints name Tony's album. Songsmith EQ's menu labels already follow the rule ("Effects - Reverb Send Clean-up", "Drums - Floor Tom"). The rest is tracked in [SUI-19](https://github.com/tonygward/audio-plugins/issues/266); until then, new presets follow the rule.
 - "Songsmith Analog Compressor" uses the American "analog" while the UI uses British spelling; the product name is part of the plugin's identity in hosts and installers, so it stays.

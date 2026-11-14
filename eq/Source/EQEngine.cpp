@@ -76,6 +76,7 @@ namespace EQ
     {
         b.type = b.target.type;
         b.slope = effectiveSlope (b.target);
+        b.matched = matched;
         b.stereo = b.target.stereo;
         b.logFreq.reset (std::log (clampFreqForSampleRate (b.target.freq, sampleRate)));
         b.gainDb.reset (b.target.gain);
@@ -136,7 +137,7 @@ namespace EQ
         // so rapid type automation never drops a fade half-way through.
         const int targetSlope = effectiveSlope (b.target);
 
-        if ((b.type != b.target.type || b.slope != targetSlope) && ! b.crossfading)
+        if ((b.type != b.target.type || b.slope != targetSlope || b.matched != matched) && ! b.crossfading)
         {
             const bool audible = b.wet.current > 0.0 || b.wet.target > 0.0;
 
@@ -151,17 +152,34 @@ namespace EQ
 
             b.type = b.target.type;
             b.slope = targetSlope;
+            b.matched = matched;
             b.coeffsDirty = true;
         }
 
         if (b.coeffsDirty || b.logFreq.isRamping() || b.gainDb.isRamping() || b.logQ.isRamping()
             || b.dyn.gainDb != b.dyn.appliedDb)
         {
-            b.coeffs = makeFilter (b.type, sampleRate,
-                                   std::exp (b.logFreq.current),
-                                   std::exp (b.logQ.current),
-                                   b.gainDb.current + b.dyn.gainDb,   // static (ramped) + dynamic
-                                   b.slope);
+            bool usedMatched = false;
+            auto fresh = makeFilter (b.type, sampleRate,
+                                     std::exp (b.logFreq.current),
+                                     std::exp (b.logQ.current),
+                                     b.gainDb.current + b.dyn.gainDb,   // static (ramped) + dynamic
+                                     b.slope,
+                                     b.matched,
+                                     &usedMatched);
+
+            // A band that moves across the limits of the matched design (a shelf at a higher Q, a larger gain or a
+            // higher corner) changes design, and the two differ, so cross-fade like any other design change.
+            if (usedMatched != b.designMatched && ! b.crossfading && (b.wet.current > 0.0 || b.wet.target > 0.0))
+            {
+                b.prevCoeffs = b.coeffs;
+                b.prevState  = b.state;
+                b.xfade.reset (0.0);
+                b.xfade.setTarget (1.0, fadeSamples);
+                b.crossfading = true;
+            }
+            b.designMatched = usedMatched;
+            b.coeffs = fresh;
             b.coeffsDirty = false;
             b.dyn.appliedDb = b.dyn.gainDb;
         }
@@ -173,8 +191,11 @@ namespace EQ
     //
     // Detector: the band's input (or the sidechain, if "external" and connected) through a
     // band-pass at the band's frequency and Q - or, for shelves, a 2nd-order low-pass /
-    // high-pass at the corner (the region the shelf acts on) - then a one-pole mean-square
-    // with a time constant of two periods of the band frequency (1..20 ms). Levels are
+    // high-pass at the corner (the region the shelf acts on) - then a mean-square smoothed by two
+    // cascaded one-poles, each with one period of the band frequency (0.5..20 ms, so two periods
+    // in total, as before, but up to 40 ms for bands below 50 Hz). EQ-43: the second stage cuts the
+    // ripple the squared signal leaves at twice the band frequency (about +-0.35 dB at 50 Hz with
+    // one pole and a 20 ms limit, about +-0.03 dB now), so low bands no longer wobble their gain. Levels are
     // sine-peak calibrated (10 log10 (2 x mean square)), so a 0 dBFS sine reads 0 dB.
     // Channels are linked: the louder one drives the gain.
     //
@@ -205,7 +226,9 @@ namespace EQ
             for (auto& s : d.detState) s.reset();
             for (auto& s : d.scState)  s.reset();
             d.power.fill (0.0);
+            d.power2.fill (0.0);
             d.scPower.fill (0.0);
+            d.scPower2.fill (0.0);
             d.running = true;
         }
 
@@ -214,34 +237,35 @@ namespace EQ
         else if (b.type == FilterType::HighShelf) d.detector = makeCoeffs (FilterType::LowCut, sampleRate, freq, 0.7071, 0.0);
         else                                      d.detector = makeBandPass (sampleRate, freq, std::exp (b.logQ.current));
 
-        const double tau = std::clamp (2.0 / freq, 0.001, 0.02);
+        const double tau = std::clamp (1.0 / freq, 0.0005, 0.02);   // per stage
         const double a = 1.0 - std::exp (-1.0 / (tau * sampleRate));
 
-        auto detect = [&] (const float* x, SvfState& st, double& p)
+        auto detect = [&] (const float* x, SvfState& st, double& p, double& p2)
         {
             for (int i = 0; i < num; ++i)
             {
                 const double y = processSample (d.detector, st, (double) x[i]);
-                p += a * (y * y - p);
+                p  += a * (y * y - p);
+                p2 += a * (p - p2);
             }
-            if (! std::isfinite (p) || ! st.isFinite())
+            if (! std::isfinite (p) || ! std::isfinite (p2) || ! st.isFinite())
             {
-                p = 0.0;
+                p = p2 = 0.0;
                 st.reset();
             }
-            return p;
+            return p2;
         };
 
         double power = 0.0;
         if (t.dynExternal && sidechain != nullptr && numSidechain > 0)
         {
             for (int c = 0; c < std::min (numSidechain, maxChannels); ++c)
-                power = std::max (power, detect (sidechain[c] + start, d.scState[(size_t) c], d.scPower[(size_t) c]));
+                power = std::max (power, detect (sidechain[c] + start, d.scState[(size_t) c], d.scPower[(size_t) c], d.scPower2[(size_t) c]));
         }
         else
         {
             for (int c = first; c <= last; ++c)
-                power = std::max (power, detect (channels[c] + start, d.detState[(size_t) c], d.power[(size_t) c]));
+                power = std::max (power, detect (channels[c] + start, d.detState[(size_t) c], d.power[(size_t) c], d.power2[(size_t) c]));
         }
 
         const double levelDb = 10.0 * std::log10 (std::max (2.0 * power, 1.0e-20));

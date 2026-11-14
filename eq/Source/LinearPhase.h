@@ -16,6 +16,7 @@ namespace EQ
         float freq = 1000.0f, q = defaultQ, gain = 0.0f;
         int slope = defaultSlope;
         StereoMode mode = StereoMode::Stereo;
+        bool matched = false;   // EQ-44: High Frequency Accuracy
     };
 
     using LinearPhaseBands = std::array<LinearPhaseBand, numBands>;

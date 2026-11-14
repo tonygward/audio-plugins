@@ -53,12 +53,12 @@ namespace
         }
     }
 
-    double analyticDb (const std::vector<Spec>& specs, double fs, double f)
+    double analyticDb (const std::vector<Spec>& specs, double fs, double f, bool matched = false)
     {
         double db = 0.0;
         for (auto& s : specs)
             if (s.enabled)
-                db += getMagnitudeDb (makeFilter (s.type, fs, s.freq, s.q, typeHasGain (s.type) ? s.gain : 0.0f, s.slope), f, fs);
+                db += getMagnitudeDb (makeFilter (s.type, fs, s.freq, s.q, typeHasGain (s.type) ? s.gain : 0.0f, s.slope, matched), f, fs);
         return db;
     }
 
@@ -458,7 +458,7 @@ public:
         beginTest ("Parameter identities");
         {
             SongsmithEQAudioProcessor p;
-            constexpr int numGlobalParams = 7;   // output_gain, bypass, auto_gain, gain_scale, phase_mode, lp_quality, oversampling
+            constexpr int numGlobalParams = 8;   // output_gain, bypass, auto_gain, gain_scale, phase_mode, lp_quality, oversampling, hf_accuracy
             expectEquals (p.getParameters().size(), numBands * numBandParams + numGlobalParams, "24 bands x per-band parameters + globals");
 
             juce::StringArray ids;
@@ -2260,6 +2260,7 @@ public:
 
             Engine e;
             e.prepare (fs);
+            e.setMatched (p.isHighFrequencyAccurate());   // EQ-44: same design as the processor
             for (int b = 0; b < numBands; ++b)
             {
                 BandSettings s;
@@ -2539,6 +2540,39 @@ public:
             expectWithinAbsoluteError (rel * 1000.0, (double) release, release * 0.2, "release " + juce::String (release) + " ms");
         }
 
+        beginTest ("EQ-43: a low band's dynamic gain does not wobble with the waveform");
+        for (float freq : { 50.0f, 100.0f, 400.0f })
+        {
+            Engine e;
+            e.prepare (fs);
+            auto band = dynBell (0.0f, -12.0f, -12.0f, 1.0f, 10.0f);   // fast attack and release expose any ripple
+            band.freq = freq;
+            e.setBand (0, band);
+            for (int b = 1; b < numBands; ++b) e.setBand (b, BandSettings {});
+            e.snapToTargets();
+
+            // A steady tone 6 dB over the threshold: half the range, inside the gain computer's ramp,
+            // so level ripple goes straight into the gain.
+            constexpr int hop = 16;
+            const int settle = (int) (1.0 * fs) / hop, total = settle + (int) (0.5 * fs) / hop;
+            std::vector<float> l (hop), r (hop);
+            float lo = 1.0e9f, hi = -1.0e9f;
+            for (int k = 0; k < total; ++k)
+            {
+                for (int i = 0; i < hop; ++i)
+                    l[(size_t) i] = r[(size_t) i] = (float) (0.5 * std::sin (2.0 * pi * freq * (k * hop + i) / fs));
+                float* ch[] = { l.data(), r.data() };
+                e.process (ch, 2, hop);
+                if (k >= settle)
+                {
+                    lo = juce::jmin (lo, e.getDynamicGainDb (0));
+                    hi = juce::jmax (hi, e.getDynamicGainDb (0));
+                }
+            }
+            expectLessThan (hi - lo, 0.15f, "gain ripple at " + juce::String (freq) + " Hz (peak to peak, dB)");
+            expectWithinAbsoluteError (0.5f * (hi + lo), -6.0f, 0.5f, "still half the range at " + juce::String (freq) + " Hz");
+        }
+
         beginTest ("Dynamics off is bit-identical (whatever the dynamic settings)");
         {
             BandSettings plain { true, FilterType::Bell, 800.0f, 5.0f, 1.5f };
@@ -2810,7 +2844,7 @@ public:
             for (int i = 0; i <= 40; ++i)
             {
                 const double f = 30.0 * std::pow (18000.0 / 30.0, i / 40.0);
-                const double expected = analyticDb (curve.bands, fs, f);
+                const double expected = analyticDb (curve.bands, fs, f, p.isHighFrequencyAccurate());   // EQ-44: same design as the processor
                 if (expected < -40.0)
                     continue;   // deep stop band: relative accuracy is meaningless there
                 worst = std::max (worst, std::abs (magnitudeDbAt (h, f) - expected));
@@ -2854,6 +2888,28 @@ public:
             for (size_t n = 0; n < h.size(); ++n)
                 if ((int) n != latency) rest = std::max (rest, (double) std::abs (h[n]));
             expectLessThan (rest, 1.0e-4, "nothing elsewhere");
+        }
+
+        beginTest ("EQ-43: Auto Gain compares the delayed input with the output in linear phase");
+        {
+            SongsmithEQAudioProcessor p;
+            for (int b = 0; b < numBands; ++b) p.setBandUsed (b, false);   // flat: the right correction is 0 dB
+            setParam (p, "auto_gain", 1.0f);
+            expect (prepareLinear (p, 2), "IR loaded");   // the longest delay (N/2 samples)
+
+            // Noise whose level jumps every 250 ms: comparing undelayed input with delayed output
+            // would see different audio at each end of the window and pull the correction away from 0 dB.
+            juce::Random rng (4321);
+            float level = 0.1f;
+            const int total = (int) (8.0 * fs);
+            runProcessor (p, fs, block, total, [&] (int n)
+            {
+                if (n % (int) (0.25 * fs) == 0)
+                    level = 0.02f + 0.3f * rng.nextFloat();
+                return level * (2.0f * rng.nextFloat() - 1.0f);
+            }, [] (int) {});
+
+            expectWithinAbsoluteError (p.autoGainAppliedDb.load(), 0.0f, 0.15f, "no correction for a flat EQ");
         }
 
         beginTest ("Stereo modes in linear phase (Left-only band leaves the right channel alone)");
@@ -3765,7 +3821,9 @@ public:
                 ++checked;
             }
             expect (diffs.isEmpty(), "every parameter round-trips: " + diffs);
-            expectEquals (checked, p.getParameters().size(), "the session holds every parameter");
+            // The fixture predates EQ-44, so it has every parameter except hf_accuracy, which loads off.
+            expectEquals (checked, p.getParameters().size() - 1, "the session holds every parameter it knew about");
+            expect (! p.isHighFrequencyAccurate(), "a session from before Accurate Highs loads with it off");
             expectGreaterThan (nonDefault, checked * 3 / 4, "the fixture really moves the parameters off their defaults");
 
             bool slots = true;
@@ -5949,6 +6007,235 @@ static PianoToggleTests pianoToggleTests;
 static EdgeClickTests edgeClickTests;
 static OutputMeterTests outputMeterTests;
 static OutputMeterClipTests outputMeterClipTests;
+
+//==============================================================================
+// EQ-44: Accurate Highs (matched bells and shelves).
+class AccurateHighsTests final : public juce::UnitTest
+{
+public:
+    AccurateHighsTests() : juce::UnitTest ("Accurate Highs", "EQ") {}
+
+    // Worst deviation (dB) of a digital design from the analog prototype, 20 Hz to 'top'.
+    static double worstError (FilterType type, double fs, double f0, double q, double gain, bool matched, double top)
+    {
+        const auto c = makeCoeffs (type, fs, f0, q, gain, matched);
+        double worst = 0.0;
+        for (int i = 0; i <= 200; ++i)
+        {
+            const double f = 20.0 * std::pow (top / 20.0, i / 200.0);
+            const double analog = 20.0 * std::log10 (analogMagnitude (type, fs, f0, q, gain, f));
+            worst = std::max (worst, std::abs (getMagnitudeDb (c, f, fs) - analog));
+        }
+        return worst;
+    }
+
+    void runTest() override
+    {
+        beginTest ("Bells and shelves near the top keep their analog shape (and the bilinear design does not)");
+        for (double fs : { 44100.0, 48000.0 })
+            for (auto type : { FilterType::Bell, FilterType::LowShelf, FilterType::HighShelf })
+                for (double f0 : { 8000.0, 12000.0, 16000.0 })
+                    for (double gain : { -12.0, 6.0, 12.0 })
+                    {
+                        const double q = 1.0, top = 0.45 * fs;
+                        const double matched = worstError (type, fs, f0, q, gain, true, top);
+                        const double bilinear = worstError (type, fs, f0, q, gain, false, top);
+                        const auto what = juce::String (type == FilterType::Bell ? "bell" : type == FilterType::LowShelf ? "low shelf" : "high shelf")
+                                        + " " + juce::String (f0 / 1000.0, 0) + " kHz " + juce::String (gain, 0) + " dB at " + juce::String (fs / 1000.0, 1) + " kHz";
+                        logMessage ("  " + what + ": matched " + juce::String (matched, 2) + " dB, bilinear " + juce::String (bilinear, 2) + " dB");
+                        expectLessThan (matched, bilinear + 0.01, what + ": never worse than the bilinear design");
+                        if (bilinear > 1.0 && ! (type != FilterType::Bell && f0 >= 16000.0))
+                            expectLessThan (matched, 0.5 * bilinear, what + ": at least halves the error");
+                        if (type != FilterType::Bell && f0 <= 12000.0)
+                            expectLessThan (matched, 0.5, what + ": shelf within 0.5 dB of the analog shape");
+                    }
+
+        beginTest ("Lower bands are unchanged where it matters");
+        for (auto type : { FilterType::Bell, FilterType::LowShelf, FilterType::HighShelf })
+            for (double f0 : { 100.0, 1000.0 })
+            {
+                const auto m = makeCoeffs (type, 48000.0, f0, 0.7, 9.0, true);
+                const auto b = makeCoeffs (type, 48000.0, f0, 0.7, 9.0, false);
+                double worst = 0.0;
+                for (double f = 20.0; f <= 5000.0; f *= 1.1)
+                    worst = std::max (worst, std::abs (getMagnitudeDb (m, f, 48000.0) - getMagnitudeDb (b, f, 48000.0)));
+                expectLessThan (worst, 0.1, "matched and bilinear agree below 5 kHz at " + juce::String (f0) + " Hz");
+            }
+
+        beginTest ("Every setting gives a stable, finite filter, never worse than the bilinear one, and cuts and notches are untouched");
+        {
+            bool ok = true;
+            int badCount = 0;
+            juce::String firstBad, allBad;
+            for (double fs : { 44100.0, 48000.0, 96000.0, 192000.0 })
+                for (auto type : { FilterType::Bell, FilterType::LowShelf, FilterType::HighShelf, FilterType::Notch, FilterType::LowCut, FilterType::HighCut })
+                    for (double f0 = 20.0; f0 <= 0.48 * fs; f0 *= 1.5)
+                        for (double q : { 0.1, 0.7, 2.0, 10.0, 40.0 })
+                            for (double gain : { -24.0, -3.0, 0.0, 3.0, 24.0 })
+                            {
+                                const auto c = makeCoeffs (type, fs, f0, q, gain, true);
+                                const bool finite = std::isfinite (c.g) && std::isfinite (c.k) && std::isfinite (c.m0) && std::isfinite (c.m1) && std::isfinite (c.m2);
+                                const bool stable = c.g > 0.0 && c.k > 0.0;   // SVF with positive g and k is stable
+                                // Never worse than the bilinear design, over the whole grid (the fallback rule in
+                                // makeMatchedCoeffs is what guarantees it at run time, without comparing both).
+                                const double top = 0.45 * fs;
+                                const bool notWorse = worstError (type, fs, f0, q, gain, true, top) <= worstError (type, fs, f0, q, gain, false, top) + 0.05;
+                                bool same = true;
+                                if (type == FilterType::Notch || type == FilterType::LowCut || type == FilterType::HighCut || gain == 0.0)
+                                {
+                                    const auto b = makeCoeffs (type, fs, f0, q, gain, false);
+                                    same = c.g == b.g && c.k == b.k && c.m0 == b.m0 && c.m1 == b.m1 && c.m2 == b.m2;
+                                }
+                                if (! (finite && stable && same && notWorse))
+                                {
+                                    ++badCount;
+                                    if (badCount <= 6)
+                                        allBad << juce::String ((int) type) << " " << f0 << " Hz q " << q << " gain " << gain << " at " << fs << (notWorse ? "; " : " (worse); ");
+                                }
+                                if (! (finite && stable && same && notWorse) && ok)
+                                {
+                                    ok = false;
+                                    firstBad = juce::String ((int) type) + " " + juce::String (f0) + " Hz q " + juce::String (q) + " gain " + juce::String (gain) + " at " + juce::String (fs) + (notWorse ? "" : " (matched worse)");
+                                }
+                            }
+            expect (ok, juce::String (badCount) + " bad cases, first: " + allBad);
+        }
+
+        beginTest ("The engine plays what the curve shows (a 15 kHz bell at 44.1 kHz)");
+        {
+            constexpr double fs = 44100.0;
+            Engine e;
+            e.prepare (fs);
+            e.setMatched (true);
+            BandSettings s;
+            s.active = true; s.type = FilterType::Bell; s.freq = 15000.0f; s.gain = 9.0f; s.q = 1.0f;
+            e.setBand (0, s);
+            for (int b = 1; b < numBands; ++b) e.setBand (b, BandSettings {});
+            e.snapToTargets();
+
+            const auto drawn = makeFilter (FilterType::Bell, fs, 15000.0, 1.0, 9.0, defaultSlope, true);
+            for (double f : { 5000.0, 12000.0, 15000.0, 19000.0 })
+            {
+                const int n = (int) fs;
+                std::vector<float> l ((size_t) n), r ((size_t) n);
+                for (int i = 0; i < n; ++i)
+                    l[(size_t) i] = r[(size_t) i] = (float) (0.1 * std::sin (2.0 * pi * f * i / fs));
+                float* ch[] = { l.data(), r.data() };
+                e.process (ch, 2, n);
+                double sum = 0.0;
+                for (int i = n / 2; i < n; ++i) sum += (double) l[(size_t) i] * l[(size_t) i];
+                const double measured = 20.0 * std::log10 (std::sqrt (sum / (n / 2)) / (0.1 / std::sqrt (2.0)));
+                expectWithinAbsoluteError (measured, getMagnitudeDb (drawn, f, fs), 0.1, "at " + juce::String (f) + " Hz");
+            }
+        }
+
+        beginTest ("On for a new instance; sessions saved before it load with it off");
+        {
+            SongsmithEQAudioProcessor fresh;
+            expect (fresh.isHighFrequencyAccurate(), "new instance: on");
+
+            juce::MemoryBlock saved;
+            fresh.getStateInformation (saved);
+            auto xml = juce::AudioProcessor::getXmlFromBinary (saved.getData(), (int) saved.getSize());
+            expect (xml != nullptr);
+            auto tree = juce::ValueTree::fromXml (*xml);
+            tree.removeChild (tree.getChildWithProperty ("id", EQ::hfAccuracyId), nullptr);   // as saved by an older version
+            juce::MemoryBlock old;
+            juce::AudioProcessor::copyXmlToBinary (*tree.createXml(), old);
+
+            SongsmithEQAudioProcessor reopened;
+            reopened.setStateInformation (old.getData(), (int) old.getSize());
+            expect (! reopened.isHighFrequencyAccurate(), "an older session keeps the bilinear design");
+
+            SongsmithEQAudioProcessor roundTrip;
+            roundTrip.setStateInformation (saved.getData(), (int) saved.getSize());
+            expect (roundTrip.isHighFrequencyAccurate(), "a new session keeps it on");
+        }
+
+        beginTest ("A shelf that moves across the limits of the matched design cross-fades instead of switching at once");
+        {
+            constexpr double fs = 48000.0;
+            Engine e;
+            e.prepare (fs);
+            e.setMatched (true);
+            BandSettings s;
+            s.active = true; s.type = FilterType::HighShelf; s.freq = 12000.0f; s.gain = 12.0f; s.q = 1.4f;
+            e.setBand (0, s);
+            for (int b = 1; b < numBands; ++b) e.setBand (b, BandSettings {});
+            e.snapToTargets();
+            std::vector<float> l (4800, 0.05f), r (4800, 0.05f);
+            float* ch[] = { l.data(), r.data() };
+            e.process (ch, 2, 4800);
+            expect (! e.isBandCrossfading (0), "settled: nothing fading");
+
+            s.q = 1.6f;   // over the Q limit of the matched shelf: the design changes while the Q glides
+            e.setBand (0, s);
+            bool fading = false;
+            for (int i = 0; i < 40; ++i)
+            {
+                std::vector<float> a (64, 0.05f), b (64, 0.05f);
+                float* c2[] = { a.data(), b.data() };
+                e.process (c2, 2, 64);
+                fading = fading || e.isBandCrossfading (0);
+            }
+            expect (fading, "the change of design is cross-faded");
+        }
+
+        beginTest ("The preset carries its filter design: saved, loaded, undone, and an older preset loads as it sounded");
+        {
+            SongsmithEQAudioProcessor off;
+            off.apvts.getParameter (EQ::hfAccuracyId)->setValueNotifyingHost (0.0f);
+            const auto data = off.edits.getPresetData();
+            expect (! data.accurateHighs, "captured");
+
+            SongsmithEQAudioProcessor fresh;   // a new instance has Accurate Highs on
+            expect (fresh.isHighFrequencyAccurate());
+            fresh.edits.applyPresetData (data);
+            expect (! fresh.isHighFrequencyAccurate(), "applied");
+            auto on = fresh.edits.getPresetData();
+            on.accurateHighs = true;
+            expect (! data.sameSound (on), "a different design is a different sound");
+
+            // A preset file from before the parameter existed.
+            auto tree = off.createPresetState();
+            tree.removeChild (tree.getChildWithProperty ("id", EQ::hfAccuracyId), nullptr);
+            PresetData old;
+            juce::String error;
+            expect (PresetManager::decode (tree, old, error), "decoded");
+            expect (! old.accurateHighs, "an older preset keeps the design it was made with");
+            SongsmithEQAudioProcessor target;
+            target.edits.applyPresetData (old);
+            expect (! target.isHighFrequencyAccurate(), "and sounds the same when loaded into a new instance");
+
+            // Undo puts the design back too.
+            SongsmithEQAudioProcessor u;
+            u.edits.loadPreset (data, "Test");
+            expect (! u.isHighFrequencyAccurate());
+            u.edits.undo();
+            expect (u.isHighFrequencyAccurate(), "undo restores it");
+        }
+
+        beginTest ("Accurate Highs sits right beside Oversampling, fully visible, at every size");
+        for (float s : { 0.75f, 1.0f, 2.0f })
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = UiSizeTests::makeEditor (p, s, juce::roundToInt (980 * s), juce::roundToInt (468 * s));
+            auto* eqEditor = dynamic_cast<SongsmithEQAudioProcessorEditor*> (ed.get());
+            expect (eqEditor != nullptr);
+            if (eqEditor == nullptr)
+                continue;
+            auto& button = eqEditor->getAccurateHighsButton();
+            auto& os = eqEditor->getOversamplingBox();
+            const auto context = "at " + juce::String (s) + "x";
+            expect (button.isVisible() && button.getWidth() > 0, context + ": visible");
+            expectEquals (button.getY(), os.getY(), context + ": same row as Oversampling");
+            expect (button.getX() > os.getRight() && button.getX() - os.getRight() < 16, context + ": immediately right of Oversampling");
+            expect (button.getToggleState(), context + ": on in a new instance");
+            expect (button.getTooltip().startsWith ("Accurate highs:"), context + ": tooltip");
+        }
+    }
+};
+static AccurateHighsTests accurateHighsTests;
 static UiSizeTests uiSizeTests;
 static WordingAndFontTests wordingAndFontTests;
 static SongsmithUITests sharedUITests { "EQ" };
@@ -6198,6 +6485,24 @@ static void runBenchmark()
                {
                    if (b == 0)
                        setParam (p, "auto_gain", 1.0f);
+                   setBand (p, b, Param::Freq, 40.0f * std::pow (400.0f, (float) b / numBands));
+                   setBand (p, b, Param::Gain, 6.0f);
+                   setBand (p, b, Param::Q, 1.5f);
+               },
+               [] (SongsmithEQAudioProcessor& p, int b, int bi)
+               {
+                   setBand (p, b, Param::Gain, 6.0f * std::sin ((float) bi * 0.05f + (float) b));
+               });
+
+    // EQ-44: the same with Accurate Highs off, to show what the matched design costs while gains move.
+    benchCase ("24 bells, auto gain on, Accurate Highs off",
+               [] (SongsmithEQAudioProcessor& p, int b)
+               {
+                   if (b == 0)
+                   {
+                       setParam (p, "auto_gain", 1.0f);
+                       setParam (p, EQ::hfAccuracyId, 0.0f);
+                   }
                    setBand (p, b, Param::Freq, 40.0f * std::pow (400.0f, (float) b / numBands));
                    setBand (p, b, Param::Gain, 6.0f);
                    setBand (p, b, Param::Q, 1.5f);

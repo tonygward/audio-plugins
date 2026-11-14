@@ -10,7 +10,7 @@ A fifth ratio button, **2:1**, for gentle compression on acoustic guitar, vocals
 | Threshold (peak dBFS) | -19.5 | -22.0 |
 | Knee width | 10 dB | 10 dB |
 
-The threshold and knee are Songsmith choices. Because 2:1 starts a little lower, it eases in earlier but removes less gain at loud levels: above about -14.5 dBFS peak it takes off less gain than 4:1. Attack and release timing use the same model as the other ratios, and Low Cut, oversampling, stereo link, bypass and latency are unchanged because 2:1 is only another row in the engine's gain-computer table (`FETEngine.h`, index 4). Later model variants (ACOMP-10) can reuse that row rather than add a second gain computer.
+The threshold and knee are Songsmith choices. Because 2:1 starts a little lower, it eases in earlier but removes less gain at loud levels: above about -14.5 dBFS peak it takes off less gain than 4:1. Attack and release timing use the same model as the other ratios, and Ignore Below, oversampling, stereo link, bypass and latency are unchanged because 2:1 is only another row in the engine's gain-computer table (`FETEngine.h`, index 4). Later model variants (ACOMP-10) can reuse that row rather than add a second gain computer.
 
 ## Compatibility design
 
@@ -32,4 +32,4 @@ What is preserved: saved ratio indexes, normalised host automation for `ratio`, 
 
 ## Status
 
-Written without a build environment: the tests above have **not been run**, and there are no screenshots, listening notes or DAW checks yet. Render before/after screenshots with `AnalogCompressorTests --screenshots <folder>` (the ratio column now holds six buttons, 34 design units high with a 6 unit gap, so check spacing at 100 % and 200 %).
+Shipped in 0.5.8 (PR #207). The tests above run in the plugin's CI build. The ratio column holds six buttons, 34 design units high with a 6 unit gap. Not yet verified in a DAW, and there are no listening notes yet.

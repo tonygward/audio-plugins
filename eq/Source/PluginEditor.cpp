@@ -109,6 +109,14 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
                                 "mode it only changes the design (no extra latency).");
     content.addAndMakeVisible (oversamplingBox);
 
+    // EQ-44: beside Oversampling, the other way to keep high bands accurate.
+    accurateHighsAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        processor.apvts, EQ::hfAccuracyId, accurateHighsButton);
+    accurateHighsButton.setClickingTogglesState (true);
+    accurateHighsButton.setTooltip ("Accurate highs: bells and shelves near the top of the range keep the shape they have lower down, "
+                                    "without the delay that oversampling adds. Changes nothing you would hear below about 5 kHz.");
+    content.addAndMakeVisible (accurateHighsButton);
+
     analyserSettingsButton.setTooltip ("Settings: analyser (freeze, peak hold, tilt, resolution, speed, range) and interface size");
     analyserSettingsButton.onClick = [this] { showAnalyserMenu(); };
     content.addAndMakeVisible (analyserSettingsButton);
@@ -534,6 +542,8 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         phaseBox.setBounds (row.removeFromLeft (comboWidth (phaseBox)));
         row.removeFromLeft (gap);
         oversamplingBox.setBounds (row.removeFromLeft (comboWidth (oversamplingBox)));
+        row.removeFromLeft (gap);
+        accurateHighsButton.setBounds (row.removeFromLeft (buttonWidth ({ accurateHighsButton.getButtonText() })));
         row.removeFromLeft (gap);
 
         outputSlider.setBounds (row.removeFromRight (barWidth ({ "Output -24.0 dB", "Output +24.0 dB" })));

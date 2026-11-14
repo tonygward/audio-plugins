@@ -21,6 +21,8 @@ References use the stable **EQ-##** IDs (for example EQ-27 means prompt 27 in th
 | [34 Linear Phase tooltip](done/34-linear-phase-tooltip.md) | **Done** in #79: the processing-mode selector explains when to try Linear phase, why it adds delay and why Zero latency suits recording. Shipped in 1.2.0 (UI milestone) |
 | [41 Gain Scale label](done/41-gain-scale-main-toolbox.md) | To do ([#203](https://github.com/tonygward/audio-plugins/issues/203)). The move into the toolbox already shipped with SUI-18 in 0.5.10; what is left is the label and tooltip |
 | [42 Clipping indication and peak readout](42-clip-meter-readout.md) | To do ([#232](https://github.com/tonygward/audio-plugins/issues/232)) |
+| [43 Steadier dynamic detector and latency-aligned Auto Gain](done/43-dynamic-detector-and-auto-gain-alignment.md) | Done ([#277](https://github.com/tonygward/audio-plugins/issues/277)) |
+| [44 Accurate Highs](done/44-accurate-highs.md) | Done ([#285](https://github.com/tonygward/audio-plugins/issues/285)) |
 
 Versions 1.x above are from before the suite was renumbered to 0.5.0 ([VER-01](../../shared/prompts/done/VER-01-standardise-suite-version-0.5.0.md)).
 

@@ -31,7 +31,7 @@ namespace EQ
             if (! b.active)
                 continue;
 
-            const auto coeffs = makeFilter (b.type, designRate, b.freq, b.q, typeHasGain (b.type) ? b.gain : 0.0f, b.slope);
+            const auto coeffs = makeFilter (b.type, designRate, b.freq, b.q, typeHasGain (b.type) ? b.gain : 0.0f, b.slope, b.matched);
             const auto mode = mono ? StereoMode::Stereo : b.mode;
             anyMidSide = anyMidSide || isMidSide (mode);
 

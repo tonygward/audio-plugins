@@ -62,6 +62,12 @@ namespace EQ
         // audition filter (see makeSoloFilter). Switching between soloed bands fades out and in.
         void setSolo (int band) noexcept { soloTarget = band; }
 
+        // EQ-44: matched (high-frequency accurate) bells and shelves. Call once per block (before process).
+        // Each audible band cross-fades from its old filter to the new one, as for a type change.
+        void setMatched (bool on) noexcept { matched = on; }
+        bool isMatched() const noexcept { return matched; }
+        bool isBandCrossfading (int band) const noexcept { return bands[(size_t) band].crossfading; }   // for the tests
+
         // Sidechain for dynamic bands set to "external" (call before process; may be null).
         void setSidechain (const float* const* channels, int numChannels) noexcept { sidechain = channels; numSidechain = numChannels; }
 
@@ -90,6 +96,8 @@ namespace EQ
 
             FilterType type = FilterType::Bell;
             int slope = defaultSlope;         // effective slope (always the default for non-cut types)
+            bool matched = false;             // the Accurate Highs setting the current coefficients were made with (EQ-44)
+            bool designMatched = false;       // whether they actually are the matched design (a shelf falls back outside its limits)
             StereoMode stereo = StereoMode::Stereo;   // changes only while the band is silent (fade out, switch, fade in)
             Ramp logFreq, gainDb, logQ;
             bool coeffsDirty = true;
@@ -106,9 +114,9 @@ namespace EQ
                 SvfCoeffs detector;
                 bool running = false;          // detector ran last chunk (state is fresh)
                 std::array<SvfState, maxChannels> detState {};
-                std::array<double, maxChannels> power {};
+                std::array<double, maxChannels> power {}, power2 {};   // two smoothing stages (EQ-43)
                 std::array<SvfState, maxChannels> scState {};   // detector state for the sidechain input
-                std::array<double, maxChannels> scPower {};
+                std::array<double, maxChannels> scPower {}, scPower2 {};
                 double gainDb = 0.0;           // smoothed dynamic gain added to the static gain
                 double appliedDb = 0.0;        // value the current coefficients were built with
 
@@ -117,7 +125,9 @@ namespace EQ
                     for (auto& s : detState) s.reset();
                     for (auto& s : scState)  s.reset();
                     power.fill (0.0);
+                    power2.fill (0.0);
                     scPower.fill (0.0);
+                    scPower2.fill (0.0);
                     gainDb = appliedDb = 0.0;
                 }
             } dyn;
@@ -154,5 +164,6 @@ namespace EQ
         const float* const* sidechain = nullptr;
         int numSidechain = 0;
         int soloTarget = -1;
+        bool matched = false;
     };
 }

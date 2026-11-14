@@ -89,6 +89,7 @@ namespace FET
 
     private:
         float solve (float levelDb, float previousGr) const noexcept;
+        float solveRelease (float levelDb, float previousGr, float coeff, float extra) const noexcept;
         void updateCoefficients() noexcept;
 
         double fs = 44100.0;

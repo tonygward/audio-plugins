@@ -102,6 +102,8 @@ These links prevent completed features being selected again. An archived prompt 
 - [38-frequency-guide-instrument-icons](../../eq/prompts/done/38-frequency-guide-instrument-icons.md)
 - [39-stereo-meter-clip-latch](../../eq/prompts/done/39-stereo-meter-clip-latch.md)
 - [40-organise-starting-points](../../eq/prompts/done/40-organise-starting-points.md)
+- [43-dynamic-detector-and-auto-gain-alignment](../../eq/prompts/done/43-dynamic-detector-and-auto-gain-alignment.md)
+- [44-accurate-highs](../../eq/prompts/done/44-accurate-highs.md)
 
 ### analog-compressor
 - [01-plugin-shell](../../analog-compressor/prompts/done/01-plugin-shell.md)
@@ -118,6 +120,7 @@ These links prevent completed features being selected again. An archived prompt 
 - [14-ratio-button-tooltips](../../analog-compressor/prompts/done/14-ratio-button-tooltips.md)
 - [15-oversampling-far-left](../../analog-compressor/prompts/done/15-oversampling-far-left.md)
 - [16-ignore-below-continuous-500hz](../../analog-compressor/prompts/done/16-ignore-below-continuous-500hz.md)
+- [18-control-voltage-release-and-bypass](../../analog-compressor/prompts/done/18-control-voltage-release-and-bypass.md)
 
 ### maximiser
 - [01-maximiser-shell](../../maximiser/prompts/done/01-maximiser-shell.md)
@@ -129,6 +132,7 @@ These links prevent completed features being selected again. An archived prompt 
 - [07-loudness-meter](../../maximiser/prompts/done/07-loudness-meter.md)
 - [08-faceplate-and-meter-polish](../../maximiser/prompts/done/08-faceplate-and-meter-polish.md)
 - [09-integrated-lufs-beside-dial](../../maximiser/prompts/done/09-integrated-lufs-beside-dial.md)
+- [10-smooth-attack-and-release-default](../../maximiser/prompts/done/10-smooth-attack-and-release-default.md)
 
 ## Product direction
 The current suite comprises EQ, Analog Compressor and Maximiser. The planned Songsmith Compressor (COMP-01) has its own `compressor/prompts/` folder until it has source. Planned classics, guidance tools and Channel Strip remain future work until implemented and released. Keep [the EQ roadmap](../../eq/ROADMAP.md) for product direction, not current queue order or software versions.

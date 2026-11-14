@@ -169,7 +169,7 @@ These are **Tony's own settings** from his 2021 album *Between You and Me*, not 
 
 - **HF gain:** +3.3 dB. It's the median of the four occurrences (+4.3, +3.0, +3.3, +3.3). The *You Want More* tracks are from the 2023 remix, but the High Tom and Toms bus in *Gone from Here* (album-era) have the same EQ, so the shape is the album's.
 - **The resonant bump:** the 162 Hz high-pass with a +4.6 dB bell at 163 Hz makes a bump right at the cut. It's kept because it's on the album. Decide whether you want it on new songs. Lowering the bell, or moving the cut down to about 100 Hz, removes it.
-- **Output gain:** −2.6 dB (pink noise, K-weighted).
+- **Output gain:** −3.1 dB (pink noise, K-weighted). It was −2.6 dB until EQ-44: with **Accurate Highs** on, the 10.32 kHz bell keeps more of its top end, so the tom is about 0.5 dB louder and the output gain was re-matched. Mid tom and High tom use the same curve and gain.
 - **Cut first:** it boosts more than it cuts (+13.8 dB against −11.9 dB). It's a commented exception in the test.
 
 ### Floor tom (index 23)
