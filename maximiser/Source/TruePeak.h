@@ -49,7 +49,7 @@ namespace Max
 
     // Real-time true-peak detector used by the limiter (Songsmith design choice): 8x oversampling,
     // 24 taps per phase, Kaiser beta 8 (4x under-reads content near Nyquist by up to ~0.7 dB). For each base sample it reports the largest magnitude
-    // over the sample itself and the reconstructed values on both sides of it (3 intermediate
+    // over the sample itself and the reconstructed values on both sides of it (7 intermediate
     // points per interval, all channels). Its output for sample k is ready 'delaySamples' samples
     // after k arrives, so the limiter delays its audio by the same amount.
     class TruePeakDetector
@@ -76,7 +76,7 @@ namespace Max
             for (int c = 0; c < numChannels; ++c)
                 history[(size_t) c][(size_t) pos] = x[c];
 
-            float interval = 0.0f;   // between samples n-8 and n-7
+            float interval = 0.0f;   // phase q estimates time n - delaySamples + q / factor: between samples n-12 and n-11
             samplePeak = 0.0f;
             for (int c = 0; c < numChannels; ++c)
             {
