@@ -49,6 +49,7 @@ namespace EQ
             d.bands[(size_t) b] = getSnapshot (b);
         d.outputGain = processor.getOutputGainParam()->convertFrom0to1 (processor.getOutputGainParam()->getValue());
         d.gainScale  = processor.getGainScaleParam()->convertFrom0to1 (processor.getGainScaleParam()->getValue());
+        d.accurateHighs = processor.isHighFrequencyAccurate();
         return d;
     }
 
@@ -68,6 +69,8 @@ namespace EQ
 
         setGlobal (processor.getOutputGainParam(), d.outputGain);
         setGlobal (processor.getGainScaleParam(), d.gainScale);
+        if (auto* accurate = processor.apvts.getParameter (EQ::hfAccuracyId))   // the design the preset sounds right with
+            setGlobal (static_cast<juce::RangedAudioParameter*> (accurate), d.accurateHighs ? 1.0f : 0.0f);
     }
 
     void EditController::loadPreset (const PresetData& d, const juce::String& name)

@@ -6096,6 +6096,69 @@ public:
             expect (roundTrip.isHighFrequencyAccurate(), "a new session keeps it on");
         }
 
+        beginTest ("A shelf that moves across the limits of the matched design cross-fades instead of switching at once");
+        {
+            constexpr double fs = 48000.0;
+            Engine e;
+            e.prepare (fs);
+            e.setMatched (true);
+            BandSettings s;
+            s.active = true; s.type = FilterType::HighShelf; s.freq = 12000.0f; s.gain = 12.0f; s.q = 1.4f;
+            e.setBand (0, s);
+            for (int b = 1; b < numBands; ++b) e.setBand (b, BandSettings {});
+            e.snapToTargets();
+            std::vector<float> l (4800, 0.05f), r (4800, 0.05f);
+            float* ch[] = { l.data(), r.data() };
+            e.process (ch, 2, 4800);
+            expect (! e.isBandCrossfading (0), "settled: nothing fading");
+
+            s.q = 1.6f;   // over the Q limit of the matched shelf: the design changes while the Q glides
+            e.setBand (0, s);
+            bool fading = false;
+            for (int i = 0; i < 40; ++i)
+            {
+                std::vector<float> a (64, 0.05f), b (64, 0.05f);
+                float* c2[] = { a.data(), b.data() };
+                e.process (c2, 2, 64);
+                fading = fading || e.isBandCrossfading (0);
+            }
+            expect (fading, "the change of design is cross-faded");
+        }
+
+        beginTest ("The preset carries its filter design: saved, loaded, undone, and an older preset loads as it sounded");
+        {
+            SongsmithEQAudioProcessor off;
+            off.apvts.getParameter (EQ::hfAccuracyId)->setValueNotifyingHost (0.0f);
+            const auto data = off.edits.getPresetData();
+            expect (! data.accurateHighs, "captured");
+
+            SongsmithEQAudioProcessor fresh;   // a new instance has Accurate Highs on
+            expect (fresh.isHighFrequencyAccurate());
+            fresh.edits.applyPresetData (data);
+            expect (! fresh.isHighFrequencyAccurate(), "applied");
+            auto on = fresh.edits.getPresetData();
+            on.accurateHighs = true;
+            expect (! data.sameSound (on), "a different design is a different sound");
+
+            // A preset file from before the parameter existed.
+            auto tree = off.createPresetState();
+            tree.removeChild (tree.getChildWithProperty ("id", EQ::hfAccuracyId), nullptr);
+            PresetData old;
+            juce::String error;
+            expect (PresetManager::decode (tree, old, error), "decoded");
+            expect (! old.accurateHighs, "an older preset keeps the design it was made with");
+            SongsmithEQAudioProcessor target;
+            target.edits.applyPresetData (old);
+            expect (! target.isHighFrequencyAccurate(), "and sounds the same when loaded into a new instance");
+
+            // Undo puts the design back too.
+            SongsmithEQAudioProcessor u;
+            u.edits.loadPreset (data, "Test");
+            expect (! u.isHighFrequencyAccurate());
+            u.edits.undo();
+            expect (u.isHighFrequencyAccurate(), "undo restores it");
+        }
+
         beginTest ("Accurate Highs sits right beside Oversampling, fully visible, at every size");
         for (float s : { 0.75f, 1.0f, 2.0f })
         {

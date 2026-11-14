@@ -83,8 +83,12 @@ namespace EQ
     // 'matched' (EQ-44, "High Frequency Accuracy"): bells and shelves use a design matched to the analog
     // prototype up to Nyquist instead of the bilinear transform, which squeezes them near the top of
     // the range. Other types, and any case the matched design cannot handle, use the bilinear transform.
-    inline SvfCoeffs makeCoeffs (FilterType type, double sampleRate, double freq, double q, double gainDb, bool matched = false)
+    // If 'usedMatched' is given it is set to whether the matched design was actually used (it falls back to the
+    // bilinear design outside its limits), so the engine can cross-fade when a moving band crosses one.
+    inline SvfCoeffs makeCoeffs (FilterType type, double sampleRate, double freq, double q, double gainDb, bool matched = false, bool* usedMatched = nullptr)
     {
+        if (usedMatched != nullptr)
+            *usedMatched = false;
         freq   = clampFreqForSampleRate (freq, sampleRate);
         q      = std::clamp (q, 0.025, 100.0);
         gainDb = std::clamp (gainDb, -48.0, 48.0);
@@ -93,7 +97,11 @@ namespace EQ
         {
             SvfCoeffs m;
             if (makeMatchedCoeffs (type, sampleRate, freq, q, gainDb, m))
+            {
+                if (usedMatched != nullptr)
+                    *usedMatched = true;
                 return m;
+            }
         }
         return makeCoeffsForW (type, std::tan (pi * freq / sampleRate), q, gainDb);
     }
@@ -237,14 +245,16 @@ namespace EQ
         return sections;
     }
 
-    inline FilterCoeffs makeFilter (FilterType type, double sampleRate, double freq, double q, double gainDb, int slopeIndex, bool matched = false)
+    inline FilterCoeffs makeFilter (FilterType type, double sampleRate, double freq, double q, double gainDb, int slopeIndex, bool matched = false, bool* usedMatched = nullptr)
     {
         FilterCoeffs f;
+        if (usedMatched != nullptr)
+            *usedMatched = false;
         const int order = typeHasSlope (type) ? slopeOrder (slopeIndex) : 2;
 
         if (order == 2)
         {
-            f.svf[0] = makeCoeffs (type, sampleRate, freq, q, gainDb, matched);   // single-stage path
+            f.svf[0] = makeCoeffs (type, sampleRate, freq, q, gainDb, matched, usedMatched);   // single-stage path
             return f;
         }
 

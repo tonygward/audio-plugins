@@ -66,6 +66,7 @@ namespace EQ
         // Each audible band cross-fades from its old filter to the new one, as for a type change.
         void setMatched (bool on) noexcept { matched = on; }
         bool isMatched() const noexcept { return matched; }
+        bool isBandCrossfading (int band) const noexcept { return bands[(size_t) band].crossfading; }   // for the tests
 
         // Sidechain for dynamic bands set to "external" (call before process; may be null).
         void setSidechain (const float* const* channels, int numChannels) noexcept { sidechain = channels; numSidechain = numChannels; }
@@ -95,7 +96,8 @@ namespace EQ
 
             FilterType type = FilterType::Bell;
             int slope = defaultSlope;         // effective slope (always the default for non-cut types)
-            bool matched = false;             // design the current coefficients use (EQ-44)
+            bool matched = false;             // the Accurate Highs setting the current coefficients were made with (EQ-44)
+            bool designMatched = false;       // whether they actually are the matched design (a shelf falls back outside its limits)
             StereoMode stereo = StereoMode::Stereo;   // changes only while the band is silent (fade out, switch, fade in)
             Ramp logFreq, gainDb, logQ;
             bool coeffsDirty = true;

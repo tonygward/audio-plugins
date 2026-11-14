@@ -159,12 +159,27 @@ namespace EQ
         if (b.coeffsDirty || b.logFreq.isRamping() || b.gainDb.isRamping() || b.logQ.isRamping()
             || b.dyn.gainDb != b.dyn.appliedDb)
         {
-            b.coeffs = makeFilter (b.type, sampleRate,
-                                   std::exp (b.logFreq.current),
-                                   std::exp (b.logQ.current),
-                                   b.gainDb.current + b.dyn.gainDb,   // static (ramped) + dynamic
-                                   b.slope,
-                                   b.matched);
+            bool usedMatched = false;
+            auto fresh = makeFilter (b.type, sampleRate,
+                                     std::exp (b.logFreq.current),
+                                     std::exp (b.logQ.current),
+                                     b.gainDb.current + b.dyn.gainDb,   // static (ramped) + dynamic
+                                     b.slope,
+                                     b.matched,
+                                     &usedMatched);
+
+            // A band that moves across the limits of the matched design (a shelf at a higher Q, a larger gain or a
+            // higher corner) changes design, and the two differ, so cross-fade like any other design change.
+            if (usedMatched != b.designMatched && ! b.crossfading && (b.wet.current > 0.0 || b.wet.target > 0.0))
+            {
+                b.prevCoeffs = b.coeffs;
+                b.prevState  = b.state;
+                b.xfade.reset (0.0);
+                b.xfade.setTarget (1.0, fadeSamples);
+                b.crossfading = true;
+            }
+            b.designMatched = usedMatched;
+            b.coeffs = fresh;
             b.coeffsDirty = false;
             b.dyn.appliedDb = b.dyn.gainDb;
         }
