@@ -53,6 +53,7 @@ The hardware uses a 25 kΩ attack pot (R55) and a 5 MΩ release pot (R56) with f
 | 8 | 8:1 | -17.0 | 8 dB |
 | 12 | 12:1 | -15.5 | 7 dB |
 | 20 | 20:1 | -13.8 | 6 dB |
+| 2 (Songsmith addition) | 2:1 | -22.0 | 10 dB |
 
 These are the published facts the table follows:
 
@@ -60,7 +61,7 @@ These are the published facts the table follows:
 - The knee is soft (UM p. 21).
 - The threshold is set by a bias on the rectifier diodes for each ratio (UG p. 10).
 
-The numbers themselves are not published. The thresholds are spread so that switching up a ratio at the same Input gives more limiting without a jump in loudness. Higher ratios get narrower knees, because the 12 and 20 buttons are described as limiting (UM p. 9).
+The numbers themselves are not published. The thresholds are spread so that switching up a ratio at the same Input gives more limiting without a jump in loudness. Higher ratios get narrower knees, because the 12 and 20 buttons are described as limiting (UM p. 9). The 2:1 row has no hardware counterpart: it is a Songsmith choice, added in ACOMP-11 ([two-to-one-ratio.md](two-to-one-ratio.md)). All Buttons uses its own values ([all-buttons.md](all-buttons.md)).
 
 **Calibration point.** This mirrors the "Q bias" procedure (UG p. 5), which sets the threshold so a sine drops 1.0 dB, done at 20:1 (MA §9). The digital reference is 0 VU = -18 dBFS RMS. At 20:1 with Input 0 dB, a 1 kHz sine at -18 dBFS RMS gets 1.0 dB of gain reduction (tested, ±0.25 dB). The other thresholds hang off this one using the table.
 
@@ -73,7 +74,7 @@ The knee is quadratic and centred on the threshold. It is applied to the *output
 - **Test signal:** a constant-envelope signal whose samples alternate `+A, -A`. The rectified detector input is then a true step, with no ripple, at any sample rate.
 - **Attack time:** let the engine settle at `T - 40 dB` (no GR), then step to `T + over`. The attack time is how long GR takes to first reach 63.2 % (1 - 1/e) of its settled value, with linear interpolation between samples.
 - **Release time:** let the engine settle at `T + over`, then step down to `T - 40 dB`. The release time is how long GR takes to first fall to 36.8 % (1/e) of its value at the step.
-- **Levels:** `over` = +10, +20 and +30 dB. **Rates:** 44.1, 48 and 96 kHz. **Knobs:** 1, 4 and 7. **Ratios:** all four.
+- **Levels:** `over` = +10, +20 and +30 dB. **Rates:** 44.1, 48 and 96 kHz. **Knobs:** 1, 4 and 7. **Ratios:** the four hardware ratios (the 2:1 slope is tested separately, see [two-to-one-ratio.md](two-to-one-ratio.md)).
 
 Above the knee, the closed loop speeds the attack up by `1 + k` = the ratio, so the engine scales its internal attack constant by the ratio. In the release phase the detector is below threshold, so the loop is open and the release needs no scaling.
 
