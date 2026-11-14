@@ -9,7 +9,7 @@ conflicts: []
 # EQ-41 — Label the Gain Scale control and explain it plainly
 
 **Issue:** [EQ-41 #203](https://github.com/tonygward/audio-plugins/issues/203)  
-**Related:** [SUI-18](../../shared/prompts/done/SUI-18-consistent-plugin-title-bars.md) (standardise title bars, #202, shipped in 0.5.10)
+**Related:** [SUI-18](../../../shared/prompts/done/SUI-18-consistent-plugin-title-bars.md) (standardise title bars, #202, shipped in 0.5.10)
 
 ## Already delivered: do not redo
 

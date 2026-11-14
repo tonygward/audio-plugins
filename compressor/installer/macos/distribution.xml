@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Songsmith Compressor - macOS installer layout (productbuild distribution file).
+
+  build-installer.sh fills in @VERSION@ and @MIN_MACOS@ (read from the built bundles) and
+  passes the three component packages and the resources/ folder to productbuild.
+
+  Three choices, all on by default, shown on the "Customize" page:
+    vst3  VST3 plug-in   -> /Library/Audio/Plug-Ins/VST3/Songsmith Compressor.vst3
+    au    Audio Unit     -> /Library/Audio/Plug-Ins/Components/Songsmith Compressor.component
+    app   Standalone app -> /Applications/Songsmith Compressor.app
+
+  The choice ids are used by test-installer.sh (choice changes XML) and by anyone scripting
+  an install, so keep them stable.
+-->
+<installer-gui-script minSpecVersion="2">
+    <title>Songsmith Compressor @VERSION@</title>
+    <organization>com.songsmithstudio</organization>
+
+    <welcome    file="welcome.html"    mime-type="text/html"/>
+    <readme     file="readme.html"     mime-type="text/html"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+
+    <!-- Universal build. System-wide install only (admin password), into folders every host scans. -->
+    <options customize="allow" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+
+    <!-- The same minimum as the plug-in binaries themselves (their deployment target). -->
+    <allowed-os-versions>
+        <os-version min="@MIN_MACOS@"/>
+    </allowed-os-versions>
+
+    <choices-outline>
+        <line choice="vst3"/>
+        <line choice="au"/>
+        <line choice="app"/>
+    </choices-outline>
+
+    <choice id="vst3" title="VST3 plug-in" start_selected="true"
+            description="Songsmith Compressor.vst3 in /Library/Audio/Plug-Ins/VST3. For Ableton Live, Cubase, Studio One, Reaper and most other DAWs.">
+        <pkg-ref id="com.songsmithstudio.songsmithcompressor.vst3"/>
+    </choice>
+    <choice id="au" title="Audio Unit" start_selected="true"
+            description="Songsmith Compressor.component in /Library/Audio/Plug-Ins/Components. For Logic Pro and GarageBand.">
+        <pkg-ref id="com.songsmithstudio.songsmithcompressor.au"/>
+    </choice>
+    <choice id="app" title="Standalone app" start_selected="true"
+            description="Songsmith Compressor.app in /Applications. Runs the compressor on its own, without a DAW.">
+        <pkg-ref id="com.songsmithstudio.songsmithcompressor.app"/>
+    </choice>
+
+    <pkg-ref id="com.songsmithstudio.songsmithcompressor.vst3" version="@VERSION@" onConclusion="none">songsmithcompressor-vst3.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithcompressor.au"   version="@VERSION@" onConclusion="none">songsmithcompressor-au.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithcompressor.app"  version="@VERSION@" onConclusion="none">songsmithcompressor-app.pkg</pkg-ref>
+</installer-gui-script>
