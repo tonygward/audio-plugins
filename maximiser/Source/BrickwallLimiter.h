@@ -14,11 +14,13 @@ namespace Max
     //   r[n]   = min (1, ceiling / p[n])        the gain sample n needs to land on the ceiling
     //   e[n]   = min (r[n], e[n-1] + (1 - e[n-1]) * (1 - a))   instant attack, exponential release
     //   m[n]   = min of e over [n-L, n]         sliding minimum, L + 1 samples
-    //   g[n]   = mean of m over [n-L, n]        box-car smoothing: a linear L-sample attack ramp
+    //   g[n]   = two cascaded box-car means of m (lengths L1 and L2, L1 + L2 - 2 = L): an S-shaped
+    //            attack over the same L samples (MAX-10; a single box-car gave a straight ramp)
     //   out[n] = x[n-L] * min (g[n], r[n-L])
     //
-    // Why it is brickwall at the exact delayed sample: every m[n-j] (j = 0..L) is a minimum over
-    // a window that contains n-L, so each is <= e[n-L] <= r[n-L]; their mean g[n] is too. The final
+    // Why it is brickwall at the exact delayed sample: g[n] is a weighted mean of m[n-j] for
+    // j = 0..L1+L2-2 = 0..L, and every m[n-j] is a minimum over a window that contains n-L, so each
+    // is <= e[n-L] <= r[n-L]; their weighted mean g[n] is too. The final
     // min with r[n-L] only removes float rounding in the running mean. So |out[n]| <= ceiling for
     // every sample, with no clipper.
     //
@@ -27,7 +29,11 @@ namespace Max
     //    ramp. 67 samples at 44.1 kHz, 72 at 48 kHz, 144 at 96 kHz.
     //  - Release law: the gain recovers exponentially towards unity with time constant = Release
     //    (63 % of the gain reduction is recovered after one Release time), then passes through the
-    //    same L-sample box-car, so very short releases are still at least ~1.5 ms smooth.
+    //    same L-sample smoothing, so very short releases are still at least ~1.5 ms smooth.
+    //  - Attack shape (MAX-10): two box-cars instead of one. The gain still moves only inside the
+    //    look-ahead and still lands exactly on time, but it starts and finishes its move gently
+    //    (a trapezoid-weighted mean, an S-curve) instead of with corners, which puts less
+    //    distortion into the signal on hard limiting. Same latency.
     //  - Threshold / ceiling changes glide over 20 ms (baseline gain multiplicatively, the ceiling
     //    linearly). The ceiling that protects a sample is the one current when it was detected.
     //  - Peak domain (step 03): p[n] is either the sample peak or the true-peak estimate of
@@ -99,10 +105,36 @@ namespace Max
         int dqHead = 0, dqSize = 0;
         long long sampleIndex = 0;
 
-        // Box-car of the sliding minimum.
-        std::vector<float> boxRing;
-        double boxSum = 0.0;
-        int boxPos = 0, resumCountdown = 0;
+        // Running mean over a fixed number of samples, re-added exactly now and then so the sum never drifts.
+        struct BoxCar
+        {
+            std::vector<float> ring;
+            double sum = 0.0;
+            int pos = 0, countdown = 0;
+
+            void prepare (int length)  { ring.assign ((size_t) juce::jmax (1, length), 1.0f); reset(); }
+            void reset() noexcept      { std::fill (ring.begin(), ring.end(), 1.0f); sum = (double) ring.size(); pos = 0; countdown = (int) ring.size(); }
+
+            float push (float v) noexcept
+            {
+                const int n = (int) ring.size();
+                sum += (double) v - (double) ring[(size_t) pos];
+                ring[(size_t) pos] = v;
+                pos = pos + 1 == n ? 0 : pos + 1;
+                if (--countdown <= 0)
+                {
+                    double s = 0.0;
+                    for (float x : ring)
+                        s += (double) x;
+                    sum = s;
+                    countdown = n;
+                }
+                return (float) (sum / (double) n);
+            }
+        };
+
+        // Two box-cars of the sliding minimum, L1 + L2 - 2 = lookAhead (see the class comment).
+        BoxCar box1, box2;
 
         // True-peak detection (step 03): the audio waits delaySamples for the detector.
         TruePeakDetector detector;

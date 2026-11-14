@@ -129,6 +129,7 @@ These links prevent completed features being selected again. An archived prompt 
 - [07-loudness-meter](../../maximiser/prompts/done/07-loudness-meter.md)
 - [08-faceplate-and-meter-polish](../../maximiser/prompts/done/08-faceplate-and-meter-polish.md)
 - [09-integrated-lufs-beside-dial](../../maximiser/prompts/done/09-integrated-lufs-beside-dial.md)
+- [10-smooth-attack-and-release-default](../../maximiser/prompts/done/10-smooth-attack-and-release-default.md)
 
 ## Product direction
 The current suite comprises EQ, Analog Compressor and Maximiser. The planned Songsmith Compressor (COMP-01) has its own `compressor/prompts/` folder until it has source. Planned classics, guidance tools and Channel Strip remain future work until implemented and released. Keep [the EQ roadmap](../../eq/ROADMAP.md) for product direction, not current queue order or software versions.
