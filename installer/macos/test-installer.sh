@@ -60,7 +60,7 @@ VST3_DIR="/Library/Audio/Plug-Ins/VST3"
 AU_DIR="/Library/Audio/Plug-Ins/Components"
 keys=(eq fet max comp)
 name_of()   { case "$1" in eq) echo "Songsmith EQ" ;; fet) echo "Songsmith Analog Compressor" ;; max) echo "Songsmith Maximiser" ;; comp) echo "Songsmith Compressor" ;; esac; }
-prefix_of() { case "$1" in eq) echo "com.songsmithstudio.songsmitheq" ;; fet) echo "com.songsmithstudio.songsmithanalogcompressor" ;; max) echo "com.songsmithstudio.songsmithmaximiser" ;; esac; }
+prefix_of() { case "$1" in eq) echo "com.songsmithstudio.songsmitheq" ;; fet) echo "com.songsmithstudio.songsmithanalogcompressor" ;; max) echo "com.songsmithstudio.songsmithmaximiser" ;; comp) echo "com.songsmithstudio.songsmithcompressor" ;; esac; }
 auval_of()  { case "$1" in eq) echo "aufx Eq3b Tnyw" ;; fet) echo "aufx Sfc1 Tnyw" ;; max) echo "aufx Mxlm Tnyw" ;; comp) echo "aufx Cmp1 Tnyw" ;; esac; }
 # Every plugin carries the one version in VERSION at the repository root.
 version_of() { tr -d '[:space:]' < "$here/../../VERSION"; }
@@ -136,7 +136,7 @@ done
 choice_ids=$(grep -A1 '<key>choiceIdentifier</key>' "$work/choices.xml" | grep -o '<string>[^<]*</string>' | sed -E 's/<\/?string>//g' | sort -u)
 plugin_choices=$(printf '%s\n' "$choice_ids" | grep -v '^__ROOT_CHOICE_IDENT_' | tr '\n' ' ')
 echo "  choices offered: $(printf '%s' "$choice_ids" | tr '\n' ',')"
-check "exactly the four plugin choices are offered (found: $plugin_choices)" test "$plugin_choices" = "eq fet max comp "
+check "exactly the four plugin choices are offered (found: $plugin_choices)" test "$plugin_choices" = "comp eq fet max "
 check "no separate format or app choices" test "$(grep -cE '<string>(eq|fet|max|comp)_(vst3|au|app)</string>' "$work/choices.xml" | tr -d ' ')" -eq 0
 for k in "${keys[@]}"; do
     check "the welcome page names $(name_of "$k") $(version_of "$k")" grep -rq "$(name_of "$k") $(version_of "$k")" "$work/expanded/Resources"
