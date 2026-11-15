@@ -1,5 +1,14 @@
 # 2:1 ratio (ACOMP-11)
 
+> **Update (ACOMP-19): 2:1 is no longer offered in the editor.** Gentle compression now lives in Songsmith Compressor. The `ratioTwoToOne` parameter, its ID, its position and the 2:1 row in the engine are unchanged, so older sessions, presets and host automation that use 2:1 still sound exactly as saved.
+>
+> What a musician sees when an older session uses 2:1:
+> - The four ratio buttons (4:1, 8:1, 12:1, 20:1) are all unlit, so nothing looks like a different ratio. The default for a new instance is still 4:1.
+> - A small amber "Saved 2:1" note appears under the ratio column. Its tooltip says the session was saved with the gentle 2:1 ratio, that it still sounds the same, and that pressing any ratio replaces it.
+> - Pressing a ratio button or All switches 2:1 off, as before. Host automation can still set it, and the note follows.
+>
+> The text below describes the behaviour that is kept.
+
 A fifth ratio button, **2:1**, for gentle compression on acoustic guitar, vocals and bass. It is a **Songsmith design choice**: the 1176 hardware this plugin is inspired by has 4, 8, 12 and 20 (plus All Buttons) and no 2:1 button.
 
 ## Behaviour

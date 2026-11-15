@@ -158,9 +158,13 @@ namespace FET
     inline constexpr float uiScales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f };
     inline constexpr int designWidth = 960, contentHeight = 400;   // the controls sit in the top 400
 
-    // The Ignore Below slider's place (the detector low cut, ACOMP-07/12/16): right of "Gain Reduction Off", below the
-    // Gain Reduction readout and above the hint line (which starts at 356).
-    inline constexpr int lowCutX = 760, lowCutY = 302, lowCutWidth = 176, lowCutHeight = 50;
+    // ACOMP-19: the Ignore Below slider (the detector low cut, ACOMP-07/12/16) sits directly under the Input knob,
+    // left-aligned with it and as wide as it.
+    inline constexpr int ignoreBelowX = 24, ignoreBelowY = 290, ignoreBelowWidth = 170, ignoreBelowHeight = 50;
+
+    // ACOMP-19: Oversampling sits on the right, on the row of "Gain Reduction Off", under the Gain Reduction meter,
+    // right-aligned with the meter. (This replaces the far-left place from ACOMP-15.)
+    inline constexpr int oversamplingX = 760, oversamplingY = 314, oversamplingWidth = 176, oversamplingHeight = 32;
     inline constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
     inline constexpr int designHeight = contentHeight + footerHeight;
 

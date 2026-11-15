@@ -33,8 +33,10 @@ namespace
     }
 
     // Layout, in design units (FET::designWidth x FET::designHeight).
-    const juce::Rectangle<int> inputArea   { 24, 64, 170, 270 };
-    const juce::Rectangle<int> outputArea  { 200, 64, 170, 270 };
+    // Input and Output are 216 high so Ignore Below fits under Input (ACOMP-19); the knobs keep their size,
+    // because they were limited by the width, not the height.
+    const juce::Rectangle<int> inputArea   { 24, 64, 170, 216 };
+    const juce::Rectangle<int> outputArea  { 200, 64, 170, 216 };
     const juce::Rectangle<int> attackArea  { 382, 56, 112, 138 };
     const juce::Rectangle<int> releaseArea { 382, 200, 112, 138 };
     const juce::Rectangle<int> ratioArea   { 510, 72, 66, 236 };
@@ -43,17 +45,20 @@ namespace
     const juce::Rectangle<int> grOffArea   { 592, 314, 150, 32 };
 
     // Listening-oriented descriptions of typical uses, not promises about gain reduction.
-    // Index 0..3 = 4:1, 8:1, 12:1, 20:1; 4 = the Songsmith 2:1.
+    // Index 0..3 = 4:1, 8:1, 12:1, 20:1.
     juce::String ratioTip (int index)
     {
         static const char* const tips[] = {
             "Balanced compression. Controls louder notes while keeping the sound lively and punchy. A good everyday starting point.",
             "Strong compression. Keeps volume more consistent and makes louder notes stand out less. Useful for bass, drums and powerful vocals.",
             "Very strong compression. Firmly controls loud peaks and creates a more compressed, upfront sound.",
-            "Limiter-like compression. Heavily controls loud peaks for a dense, aggressive sound. Not a guaranteed brick-wall limiter.",
-            "Gentle compression. Smooths out volume differences while keeping the performance natural. Great for acoustic guitar and vocals." };
+            "Limiter-like compression. Heavily controls loud peaks for a dense, aggressive sound. Not a guaranteed brick-wall limiter." };
         return tips[index];
     }
+
+    // ACOMP-19: 2:1 is no longer a choice, but an older session may still use it. It keeps sounding as saved.
+    const char* const legacyRatioTip = "This session was saved with the gentle 2:1 ratio, which is no longer offered here, and it still sounds the same. "
+                                       "Press any ratio to replace it. Songsmith Compressor is the home for gentle compression.";
 
     const char* const allButtonTip = "Aggressive 1176-style compression. Produces a distinctive, energetic sound with extra character. Great for parallel drums and special effects.";
 
@@ -253,10 +258,10 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
 
     // Ratio buttons: one press selects that ratio (and leaves All Buttons); "All Buttons" presses all
     // four at once (UM p. 9). Each press is one automation gesture.
-    // The fifth button is the Songsmith 2:1 (ACOMP-11): its own switch, so the four hardware choices keep
-    // their saved and automated values. Pressing any button leaves the other mode.
-    const juce::StringArray ratioText { "4:1", "8:1", "12:1", "20:1", "2:1" };
-    for (int i = 0; i < 5; ++i)
+    // ACOMP-19: the Songsmith 2:1 (ACOMP-11) is not offered any more. Its own parameter stays, so older sessions,
+    // presets and automation sound as saved; pressing any ratio button switches it off.
+    const juce::StringArray ratioText { "4:1", "8:1", "12:1", "20:1" };
+    for (int i = 0; i < 4; ++i)
     {
         auto b = std::make_unique<juce::TextButton> (ratioText[i]);
         b->setTooltip (ratioTip (i));
@@ -264,11 +269,6 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
         {
             if (allButtonsOn)
                 allButtonsAttachment.setValueAsCompleteGesture (0.0f);
-            if (i == 4)
-            {
-                gentleAttachment.setValueAsCompleteGesture (1.0f);
-                return;
-            }
             if (gentleOn)
                 gentleAttachment.setValueAsCompleteGesture (0.0f);
             ratioAttachment.setValueAsCompleteGesture ((float) i);
@@ -276,6 +276,15 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
         content.addAndMakeVisible (*b);
         ratioButtons[(size_t) i] = std::move (b);
     }
+    legacyRatioLabel.setText ("Saved 2:1", juce::dontSendNotification);
+    legacyRatioLabel.setFont (juce::Font (font (Type::hint, Weight::SemiBold)));
+    legacyRatioLabel.setColour (juce::Label::textColourId, Colours::accent);
+    legacyRatioLabel.setJustificationType (juce::Justification::centred);
+    legacyRatioLabel.setTooltip (legacyRatioTip);
+    legacyRatioLabel.setTitle ("Saved 2:1 ratio");
+    legacyRatioLabel.setVisible (false);
+    content.addChildComponent (legacyRatioLabel);
+
     allButton.setTooltip (allButtonTip);
     allButton.onClick = [this] { allButtonsAttachment.setValueAsCompleteGesture (allButtonsOn ? 0.0f : 1.0f); };
     content.addAndMakeVisible (allButton);
@@ -338,7 +347,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     for (size_t m = 0; m < meterButtons.size(); ++m)
         meterButtons[m].setTitle (meterButtons[m].getButtonText());
     for (size_t i = 0; i < ratioButtons.size(); ++i)
-        ratioButtons[i]->setTitle (i == 4 ? juce::String ("Ratio 2:1") : "Ratio " + ratioNames()[(int) i]);
+        ratioButtons[i]->setTitle ("Ratio " + ratioNames()[(int) i]);
     presetBox.onChange = [this] { presetChosen(); };
     content.addAndMakeVisible (presetBox);
     rebuildPresetMenu();
@@ -430,15 +439,17 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     attack.setBounds (attackArea);
     release.setBounds (releaseArea);
 
-    // Hardware order, top to bottom: 20, 12, 8, 4, then the Songsmith 2:1 below them (then All).
+    // Hardware order, top to bottom: 20, 12, 8, 4, then All.
     auto col = ratioArea;
-    const int h = 33, gap = 6, allHeight = 40;   // five ratios plus All fit the 236-unit column; All keeps its 40-unit target
-    for (int i : { 3, 2, 1, 0, 4 })
+    const int h = 40, gap = 8, allHeight = 40;   // four ratios plus All fit the 236-unit column
+    for (int i : { 3, 2, 1, 0 })
     {
         ratioButtons[(size_t) i]->setBounds (col.removeFromTop (h));
         col.removeFromTop (gap);
     }
     allButton.setBounds (col.removeFromTop (allHeight));
+    col.removeFromTop (4);
+    legacyRatioLabel.setBounds (ratioArea.getX(), ratioArea.getBottom() + 2, ratioArea.getWidth(), 18);   // only shown for a saved 2:1
 
     meter.setBounds (meterArea);
     auto modes = meterModes;
@@ -451,9 +462,8 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     meterButtons[2].setBounds (modes);
 
     grOffButton.setBounds (grOffArea);
-    // Ignore Below sits right of Gain Reduction Off: both are about what the compressor reacts to,
-    // directly under the Gain Reduction meter, clear of the readout above it and the hint below it.
-    ignoreBelow.setBounds (lowCutX, lowCutY, lowCutWidth, lowCutHeight);
+    // ACOMP-19: Ignore Below sits directly under the Input knob, because it shapes what the input drives.
+    ignoreBelow.setBounds (ignoreBelowX, ignoreBelowY, ignoreBelowWidth, ignoreBelowHeight);
 
     // Title bar (SUI-18, the same in every plugin): name | preset | Undo | Redo ... Bypass (far right).
     {
@@ -469,9 +479,9 @@ void SongsmithAnalogCompressorEditor::layoutContent()
         bypassButton.setBounds (header.bypass);
     }
 
-    // ACOMP-15: Oversampling is a processing setting. It sits at the far left of the processing area,
-    // directly under the Input control and clear of the title bar, left-aligned with Input.
-    oversampling.setBounds (inputArea.getX(), inputArea.getBottom() + 12, 176, 26);
+    // ACOMP-19 (replaces ACOMP-15's far-left place): Oversampling is a processing setting. It sits in the lower
+    // right, under the Gain Reduction meter, clear of the title bar and right-aligned with the meter.
+    oversampling.setBounds (oversamplingX, oversamplingY, oversamplingWidth, oversamplingHeight);
 
     diagnostics->setBounds (0, FET::contentHeight, FET::designWidth, FET::footerHeight);
 }
@@ -523,14 +533,7 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
                 juce::Rectangle<float> ((float) meterArea.getX(), (float) meterModes.getBottom() + 6.0f, (float) meterArea.getWidth(), 20.0f),
                 juce::Justification::centred);
 
-    if (allButtonsOn)
-    {
-        g.setColour (Colours::accent);
-        g.setFont (font (Type::hint, Weight::SemiBold));
-        g.drawText ("All ratio buttons on", juce::Rectangle<float> ((float) meterArea.getX(), (float) meterModes.getBottom() + 26.0f, (float) meterArea.getWidth(), 16.0f),
-                    juce::Justification::centred);
-    }
-
+    // ACOMP-19: no "All ratio buttons on" note; the lit All button and the four lit ratios say it.
     // ACOMP-14: no permanent guidance sentence under the controls. Ratio help is in the button tooltips.
 }
 
@@ -554,7 +557,8 @@ void SongsmithAnalogCompressorEditor::refreshButtons()
 {
     for (int i = 0; i < 4; ++i)
         ratioButtons[(size_t) i]->setToggleState (allButtonsOn || (! gentleOn && i == ratioIndex), juce::dontSendNotification);
-    ratioButtons[4]->setToggleState (gentleOn && ! allButtonsOn, juce::dontSendNotification);
+    // A saved 2:1 is labelled, and no ratio is lit as if it were 4:1 (or anything else).
+    legacyRatioLabel.setVisible (gentleOn && ! allButtonsOn);
     allButton.setToggleState (allButtonsOn, juce::dontSendNotification);
     content.repaint();
 }

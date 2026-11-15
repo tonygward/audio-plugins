@@ -2,6 +2,12 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- Songsmith Analog Compressor has a simpler layout. The Ignore Below slider now sits directly under the Input knob, and Oversampling moved to the lower right, under the meter. Both work exactly as before.
+- The gentle 2:1 ratio button is gone from Songsmith Analog Compressor; Songsmith Compressor is the place for gentle compression. You do not need to do anything: a session, preset or automation that used 2:1 sounds exactly as saved, shows a small "Saved 2:1" note, and switches to your choice as soon as you press a ratio.
+- The "All ratio buttons on" note is gone. The lit All button and the four lit ratios already show it. This has not yet been checked in a DAW.
+
 ## 0.5.35
 
 - Processing Load now really starts off in Songsmith Maximiser and every other Songsmith plugin, even on a computer that had an earlier version installed. Earlier versions switched it on by default and saved that, so it could stay on after updating. That old saved value is now ignored once, so if you switched Processing Load on yourself before, switch it on again and it will be remembered from then on. Your sound, sessions and presets are unchanged. This has not yet been checked in a DAW.
