@@ -4,7 +4,11 @@ A feedback FET compressor inspired by the Rev D blackface 1176LN, by Songsmith S
 
 ![Songsmith Analog Compressor editor before the layout change, with Oversampling under the Input knob and the Ignore Below slider beside Gain Reduction Off](docs/images/editor-ignore-below-slider.png)
 
-*A real screenshot at 100 %, rendered by the test executable (`AnalogCompressorTests --screenshots`), **from before the layout change below** and kept as the "before" picture. Since then, Ignore Below sits directly under the Input knob, Oversampling is in the lower right under the meter, and 2:1 and the "All ratio buttons on" note are gone. A refreshed screenshot comes from the next screenshot run. Hover over a ratio button for a short description of how it sounds.*
+*Before: a real screenshot at 100 %, rendered by the test executable (`AnalogCompressorTests --screenshots`), **from before the layout change below** and kept as the "before" picture. Since then, Ignore Below sits directly under the Input knob, Oversampling is in the lower right under the meter, and 2:1 and the "All ratio buttons on" note are gone. Hover over a ratio button for a short description of how it sounds.*
+
+![Songsmith Analog Compressor editor after the layout change: Ignore Below under the Input knob, Oversampling in the lower right, four ratios and All](docs/images/editor-acomp-19-after.png)
+
+*After: a real screenshot at 100 %, rendered by the test executable. Ignore Below sits under the Input knob, Oversampling is in the lower right beside Gain Reduction Off, and the ratios are 20:1, 12:1, 8:1, 4:1 and All.*
 
 ## Features
 
