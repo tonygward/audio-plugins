@@ -197,7 +197,7 @@ struct PresetTests final : juce::UnitTest
             }
             SongsmithAnalogCompressorProcessor b;
             b.setStateInformation (mb.getData(), (int) mb.getSize());
-            expectEquals (b.presets.currentName, juce::String ("Acoustic guitar"));
+            expectEquals (b.presets.currentName, juce::String ("Acoustic Guitar"));
             expect (b.presets.currentHint.isNotEmpty());
         }
     }
