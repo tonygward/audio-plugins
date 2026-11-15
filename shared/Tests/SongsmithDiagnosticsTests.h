@@ -436,8 +436,21 @@ public:
             f.replaceWithText ("this is not xml <<<");
             expect (! Settings::loadEnabled ("Test"), "a damaged file: off");
 
-            f.replaceWithText ("<PROPERTIES><VALUE name=\"processingLoad\" val=\"maybe\"/></PROPERTIES>");
+            f.replaceWithText ("<PROPERTIES><VALUE name=\"processingLoadChosen\" val=\"maybe\"/></PROPERTIES>");
             expect (! Settings::loadEnabled ("Test"), "an unreadable value: off");
+
+            // MAX-11: a file written by a build before SUI-21 (default on) holds the old key as true.
+            f.replaceWithText ("<PROPERTIES><VALUE name=\"processingLoad\" val=\"1\"/></PROPERTIES>");
+            expect (! Settings::loadEnabled ("Test"), "a pre-SUI-21 stored on: off");
+            {
+                LoadMeter meter;
+                juce::AudioProcessorGraph graph;
+                Bar bar (graph, meter, "Test");
+                expect (! bar.getLoadSwitch().getToggleState() && ! meter.isEnabled() && ! bar.isReadoutShown(),
+                        "a pre-SUI-21 stored on: a new strip is off with the readout hidden");
+            }
+            Settings::saveEnabled ("Test", true);
+            expect (Settings::loadEnabled ("Test"), "a deliberate choice after that is honoured");
         }
 
         beginTest ("SUI-21: a new strip is off, reading or opening it never changes the saved choice, and a deliberate choice is remembered");
