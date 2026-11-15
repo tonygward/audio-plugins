@@ -196,13 +196,18 @@ namespace Songsmith::Diagnostics
         // or one without the key, all mean "off". Reading never writes the file.
         inline constexpr bool processingLoadDefault = false;
 
+        // MAX-11: builds before SUI-21 defaulted to on and stored that in the key "processingLoad", so a
+        // stored "true" there cannot be told apart from a deliberate click and made the setting look
+        // stuck on. That old key is now ignored; only this key, written by saveEnabled, is honoured.
+        inline constexpr const char* settingKey = "processingLoadChosen";
+
         inline bool loadEnabled (const juce::String& pluginName)
         {
             const auto f = file (pluginName);
             if (! f.existsAsFile())
                 return processingLoadDefault;
             juce::PropertiesFile settings (f, {});   // only reads: nothing is set, so nothing is saved
-            return settings.getBoolValue ("processingLoad", processingLoadDefault);
+            return settings.getBoolValue (settingKey, processingLoadDefault);
         }
 
         inline void saveEnabled (const juce::String& pluginName, bool on)
@@ -212,7 +217,8 @@ namespace Songsmith::Diagnostics
             juce::PropertiesFile::Options options;
             options.millisecondsBeforeSaving = 0;
             juce::PropertiesFile settings (f, options);
-            settings.setValue ("processingLoad", on);
+            settings.removeValue ("processingLoad");   // drop the pre-SUI-21 key, which is ignored anyway
+            settings.setValue (settingKey, on);
             settings.saveIfNeeded();
         }
     }
