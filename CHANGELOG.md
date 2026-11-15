@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
-## Unreleased
+## 0.5.34
 
 - In Songsmith Compressor, switching on Analog Warmth now gives the floating control panel the fine brushed-metal texture you see on Songsmith Analog Compressor and Songsmith Maximiser, so you can see at a glance that warmth is on. Switching it off returns the plain panel straight away, and it follows the button, your host's automation and saved sessions. Only the panel changes: the sound, your settings and your sessions are unchanged, and you do not need to do anything. This has not yet been checked in a DAW.
 
