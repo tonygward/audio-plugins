@@ -90,7 +90,8 @@ public:
     // For tests and screenshots.
     FET::UI::NeedleMeter& getMeter() noexcept { return meter; }
     FETKnob& getKnob (const juce::String& id);
-    juce::Button& getRatioButton (int index) { return *ratioButtons[(size_t) index]; }   // 0..3 = 4, 8, 12, 20; 4 = 2:1
+    juce::Button& getRatioButton (int index) { return *ratioButtons[(size_t) index]; }   // 0..3 = 4, 8, 12, 20
+    juce::Label& getLegacyRatioLabel() noexcept { return legacyRatioLabel; }
     juce::Button& getAllButton() { return allButton; }
     juce::Rectangle<int> getGrOffBounds() const { return grOffButton.getBounds(); }
     IgnoreBelowControl& getIgnoreBelow() noexcept { return ignoreBelow; }
@@ -131,8 +132,9 @@ private:
     bool constructed = false;   // until then, resizing does not overwrite the saved window width
 
     FETKnob input, output, attack, release;
-    std::array<std::unique_ptr<juce::TextButton>, 5> ratioButtons;   // 0..3 = 4, 8, 12, 20; 4 = Songsmith 2:1
+    std::array<std::unique_ptr<juce::TextButton>, 4> ratioButtons;   // 0..3 = 4, 8, 12, 20 (2:1 is no longer offered, ACOMP-19)
     juce::TextButton allButton { "All" };
+    juce::Label legacyRatioLabel;   // "Saved 2:1": shown only when an older session still uses 2:1
     juce::ParameterAttachment ratioAttachment, allButtonsAttachment, gentleAttachment;
 
     juce::TextButton grOffButton { "Gain Reduction Off" }, bypassButton { "Bypass" };
@@ -144,7 +146,7 @@ private:
 
     juce::ComboBox oversampling;
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
-    IgnoreBelowControl ignoreBelow;   // detector cutoff slider, beside Gain Reduction Off, under the meter it affects
+    IgnoreBelowControl ignoreBelow;   // detector cutoff slider, directly under the Input knob (ACOMP-19)
     juce::ComboBox presetBox;
     juce::TooltipWindow tooltips { this, 600 };
 

@@ -519,13 +519,17 @@ struct EditorTests final : juce::UnitTest
         {
             expect (ac->getOversamplingBox().getBottom() > 50, "Oversampling sits with the processing controls, below the title bar");
             {
-                // ACOMP-15: far left of the processing area, left-aligned with Input, clear of every other control.
+                // ACOMP-19 (supersedes ACOMP-15): lower right, under the Gain Reduction meter, on the Gain Reduction Off row.
                 auto& os = ac->getOversamplingBox();
                 auto& inputKnob = ac->getKnob (ID::input);
-                expectEquals (os.getX(), inputKnob.getX(),"Oversampling is at the far left, aligned with Input");
-                expect (os.getX() < ac->getIgnoreBelow().getX(), "Oversampling is left of Ignore Below");
-                expect (! os.getBounds().intersects (ac->getIgnoreBelow().getBounds()), "Oversampling does not overlap Ignore Below");
-                expect (! os.getBounds().intersects (inputKnob.getBounds()), "Oversampling does not overlap Input");
+                const auto meterBounds = ac->getMeter().getBounds();
+                expect (os.getX() > meterBounds.getX(), "Oversampling is on the right-hand side, under the meter");
+                expect (os.getY() > meterBounds.getBottom(), "Oversampling is below the meter");
+                expectEquals (os.getRight(), meterBounds.getRight(), "right-aligned with the meter");
+                expect (! os.getBounds().intersects (meterBounds), "Oversampling does not overlap the meter");
+                expect (! os.getBounds().intersects (ac->getGrOffBounds()), "nor Gain Reduction Off");
+                expect (! os.getBounds().intersects (ac->getIgnoreBelow().getBounds()), "nor Ignore Below");
+                expect (! os.getBounds().intersects (inputKnob.getBounds()), "nor Input");
                 expect (os.getBottom() <= FET::contentHeight, "Oversampling sits inside the control area, above the footer");
             }
             expect (ac->getTitleBounds().getRight() < ac->getPresetBox().getX(), "the title does not overlap the preset selector");
@@ -673,16 +677,20 @@ struct EditorRefinementTests final : juce::UnitTest
             }
         }
 
-        beginTest ("Ignore Below is a horizontal slider beside Gain Reduction Off and under the Gain Reduction meter (ACOMP-16)");
+        beginTest ("Ignore Below is a horizontal slider directly under the Input knob (ACOMP-16, moved by ACOMP-19)");
         {
             auto& ib = ed->getIgnoreBelow();
-            const juce::Rectangle<int> slot (lowCutX, lowCutY, lowCutWidth, lowCutHeight);
+            auto& inputKnob = ed->getKnob (ID::input);
+            const juce::Rectangle<int> slot (ignoreBelowX, ignoreBelowY, ignoreBelowWidth, ignoreBelowHeight);
             expect (ib.isVisible());
             expect (slot.contains (ib.getBounds()), "inside its place");
             expect (juce::Rectangle<int> (0, 0, designWidth, contentHeight).contains (ib.getBounds()), "inside the controls area");
-            expectLessThan (ib.getBottom(), 356, "above the hint line");
-            expect (ed->getGrOffBounds().getRight() < ib.getX(), "to the right of Gain Reduction Off");
-            expect (ed->getGrOffBounds().getBottom() > ib.getY() && ed->getGrOffBounds().getY() < ib.getBottom(), "on the same row");
+            expectEquals (ib.getX(), inputKnob.getX(), "left-aligned with Input");
+            expectEquals (ib.getWidth(), inputKnob.getWidth(), "as wide as Input");
+            expect (ib.getY() >= inputKnob.getBottom(), "below the Input knob");
+            expect (ib.getY() - inputKnob.getBottom() <= 16, "close to the Input knob");
+            expect (! ib.getBounds().intersects (inputKnob.getBounds()), "not overlapping Input");
+            expect (! ib.getBounds().intersects (ed->getKnob (ID::output).getBounds()), "nor Output");
             expect (ib.slider.getSliderStyle() == juce::Slider::LinearHorizontal, "a horizontal slider, not a rotary");
             expectEquals (ib.slider.getTitle(), juce::String ("Ignore Below"));
 
@@ -787,24 +795,44 @@ struct EditorRefinementTests final : juce::UnitTest
         beginTest ("Every ratio button has its own tooltip, and no description is drawn permanently");
         {
             juce::StringArray seen;
-            for (int i = 0; i < 5; ++i)
+            for (int i = 0; i < 4; ++i)
                 seen.addIfNotAlreadyThere (ed->getRatioButton (i).getTooltip());
             seen.addIfNotAlreadyThere (ed->getAllButton().getTooltip());
-            expectEquals (seen.size(), 6);
+            expectEquals (seen.size(), 5);
             expect (! seen.contains (juce::String()), "no blank tooltip");
         }
 
-        beginTest ("The Songsmith 2:1 button is labelled and explained");
+        beginTest ("2:1 is not offered: four ratios and All, none overlapping, none labelled 2:1 (ACOMP-19)");
         {
-            auto& b = dynamic_cast<juce::TextButton&> (ed->getRatioButton (4));
-            expectEquals (b.getButtonText(), juce::String ("2:1"));
-            expectEquals (b.getTooltip(), juce::String ("Gentle compression. Smooths out volume differences while keeping the performance natural. Great for acoustic guitar and vocals."));
-            expect (Songsmith::UI::Wording::findBanned (b.getTooltip()).isEmpty(), "plain words");
-            expect (b.getTooltip().length() < 360, "short enough to read");
-            expect (ed->getRatioButton (4).getBounds().getHeight() >= 30, "large enough to press at the smallest size");
             for (int i = 0; i < 4; ++i)
-                expect (! ed->getRatioButton (4).getBounds().intersects (ed->getRatioButton (i).getBounds()), "buttons do not overlap");
-            expect (! ed->getRatioButton (4).getBounds().intersects (ed->getAllButton().getBounds()), "nor the All button");
+            {
+                auto& b = dynamic_cast<juce::TextButton&> (ed->getRatioButton (i));
+                expect (b.getButtonText() != "2:1", "no 2:1 button");
+                expectGreaterOrEqual (b.getHeight(), 30, "large enough to press at the smallest size");
+                expect (! b.getBounds().intersects (ed->getAllButton().getBounds()), "not over the All button");
+                for (int j = i + 1; j < 4; ++j)
+                    expect (! b.getBounds().intersects (ed->getRatioButton (j).getBounds()), "buttons do not overlap");
+            }
+            expect (! ed->getLegacyRatioLabel().isVisible(), "a new instance shows no legacy note");
+        }
+
+        beginTest ("There is no persistent 'All ratio buttons on' note; All is still available (ACOMP-19)");
+        {
+            ed->getAllButton().onClick();
+            const auto image = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
+            // The strip under the Gain Reduction readout, where the note used to be, is plain faceplate (no amber text).
+            const float sx = (float) ed->getWidth() / (float) designWidth, sy = (float) ed->getHeight() / (float) designHeight;
+            int amber = 0;
+            for (int y = juce::roundToInt (296.0f * sy); y < juce::roundToInt (312.0f * sy); ++y)
+                for (int x = juce::roundToInt (592.0f * sx); x < juce::roundToInt (936.0f * sx); ++x)
+                {
+                    const auto c = image.getPixelAt (x, y);
+                    if (c.getRed() > 150 && c.getGreen() > 100 && c.getBlue() < 90)
+                        ++amber;
+                }
+            expectEquals (amber, 0, "no amber note under the meter readout");
+            expect (p.isAllButtonsOn(), "All stays on");
+            ed->getAllButton().onClick();
         }
 
         beginTest ("All still presses every ratio button and a single ratio still leaves All");
@@ -1050,37 +1078,37 @@ struct TwoToOneTests final : juce::UnitTest
             folder.deleteRecursively();
         }
 
-        beginTest ("the 2:1 button selects 2:1 without touching the ratio choice, and the others leave it");
+        beginTest ("a saved 2:1 still loads and sounds as saved, is labelled, and lights no ratio (ACOMP-19)");
         {
             SongsmithAnalogCompressorProcessor p;
             setParam (p, ID::ratio, 2.0f);
+            setParam (p, ID::ratioTwoToOne, 1.0f);   // as an older session or host automation would set it
             std::unique_ptr<juce::AudioProcessorEditor> editor (p.createEditor());
             auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (editor.get());
             expect (ed != nullptr);
             if (ed == nullptr) return;
 
-            ed->getRatioButton (4).onClick();
-            expect (p.isGentleRatioOn(), "pressing 2:1 turns it on");
-            expect (ed->getRatioButton (4).getToggleState(), "and lights it");
-            for (int i = 0; i < 4; ++i)
-                expect (! ed->getRatioButton (i).getToggleState(), "the others go out");
+            expect (p.isGentleRatioOn(), "2:1 is still on in the processor");
             expectEquals ((int) getParam (p, ID::ratio), 2, "the stored ratio is unchanged");
+            expect (ed->getLegacyRatioLabel().isVisible(), "the editor says the session uses a saved 2:1");
+            expect (ed->getLegacyRatioLabel().getTooltip().isNotEmpty());
+            expect (Songsmith::UI::Wording::findBanned (ed->getLegacyRatioLabel().getTooltip()).isEmpty(), "plain words");
+            for (int i = 0; i < 4; ++i)
+                expect (! ed->getRatioButton (i).getToggleState(), "no ratio is lit as if it were the choice");
 
             ed->getRatioButton (1).onClick();
-            expect (! p.isGentleRatioOn(), "pressing another ratio turns 2:1 off");
+            expect (! p.isGentleRatioOn(), "pressing a ratio replaces the saved 2:1");
             expectEquals ((int) getParam (p, ID::ratio), 1);
-            expect (ed->getRatioButton (1).getToggleState() && ! ed->getRatioButton (4).getToggleState());
+            expect (ed->getRatioButton (1).getToggleState() && ! ed->getLegacyRatioLabel().isVisible());
 
+            setParam (p, ID::ratioTwoToOne, 1.0f);
+            expect (ed->getLegacyRatioLabel().isVisible(), "automation can still set 2:1 and the editor follows");
             ed->getAllButton().onClick();
-            ed->getRatioButton (4).onClick();
-            expect (! p.isAllButtonsOn() && p.isGentleRatioOn(), "pressing 2:1 leaves All Buttons");
-
-            ed->getAllButton().onClick();
-            expect (p.isAllButtonsOn() && ! ed->getRatioButton (4).getToggleState(), "All Buttons lights only the four hardware buttons");
+            expect (p.isAllButtonsOn() && ! ed->getLegacyRatioLabel().isVisible(), "All Buttons hides the note and lights the four ratios");
 
             setParam (p, ID::allButtons, 0.0f);
             setParam (p, ID::ratioTwoToOne, 0.0f);
-            expect (ed->getRatioButton (1).getToggleState() && ! ed->getRatioButton (4).getToggleState(), "automation updates the buttons");
+            expect (ed->getRatioButton (1).getToggleState(), "automation updates the buttons");
         }
     }
 };
