@@ -1471,9 +1471,16 @@ public:
         beginTest ("Three conservative starting points, dither off");
         {
             expectEquals ((int) points.size(), 3);
-            expectEquals (juce::String (points[0].name), juce::String ("Mix bus"));
-            expectEquals (juce::String (points[1].name), juce::String ("Demo loudness"));
-            expectEquals (juce::String (points[2].name), juce::String ("Final export"));
+            expectEquals (juce::String (points[0].name), juce::String ("Mix Bus"));
+            expectEquals (juce::String (points[1].name), juce::String ("Demo Loudness"));
+            expectEquals (juce::String (points[2].name), juce::String ("Final Export"));
+            for (auto& sp : points)
+            {
+                for (auto& w : juce::StringArray::fromTokens (sp.name, " ", ""))
+                    expect (juce::CharacterFunctions::isUpperCase (w[0]), juce::String (sp.name) + " is Title Case");
+                const juce::String hint (sp.hint);
+                expect (! hint.containsIgnoreCase ("Tony") && ! hint.containsIgnoreCase ("album"), "hint names no person or album");
+            }
 
             for (const auto& sp : points)
             {

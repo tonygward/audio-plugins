@@ -107,9 +107,9 @@ Hover over **Songsmith Maximiser** at the top left for a short explanation of wh
 
   | Starting point | Threshold | Output Ceiling | Gain | Release | Peak | Auto Release |
   |---|---|---|---|---|---|---|
-  | Mix bus | −1.5 dB | −1.0 dB | +0.5 dB | 10 ms | Sample | On |
-  | Demo loudness | −6.0 dB | −1.0 dB | +5 dB | 3 ms | True | On |
-  | Final export | −3.0 dB | −1.0 dB | +2 dB | 5 ms (the manual's 3–7 ms) | True | Off |
+  | Mix Bus | −1.5 dB | −1.0 dB | +0.5 dB | 10 ms | Sample | On |
+  | Demo Loudness | −6.0 dB | −1.0 dB | +5 dB | 3 ms | True | On |
+  | Final Export | −3.0 dB | −1.0 dB | +2 dB | 5 ms (the manual's 3–7 ms) | True | Off |
 
   Tested in "Starting points": each holds its ceiling on loud material, with true peak within 0.1 dB.
 - **Stress tests** ("Limiter stress"): 120 randomised cases covering:

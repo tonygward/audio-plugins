@@ -55,7 +55,16 @@ struct PresetTests final : juce::UnitTest
             expect (juce::String (p.hint).isNotEmpty(), juce::String (p.name) + " has a listening cue");
             expect (! p.allButtons, "starting points stay out of All Buttons");
         }
-        expectEquals (names.joinIntoString (", "), juce::String ("Lead vocal, Acoustic guitar, Bass, Drum room"));
+        expectEquals (names.joinIntoString (", "), juce::String ("Lead Vocal Control, Acoustic Guitar, Bass Guitar, Drum Room"));
+        for (const auto& n : names)
+        {
+            const auto words = juce::StringArray::fromTokens (n, " ", "");
+            for (const auto& w : words)
+                expect (juce::CharacterFunctions::isUpperCase (w[0]), n + " is Title Case");
+        }
+        for (const char* n : { "Lead vocal", "Acoustic guitar", "Bass", "Drum room",
+                               "Lead Vocal Control", "Acoustic Guitar", "Bass Guitar", "Drum Room" })
+            expect (Presets::isFactoryName (n), juce::String (n) + " stays protected");
 
         beginTest ("each starting point is level-matched and gently compressing at 0 VU");
         for (int i = 0; i < (int) f.size(); ++i)
@@ -71,12 +80,12 @@ struct PresetTests final : juce::UnitTest
         {
             SongsmithAnalogCompressorProcessor p;
             expectEquals (p.getNumPrograms(), 4);
-            expectEquals (p.getProgramName (3), juce::String ("Drum room"));
+            expectEquals (p.getProgramName (3), juce::String ("Drum Room"));
             p.setCurrentProgram (2);
             expectEquals (p.getCurrentProgram(), 2);
             expectEquals ((int) p.apvts.getRawParameterValue (ID::ratio)->load(), f[2].ratio);
             expectWithinAbsoluteError (p.apvts.getRawParameterValue (ID::input)->load(), f[2].input, 0.01f);
-            expectEquals (p.presets.currentName, juce::String ("Bass"));
+            expectEquals (p.presets.currentName, juce::String ("Bass Guitar"));
         }
 
         beginTest ("loading a preset is one gesture per changed parameter");
