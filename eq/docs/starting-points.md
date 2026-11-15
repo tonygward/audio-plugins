@@ -139,6 +139,8 @@ This template is Tony's own Pro-Q 4 preset, *Abbey Road Reverb Trick* (`Document
 
 These are **Tony's own settings** from his 2021 album *Between You and Me*, not Joe Gilder's advice, so they're allowed to boost more than the other templates. `mixing/between-you-and-me.md` ("Lessons", 5) says saved chains for vocals, backing vocals, toms and cymbals kept the album consistent. All line numbers are in `music-recording/fx-chains/songs/tony-ward.md`.
 
+**On-screen hints (SUI-19):** the Rack Tom, Floor Tom, Toms Bus, Mid Tom and High Tom hints describe what the preset does and name no person or album. That provenance is kept only here (SUI-14), and a test checks that no factory hint names a person or album.
+
 **The EQ alone won't recreate the album sound.** The tom chains also had the SSL's compressor and gate (ratio 3–10:1, gate range 40 dB), Neutron 3's compressor and transient shaper, and L1+ limiters. Those are out of scope here.
 
 **Translating the Waves SSL E-Channel.** Each SSL band becomes one Songsmith EQ band:

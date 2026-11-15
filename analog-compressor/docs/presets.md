@@ -19,10 +19,10 @@ These are conservative settings for common sources. Each one is level-matched: a
 
 | Starting point | Input | Output | Attack | Release | Ratio | Listening cue |
 |---|---|---|---|---|---|---|
-| Lead vocal | +1 dB | +3.7 dB | 3 (234 µs) | 5 (~140 ms) | 4:1 | About 3-5 dB on loud lines. Raise Input for more control. Turn Attack down (counter-clockwise) if the consonants go dull. |
-| Acoustic guitar | +2 dB | +3.3 dB | 2 (~430 µs) | 6 (~84 ms) | 4:1 | A slower attack lets each pick come through. Listen for the strum to sit steady without the attack going soft. |
-| Bass | +3 dB | +2.4 dB | 3 (234 µs) | 3 (~390 ms) | 8:1 | A moderate release keeps low notes from distorting. Each note should come out even. If it growls, slow the Release. |
-| Drum room | +6 dB | +1.4 dB | 2 (~430 µs) | 7 (50 ms) | 8:1 | Slow attack, fastest release: the hits punch through and the room swells between them. For more, try **All**. |
+| Lead Vocal Control | +1 dB | +3.7 dB | 3 (234 µs) | 5 (~140 ms) | 4:1 | About 3-5 dB on loud lines. Raise Input for more control. Turn Attack down (counter-clockwise) if the consonants go dull. |
+| Acoustic Guitar | +2 dB | +3.3 dB | 2 (~430 µs) | 6 (~84 ms) | 4:1 | A slower attack lets each pick come through. Listen for the strum to sit steady without the attack going soft. |
+| Bass Guitar | +3 dB | +2.4 dB | 3 (234 µs) | 3 (~390 ms) | 8:1 | A moderate release keeps low notes from distorting. Each note should come out even. If it growls, slow the Release. |
+| Drum Room | +6 dB | +1.4 dB | 2 (~430 µs) | 7 (50 ms) | 8:1 | Slow attack, fastest release: the hits punch through and the room swells between them. For more, try **All**. |
 
 Hover over the **Preset** menu to read the listening cue for the loaded starting point.
 
@@ -33,7 +33,7 @@ Hover over the **Preset** menu to read the listening cue for the loaded starting
   - macOS: `~/Library/Songsmith Studio/Songsmith Analog Compressor/Presets`
 
   The workflow is the same as Songsmith EQ's, but in a folder of its own.
-- **Replacing a preset is always your choice.** If the name is already used by one of your presets, the plugin asks before replacing it. Starting points are read-only: a name such as "Lead vocal" is refused, so choose your own name.
+- **Replacing a preset is always your choice.** If the name is already used by one of your presets, the plugin asks before replacing it. Starting points are read-only: a name such as "Lead Vocal Control" (or its older spelling, "Lead vocal") is refused, so choose your own name.
 - **Preset → Open presets folder** shows the folder.
 - **What a preset stores:** Input, Output, Attack, Release, Ratio, 2:1, All Buttons, Gain Reduction Off and Ignore Below. It never stores bypass, oversampling or the editor size.
 - **Loading** a preset is one automation gesture per control it changes. A preset file with missing values loads them as defaults, and out-of-range values are clamped.

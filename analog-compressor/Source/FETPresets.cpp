@@ -45,13 +45,13 @@ namespace FET
     const std::vector<FactoryPreset>& Presets::factory()
     {
         static const std::vector<FactoryPreset> presets {
-            { "Lead vocal", 1.0f, 3.7f, 3.0f, 5.0f, 0, false,
+            { "Lead Vocal Control", 1.0f, 3.7f, 3.0f, 5.0f, 0, false,
               "4:1, about 3-5 dB on loud lines. Raise Input for more control; turn Attack down (counter-clockwise) if consonants dull." },
-            { "Acoustic guitar", 2.0f, 3.3f, 2.0f, 6.0f, 0, false,
+            { "Acoustic Guitar", 2.0f, 3.3f, 2.0f, 6.0f, 0, false,
               "4:1 with a slower attack so each pick comes through. Listen for the strum to sit steady without the attack going soft." },
-            { "Bass", 3.0f, 2.4f, 3.0f, 3.0f, 1, false,
+            { "Bass Guitar", 3.0f, 2.4f, 3.0f, 3.0f, 1, false,
               "8:1 with a moderate release so low notes don't distort. Each note should come out even; if it growls, slow the Release." },
-            { "Drum room", 6.0f, 1.4f, 2.0f, 7.0f, 1, false,
+            { "Drum Room", 6.0f, 1.4f, 2.0f, 7.0f, 1, false,
               "8:1, slow attack, fastest release: hits punch through and the room swells between them. For more, try All Buttons." },
         };
         return presets;
@@ -142,6 +142,10 @@ namespace FET
         const auto clean = juce::File::createLegalFileName (name.trim());
         for (const auto& f : factory())
             if (clean.equalsIgnoreCase (f.name))
+                return true;
+        // SUI-19: the spellings used before the labels became Title Case stay protected.
+        for (const char* old : { "Lead vocal", "Acoustic guitar", "Bass", "Drum room" })
+            if (clean.equalsIgnoreCase (old))
                 return true;
         return false;
     }

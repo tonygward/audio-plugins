@@ -21,13 +21,13 @@ namespace Max
     inline const std::array<StartingPoint, 3>& getStartingPoints()
     {
         static const std::array<StartingPoint, 3> points { {
-            { "Mix bus",
+            { "Mix Bus",
               "A safety net on the mix bus: +0.5 dB, catches the odd peak at -1 dBFS. Sample peak, so it uses little processing power.",
               -1.5f, -1.0f, 10.0f, 0, true, 0 },
-            { "Demo loudness",
+            { "Demo Loudness",
               "Louder demos and reference bounces: +5 dB into a -1 dBTP ceiling, auto release. Listen for pumping on dense mixes.",
               -6.0f, -1.0f, 3.0f, 1, true, 0 },
-            { "Final export",
+            { "Final Export",
               "The last stage before export: +2 dB into -1 dBTP with a 5 ms release (the L1 manual's 3-7 ms mastering range). Turn Dither to 16-bit only for a 16-bit file.",
               -3.0f, -1.0f, 5.0f, 1, false, 0 },
         } };

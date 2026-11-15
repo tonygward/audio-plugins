@@ -3464,6 +3464,18 @@ public:
             }
         }
 
+        beginTest ("SUI-19: no preset hint names a person or an album");
+        {
+            for (int i = 0; i < PresetManager::getNumFactoryPresets(); ++i)
+            {
+                const auto hint = PresetManager::getFactoryHint (i);
+                const auto what = PresetManager::getFactoryName (i) + ": " + hint;
+                expect (! hint.containsWholeWord ("Tony") && ! hint.contains ("Tony's"), what);
+                expect (! hint.containsIgnoreCase ("gilder") && ! hint.containsIgnoreCase ("Between You and Me")
+                        && ! hint.containsIgnoreCase ("album"), what);
+            }
+        }
+
         beginTest ("Every factory preset keeps its index");
         {
             const char* names[] = { "Flat", nullptr, nullptr, nullptr, nullptr, nullptr, "Bright acoustic", nullptr,

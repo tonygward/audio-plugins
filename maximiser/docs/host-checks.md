@@ -7,7 +7,7 @@ Before you start:
   - Windows: `Songsmith-Maximiser-Windows-setup`
   - macOS: `Songsmith-Maximiser-macOS-pkg`
 - Open the editor. It should say **Songsmith Maximiser** at the top left.
-- For audio checks, use the **Final export** starting point unless a step says otherwise.
+- For audio checks, use the **Final Export** starting point unless a step says otherwise.
 
 ## Studio One (Windows and macOS, VST3)
 
