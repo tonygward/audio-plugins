@@ -2,7 +2,9 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <functional>
+#include <memory>
 #include "SongsmithColours.h"
+#include "SongsmithGrain.h"
 
 // A floating control panel the musician can drag, the same look and behaviour as the Songsmith EQ's band panel
 // (EQ-37): a rounded, softly lit panel with a grip of dots at the top edge, moved by dragging its background, and
@@ -18,6 +20,18 @@ namespace Songsmith::UI
         std::function<void()> onUserMoved;
 
         void setAccent (juce::Colour c) { accent = c; repaint(); }
+
+        // COMP-03: draws the faceplates' brushed-metal grain on the panel's background, under the controls. Off is the
+        // plain panel. Changing it repaints at once; setting what it already is does nothing.
+        void setTextured (bool on)
+        {
+            if (textured == on)
+                return;
+            textured = on;
+            repaint();
+        }
+
+        bool isTextured() const noexcept { return textured; }
 
         // Where the whole panel must stay, in the parent's coordinates. Keeps the panel inside at once.
         void setLimits (juce::Rectangle<int> area)
@@ -84,6 +98,21 @@ namespace Songsmith::UI
             g.setColour (accent.withAlpha (0.7f));
             g.drawRoundedRectangle (r, 9.0f, 1.2f);
 
+            if (textured)
+            {
+                // Built once for this size and kept; clipped to the rounded shape and kept clear of the border.
+                if (grain == nullptr || grainSize != getLocalBounds())
+                {
+                    grainSize = getLocalBounds();
+                    grain = std::make_unique<BrushedGrain> (r.reduced (6.0f, 8.0f));
+                }
+                juce::Path shape;
+                shape.addRoundedRectangle (r.reduced (1.0f), 8.0f);
+                juce::Graphics::ScopedSaveState state (g);
+                g.reduceClipRegion (shape);
+                grain->draw (g);
+            }
+
             // A small grip of dots at the top edge says "you can move this".
             g.setColour (Colours::textDim.withAlpha (0.55f));
             for (int row = 0; row < 2; ++row)
@@ -100,6 +129,9 @@ namespace Songsmith::UI
 
         juce::Rectangle<int> limits;
         juce::Colour accent = Colours::edge;
+        bool textured = false;
+        std::unique_ptr<BrushedGrain> grain;
+        juce::Rectangle<int> grainSize;
         juce::Point<float> relative { 0.0f, 0.0f };
         juce::Point<int> dragStartPosition;
         juce::Point<float> dragStartMouse;

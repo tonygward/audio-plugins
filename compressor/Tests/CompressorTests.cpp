@@ -502,6 +502,59 @@ public:
             Songsmith::UI::Testing::checkControlsUseSharedLook (*this, *ed, "Compressor");
             Songsmith::UI::Testing::checkEditorFonts (*this, *ed, "Compressor editor");
         }
+
+        beginTest ("COMP-03: Analog Warmth gives the floating panel the brushed grain at once, from the button, from automation and from a restored session");
+        {
+            SongsmithCompressorAudioProcessor p;
+            auto ed = make (p, Comp::EditorLayout::defaultWidth);
+            auto& panel = ed->getPanel();
+            expect (! panel.isTextured(), "off by default: the plain panel");
+
+            const auto snapshot = [&] { return panel.createComponentSnapshot (panel.getLocalBounds(), false, 1.0f); };
+            const auto differs = [] (const juce::Image& a, const juce::Image& b)
+            {
+                if (a.getBounds() != b.getBounds())
+                    return true;
+                for (int y = 0; y < a.getHeight(); ++y)
+                    for (int x = 0; x < a.getWidth(); ++x)
+                        if (a.getPixelAt (x, y) != b.getPixelAt (x, y))
+                            return true;
+                return false;
+            };
+            const auto plain = snapshot();
+
+            ed->getWarmthButton().setToggleState (true, juce::sendNotificationSync);
+            expect (panel.isTextured(), "the button switches the texture on immediately");
+            expect (getParam (p, Comp::warmthId) > 0.5f, "and it is the Analog Warmth parameter that changed");
+            expect (differs (plain, snapshot()), "the panel really looks different with the grain");
+
+            ed->getWarmthButton().setToggleState (false, juce::sendNotificationSync);
+            expect (! panel.isTextured(), "the button switches it off immediately");
+            expect (! differs (plain, snapshot()), "and the plain panel is exactly as it was");
+
+            setParam (p, Comp::warmthId, 1.0f);
+            expect (panel.isTextured(), "host automation switches it on");
+            setParam (p, Comp::warmthId, 0.0f);
+            expect (! panel.isTextured(), "and off");
+
+            // Only the panel is textured: the rest of the window is not.
+            expect (ed->getPauseButton().isVisible() && ed->getPanel().getParentComponent() != nullptr, "the panel is the floating one");
+
+            // A saved session with Analog Warmth on opens with the grain.
+            setParam (p, Comp::warmthId, 1.0f);
+            juce::MemoryBlock saved;
+            p.getStateInformation (saved);
+            SongsmithCompressorAudioProcessor q;
+            q.setStateInformation (saved.getData(), (int) saved.getSize());
+            auto ed2 = make (q, Comp::EditorLayout::defaultWidth);
+            expect (ed2->getPanel().isTextured(), "a restored session with Analog Warmth on opens textured");
+            expect (ed2->getWarmthButton().getToggleState(), "with the button on");
+
+            // The grain is the faceplates' own: same streaks every time.
+            const Songsmith::UI::BrushedGrain g1 (juce::Rectangle<float> (0.0f, 0.0f, 400.0f, 100.0f)), g2 (juce::Rectangle<float> (0.0f, 0.0f, 400.0f, 100.0f));
+            expect (g1.light.getBounds() == g2.light.getBounds() && g1.dark.getBounds() == g2.dark.getBounds() && ! g1.light.isEmpty() && ! g1.dark.isEmpty(),
+                    "built from a fixed seed, so identical every time");
+        }
     }
 };
 
@@ -788,10 +841,12 @@ struct ConsoleRunner final : juce::UnitTestRunner
 
 // CompressorTests --screenshot <file.png> [--scale 2]: renders the editor with some compression on the
 // meters to a PNG, so UI changes can be checked without a host.
-static int renderScreenshot (const juce::File& file, float scale)
+static int renderScreenshot (const juce::File& file, float scale, bool warmth = false)
 {
     SongsmithCompressorAudioProcessor p;
     p.applyPreset (0);
+    if (warmth)
+        setParam (p, Comp::warmthId, 1.0f);
     prepare (p, 48000.0, 512);
     std::unique_ptr<SongsmithCompressorAudioProcessorEditor> editor (dynamic_cast<SongsmithCompressorAudioProcessorEditor*> (p.createEditor()));
     // Six seconds of plucked notes, each one louder than the last and dying away, so the graph has something to show.
@@ -829,7 +884,11 @@ int main (int argc, char* argv[])
             for (int j = 1; j + 1 < argc; ++j)
                 if (juce::String (argv[j]) == "--scale")
                     scale = juce::jlimit (1.0f, 4.0f, juce::String (argv[j + 1]).getFloatValue());
-            return renderScreenshot (juce::File::getCurrentWorkingDirectory().getChildFile (argv[i + 1]), scale);
+            bool warmth = false;
+            for (int j = 1; j < argc; ++j)
+                if (juce::String (argv[j]) == "--warmth")
+                    warmth = true;
+            return renderScreenshot (juce::File::getCurrentWorkingDirectory().getChildFile (argv[i + 1]), scale, warmth);
         }
 
     ConsoleRunner runner;

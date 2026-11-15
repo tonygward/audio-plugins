@@ -19,7 +19,7 @@ The controls float in a panel on the graph. Drag it by its background to move it
 - **Knee:** how gradually the turning down begins around Threshold. 0 is abrupt; larger is smoother.
 - **Makeup Gain** and **Auto Makeup:** raise the level after compression. Auto Makeup matches the level for a typical signal of -18 dBFS, so you do not have to; switch it off to set Makeup Gain yourself.
 - **Mix:** blends the compressed sound with the original, for parallel compression.
-- **Analog Warmth:** an on and off button, off to begin with. When on, it adds a little smooth, rounded colour to the compressed sound. Quiet and normal levels keep the same loudness, and only the loudest peaks are rounded off slightly. It does not change how the compressor works. Leave it off if you want the sound to stay clean; there is no right or wrong setting, so choose by ear.
+- **Analog Warmth:** an on and off button, off to begin with. When on, it adds a little smooth, rounded colour to the compressed sound. Quiet and normal levels keep the same loudness, and only the loudest peaks are rounded off slightly. The floating panel also takes on a fine brushed-metal texture (the same as on Songsmith Analog Compressor and Songsmith Maximiser) while it is on, so you can see at a glance that it is. It does not change how the compressor works. Leave it off if you want the sound to stay clean; there is no right or wrong setting, so choose by ear.
 - **Preset:** starting points for a kind of sound: Acoustic Guitar, Lead Vocal Control, Drum Bus Glue and Gentle Level Smoothing. Adjust Threshold by ear afterwards.
 - **Undo, Redo and Bypass** work as in every Songsmith plugin.
 

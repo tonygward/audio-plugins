@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "../../shared/Source/SongsmithGrain.h"
 
 namespace
 {
@@ -8,21 +9,10 @@ namespace
     // The same fine brushed-metal grain as the Analog Compressor, fitted to the Maximiser's faceplate.
     // Vector paths built once with a fixed seed, so the texture is identical every time, scales with the
     // editor and is never regenerated when the meters repaint.
-    struct Grain
+    struct Grain : Songsmith::UI::BrushedGrain
     {
-        juce::Path light, dark;
-        Grain()
-        {
-            juce::Random random (1176);
-            const float right = (float) designW - 10.0f;
-            for (float y = (float) Songsmith::UI::titleBarHeight + 2.0f; y < (float) Max::EditorLayout::designHeight - 6.0f; y += 2.0f)
-                for (float x = 10.0f; x < right;)
-                {
-                    const float length = 24.0f + random.nextFloat() * 120.0f;
-                    (random.nextBool() ? light : dark).addRectangle (x, y, juce::jmin (length, right - x), 0.8f);
-                    x += length + random.nextFloat() * 70.0f;
-                }
-        }
+        Grain() : BrushedGrain (juce::Rectangle<float>::leftTopRightBottom (10.0f, (float) Songsmith::UI::titleBarHeight + 2.0f,
+                                                                         (float) designW - 10.0f, (float) Max::EditorLayout::designHeight - 6.0f)) {}
     };
 }
 

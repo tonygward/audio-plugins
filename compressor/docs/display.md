@@ -35,6 +35,10 @@ All the controls (Threshold, Ratio, Attack, Release, Knee, Makeup Gain, Auto Mak
 
 The drag, keep-inside and saved-position behaviour is a shared component, `shared/Source/SongsmithFloatingPanel.h`. The Songsmith EQ's band panel still has its own copy of that logic; moving it onto the shared component is a later clean-up, not done here.
 
+## Analog Warmth texture (COMP-03)
+
+While Analog Warmth is on, the floating panel's background carries the brushed-metal grain from the Songsmith Analog Compressor and Songsmith Maximiser faceplates. The grain now lives in one shared place (`shared/Source/SongsmithGrain.h`) and all three plugins use it; the faceplates draw exactly what they drew before. The panel follows the Analog Warmth button, which follows the parameter, so host automation and restored sessions work without extra code. The grain is vector paths, built once for the panel's size and clipped to its rounded shape, so it scales with the window and costs one path fill per repaint. Nothing outside the panel is textured and the sound is untouched. [Off](images/comp-03/warmth-off.png) and [on](images/comp-03/warmth-on.png).
+
 ## The meters
 
 On the right: the **Gain Reduction** bar (0 to 24 dB, shown as a positive amount, so there is no confusing minus sign) with its number, and the **output meter**.
