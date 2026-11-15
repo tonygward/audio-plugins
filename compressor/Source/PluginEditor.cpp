@@ -118,6 +118,10 @@ SongsmithCompressorAudioProcessorEditor::SongsmithCompressorAudioProcessorEditor
     warmthButton.setTooltip ("Analog Warmth: adds a little smooth, rounded colour to the compressed sound. Off keeps the sound clean. Quiet and normal levels stay the same loudness; only the loudest peaks are rounded off slightly");
     warmthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Comp::warmthId, warmthButton);
     panel.addAndMakeVisible (warmthButton);
+    // COMP-03: Analog Warmth on gives the panel the faceplates' brushed grain. The button follows the parameter, so
+    // this also happens for host automation and when a session is restored, and it never touches the sound.
+    warmthButton.onStateChange = [this] { panel.setTextured (warmthButton.getToggleState()); };
+    panel.setTextured (warmthButton.getToggleState());
 
     bypassButton.setClickingTogglesState (true);
     bypassButton.setTooltip ("Bypass: the sound passes through untouched");

@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "../../shared/Source/SongsmithGrain.h"
 #include "FETEngine.h"
 
 using namespace FET;
@@ -56,22 +57,12 @@ namespace
 
     const char* const allButtonTip = "Aggressive 1176-style compression. Produces a distinctive, energetic sound with extra character. Great for parallel drums and special effects.";
 
-    // A fine brushed-metal grain for the faceplate, drawn as vectors so it scales with the editor and
-    // stays sharp at every interface size. Built once; the same grain every time.
-    struct Grain
+    // The faceplate's fine brushed-metal grain (shared with the Maximiser and the Compressor's panel).
+    // Built once; the same grain every time.
+    struct Grain : Songsmith::UI::BrushedGrain
     {
-        juce::Path light, dark;
-        Grain()
-        {
-            juce::Random random (1176);
-            for (float y = (float) Songsmith::UI::titleBarHeight + 2.0f; y < (float) contentHeight - 6.0f; y += 2.0f)
-                for (float x = 10.0f; x < (float) designWidth - 10.0f;)
-                {
-                    const float length = 24.0f + random.nextFloat() * 120.0f;
-                    (random.nextBool() ? light : dark).addRectangle (x, y, juce::jmin (length, (float) designWidth - 10.0f - x), 0.8f);
-                    x += length + random.nextFloat() * 70.0f;
-                }
-        }
+        Grain() : BrushedGrain (juce::Rectangle<float>::leftTopRightBottom (10.0f, (float) Songsmith::UI::titleBarHeight + 2.0f,
+                                                                         (float) designWidth - 10.0f, (float) contentHeight - 6.0f)) {}
     };
 
     void drawScrew (juce::Graphics& g, juce::Point<float> c, float slotAngle)
@@ -498,10 +489,7 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
     // Faceplate: a fine brushed grain, a lit inner edge and four screws. All vector, so it scales.
     {
         static const Grain grain;
-        g.setColour (juce::Colours::white.withAlpha (0.035f));
-        g.fillPath (grain.light);
-        g.setColour (juce::Colours::black.withAlpha (0.07f));
-        g.fillPath (grain.dark);
+        grain.draw (g);
 
         const auto plate = juce::Rectangle<float> (6.0f, (float) Songsmith::UI::titleBarHeight + 4.0f, (float) designWidth - 12.0f,
                                                    (float) contentHeight - (float) Songsmith::UI::titleBarHeight - 10.0f);
