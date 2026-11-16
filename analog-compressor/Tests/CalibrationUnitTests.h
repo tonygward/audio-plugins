@@ -114,7 +114,7 @@ struct CalibrationTests final : juce::UnitTest
                 s = juce::jlimit (-1.0f, 1.0f, 2.5f * s);
             const R r = calibrate (*p, hot);
             expect (r.alreadyClipping, "the captured sound reaches full scale");
-            expectEquals (r.clipRisk, r.matchedPeakDb > FET::Calibration::clipPeakDb, "clip risk follows the matched peak");
+            expect (r.clipRisk == (r.matchedPeakDb > FET::Calibration::clipPeakDb), "clip risk follows the matched peak");
         }
 
         beginTest ("listening copies sound and never touches a parameter; it stops by itself when full");
