@@ -99,7 +99,7 @@ struct CalibrationTests final : juce::UnitTest
             auto q = make();
             expect (calibrate (*q, sustained (fs, 1.0, 0.1f)).status == Status::tooShort, "one second is too short");
             auto quiet = make();
-            const R r = calibrate (*quiet, sustained (fs, 5.0, 0.0005f));
+            const R r = calibrate (*quiet, sustained (fs, 5.0, 0.0003f));   // about -78 dBFS RMS: just above the silence floor, yet 48 dB of Input cannot reach 2 dB
             expect (r.status == Status::inputAtLimit, "very quiet: Input reaches its limit");
             expectWithinAbsoluteError (r.inputDb, FET::inputMaxDb, 0.01f);
             expectLessThan (r.reductionDb, 2.0f, "and the shortfall is reported");
