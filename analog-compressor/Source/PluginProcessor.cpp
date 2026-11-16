@@ -84,6 +84,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithAnalogCompressorPro
     return layout;
 }
 
+FET::Calibration::Settings SongsmithAnalogCompressorProcessor::getCalibrationSettings() const
+{
+    FET::Calibration::Settings s;
+    s.ratioIndex = isGentleRatioOn() ? FET::Engine::gentleRatioIndex
+                                     : juce::jlimit (0, FET::numRatios - 1, (int) ratioIndex->load());
+    s.allButtons = isAllButtonsOn();
+    s.attackKnob = attackKnob->load();
+    s.releaseKnob = releaseKnob->load();
+    // The slider's value (the window follows old six-step automation within a tenth of a second).
+    s.ignoreBelowHz = ignoreBelowSnap (ignoreBelowParam->load());
+    s.colour = colourEnabled;
+    return s;
+}
+
 float SongsmithAnalogCompressorProcessor::currentIgnoreBelowHz() noexcept
 {
     const float legacy = lowCutParam->load();
@@ -176,6 +190,7 @@ void SongsmithAnalogCompressorProcessor::prepareToPlay (double sampleRate, int /
         osLatency[k] = juce::roundToInt (oversamplers[k]->getLatencyInSamples());
     }
 
+    calibrationCapture.prepare (sampleRate, numCh);
     gains.assign ((size_t) chunkSize * 4, 1.0f);
     dry.setSize (numCh, chunkSize, false, true, true);
     dryRing.setSize (numCh, juce::jmax (osLatency[1], osLatency[2]) + 1, false, true, true);
@@ -228,6 +243,14 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
 
     if (n == 0 || numCh == 0)
         return;
+
+    {
+        // Set Levels: copy what arrives (before any Input drive) while the editor is listening.
+        const float* in[FET::Engine::maxChannels] = {};
+        for (int c = 0; c < numCh; ++c)
+            in[c] = buffer.getReadPointer (c);
+        calibrationCapture.push (in, numCh, n);
+    }
 
     inputGain.setTargetValue (dbToGain (inputDb->load()));
     outputGain.setTargetValue (dbToGain (outputDb->load()));

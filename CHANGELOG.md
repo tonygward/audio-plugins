@@ -2,6 +2,11 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- Songsmith Analog Compressor has an optional **Set Levels** button under the Output knob. Press it, play a loud part of your song for 3 to 12 seconds, and press Finish Listening. It suggests an Input setting that gives a few decibels of gain reduction on the louder peaks, and an Output setting that keeps the level close to what you started with, using your current ratio, Attack, Release and Ignore Below. Nothing changes until you press Apply, Cancel leaves everything alone, and Undo restores your old settings. You do not need to use it, and the knobs still turn freely afterwards. If your settings or automation change while it listens, nothing is written. This has not yet been checked in a DAW.
+- The Attack and Release tooltips in Songsmith Analog Compressor now say what each does and that turning the knob clockwise makes it faster. The knobs already worked that way; only the words changed.
+
 ## 0.5.36
 
 - Songsmith Analog Compressor has a simpler layout. The Ignore Below slider now sits directly under the Input knob, and Oversampling moved to the lower right, under the meter. Both work exactly as before.
