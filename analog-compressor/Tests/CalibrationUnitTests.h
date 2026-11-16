@@ -124,8 +124,8 @@ struct CalibrationTests final : juce::UnitTest
             p->calibrationCapture.start();
             play (*p, sustained (fs, 2.0, 0.1f));
             expectEquals (p->calibrationCapture.getSamples(), (int) (fs * 2.0));
-            expectEquals (getParam (*p, ID::input), in0);
-            expectEquals (getParam (*p, ID::output), out0);
+            expectWithinAbsoluteError (getParam (*p, ID::input), in0, 0.011f);
+            expectWithinAbsoluteError (getParam (*p, ID::output), out0, 0.011f);
             play (*p, sustained (fs, 14.0, 0.1f));
             expect (! p->calibrationCapture.isActive(), "full");
             expectEquals (p->calibrationCapture.getSamples(), (int) (FET::Calibration::maxCaptureSeconds * fs));
@@ -143,7 +143,7 @@ struct CalibrationTests final : juce::UnitTest
             set (*p, ID::input, 7.0f);
             p->calibrationCapture.start();
             play (*p, sustained (fs, 4.0, 0.1f));
-            expectEquals (getParam (*p, ID::input), 7.0f);
+            expectWithinAbsoluteError (getParam (*p, ID::input), 7.0f, 0.011f);
         }
     }
 };

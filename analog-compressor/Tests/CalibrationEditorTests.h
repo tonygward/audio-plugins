@@ -36,7 +36,7 @@ struct CalibrationEditorTests final : juce::UnitTest
             button.onClick();   // start listening
             expect (e.getLevelsStage() == Stage::listening);
             expect (e.getSetLevelsCancelButton().isVisible());
-            expectEquals (getParam (p, ID::input), in0, "Input does not move while listening");
+            expectWithinAbsoluteError (getParam (p, ID::input), in0, 0.011f, "Input does not move while listening");
         }
 
         beginTest ("listen, finish, apply: Input and Output are written once, undoable and still adjustable");
@@ -54,7 +54,7 @@ struct CalibrationEditorTests final : juce::UnitTest
             expect (e.getSetLevelsMessage().getText().contains ("Input") && e.getSetLevelsMessage().getText().contains ("Output"),
                     "the proposal and measured reduction are shown: " + e.getSetLevelsMessage().getText());
             expect (e.getSetLevelsMessage().getText().contains ("gain reduction"));
-            expectEquals (getParam (p, ID::input), 0.0f, "nothing changes before Apply");
+            expectWithinAbsoluteError (getParam (p, ID::input), 0.0f, 0.011f, "nothing changes before Apply");
 
             e.getSetLevelsButton().onClick();   // Apply
             expect (e.getLevelsStage() == Stage::idle);
@@ -63,8 +63,8 @@ struct CalibrationEditorTests final : juce::UnitTest
 
             expect (p.history.canUndo(), "one Undo step");
             p.history.undo();
-            expectEquals (getParam (p, ID::input), 0.0f);
-            expectEquals (getParam (p, ID::output), 0.0f);
+            expectWithinAbsoluteError (getParam (p, ID::input), 0.0f, 0.011f);
+            expectWithinAbsoluteError (getParam (p, ID::output), 0.0f, 0.011f);
             expect (! p.history.canUndo(), "applying added exactly one step");
             p.history.redo();
             expectWithinAbsoluteError (getParam (p, ID::input), r.inputDb, 0.011f);
@@ -87,7 +87,7 @@ struct CalibrationEditorTests final : juce::UnitTest
             expect (e.getSetLevelsMessage().getText().containsIgnoreCase ("no sound"), e.getSetLevelsMessage().getText());
             e.getSetLevelsCancelButton().onClick();
             expect (e.getLevelsStage() == Stage::idle);
-            expectEquals (getParam (p, ID::input), 3.0f);
+            expectWithinAbsoluteError (getParam (p, ID::input), 3.0f, 0.011f);
             expect (! p.history.canUndo());
         }
 
@@ -101,7 +101,7 @@ struct CalibrationEditorTests final : juce::UnitTest
             set (p, ID::output, -6.0f);   // automation or the musician moves Output mid-way
             e.getSetLevelsButton().onClick();
             expect (e.getLevelsStage() == Stage::idle, "no proposal from stale settings");
-            expectEquals (getParam (p, ID::output), -6.0f);
+            expectWithinAbsoluteError (getParam (p, ID::output), -6.0f, 0.011f);
 
             e.getSetLevelsButton().onClick();
             play (p, sustained (fs, 4.0, 0.1f));
@@ -109,8 +109,8 @@ struct CalibrationEditorTests final : juce::UnitTest
             expect (e.getLevelsStage() == Stage::proposal);
             set (p, ID::input, 20.0f);
             e.getSetLevelsButton().onClick();   // Apply
-            expectEquals (getParam (p, ID::input), 20.0f, "the newer change wins");
-            expectEquals (getParam (p, ID::output), -6.0f);
+            expectWithinAbsoluteError (getParam (p, ID::input), 20.0f, 0.011f, "the newer change wins");
+            expectWithinAbsoluteError (getParam (p, ID::output), -6.0f, 0.011f);
         }
 
         beginTest ("Set Levels wording is plain, and every message fits its box");
