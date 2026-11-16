@@ -2,6 +2,13 @@
 
 // ACOMP-09: Set Levels (guided calibration) and the Attack and Release tooltips.
 // Included by AnalogCompressorTests.cpp, which provides the includes, `FET` and the helpers used here.
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <memory>
+#include <vector>
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 #include "EngineMeasure.h"
 #include "../../shared/Source/SongsmithWording.h"
 
@@ -44,7 +51,8 @@ namespace CalibrationTestSupport
         double sum = 0.0;
         for (size_t i = from; i < s.size(); ++i)
             sum += (double) s[i] * s[i];
-        return 10.0 * std::log10 (juce::jmax (1.0e-15, sum / (double) juce::jmax<size_t> (1, s.size() - from)));
+        const size_t count = s.size() > from + 1 ? s.size() - from : (size_t) 1;
+        return 10.0 * std::log10 (juce::jmax (1.0e-15, sum / (double) count));
     }
 
     // Plays the signal through the processor in 512-sample blocks and returns the left channel.
@@ -61,7 +69,8 @@ namespace CalibrationTestSupport
         float windowMax = 0.0f;
         for (size_t pos = 0; pos < in.size(); pos += block)
         {
-            const int n = (int) juce::jmin<size_t> ((size_t) block, in.size() - pos);
+            const size_t left = in.size() - pos;
+            const int n = left < (size_t) block ? (int) left : block;
             b.setSize (2, n, false, false, true);
             for (int c = 0; c < 2; ++c)
                 for (int i = 0; i < n; ++i)
@@ -102,6 +111,11 @@ namespace CalibrationTestSupport
     inline float percentile90 (std::vector<float> v)
     {
         std::sort (v.begin(), v.end());
-        return v.empty() ? 0.0f : v[juce::jmin (v.size() - 1, (size_t) ((double) v.size() * 0.9))];
+        if (v.empty())
+            return 0.0f;
+        size_t index = (size_t) ((double) v.size() * 0.9);
+        if (index > v.size() - 1)
+            index = v.size() - 1;
+        return v[index];
     }
 }
