@@ -355,8 +355,31 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     input.slider.setTooltip ("Input: how hard you drive the compressor. Turn it up for more compression; there is no threshold control. "
                              "Double-click for the default.");
     output.slider.setTooltip ("Output: the level after compression. Double-click for the default.");
-    attack.slider.setTooltip ("Attack: how fast it reacts when the sound gets louder. Higher numbers are faster. Double-click for the default.");
-    release.slider.setTooltip ("Release: how fast it lets go when the sound gets quieter. Higher numbers are faster. Double-click for the default.");
+    attack.slider.setTooltip (attackTooltip());
+    release.slider.setTooltip (releaseTooltip());
+
+    // ACOMP-09: Set Levels sits under Output, next to Input, the two things it proposes.
+    setLevelsButton.setTitle ("Set Levels");
+    setLevelsButton.setTooltip ("Set Levels: play a loud part of your song and the plugin suggests an Input setting for a few decibels of "
+                                "gain reduction on the louder peaks and an Output setting that keeps the level close to the original. "
+                                "Nothing changes until you press Apply. Optional.");
+    setLevelsButton.onClick = [this]
+    {
+        if (levelsStage == LevelsStage::idle)           beginListening();
+        else if (levelsStage == LevelsStage::listening) finishListening();
+        else                                            applyProposal();
+    };
+    setLevelsCancel.setTitle ("Cancel Set Levels");
+    setLevelsCancel.setTooltip ("Cancel: leave Input and Output exactly as they are.");
+    setLevelsCancel.onClick = [this] { cancelLevels(); };
+    setLevelsMessage.setTitle ("Set Levels message");
+    setLevelsMessage.setFont (juce::Font (font (Type::hint, Weight::Regular)));
+    setLevelsMessage.setColour (juce::Label::textColourId, Colours::textDim);
+    setLevelsMessage.setJustificationType (juce::Justification::topLeft);
+    setLevelsMessage.setMinimumHorizontalScale (1.0f);   // wrap, never squash
+    content.addAndMakeVisible (setLevelsButton);
+    content.addChildComponent (setLevelsCancel);
+    content.addChildComponent (setLevelsMessage);
 
     ratioAttachment.sendInitialUpdate();
     allButtonsAttachment.sendInitialUpdate();
@@ -390,6 +413,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
 SongsmithAnalogCompressorEditor::~SongsmithAnalogCompressorEditor()
 {
     stopTimer();
+    proc.calibrationCapture.stop();
     diagnostics.reset();   // also stops the audio thread timing the blocks
     setLookAndFeel (nullptr);
 }
@@ -462,6 +486,9 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     meterButtons[2].setBounds (modes);
 
     grOffButton.setBounds (grOffArea);
+    setLevelsButton.setBounds (setLevelsX, setLevelsY, setLevelsWidth, setLevelsHeight);
+    setLevelsCancel.setBounds (setLevelsX, setLevelsCancelY, setLevelsWidth, setLevelsCancelHeight);
+    setLevelsMessage.setBounds (setLevelsMessageX, setLevelsMessageY, setLevelsMessageWidth, setLevelsMessageHeight);
     // ACOMP-19: Ignore Below sits directly under the Input knob, because it shapes what the input drives.
     ignoreBelow.setBounds (ignoreBelowX, ignoreBelowY, ignoreBelowWidth, ignoreBelowHeight);
 
@@ -583,6 +610,162 @@ void SongsmithAnalogCompressorEditor::advanceMeter (float seconds)
     grDisplayDb = gr > grDisplayDb ? gr : grDisplayDb * 0.9f + gr * 0.1f;
 
     content.repaint (meterArea.getX(), meterArea.getY(), meterArea.getWidth(), meterModes.getBottom() + 50 - meterArea.getY());
+}
+
+//==============================================================================
+// ACOMP-09 Set Levels. Listening only copies sound; the analysis runs here, on the message thread, once the
+// musician presses Finish Listening. Input and Output are written only by Apply, as one Undo step.
+juce::String SongsmithAnalogCompressorEditor::attackTooltip()
+{
+    return "Attack: how quickly compression starts when the sound gets louder. Turn clockwise to make it faster "
+           "(higher numbers, shorter times). Double-click for the default.";
+}
+
+juce::String SongsmithAnalogCompressorEditor::releaseTooltip()
+{
+    return "Release: how quickly compression lets go when the sound gets quieter. Turn clockwise to make it faster "
+           "(higher numbers, shorter times). Double-click for the default.";
+}
+
+juce::String SongsmithAnalogCompressorEditor::levelsMessageFor (const Calibration::Result& r)
+{
+    using S = Calibration::Status;
+    const auto settingsText = "Input " + dbText (r.inputDb) + ", Output " + dbText (r.outputDb);   // used by the good case
+    const auto reduction = juce::String (r.reductionDb, 1) + " dB";
+    juce::String text;
+
+    switch (r.status)
+    {
+        case S::silent:
+            return "No sound was heard. Check that audio is playing, then try again.";
+        case S::tooShort:
+            return "That was too short to judge. Play at least 3 seconds of a loud part, then try again.";
+        case S::good:
+            text = settingsText + ": about " + reduction + " of gain reduction on loud peaks. Apply, or Cancel.";
+            break;
+        case S::inputAtLimit:
+            text = r.reductionDb < Calibration::acceptableLowDb
+                       ? "Very quiet: Input at its highest only reaches " + reduction + " of gain reduction. Apply anyway, or Cancel."
+                       : "Very loud: Input at its lowest still gives " + reduction + " of gain reduction. Apply anyway, or Cancel.";
+            break;
+        case S::outputAtLimit:
+            text = "Output is at its limit, so the level cannot be fully matched. Apply anyway, or Cancel.";
+            break;
+    }
+
+    if (r.clipRisk)
+        text << " The matched level may clip; lower Output if it does.";
+    return text;
+}
+
+void SongsmithAnalogCompressorEditor::showLevelsStage (LevelsStage stage)
+{
+    levelsStage = stage;
+    setLevelsButton.setButtonText (stage == LevelsStage::idle ? "Set Levels" : stage == LevelsStage::listening ? "Finish Listening" : "Apply");
+    setLevelsButton.setTitle (setLevelsButton.getButtonText());
+    setLevelsButton.setEnabled (stage != LevelsStage::proposal || levelsResult.usable());
+    setLevelsCancel.setVisible (stage != LevelsStage::idle);
+    setLevelsMessage.setVisible (setLevelsMessage.getText().isNotEmpty());
+    setLevelsMessage.setTooltip (setLevelsMessage.getText());
+}
+
+bool SongsmithAnalogCompressorEditor::levelsSettingsUnchanged() const
+{
+    const auto now = proc.getCalibrationSettings();
+    return now.ratioIndex == levelsSettings.ratioIndex && now.allButtons == levelsSettings.allButtons
+           && std::abs (now.attackKnob - levelsSettings.attackKnob) < 0.005f
+           && std::abs (now.releaseKnob - levelsSettings.releaseKnob) < 0.005f
+           && std::abs (now.ignoreBelowHz - levelsSettings.ignoreBelowHz) < 0.5f
+           && std::abs (proc.apvts.getRawParameterValue (ID::input)->load() - levelsInput) < 0.005f
+           && std::abs (proc.apvts.getRawParameterValue (ID::output)->load() - levelsOutput) < 0.005f;
+}
+
+void SongsmithAnalogCompressorEditor::beginListening()
+{
+    levelsSettings = proc.getCalibrationSettings();
+    levelsInput = proc.apvts.getRawParameterValue (ID::input)->load();
+    levelsOutput = proc.apvts.getRawParameterValue (ID::output)->load();
+    levelsResult = {};
+    proc.calibrationCapture.start();
+    setLevelsMessage.setText ("Listening. Play a loud, typical part of your song for 3 to 12 seconds, then press Finish Listening.",
+                              juce::dontSendNotification);
+    showLevelsStage (LevelsStage::listening);
+}
+
+void SongsmithAnalogCompressorEditor::updateLevelsListening()
+{
+    if (levelsStage != LevelsStage::listening)
+        return;
+    auto& cap = proc.calibrationCapture;
+    if (! cap.isActive() && cap.getSamples() > 0)
+    {
+        finishListening();   // the buffer filled up: that is enough
+        return;
+    }
+    const auto text = "Listening: " + juce::String (cap.getSeconds(), 1) + " seconds. Play a loud, typical part, then press Finish Listening.";
+    if (text != setLevelsMessage.getText())
+        setLevelsMessage.setText (text, juce::dontSendNotification);
+}
+
+void SongsmithAnalogCompressorEditor::finishListening()
+{
+    if (levelsStage != LevelsStage::listening)
+        return;
+    auto& cap = proc.calibrationCapture;
+    cap.stop();
+    const int n = cap.getSamples();
+
+    if (! levelsSettingsUnchanged())
+    {
+        levelsResult = {};
+        setLevelsMessage.setText ("Settings or automation changed while listening, so the result would not fit. Press Set Levels to try again.",
+                                  juce::dontSendNotification);
+        showLevelsStage (LevelsStage::idle);
+        return;
+    }
+
+    const float* in[2] = { cap.channel (0), cap.channel (1) };
+    levelsResult = Calibration::analyse (in, 2, n, cap.getSampleRate(), levelsSettings);
+    setLevelsMessage.setText (levelsMessageFor (levelsResult), juce::dontSendNotification);
+    showLevelsStage (LevelsStage::proposal);
+}
+
+void SongsmithAnalogCompressorEditor::applyProposal()
+{
+    if (levelsStage != LevelsStage::proposal || ! levelsResult.usable())
+        return;
+
+    if (! levelsSettingsUnchanged())   // never write over a change the musician or host automation made meanwhile
+    {
+        setLevelsMessage.setText ("Settings or automation changed since listening, so nothing was applied. Press Set Levels to try again.",
+                                  juce::dontSendNotification);
+        showLevelsStage (LevelsStage::idle);
+        return;
+    }
+
+    const auto set = [this] (const char* id, float value)
+    {
+        auto* p = proc.apvts.getParameter (id);
+        p->beginChangeGesture();
+        p->setValueNotifyingHost (p->convertTo0to1 (value));
+        p->endChangeGesture();
+    };
+    const auto result = levelsResult;
+    proc.history.runStep ("set levels", [&] { set (ID::input, result.inputDb); set (ID::output, result.outputDb); });
+
+    setLevelsMessage.setText ("Applied: Input " + dbText (result.inputDb) + ", Output " + dbText (result.outputDb)
+                                  + ". Both knobs still turn freely, and Undo restores the old settings.",
+                              juce::dontSendNotification);
+    showLevelsStage (LevelsStage::idle);
+    refreshHistoryButtons();
+}
+
+void SongsmithAnalogCompressorEditor::cancelLevels()
+{
+    proc.calibrationCapture.stop();
+    levelsResult = {};
+    setLevelsMessage.setText ({}, juce::dontSendNotification);
+    showLevelsStage (LevelsStage::idle);
 }
 
 FETKnob& SongsmithAnalogCompressorEditor::getKnob (const juce::String& id)

@@ -6,6 +6,7 @@
 #include "FETParams.h"
 #include "FETEngine.h"
 #include "FETColour.h"
+#include "FETCalibration.h"
 #include "FETPresets.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
 #include "../../shared/Source/SongsmithHeader.h"
@@ -93,6 +94,11 @@ public:
     void setColourEnabled (bool on) noexcept { colourEnabled = on; }
 
     void updateLatencyNow();   // what the timer does: report the selected setting's latency
+
+    // ACOMP-09 Set Levels. The audio thread only copies the incoming sound into `calibrationCapture`; the
+    // message thread analyses it afterwards. Nothing here writes a parameter.
+    FET::Calibration::Capture calibrationCapture;
+    FET::Calibration::Settings getCalibrationSettings() const;   // the ratio, attack, release and Ignore Below in use now
 
     static inline const juce::Identifier versionId { "stateVersion" };
 

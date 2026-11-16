@@ -20,6 +20,7 @@ A feedback FET compressor inspired by the Rev D blackface 1176LN, by Songsmith S
 - **Needle meter** (about 45 % larger than before, with bigger scale numbers): Gain Reduction, Output +4 and Output +8 modes (0 on the scale at +4 or +8 dBu) with VU ballistics, plus a numeric gain reduction readout.
 - **Scalable vector editor:** drag the bottom-right corner to resize it from 100 % to 200 % (a 75 % minimum is planned in [ACOMP-17](https://github.com/tonygward/audio-plugins/issues/255)), sharp on any display, on a fine brushed faceplate drawn as vectors. The ratio buttons read 20:1, 12:1, 8:1 and 4:1, then All, each with a plain tooltip. See [docs/editor.md](docs/editor.md).
 - **Ignore Below (a Songsmith addition, formerly Low Cut):** a horizontal slider directly under the Input knob, with the name on the left and the frequency on the right (for example 127 Hz). It stops deep bass from making the compressor turn the whole sound down. Only what the compressor *listens to* is filtered; the bass you hear is untouched. Choose any whole number of Hz from 20 to 500 (gentle 12 dB/oct slope) by dragging, with the arrow keys, or by clicking the number and typing; double-click for Off. Off by default, including in sessions saved earlier, and sessions that used the old 60, 80, 100, 150 or 200 Hz steps keep exactly that frequency. The original 1176 has no such control. Details and tests: [docs/detector-low-cut.md](docs/detector-low-cut.md).
+- **Set Levels (optional):** a button under the Output knob. Press it, play a loud part of your song for 3 to 12 seconds, then press Finish Listening. It suggests an Input for about 3 dB of gain reduction on the louder peaks and an Output that keeps the level close to the original, using your current ratio, Attack, Release and Ignore Below. Apply writes both as one Undo step; Cancel changes nothing; the knobs stay adjustable and fixed during playback. It tells you when there was no sound, too little sound, or when a target cannot be reached. Details and tests: [docs/set-levels.md](docs/set-levels.md).
 - **Title tooltip:** hover over the plugin name at the top left for a short explanation of what the compressor does and one thing to listen for. It is fixed wording, not a measurement. See [shared/docs/guidance.md](../shared/docs/guidance.md).
 - **Presets:** four conservative, level-matched starting points (lead vocal, acoustic guitar, bass, drum room), each with a listening cue, plus your own presets.
 
@@ -83,6 +84,7 @@ To build and test the installers:
 | [all-buttons.md](docs/all-buttons.md) | All Buttons |
 | [editor.md](docs/editor.md) | The editor |
 | [detector-low-cut.md](docs/detector-low-cut.md) | Ignore Below (the detector low cut): range, slope, compatibility, tests and listening notes |
+| [set-levels.md](docs/set-levels.md) | Set Levels: how it measures, what it proposes, safeguards and tests |
 | [presets.md](docs/presets.md) | How the controls work, and the starting points |
 | [daw-checks.md](docs/daw-checks.md) | Studio One and Logic checks, executed vs pending |
 | [smoke-test.md](docs/smoke-test.md) | Studio One smoke test |

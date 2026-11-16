@@ -1274,6 +1274,12 @@ static int runBenchmark()
 }
 
 //==============================================================================
+// ACOMP-09: Set Levels.
+#include "CalibrationEditorTests.h"
+static CalibrationTests calibrationTests;
+static CalibrationEditorTests calibrationEditorTests;
+
+//==============================================================================
 struct ConsoleRunner final : juce::UnitTestRunner
 {
     void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); std::fflush (stdout); }

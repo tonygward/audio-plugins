@@ -99,6 +99,21 @@ public:
     juce::ComboBox& getPresetBox() { return presetBox; }
     void advanceMeter (float seconds);
 
+    // ACOMP-09 Set Levels (for tests). idle -> listening -> proposal -> idle.
+    enum class LevelsStage { idle, listening, proposal };
+    LevelsStage getLevelsStage() const noexcept { return levelsStage; }
+    juce::Button& getSetLevelsButton() noexcept { return setLevelsButton; }
+    juce::Button& getSetLevelsCancelButton() noexcept { return setLevelsCancel; }
+    juce::Label& getSetLevelsMessage() noexcept { return setLevelsMessage; }
+    const FET::Calibration::Result& getLevelsResult() const noexcept { return levelsResult; }
+    void beginListening();                 // what the button does when idle
+    void finishListening();                // stops capturing and works out the proposal
+    void applyProposal();                  // writes Input and Output as one Undo step
+    void cancelLevels();                   // leaves everything as it was
+    static juce::String levelsMessageFor (const FET::Calibration::Result& r);
+    static juce::String attackTooltip();
+    static juce::String releaseTooltip();
+
     // Text the editor paints (the wording tests read these).
     static juce::String gainReductionText (float db);   // the readout under the meter
     static juce::String meterModeName (int mode);        // 0 Gain Reduction, 1 Output +4, 2 Output +8
@@ -106,7 +121,16 @@ public:
 
 private:
     void syncSizeFromWidth();
-    void timerCallback() override { advanceMeter (1.0f / 30.0f); refreshHistoryButtons(); }
+    void timerCallback() override { advanceMeter (1.0f / 30.0f); refreshHistoryButtons(); updateLevelsListening(); }
+    void updateLevelsListening();
+    void showLevelsStage (LevelsStage stage);
+    bool levelsSettingsUnchanged() const;
+    LevelsStage levelsStage = LevelsStage::idle;
+    juce::TextButton setLevelsButton { "Set Levels" }, setLevelsCancel { "Cancel" };
+    juce::Label setLevelsMessage;
+    FET::Calibration::Result levelsResult;
+    FET::Calibration::Settings levelsSettings;   // the ratio, attack, release and Ignore Below the proposal was measured with
+    float levelsInput = 0.0f, levelsOutput = 0.0f;   // Input and Output when listening began
     void refreshHistoryButtons();
     juce::Rectangle<int> titleBounds;   // the product name, painted (SUI-18)
     void refreshButtons();

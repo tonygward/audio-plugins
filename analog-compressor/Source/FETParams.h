@@ -162,6 +162,12 @@ namespace FET
     // left-aligned with it and as wide as it.
     inline constexpr int ignoreBelowX = 24, ignoreBelowY = 290, ignoreBelowWidth = 170, ignoreBelowHeight = 50;
 
+    // ACOMP-09: Set Levels sits directly under the Output knob, beside Input (which it also sets). The button is
+    // on the first row, Cancel (only while a calibration is open) below it, and the one-line-or-two message under both.
+    inline constexpr int setLevelsX = 200, setLevelsY = 290, setLevelsWidth = 170, setLevelsHeight = 30;
+    inline constexpr int setLevelsCancelY = 324, setLevelsCancelHeight = 26;
+    inline constexpr int setLevelsMessageX = 24, setLevelsMessageY = 352, setLevelsMessageWidth = 346, setLevelsMessageHeight = 46;
+
     // ACOMP-19: Oversampling sits on the right, on the row of "Gain Reduction Off", under the Gain Reduction meter,
     // right-aligned with the meter. (This replaces the far-left place from ACOMP-15.)
     inline constexpr int oversamplingX = 760, oversamplingY = 314, oversamplingWidth = 176, oversamplingHeight = 32;
