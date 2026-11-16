@@ -8,7 +8,7 @@ conflicts: []
 
 # ACOMP-09: Guided compressor calibration
 
-Issue: [#264](https://github.com/tonygward/audio-plugins/issues/264). Follow [CLAUDE.md](../../CLAUDE.md); the rules for running it are in the [execution policy](../../docs/songsmith-execution-policy.md).
+Issue: [#264](https://github.com/tonygward/audio-plugins/issues/264). Follow [CLAUDE.md](../../../CLAUDE.md); the rules for running it are in the [execution policy](../../../docs/songsmith-execution-policy.md).
 
 **Estimated effort / usage:** Medium. **Escalation:** Opus only for an unavoidable calibration-measurement architecture question; document why and return to Sonnet. The detector Low Cut (now Ignore Below) and editor updates it depended on have shipped.
 
