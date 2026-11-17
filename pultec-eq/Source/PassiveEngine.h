@@ -15,6 +15,7 @@
 // The frequency choices and gain ranges are the published EQP-1A panel values. The filter shapes,
 // the bandwidth mapping and the corner offset of the low cut are Songsmith design choices, listed
 // with their tests in pultec-eq/docs/reference.md. This is an inspired design, not a circuit model.
+// Changing a frequency switch fades from the old filters to the new ones over 20 ms, so it does not click.
 // Nothing here is latency: the filters are minimum phase biquads.
 // process() does not allocate, lock or log.
 namespace SongsmithPassive
@@ -90,6 +91,13 @@ namespace SongsmithPassive
         std::array<Biquad, numSections> sections;
         std::array<std::array<std::array<double, 2>, numSections>, maxChannels> state {};   // transposed direct form II
         int chunkRemaining = 0;   // samples left before the next coefficient refresh (so block size never matters)
-    bool flat = true;
+        bool flat = true;
+
+        // Changing a frequency switch moves a filter's corner at once, which would click. The engine keeps the
+        // filters as they were, with their memory, and fades from them to the new ones over fadeSeconds.
+        static constexpr double fadeSeconds = 0.02;
+        std::array<Biquad, numSections> fadeSections;
+        std::array<std::array<std::array<double, 2>, numSections>, maxChannels> fadeState {};
+        int fadeLength = 960, fadeRemaining = 0;
     };
 }

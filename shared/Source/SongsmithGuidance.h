@@ -24,6 +24,9 @@ namespace Songsmith::Guidance
         if (pluginName.containsIgnoreCase ("Leveller"))
             return "Smoothly evens out loud and quiet parts, like a classic optical levelling amplifier. "
                    "Turn Peak Reduction up a little at a time and listen for lost life.";
+        if (pluginName.containsIgnoreCase ("Passive"))   // before the EQ below
+            return "Gently lifts and lowers the low and high ends, like a classic passive equaliser. "
+                   "Make small changes and compare at the same listening level.";
         if (pluginName.containsIgnoreCase ("Maximiser"))
             return "Controls peaks and raises loudness. "
                    "Compare at the same listening level, so that louder does not automatically seem better.";

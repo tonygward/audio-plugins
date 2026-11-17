@@ -17,6 +17,21 @@ namespace SongsmithPassive
         }
 
         float sane (float x) noexcept { return std::isfinite (x) ? x : 0.0f; }
+
+        template <typename Sections, typename State>
+        double runChain (const Sections& chain, State& memory, double v) noexcept
+        {
+            for (size_t s = 0; s < chain.size(); ++s)
+            {
+                const auto& b = chain[s];
+                auto& z = memory[s];
+                const double out = b.b0 * v + z[0];
+                z[0] = b.b1 * v - b.a1 * out + z[1];
+                z[1] = b.b2 * v - b.a2 * out;
+                v = out;
+            }
+            return v;
+        }
     }
 
     Biquad makeLowShelf (double fs, double f, double q, double gainDb) noexcept
@@ -54,6 +69,7 @@ namespace SongsmithPassive
     void Engine::prepare (double sampleRate)
     {
         fs = juce::jmax (8000.0, sampleRate);
+        fadeLength = juce::jmax (1, juce::roundToInt (fs * fadeSeconds));
         for (auto& g : gain)
             g.reset (fs, 0.02);
         reset();
@@ -66,13 +82,18 @@ namespace SongsmithPassive
     void Engine::reset() noexcept
     {
         chunkRemaining = 0;
+        fadeRemaining = 0;
         for (auto& ch : state)
+            for (auto& s : ch)
+                s = { 0.0, 0.0 };
+        for (auto& ch : fadeState)
             for (auto& s : ch)
                 s = { 0.0, 0.0 };
     }
 
     void Engine::setParams (const Params& p) noexcept
     {
+        const auto before = params;
         params.lowFrequencyIndex       = juce::jlimit (0, (int) lowFrequencies.size() - 1, p.lowFrequencyIndex);
         params.highBoostFrequencyIndex = juce::jlimit (0, (int) highBoostFrequencies.size() - 1, p.highBoostFrequencyIndex);
         params.highCutFrequencyIndex   = juce::jlimit (0, (int) highCutFrequencies.size() - 1, p.highCutFrequencyIndex);
@@ -81,6 +102,17 @@ namespace SongsmithPassive
         params.highBoostDb = juce::jlimit (0.0f, maxHighBoostDb, sane (p.highBoostDb));
         params.highCutDb   = juce::jlimit (0.0f, maxHighCutDb,   sane (p.highCutDb));
         params.bandwidth   = juce::jlimit (0.0f, 1.0f, sane (p.bandwidth));
+
+        // A switch moved while sound is passing: keep the filters as they were and fade to the new ones.
+        const bool switchMoved = before.lowFrequencyIndex != params.lowFrequencyIndex
+                                 || before.highBoostFrequencyIndex != params.highBoostFrequencyIndex
+                                 || before.highCutFrequencyIndex != params.highCutFrequencyIndex;
+        if (switchMoved && ! flat)
+        {
+            fadeSections = sections;
+            fadeState = state;
+            fadeRemaining = fadeLength;
+        }
 
         gain[0].setTargetValue (params.lowBoostDb);
         gain[1].setTargetValue (-params.lowCutDb);
@@ -132,7 +164,7 @@ namespace SongsmithPassive
                 for (size_t i = 0; i < 4; ++i)
                     g[i] = moving ? gain[i].skip (chunk) : gain[i].getTargetValue();
 
-                flat = ! moving && g[0] == 0.0f && g[1] == 0.0f && g[2] == 0.0f && g[3] == 0.0f;
+                flat = ! moving && fadeRemaining == 0 && g[0] == 0.0f && g[1] == 0.0f && g[2] == 0.0f && g[3] == 0.0f;
                 if (flat)
                     reset();   // all gains zero: the input passes untouched and the filter memory is cleared
                 else
@@ -148,19 +180,18 @@ namespace SongsmithPassive
                     float* x = channels[c] + done;
                     for (int i = 0; i < count; ++i)
                     {
-                        double v = (double) sane (x[i]);
-                        for (int s = 0; s < numSections; ++s)
+                        const double in = (double) sane (x[i]);
+                        double v = runChain (sections, state[(size_t) c], in);
+                        if (i < fadeRemaining)
                         {
-                            const auto& b = sections[(size_t) s];
-                            auto& z = state[(size_t) c][(size_t) s];
-                            const double out = b.b0 * v + z[0];
-                            z[0] = b.b1 * v - b.a1 * out + z[1];
-                            z[1] = b.b2 * v - b.a2 * out;
-                            v = out;
+                            // The old filters' share falls from 1 to 0 across the fade.
+                            const double old = runChain (fadeSections, fadeState[(size_t) c], in);
+                            v += (old - v) * ((double) (fadeRemaining - i) / (double) fadeLength);
                         }
                         x[i] = (float) v;
                     }
                 }
+                fadeRemaining = juce::jmax (0, fadeRemaining - count);
             }
             chunkRemaining -= count;
             done += count;
