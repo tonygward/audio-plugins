@@ -1,8 +1,8 @@
 ; Songsmith Plugins - one Windows installer for every plugin (Inno Setup 6).
 ;
 ; Build it with build-installer.ps1, which reads the one version from VERSION and passes the build folders:
-;   iscc /DSuiteVersion=<VERSION> /DEqVersion=<VERSION> /DFetVersion=<VERSION> /DMaxVersion=<VERSION> /DCompVersion=<VERSION> /DOptVersion=<VERSION> /DPeqVersion=<VERSION>
-;        /DEqDir=<...\SongsmithEQ_artefacts\Release> /DFetDir=<...> /DMaxDir=<...> /DCompDir=<...> /DOptDir=<...> /DPeqDir=<...> /O<out> SongsmithStudio.iss
+;   iscc /DSuiteVersion=<VERSION> /DEqVersion=<VERSION> /DFetVersion=<VERSION> /DMaxVersion=<VERSION> /DCompVersion=<VERSION> /DOptVersion=<VERSION> /DPeqVersion=<VERSION> /DBusVersion=<VERSION>
+;        /DEqDir=<...\SongsmithEQ_artefacts\Release> /DFetDir=<...> /DMaxDir=<...> /DCompDir=<...> /DOptDir=<...> /DPeqDir=<...> /DBusDir=<...> /O<out> SongsmithStudio.iss
 ;
 ; Each plugin is one component, ticked by default, and brings its standalone app with it.
 ; Every plugin goes where its own installer puts it: the VST3 into the fixed
@@ -46,6 +46,7 @@
 #define CompName     "Songsmith Compressor"
 #define OptName      "Songsmith Optical Leveller"
 #define PeqName      "Songsmith Passive EQ"
+#define BusName      "Songsmith Bus Compressor"
 
 [Setup]
 AppId={#SuiteAppIdSetup}
@@ -56,12 +57,12 @@ AppPublisher={#AppPublisher}
 AppPublisherURL={#AppURL}
 AppSupportURL={#AppURL}/issues
 AppUpdatesURL={#AppURL}/releases
-AppComments={#EqName} {#EqVersion}, {#FetName} {#FetVersion}, {#MaxName} {#MaxVersion}, {#CompName} {#CompVersion}, {#OptName} {#OptVersion}, {#PeqName} {#PeqVersion}
+AppComments={#EqName} {#EqVersion}, {#FetName} {#FetVersion}, {#MaxName} {#MaxVersion}, {#CompName} {#CompVersion}, {#OptName} {#OptVersion}, {#PeqName} {#PeqVersion}, {#BusName} {#BusVersion}
 VersionInfoVersion={#SuiteVersion}
 VersionInfoProductName={#AppName}
 VersionInfoCompany={#AppPublisher}
 ; The Settings > Apps entry names every plugin's own version.
-UninstallDisplayName={#AppName} (EQ {#EqVersion}, Analog Compressor {#FetVersion}, Maximiser {#MaxVersion}, Compressor {#CompVersion}, Optical Leveller {#OptVersion}, Passive EQ {#PeqVersion})
+UninstallDisplayName={#AppName} (EQ {#EqVersion}, Analog Compressor {#FetVersion}, Maximiser {#MaxVersion}, Compressor {#CompVersion}, Optical Leveller {#OptVersion}, Passive EQ {#PeqVersion}, Bus Compressor {#BusVersion})
 
 ; The standalone apps (each in its own folder) and the uninstaller live here.
 DefaultDirName={autopf}\{#AppPublisher}
@@ -93,7 +94,7 @@ SetupLogging=yes
 SetupAppTitle=Songsmith Plugins
 SetupWindowTitle=Songsmith Plugins %1
 WelcomeLabel1=Songsmith Plugins
-WelcomeLabel2=This installs Songsmith Plugins on your computer:%n%n    {#EqName} {#EqVersion}%n    {#FetName} {#FetVersion}%n    {#MaxName} {#MaxVersion}%n    {#CompName} {#CompVersion}%n    {#OptName} {#OptVersion}%n    {#PeqName} {#PeqVersion}%n%nOn the next page, untick any plugin you don't want. Each plugin goes into the standard VST3 folder (Common Files\VST3), where every VST3 host looks for it, and comes with a standalone app that runs on its own.%n%nPlease close your recording software before continuing.
+WelcomeLabel2=This installs Songsmith Plugins on your computer:%n%n    {#EqName} {#EqVersion}%n    {#FetName} {#FetVersion}%n    {#MaxName} {#MaxVersion}%n    {#CompName} {#CompVersion}%n    {#OptName} {#OptVersion}%n    {#PeqName} {#PeqVersion}%n    {#BusName} {#BusVersion}%n%nOn the next page, untick any plugin you don't want. Each plugin goes into the standard VST3 folder (Common Files\VST3), where every VST3 host looks for it, and comes with a standalone app that runs on its own.%n%nPlease close your recording software before continuing.
 SelectComponentsLabel2=Tick the plugins to install. Unticking a plugin that is already installed removes it. Your presets are always kept.
 FinishedLabel=Setup has installed Songsmith Plugins on your computer.%n%nRescan plugins in your recording software (or restart it) to find them under Songsmith Studio.
 
@@ -109,6 +110,7 @@ Name: "max";            Description: "{#MaxName} {#MaxVersion}: make a finished 
 Name: "comp";           Description: "{#CompName} {#CompVersion}: even out the level with simple, clear controls";  Types: full custom; Flags: checkablealone
 Name: "opt";            Description: "{#OptName} {#OptVersion}: smooth, simple levelling inspired by a classic optical unit";  Types: full custom; Flags: checkablealone
 Name: "peq";            Description: "{#PeqName} {#PeqVersion}: gentle, broad low and high tone shaping inspired by a classic passive equaliser";  Types: full custom; Flags: checkablealone
+Name: "bus";            Description: "{#BusName} {#BusVersion}: glue a mix or a group of sounds together, inspired by a classic mixing desk bus compressor";  Types: full custom; Flags: checkablealone
 
 [InstallDelete]
 ; Replace each ticked plugin's bundle cleanly: files from an older version must not linger.
@@ -118,6 +120,7 @@ Type: filesandordirs; Name: "{code:Vst3Dir}\{#MaxName}.vst3"; Components: max
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#CompName}.vst3"; Components: comp
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#OptName}.vst3"; Components: opt
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#PeqName}.vst3"; Components: peq
+Type: filesandordirs; Name: "{code:Vst3Dir}\{#BusName}.vst3"; Components: bus
 ; Songsmith EQ's earlier names. Same plugin ID, so they'd show up twice.
 Type: filesandordirs; Name: "{code:Vst3Dir}\TW Pro EQ.vst3";  Components: eq
 Type: filesandordirs; Name: "{code:Vst3Dir}\3-Band EQ.vst3";  Components: eq
@@ -130,6 +133,7 @@ Type: filesandordirs; Name: "{code:Vst3Dir}\{#MaxName}.vst3";     Components: no
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#CompName}.vst3";     Components: not comp; Check: SuiteHad ('comp')
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#OptName}.vst3";      Components: not opt;  Check: SuiteHad ('opt')
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#PeqName}.vst3";      Components: not peq;  Check: SuiteHad ('peq')
+Type: filesandordirs; Name: "{code:Vst3Dir}\{#BusName}.vst3";      Components: not bus;  Check: SuiteHad ('bus')
 ; ...and its standalone app and Start menu shortcut go with it. An earlier suite 1.x install
 ; may have recorded "eq\standalone" as well; the plugin's own entry is the one that decides.
 Type: files;          Name: "{app}\{#EqName}\{#EqName}.exe";      Components: not eq;  Check: SuiteHad ('eq')
@@ -138,18 +142,21 @@ Type: files;          Name: "{app}\{#MaxName}\{#MaxName}.exe";    Components: no
 Type: files;          Name: "{app}\{#CompName}\{#CompName}.exe";    Components: not comp; Check: SuiteHad ('comp')
 Type: files;          Name: "{app}\{#OptName}\{#OptName}.exe";      Components: not opt;  Check: SuiteHad ('opt')
 Type: files;          Name: "{app}\{#PeqName}\{#PeqName}.exe";      Components: not peq;  Check: SuiteHad ('peq')
+Type: files;          Name: "{app}\{#BusName}\{#BusName}.exe";      Components: not bus;  Check: SuiteHad ('bus')
 Type: files;          Name: "{autoprograms}\{#EqName}.lnk";       Components: not eq;  Check: SuiteHad ('eq')
 Type: files;          Name: "{autoprograms}\{#FetName}.lnk";      Components: not fet; Check: SuiteHad ('fet')
 Type: files;          Name: "{autoprograms}\{#MaxName}.lnk";      Components: not max; Check: SuiteHad ('max')
 Type: files;          Name: "{autoprograms}\{#CompName}.lnk";      Components: not comp; Check: SuiteHad ('comp')
 Type: files;          Name: "{autoprograms}\{#OptName}.lnk";       Components: not opt;  Check: SuiteHad ('opt')
 Type: files;          Name: "{autoprograms}\{#PeqName}.lnk";       Components: not peq;  Check: SuiteHad ('peq')
+Type: files;          Name: "{autoprograms}\{#BusName}.lnk";       Components: not bus;  Check: SuiteHad ('bus')
 Type: dirifempty;     Name: "{app}\{#EqName}";                    Components: not eq;  Check: SuiteHad ('eq')
 Type: dirifempty;     Name: "{app}\{#FetName}";                   Components: not fet; Check: SuiteHad ('fet')
 Type: dirifempty;     Name: "{app}\{#MaxName}";                   Components: not max; Check: SuiteHad ('max')
 Type: dirifempty;     Name: "{app}\{#CompName}";                   Components: not comp; Check: SuiteHad ('comp')
 Type: dirifempty;     Name: "{app}\{#OptName}";                    Components: not opt;  Check: SuiteHad ('opt')
 Type: dirifempty;     Name: "{app}\{#PeqName}";                    Components: not peq;  Check: SuiteHad ('peq')
+Type: dirifempty;     Name: "{app}\{#BusName}";                    Components: not bus;  Check: SuiteHad ('bus')
 
 [Dirs]
 ; The shared VST3 folder holds other plugins: never remove it on uninstall.
@@ -162,12 +169,14 @@ Source: "{#MaxDir}\VST3\{#MaxName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#MaxName}.
 Source: "{#CompDir}\VST3\{#CompName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#CompName}.vst3"; Components: comp; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#OptDir}\VST3\{#OptName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#OptName}.vst3"; Components: opt; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#PeqDir}\VST3\{#PeqName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#PeqName}.vst3"; Components: peq; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BusDir}\VST3\{#BusName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#BusName}.vst3"; Components: bus; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#EqDir}\Standalone\{#EqName}.exe";   DestDir: "{app}\{#EqName}";  Components: eq;  Flags: ignoreversion
 Source: "{#FetDir}\Standalone\{#FetName}.exe"; DestDir: "{app}\{#FetName}"; Components: fet; Flags: ignoreversion
 Source: "{#MaxDir}\Standalone\{#MaxName}.exe"; DestDir: "{app}\{#MaxName}"; Components: max; Flags: ignoreversion
 Source: "{#CompDir}\Standalone\{#CompName}.exe"; DestDir: "{app}\{#CompName}"; Components: comp; Flags: ignoreversion
 Source: "{#OptDir}\Standalone\{#OptName}.exe"; DestDir: "{app}\{#OptName}"; Components: opt; Flags: ignoreversion
 Source: "{#PeqDir}\Standalone\{#PeqName}.exe"; DestDir: "{app}\{#PeqName}"; Components: peq; Flags: ignoreversion
+Source: "{#BusDir}\Standalone\{#BusName}.exe"; DestDir: "{app}\{#BusName}"; Components: bus; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#EqName}";  Filename: "{app}\{#EqName}\{#EqName}.exe";   Components: eq
@@ -176,6 +185,7 @@ Name: "{autoprograms}\{#MaxName}"; Filename: "{app}\{#MaxName}\{#MaxName}.exe"; 
 Name: "{autoprograms}\{#CompName}"; Filename: "{app}\{#CompName}\{#CompName}.exe"; Components: comp
 Name: "{autoprograms}\{#OptName}"; Filename: "{app}\{#OptName}\{#OptName}.exe"; Components: opt
 Name: "{autoprograms}\{#PeqName}"; Filename: "{app}\{#PeqName}\{#PeqName}.exe"; Components: peq
+Name: "{autoprograms}\{#BusName}"; Filename: "{app}\{#BusName}\{#BusName}.exe"; Components: bus
 
 ; Uninstall removes only what Setup installed (the bundles, the apps, the shortcuts). User
 ; presets in %APPDATA%\Songsmith Studio\<plugin> (and the old %APPDATA%\TW Pro EQ) belong to
@@ -327,7 +337,7 @@ end;
 
 function NothingSelected(): Boolean;
 begin
-  Result := not (Selected ('eq') or Selected ('fet') or Selected ('max') or Selected ('comp') or Selected ('opt') or Selected ('peq'));
+  Result := not (Selected ('eq') or Selected ('fet') or Selected ('max') or Selected ('comp') or Selected ('opt') or Selected ('peq') or Selected ('bus'));
 end;
 
 function NextButtonClick (CurPageID: Integer): Boolean;
@@ -358,6 +368,7 @@ begin
   if Removing ('comp') then Removed := Removed + Space + '{#CompName}' + NewLine;
   if Removing ('opt') then Removed := Removed + Space + '{#OptName}' + NewLine;
   if Removing ('peq') then Removed := Removed + Space + '{#PeqName}' + NewLine;
+  if Removing ('bus') then Removed := Removed + Space + '{#BusName}' + NewLine;
 
   Result := MemoComponentsInfo;
   if Replaced <> '' then
@@ -384,6 +395,7 @@ begin
   if Result = '' then Result := InUse ('comp', '{#CompName}');
   if Result = '' then Result := InUse ('opt', '{#OptName}');
   if Result = '' then Result := InUse ('peq', '{#PeqName}');
+  if Result = '' then Result := InUse ('bus', '{#BusName}');
   if Result <> '' then
   begin
     Result := Result + #13#10#13#10 + 'Close it and run Setup again. Nothing has been changed.';

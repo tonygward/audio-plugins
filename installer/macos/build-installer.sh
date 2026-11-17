@@ -3,7 +3,7 @@
 # selected by default (Apple's pkgutil and productbuild, installed with Xcode).
 #
 #   installer/macos/build-installer.sh       # build each plugin's own .pkg first, then the suite
-#   installer/macos/build-installer.sh --eq-pkg <pkg> --fet-pkg <pkg> --max-pkg <pkg> --comp-pkg <pkg> --opt-pkg <pkg> --peq-pkg <pkg>   # CI
+#   installer/macos/build-installer.sh --eq-pkg <pkg> --fet-pkg <pkg> --max-pkg <pkg> --comp-pkg <pkg> --opt-pkg <pkg> --peq-pkg <pkg> --bus-pkg <pkg>   # CI
 #   installer/macos/build-installer.sh --suite-version <older version> --out-dir <folder>         # tests
 #
 # The suite is made from the SAME component packages as each plugin's own installer: it expands
@@ -17,7 +17,7 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
-eq_pkg="" fet_pkg="" max_pkg="" comp_pkg="" opt_pkg="" peq_pkg="" suite_version="" out_dir="$repo/build/suite-installer"
+eq_pkg="" fet_pkg="" max_pkg="" comp_pkg="" opt_pkg="" peq_pkg="" bus_pkg="" suite_version="" out_dir="$repo/build/suite-installer"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -27,6 +27,7 @@ while [ $# -gt 0 ]; do
         --comp-pkg)      comp_pkg="$2"; shift 2 ;;
         --opt-pkg)       opt_pkg="$2"; shift 2 ;;
         --peq-pkg)       peq_pkg="$2"; shift 2 ;;
+        --bus-pkg)       bus_pkg="$2"; shift 2 ;;
         --suite-version) suite_version="$2"; shift 2 ;;
         --out-dir)       out_dir="$2"; shift 2 ;;
         -h|--help)       sed -n '2,17p' "$0"; exit 0 ;;
@@ -52,6 +53,7 @@ max_version="$shared_version"
 comp_version="$shared_version"
 opt_version="$shared_version"
 peq_version="$shared_version"
+bus_version="$shared_version"
 
 # Each plugin's own .pkg: given, or built now from that plugin's Release build.
 [ -z "$eq_pkg" ]  && eq_pkg=$("$repo/eq/installer/macos/build-installer.sh" | tail -n 1)
@@ -60,6 +62,7 @@ peq_version="$shared_version"
 [ -z "$comp_pkg" ] && comp_pkg=$("$repo/compressor/installer/macos/build-installer.sh" | tail -n 1)
 [ -z "$opt_pkg" ] && opt_pkg=$("$repo/optical-leveller/installer/macos/build-installer.sh" | tail -n 1)
 [ -z "$peq_pkg" ] && peq_pkg=$("$repo/pultec-eq/installer/macos/build-installer.sh" | tail -n 1)
+[ -z "$bus_pkg" ] && bus_pkg=$("$repo/bus-compressor/installer/macos/build-installer.sh" | tail -n 1)
 
 mkdir -p "$out_dir"
 out_dir="$(cd "$out_dir" && pwd)"
@@ -99,11 +102,12 @@ take "$max_pkg" songsmithmaximiser
 take "$comp_pkg" songsmithcompressor
 take "$opt_pkg" songsmithopticalleveller
 take "$peq_pkg" songsmithpassiveeq
+take "$bus_pkg" songsmithbuscompressor
 [ -z "$min_macos" ] && min_macos="10.13"
 
 fill() {
     sed -e "s/@SUITE_VERSION@/$suite_version/g" -e "s/@EQ_VERSION@/$eq_version/g" \
-        -e "s/@FET_VERSION@/$fet_version/g" -e "s/@MAX_VERSION@/$max_version/g" -e "s/@COMP_VERSION@/$comp_version/g" -e "s/@OPT_VERSION@/$opt_version/g" -e "s/@PEQ_VERSION@/$peq_version/g" \
+        -e "s/@FET_VERSION@/$fet_version/g" -e "s/@MAX_VERSION@/$max_version/g" -e "s/@COMP_VERSION@/$comp_version/g" -e "s/@OPT_VERSION@/$opt_version/g" -e "s/@PEQ_VERSION@/$peq_version/g" -e "s/@BUS_VERSION@/$bus_version/g" \
         -e "s/@MIN_MACOS@/$min_macos/g" "$1"
 }
 fill "$here/distribution.xml" > "$work/distribution.xml"
@@ -124,7 +128,7 @@ productbuild --distribution "$work/distribution.xml" \
              --resources "$work/resources" \
              "$pkg"
 
-echo "Suite version: $suite_version (Songsmith EQ $eq_version, Songsmith Analog Compressor $fet_version, Songsmith Maximiser $max_version, Songsmith Compressor $comp_version, Songsmith Optical Leveller $opt_version, Songsmith Passive EQ $peq_version)"
+echo "Suite version: $suite_version (Songsmith EQ $eq_version, Songsmith Analog Compressor $fet_version, Songsmith Maximiser $max_version, Songsmith Compressor $comp_version, Songsmith Optical Leveller $opt_version, Songsmith Passive EQ $peq_version, Songsmith Bus Compressor $bus_version)"
 echo "Minimum macOS: $min_macos"
 echo "Installer:     $pkg"
 echo "$pkg"
