@@ -6,6 +6,10 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - Songsmith Passive EQ now has a blue, textured faceplate with a matching soft blue accent, instead of the plain dark grey. Everything works exactly as before, and you do not need to do anything.
 
+## 0.5.44
+
+- The level meters in Songsmith EQ and Songsmith Compressor, and the gain reduction meter in Songsmith Compressor, now share the Maximiser's rounded, tube-like look. Gain reduction in the Compressor is shown in red. The readings and the sound have not changed, and you do not need to do anything.
+
 ## 0.5.43
 
 - New plugin: **Songsmith Bus Compressor**, a compressor for gluing a mix or a group of sounds together, inspired by a classic mixing desk bus compressor. It has Threshold, Ratio (2:1, 4:1 or 10:1), Attack (0.1 to 30 ms), Release (0.1 to 1.2 seconds, or Auto) and Make-up Gain, and both channels always get the same gain so the stereo picture holds. A row of lamps shows how much it is turning the sound down. It comes with five starting points (Mix Bus Glue, Finished Mix Gentle Glue, Drum Bus Punch, Drum Bus Heavy Control and Vocal Group Glue) and saved custom presets. It is in both suite installers with its own tick box. It has not yet been tried in a real recording program. You do not need to do anything; tick it in the installer if you want it.
