@@ -27,7 +27,7 @@ namespace
     const juce::Rectangle<int> peakReductionArea  { 526, 64, 210, 262 };
 
     const char* const compressTip = "Compress: gentle, smooth levelling. A good starting point for most vocals, bass and guitars.";
-    const char* const limitTip = "Limit: firmer control that catches the loudest peaks harder. Useful for drums and very uneven playing; "
+    const char* const limitTip = "Limit: much firmer control that flattens the loudest sound harder than Compress. It is a stronger setting of the same smooth action, not a hard ceiling. Useful for drums and very uneven playing; "
                                  "if it sounds too obvious, go back to Compress.";
 
     // The faceplate's fine brushed-metal grain (shared with the other plugins). Built once; the same grain every time.
@@ -47,6 +47,41 @@ namespace
         g.drawEllipse (c.x - r, c.y - r, 2.0f * r, 2.0f * r, 0.8f);
         g.drawLine ({ c.getPointOnCircumference (r - 1.2f, slotAngle), c.getPointOnCircumference (r - 1.2f, slotAngle + juce::MathConstants<float>::pi) }, 1.3f);
     }
+}
+
+//==============================================================================
+juce::Rectangle<float> OptModeButton::iconArea (juce::Rectangle<int> b) noexcept
+{
+    return juce::Rectangle<float> (7.0f, ((float) b.getHeight() - 14.0f) * 0.5f, 17.0f, 14.0f);   // in the button's own coordinates
+}
+
+void OptModeButton::paintButton (juce::Graphics& g, bool isHighlighted, bool isDown)
+{
+    juce::TextButton::paintButton (g, isHighlighted, isDown);
+
+    // The picture, in the button's own coordinates, left of the label.
+    const auto area = iconArea (getLocalBounds());
+    const auto on = getToggleState();
+    const auto ink = findColour (on ? juce::TextButton::textColourOnId : juce::TextButton::textColourOffId);   // the same ink as the label
+
+    // Axes: output up the side, input along the bottom.
+    g.setColour (ink.withAlpha (0.45f));
+    juce::Path axes;
+    axes.startNewSubPath (area.getX(), area.getY());
+    axes.lineTo (area.getX(), area.getBottom());
+    axes.lineTo (area.getRight(), area.getBottom());
+    g.strokePath (axes, juce::PathStrokeType (1.0f));
+
+    // The response: rises evenly up to the threshold, then bends to a shallower slope.
+    const float bendX = 0.45f, bendY = 0.45f;   // as fractions of the picture, from the bottom left
+    const float after = bendY + (1.0f - bendX) * slopeAfterBend (limit);
+    auto at = [&] (float x, float y) { return juce::Point<float> (area.getX() + area.getWidth() * x, area.getBottom() - area.getHeight() * y); };
+    juce::Path line;
+    line.startNewSubPath (at (0.0f, 0.0f));
+    line.lineTo (at (bendX, bendY));
+    line.lineTo (at (1.0f, after));
+    g.setColour (ink);
+    g.strokePath (line, juce::PathStrokeType (1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
 //==============================================================================
@@ -271,13 +306,15 @@ void SongsmithOpticalLevellerEditor::paintContent (juce::Graphics& g)
     const auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) designWidth, (float) designHeight);
     Songsmith::UI::LookAndFeelBase::drawPanel (g, r);
 
-    // Faceplate: a fine brushed grain, a lit inner edge and four screws. All vector, so it scales.
+    // Faceplate: grey, with the suite's fine brushed grain over it, a lit inner edge and four screws. All vector, so it scales.
     {
-        static const Grain grain;
-        grain.draw (g);
-
         const auto plate = juce::Rectangle<float> (6.0f, (float) Songsmith::UI::titleBarHeight + 4.0f, (float) designWidth - 12.0f,
                                                    (float) contentHeight - (float) Songsmith::UI::titleBarHeight - 10.0f);
+        g.setGradientFill (juce::ColourGradient (Colours::plateTop, 0.0f, plate.getY(), Colours::plateBottom, 0.0f, plate.getBottom(), false));
+        g.fillRoundedRectangle (plate, 8.0f);
+
+        static const Grain grain;
+        grain.draw (g);
         g.setColour (juce::Colours::white.withAlpha (0.06f));
         g.drawRoundedRectangle (plate, 8.0f, 1.0f);
         g.setColour (juce::Colours::black.withAlpha (0.25f));
