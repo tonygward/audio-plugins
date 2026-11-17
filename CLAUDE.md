@@ -8,6 +8,7 @@ JUCE + CMake audio plugins (VST3, AU on macOS, Standalone) by **Songsmith Studio
 | Songsmith Analog Compressor | `analog-compressor/` | `AnalogCompressorTests` |
 | Songsmith Maximiser | `maximiser/` | `MaximiserTests` |
 | Songsmith Compressor | `compressor/` | `CompressorTests` |
+| Songsmith Optical Leveller | `optical-leveller/` | `OpticalLevellerTests` |
 
 **How work runs:** the [execution policy](docs/songsmith-execution-policy.md) is the one place the development and delivery rules are written; this file only summarises them. In short: cards in **Todo** or **Doing** run (Doing first, Todo one a day) and cards in **Backlog** or **Blocked** wait; one task at a time, no new work at 60% weekly Claude usage; Sonnet by default; after the beta release Matrix comments with the download link, closes the issue and moves the card to Done.
 
