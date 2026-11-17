@@ -1,8 +1,8 @@
 # Pultec-style EQ: reference notes and engine
 
-Reference and source notes for the planned Pultec-style EQ (PEQ-01), written before any final tuning, as the prompt asks. Code: `Source/PassiveEngine.h` and `.cpp`. Tests: `Tests/PassiveTests.cpp` (`PassiveTests`).
+Reference and source notes for Songsmith Passive EQ (PEQ-01), written before any final tuning, as the prompt asks. Code: `Source/PassiveEngine.h` and `.cpp`. Tests: `Tests/EngineTests.cpp`, run by `PassiveEQTests`.
 
-This is slice 1 of PEQ-01: the engine only. There is no plugin, editor, preset or installer entry yet, so nothing here is audible to musicians. The product name is still open; "Pultec" is the hardware's name and is used here only to say what the design is inspired by.
+The engine is used by the plugin in this folder (see the [README](../README.md)). The product is called Songsmith Passive EQ; "Pultec" is the hardware's name and is used here only to say what the design is inspired by.
 
 ## Published panel values (EQP-1A)
 
@@ -28,32 +28,24 @@ Sources: [Pulse Techniques EQP-1A](https://www.pulsetechniques.com/products/tube
 | High boost bandwidth maps to Q 0.35 (broad) to 3 (narrow) | Songsmith design choice | `High boost` (narrow is narrower than broad) |
 | Shelves use Q 0.5 (gentle) | Songsmith design choice | `Low boost`, `High cut` |
 | Everything at zero is bit-identical to the input | Songsmith design choice | `Everything at zero` |
-| No modelled colour (no tube or transformer saturation) | Songsmith design choice; colour is a later slice if wanted | none |
+| Moving a frequency switch while sound plays fades from the old filters to the new ones over 20 ms | Songsmith design choice | `Moving a frequency switch while sound plays fades, without a click` |
+| No modelled colour (no tube or transformer saturation) | Songsmith design choice; colour is a later step if wanted | none |
 
 ## Behaviour notes
 
 - **Minimum phase, no latency.** Four biquads in series per channel, in double precision (a 20 Hz shelf at 48 kHz is inaccurate in single precision).
 - **Smoothing.** The four gains glide over 20 ms; coefficients are refreshed every 16 samples on a grid that does not depend on the host's block size (`Block size does not change the result`).
-- **Stepped frequency switches are not smoothed.** Changing a frequency switch while audio plays can click. A later slice should crossfade; this is a known limitation.
+- **Stepped frequency switches crossfade.** Changing a frequency switch while audio plays keeps the old filters running and fades to the new ones over 20 ms, so it does not click. The cost is that, for those 20 ms, both sets of filters run.
 - **Sample rates.** Settings sound the same at 44.1, 48 and 96 kHz below 10 kHz (`The same settings sound the same`). At 44.1 kHz the 16 kHz boost and the 20 kHz cut are limited to 0.45 of the sample rate.
 - **Real-time safety.** `process()` does not allocate, lock or log. Non-finite input is treated as silence.
 
 ## Preset source notes (before tuning)
 
-Joe Gilder's broad tone-shaping tutorials are the named starting point for presets. They have **not** been reviewed yet, so there are no preset values or attributions here. Slice 5 writes the source notes first and keeps educator names in these notes and in optional credits, not in tooltips or preset titles.
+Joe Gilder's broad tone-shaping tutorials are the named starting point for presets. They have **not** been reviewed, so no preset value comes from them and there is no attribution. The starting points use published practice instead; see [presets.md](presets.md).
 
 ## Not yet done
 
-- Plugin target, stable identity, parameters, state, editor, response curve.
-- Presets, installer and CI wiring.
-- Level-matched listening notes and a real host check. The tests use synthetic sine signals, so no listening verification is claimed.
-
-## Slices
-
-| Slice | What | State |
-|---|---|---|
-| 1 | Reference notes and engine ([this page](reference.md)) | In review |
-| 2 | Plugin shell: target, identity, parameters, state, CI and installer entries (a person reviews the workflow and installer changes) | To do |
-| 3 | Editor with response curve | To do |
-| 4 | Frequency switch crossfade, optional colour | To do |
-| 5 | Source notes, presets, host and listening checks, release | To do |
+- A real host check and level-matched listening notes. The tests use synthetic signals, so no listening verification is claimed.
+- Reviewing Joe Gilder's tone-shaping tutorials for presets.
+- Optional colour (tube or transformer saturation).
+- A measured comparison with a real unit: the low cut's corner ratio and the bandwidth mapping are design choices, not measurements.

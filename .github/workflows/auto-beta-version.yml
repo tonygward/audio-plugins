@@ -14,6 +14,7 @@ on:
       - 'maximiser/**'
       - 'compressor/**'
       - 'optical-leveller/**'
+      - 'pultec-eq/**'
       - 'shared/**'
       - 'installer/**'
       - 'VERSION'

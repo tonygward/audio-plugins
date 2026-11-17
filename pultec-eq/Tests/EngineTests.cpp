@@ -1,4 +1,4 @@
-// Pultec-style EQ engine tests (PEQ-01, slice 1). Run: PassiveTests.exe
+// Pultec-style EQ engine tests (PEQ-01). Run as part of PassiveEQTests.exe (category PassiveEQ).
 #include <juce_core/juce_core.h>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <cmath>
@@ -195,6 +195,59 @@ public:
             expectWithinAbsoluteError (peak, 0.2f * std::pow (10.0f, e.responseDb (100.0) / 20.0f), 0.2f * 0.08f, "arrives at the level the response gives at 100 Hz");
         }
 
+        beginTest ("Moving a frequency switch while sound plays fades, without a click");
+        for (double fs : { 44100.0, 48000.0, 96000.0 })
+        {
+            // The biggest step between neighbouring samples of a 100 Hz sine, with and without a switch moving halfway.
+            auto biggestStep = [fs] (bool moveSwitch, int& lowIndexAfter)
+            {
+                Engine e; e.prepare (fs);
+                Params p; p.lowBoostDb = 12.0f; p.lowFrequencyIndex = 1; p.highBoostDb = 12.0f; p.highBoostFrequencyIndex = 1;
+                e.setParams (p);
+                const int n = (int) (fs * 0.6), at = (int) (fs * 0.3);
+                float last = 0.0f, biggest = 0.0f;
+                for (int i = 0; i < n; ++i)
+                {
+                    if (moveSwitch && i == at)
+                    {
+                        p.lowFrequencyIndex = 3; p.highBoostFrequencyIndex = 4;   // 30 to 100 Hz, 4 to 10 kHz
+                        e.setParams (p);
+                    }
+                    float x = 0.2f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 100.0 * (double) i / fs);
+                    float* ch[] = { &x };
+                    e.process (ch, 1, 1);
+                    if (i > (int) (fs * 0.2) && std::isfinite (x)) biggest = juce::jmax (biggest, std::abs (x - last));
+                    last = x;
+                }
+                lowIndexAfter = p.lowFrequencyIndex;
+                return biggest;
+            };
+            int index = 0;
+            const float steady = biggestStep (false, index), moved = biggestStep (true, index);
+            expectEquals (index, 3);
+            expectLessThan (moved, steady * 1.6f + 0.02f, juce::String ("no click when a switch moves at ") + juce::String (fs));
+        }
+
+        {
+            // After the fade the sound is what the new settings give, and the fade is over in 20 ms.
+            Engine e; e.prepare (48000.0);
+            Params p; p.lowBoostDb = 10.0f; p.lowFrequencyIndex = 0;
+            e.setParams (p);
+            std::vector<float> x (48000);
+            for (size_t i = 0; i < x.size(); ++i)
+                x[i] = 0.1f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 60.0 * (double) i / 48000.0);
+            float* ch[] = { x.data() };
+            e.process (ch, 1, 24000);
+            p.lowFrequencyIndex = 3;
+            e.setParams (p);
+            float* ch2[] = { x.data() + 24000 };
+            e.process (ch2, 1, 24000);
+            double power = 0.0;
+            for (size_t i = 36000; i < x.size(); ++i) power += (double) x[i] * x[i];
+            const float measured = (float) (10.0 * std::log10 (power / 12000.0 / (0.1 * 0.1 * 0.5)));
+            expectWithinAbsoluteError (measured, e.responseDb (60.0), 0.3f, "settles to the response of the new switch position");
+        }
+
         beginTest ("Extreme and non-finite values, and silence");
         {
             Engine e; e.prepare (48000.0);
@@ -222,20 +275,3 @@ public:
 
 static PassiveEngineTests passiveEngineTests;
 
-int main (int, char**)
-{
-    struct Runner final : juce::UnitTestRunner
-    {
-        void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); }
-    } runner;
-    runner.runAllTests();
-
-    int failures = 0, checks = 0;
-    for (int i = 0; i < runner.getNumResults(); ++i)
-    {
-        failures += runner.getResult (i)->failures;
-        checks += runner.getResult (i)->passes + runner.getResult (i)->failures;
-    }
-    std::printf ("\n==== %d checks passed, %d failed ====\n", checks - failures, failures);
-    return failures == 0 ? 0 : 1;
-}
