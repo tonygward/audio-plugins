@@ -15,6 +15,7 @@ on:
       - 'compressor/**'
       - 'optical-leveller/**'
       - 'pultec-eq/**'
+      - 'bus-compressor/**'
       - 'shared/**'
       - 'installer/**'
       - 'VERSION'

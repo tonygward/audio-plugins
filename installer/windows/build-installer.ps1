@@ -1,12 +1,12 @@
 # Builds the Songsmith Plugins Windows installer (Inno Setup 6): every plugin in one Setup, each
-# one ticked by default. Uses existing Release builds of the six plugins.
+# one ticked by default. Uses existing Release builds of the seven plugins.
 #
 #   .\installer\windows\build-installer.ps1                  # -> build\suite-installer\Songsmith-Plugins-<version>-win64-setup.exe
 #   .\installer\windows\build-installer.ps1 -EqDir <folder>  # a plugin's Release artefacts from somewhere else (CI)
 #   .\installer\windows\build-installer.ps1 -SuiteVersion <older version> -OutDir <folder>   # tests: an "older" suite
 #
 # Every plugin and the suite share the one version in VERSION at the repository root.
-# Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser, compressor, optical-leveller, pultec-eq).
+# Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser, compressor, optical-leveller, pultec-eq, bus-compressor).
 # Writes the path of the installer to the output.
 param(
     [string]$EqDir,
@@ -15,6 +15,7 @@ param(
     [string]$CompDir,
     [string]$OptDir,
     [string]$PeqDir,
+    [string]$BusDir,
     [string]$SuiteVersion,
     [string]$OutDir,
     [string]$Config = "Release"
@@ -38,7 +39,8 @@ $plugins = @(
     @{ Key = "Max"; Folder = "maximiser";         Target = "SongsmithMaximiser";        Name = "Songsmith Maximiser";         Dir = $MaxDir },
     @{ Key = "Comp"; Folder = "compressor";       Target = "SongsmithCompressor";       Name = "Songsmith Compressor";        Dir = $CompDir },
     @{ Key = "Opt";  Folder = "optical-leveller"; Target = "SongsmithOpticalLeveller";   Name = "Songsmith Optical Leveller";  Dir = $OptDir },
-    @{ Key = "Peq";  Folder = "pultec-eq";        Target = "SongsmithPassiveEQ";        Name = "Songsmith Passive EQ";        Dir = $PeqDir }
+    @{ Key = "Peq";  Folder = "pultec-eq";        Target = "SongsmithPassiveEQ";        Name = "Songsmith Passive EQ";        Dir = $PeqDir },
+    @{ Key = "Bus";  Folder = "bus-compressor";   Target = "SongsmithBusCompressor";   Name = "Songsmith Bus Compressor";    Dir = $BusDir }
 )
 
 $defines = @("/DSuiteVersion=$SuiteVersion")

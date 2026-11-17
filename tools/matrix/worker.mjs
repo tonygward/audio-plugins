@@ -9,7 +9,7 @@ import { buildPlan, worktreePlan } from './validation.mjs';
 import { runProcess, limitedEnvironment } from './process.mjs';
 import { tokensUsed } from './budget.mjs';
 
-const plugins = ['eq', 'analog-compressor', 'maximiser', 'compressor', 'optical-leveller', 'pultec-eq'];
+const plugins = ['eq', 'analog-compressor', 'maximiser', 'compressor', 'optical-leveller', 'pultec-eq', 'bus-compressor'];
 const within = (parent, child) => { const relative = path.relative(path.resolve(parent), path.resolve(child)); return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative); };
 const native = p => typeof p === 'string' && path.isAbsolute(p) && !/\.(cmd|bat|ps1)$/i.test(p);
 export function validateWorker(config) {
@@ -62,7 +62,7 @@ export function validateChanges(files) {
   for (const file of files) {
     if (!file || /[\\\x00-\x1f]/.test(file) || file.split('/').some(p => p === '..' || p.startsWith('.'))
       // Root CHANGELOG.md is the one root file allowed: CLAUDE.md requires user-visible changes to add notes under "## Unreleased".
-      || !/^(eq|analog-compressor|maximiser|compressor|optical-leveller|pultec-eq|shared)\/(Source|Tests|Resources|docs)\//.test(file) && !/^(eq|analog-compressor|maximiser|compressor|optical-leveller|pultec-eq)\/README\.md$/.test(file) && file !== 'CHANGELOG.md'
+      || !/^(eq|analog-compressor|maximiser|compressor|optical-leveller|pultec-eq|bus-compressor|shared)\/(Source|Tests|Resources|docs)\//.test(file) && !/^(eq|analog-compressor|maximiser|compressor|optical-leveller|pultec-eq|bus-compressor)\/README\.md$/.test(file) && file !== 'CHANGELOG.md'
       || /\.(exe|dll|cmd|bat|ps1|sh|cmake)$/i.test(file)) throw Error('Change outside permitted source/test/documentation scope');
   }
 }

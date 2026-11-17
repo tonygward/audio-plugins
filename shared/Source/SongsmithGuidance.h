@@ -18,6 +18,9 @@ namespace Songsmith::Guidance
         if (pluginName.containsIgnoreCase ("Analog Compressor"))
             return "Evens out louder and quieter parts and can add analogue-style character. "
                    "Listen for lost punch if you compress too hard.";
+        if (pluginName.containsIgnoreCase ("Bus Compressor"))   // before the plain Compressor below
+            return "Glues a group of sounds or a whole mix together, like a classic mixing desk bus compressor. "
+                   "Turn Threshold down a little at a time and listen for lost punch.";
         if (pluginName.containsIgnoreCase ("Compressor"))   // after the Analog Compressor above
             return "Evens out loud and quiet parts with plain controls. "
                    "Make small changes and listen for lost punch.";
