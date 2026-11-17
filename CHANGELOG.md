@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+Behind-the-scenes groundwork for a future standalone Loudness Analyser: the code that reads a finished WAV, AIFF or FLAC file and explains its format and loudness in plain, optional advice. There is nothing new to see in the plugins and nothing you need to do.
+
 ## 0.5.41
 
 - New plugin: **Songsmith Passive EQ**, a gentle tone equaliser inspired by a classic passive design. It boosts and cuts the low end around 20, 30, 60 or 100 Hz, lifts the high end with a choice of seven frequencies and an adjustable width, and turns the very top down with a choice of three frequencies. A curve shows exactly what you are doing to the sound. It comes with six starting points (Bass Weight, Kick Drum Weight, Lead Vocal Air, Acoustic Guitar Brightness, Mix Bus Polish and Soften Harsh Highs) and is in both suite installers, with its own tick box. You do not need to do anything; your sessions and other plugins are unchanged. This has not yet been checked in a DAW.
