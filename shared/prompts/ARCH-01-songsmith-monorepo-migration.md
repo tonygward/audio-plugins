@@ -22,11 +22,11 @@ Simplify Songsmith development to a single repository for JUCE audio plugins, Ma
 
 Today plugin source and the remote development agent are in `tonygward/audio-plugins`; the beta portal source is in `tonygward/songsmith-website`. `tonygward/songsmithstudio` is explicitly **out of migration scope**. Only `audio-plugins` and `songsmith-website` are source repositories for this epic. The private beta site exists at `beta.songsmith.uk`. The public commercial shop window `songsmith.uk` is **future**, not a finished deployment.
 
-Desired one-repository layout (refine only after a dependency audit):
+Desired one-repository layout (refine only after a dependency audit). Use `src/` rather than a redundant `songsmith-plugins/plugins/` nesting:
 
 ```text
 songsmith-plugins/                    # Rename existing audio-plugins repository
-  plugins/
+  src/
     eq/
     analog-compressor/
     maximiser/
@@ -46,7 +46,7 @@ songsmith-plugins/                    # Rename existing audio-plugins repository
 
 **Agent name:** Replace the future top-level `matrix/` folder proposal with `agent-runner/`, expressing a **remote autonomous work-pickup/orchestration service independent of the machine hosting it**. Existing `tools/matrix` and `tools/matrix-linux` are implementation paths today; inventory all scripts, imports, CLI names, config, tests, Docker/WSLc entrypoints, service names and docs before changing paths. Preserve current scheduling, Claude execution, task claims, auto-merge and privilege boundaries. Historical references can retain the term Matrix when required for traceability.
 
-**Shared folder:** Confirmed `shared/CMakeLists.txt` builds `songsmith_ui` consumed by plugins; move plugin-specific shared code, Resources, Tests and their relevant docs to `plugins/shared/`, fixing include paths, CMake targets and build/test references. **Do not** move `shared/prompts/` into plugins: move canonical prompts/archive to `prompts/`. Move architecture/operational docs to `docs/` and assess any other shared files individually. Include tests that all products still link shared code.
+**Shared folder:** Confirmed `shared/CMakeLists.txt` builds `songsmith_ui` consumed by plugins; move plugin-specific shared code, Resources, Tests and their relevant docs to `src/shared/`, fixing include paths, CMake targets and build/test references. **Do not** move `shared/prompts/` into plugins: move canonical prompts/archive to `prompts/`. Move architecture/operational docs to `docs/` and assess any other shared files individually. Include tests that all products still link shared code.
 
 **Cloudflare non-regression (hard blocker):** The **existing** beta Pages workflow/integration must remain operational after moving website source and changing the repository. Retain `beta.songsmith.uk` and its Access protection, route/configuration, environment bindings and credentials in trusted contexts; explicitly adapt Cloudflare Pages repository binding, root/build/output directories, branch/build hooks, GitHub Actions, path filters and deployment authorization. A subsequent `websites/public/` deployment to `songsmith.uk` is a **future separate integration**: scaffold boundaries but do not claim the public site or integration exists, and never publish beta assets publicly. Both sites must be deployable independently.
 
