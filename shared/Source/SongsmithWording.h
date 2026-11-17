@@ -26,7 +26,8 @@ namespace Songsmith::UI::Wording
     // product name "EQ" (Songsmith EQ; generic text says "equaliser" or "band").
     inline bool isAllowedShortForm (const juce::String& word)
     {
-        static const juce::StringArray allowed { "Q", "LUFS", "VST3", "AU", "EQ" };
+        // REC-01: WAV, AIFF and FLAC are file format names and "CD quality" is the established plain phrase.
+        static const juce::StringArray allowed { "Q", "LUFS", "VST3", "AU", "EQ", "WAV", "AIFF", "FLAC", "CD" };
         return allowed.contains (word);
     }
 
