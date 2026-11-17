@@ -18,7 +18,11 @@ It lifts or lowers the low end and the high end in broad, gentle strokes. The co
 - **High Boost** chooses a frequency (3, 4, 5, 8, 10, 12 or 16 kHz). **Boost** lifts the top end around it, and **Bandwidth** sets how wide the lift is, from broad to narrow.
 - **High Cut** chooses a frequency (5, 10 or 20 kHz). **Cut** turns everything above it down.
 
-The curve at the top shows the combined effect, from 20 Hz to 20 kHz. Everything else is the same as the other Songsmith plugins: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu, and **Processing Load** at the bottom left.
+The curve at the top shows the combined effect, from 20 Hz to 20 kHz. The two tall meters on the right show the output level of the left and right channels, after the filters and Bypass, in dBFS. There is no output level control, so a boost makes the sound louder: if the CLIP warning lights, lower the boosts. It measures sample peak, not true peak. Everything else is the same as the other Songsmith plugins: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu, and **Processing Load** at the bottom left.
+
+![Songsmith Passive EQ with the output meters showing a tone](docs/images/peq-03-output-meters.png)
+
+*Real screenshot at 200 %, with a steady tone playing through it.*
 
 A new instance does nothing: every amount starts at zero, and the sound passes through exactly as it came in.
 

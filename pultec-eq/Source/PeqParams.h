@@ -42,11 +42,11 @@ namespace Peq
     // The editor is laid out once at a design size and scaled as a whole, so every size looks the same.
     namespace EditorLayout
     {
-        constexpr int designWidth = 960, contentHeight = 448;   // the controls sit above the footer strip
+        constexpr int designWidth = 1016, contentHeight = 448;   // the controls sit above the footer strip
         constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
         constexpr int designHeight = contentHeight + footerHeight;
         constexpr int defaultWidth = designWidth;
-        constexpr int minWidth = 720, maxWidth = 2880;           // 75 % to 300 %
+        constexpr int minWidth = 762, maxWidth = 3048;           // 75 % to 300 %
 
         inline int constrainWidth (int width) noexcept { return juce::jlimit (minWidth, maxWidth, width); }
         inline int heightFor (int width) noexcept      { return juce::roundToInt ((double) width * designHeight / designWidth); }

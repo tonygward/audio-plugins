@@ -6,6 +6,7 @@
 #include "PassiveEngine.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
 #include "../../shared/Source/SongsmithHeader.h"
+#include "../../shared/Source/SongsmithOutputMeter.h"
 
 class SongsmithPassiveEQProcessor : public juce::AudioProcessor
 {
@@ -57,6 +58,10 @@ public:
 
     // Editor state saved with the session (not automatable): window width.
     std::atomic<int> editorWidth { Peq::EditorLayout::defaultWidth };
+
+    // The output level for the editor's stereo meter: each channel's peak after all the processing and Bypass, read once by the
+    // editor (the same shared meter as Songsmith EQ and Songsmith Compressor). Written lock-free from the audio thread.
+    Songsmith::UI::OutputMeterState outputMeter;
 
     // Optional timing of processBlock for the editor's Processing Load readout (off unless the editor switches it on).
     Songsmith::Diagnostics::LoadMeter loadMeter;

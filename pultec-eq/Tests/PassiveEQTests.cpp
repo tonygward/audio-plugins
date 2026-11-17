@@ -672,6 +672,103 @@ public:
             expectEquals (getParam (p, Peq::lowCutId), 0.0f);
             expectEquals (getParam (p, Peq::lowFrequencyId), (float) Peq::defaultLowFrequency);
         }
+
+        beginTest ("The output meter reads each channel of the processed sound: silence, a calibrated sine, imbalance, boosts, Bypass, clipping and mono");
+        {
+            auto sine = [] (int n, float amp, double hz, double fs)
+            {
+                std::vector<float> v ((size_t) n);
+                for (int i = 0; i < n; ++i)
+                    v[(size_t) i] = amp * (float) std::sin (2.0 * 3.14159265358979 * hz * (double) i / fs);
+                return v;
+            };
+            const double fs = 48000.0;
+
+            {
+                SongsmithPassiveEQProcessor p;
+                prepare (p, fs, 480);
+                run (p, { std::vector<float> (4800, 0.0f), std::vector<float> (4800, 0.0f) }, 480);
+                expectEquals (p.outputMeter.readAndResetChannel (0), 0.0f, "silence reads as silence");
+
+                // Left 0.5 and right 0.1, flat: the meter reads what comes out, separately for each side.
+                run (p, { sine (48000, 0.5f, 1000.0, fs), sine (48000, 0.1f, 1000.0, fs) }, 480);
+                const float left = p.outputMeter.readAndResetChannel (0), right = p.outputMeter.readAndResetChannel (1);
+                expectWithinAbsoluteError (left, 0.5f, 0.01f, "a calibrated sine on the left");
+                expectWithinAbsoluteError (right, 0.1f, 0.005f, "and a quieter one on the right");
+                expectWithinAbsoluteError (juce::Decibels::gainToDecibels (left) - juce::Decibels::gainToDecibels (right), 13.98f, 0.3f, "the imbalance is 14 dB");
+                expectEquals (p.outputMeter.readAndResetChannel (0), 0.0f, "reading clears it");
+                expectEquals (p.outputMeter.channels.load(), 2);
+            }
+            {
+                // After the processing: a low boost makes the output louder than the input.
+                SongsmithPassiveEQProcessor p;
+                prepare (p, fs, 480);
+                setParam (p, Peq::lowFrequencyId, 3.0f);   // 100 Hz
+                setParam (p, Peq::lowBoostId, 10.0f);
+                const auto in = sine (48000, 0.3f, 100.0, fs);
+                run (p, { in, in }, 480);
+                expect (p.outputMeter.readAndResetChannel (0) > 0.3f * 1.5f, "the meter reads the boosted sound, not the input");
+            }
+            {
+                // Bypass: what leaves is the input.
+                SongsmithPassiveEQProcessor p;
+                prepare (p, fs, 480);
+                setParam (p, Peq::lowFrequencyId, 3.0f);
+                setParam (p, Peq::lowBoostId, 10.0f);
+                setParam (p, Peq::bypassId, 1.0f);
+                const auto in = sine (48000, 0.3f, 100.0, fs);
+                run (p, { in, in }, 480);
+                p.outputMeter.readAndResetChannel (0);
+                run (p, { in, in }, 480);
+                expectWithinAbsoluteError (p.outputMeter.readAndResetChannel (0), 0.3f, 0.005f, "bypassed, the meter reads the untouched input");
+            }
+            {
+                // Clipping: the warning lights at 0 dBFS and clears after the sound has stopped.
+                SongsmithPassiveEQProcessor p;
+                prepare (p, fs, 480);
+                run (p, { sine (4800, 1.2f, 1000.0, fs), sine (4800, 0.2f, 1000.0, fs) }, 480);
+                expect (p.outputMeter.clipLatched.load(), "the clip warning lights");
+                run (p, { std::vector<float> (96000, 0.0f), std::vector<float> (96000, 0.0f) }, 480);
+                expect (! p.outputMeter.clipLatched.load(), "and clears in silence");
+            }
+            {
+                SongsmithPassiveEQProcessor p;
+                prepare (p, fs, 480, 1);
+                run (p, { sine (4800, 0.4f, 1000.0, fs) }, 480);
+                expectEquals (p.outputMeter.channels.load(), 1, "a mono host shows one bar");
+                expectWithinAbsoluteError (p.outputMeter.readAndResetChannel (0), 0.4f, 0.01f);
+            }
+        }
+
+        beginTest ("The output meter sits on the right edge, labelled, beside the curve and the groups, and follows the audio");
+        for (int width : { Peq::EditorLayout::minWidth, Peq::EditorLayout::defaultWidth, Peq::EditorLayout::maxWidth })
+        {
+            SongsmithPassiveEQProcessor p;
+            prepare (p, 48000.0, 480);
+            auto ed = make (p, width);
+            const auto context = "at " + juce::String (width) + " px";
+            auto& meter = ed->getOutputMeter();
+            auto* content = meter.getParentComponent();
+            expect (content->getLocalBounds().contains (meter.getBounds()), context + ": inside the editor");
+            expect (meter.getBottom() <= Peq::EditorLayout::contentHeight, context + ": above the footer strip");
+            expect (meter.getX() >= ed->getCurve().getRight() && meter.getX() >= ed->getHighCutGroup().getRight(), context + ": right of the curve and every group");
+            expectEquals (meter.getTitle(), juce::String ("Output level"));
+            expect (meter.getTooltip().contains ("not true peak") && meter.getTooltip().contains ("left and right"), context + ": the tooltip says what it measures");
+            Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), context);
+        }
+        {
+            SongsmithPassiveEQProcessor p;
+            prepare (p, 48000.0, 480);
+            auto ed = make (p, Peq::EditorLayout::defaultWidth);
+            std::vector<float> in (48000);
+            for (size_t i = 0; i < in.size(); ++i)
+                in[i] = 0.5f * (float) std::sin (2.0 * 3.14159265358979 * 1000.0 * (double) i / 48000.0);
+            run (p, { in, std::vector<float> (in.size(), 0.0f) }, 480);
+            ed->advanceMeter (0.033);
+            expectEquals (ed->getOutputMeter().getNumChannels(), 2);
+            expect (ed->getOutputMeter().getPeakText() != juce::String::charToString (0x2013), "the held peak shows a number");
+            expectWithinAbsoluteError (ed->getOutputMeter().getHoldDb(), -6.0f, 0.3f, "the held peak is about -6 dBFS");
+        }
     }
 };
 
@@ -697,6 +794,17 @@ static int renderScreenshot (const juce::File& file, float scale, int preset)
     prepare (p, 48000.0, 512);
     std::unique_ptr<SongsmithPassiveEQEditor> editor (dynamic_cast<SongsmithPassiveEQEditor*> (p.createEditor()));
     editor->refreshCurve();
+
+    // Two seconds of a steady tone, a little louder on the left, so the output meter has something to show.
+    std::vector<float> left (96000), right (96000);
+    for (size_t i = 0; i < left.size(); ++i)
+    {
+        const float tone = (float) std::sin (2.0 * 3.14159265358979 * 440.0 * (double) i / 48000.0);
+        left[i] = 0.35f * tone;
+        right[i] = 0.25f * tone;
+    }
+    run (p, { left, right }, 512);
+    editor->advanceMeter (0.5);
 
     const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, scale);
     file.deleteFile();
