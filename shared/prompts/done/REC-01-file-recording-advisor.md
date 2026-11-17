@@ -42,4 +42,4 @@ Do not imply 44.1 kHz is inferior for music, 16-bit is unusable, or changing an 
 
 ## Delivery
 
-Follow the [execution policy](../../docs/songsmith-execution-policy.md). The board decides when this runs; Sonnet is the default model.
+Follow the [execution policy](../../../docs/songsmith-execution-policy.md). The board decides when this runs; Sonnet is the default model.

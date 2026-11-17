@@ -31,7 +31,7 @@ Keep validating and improving what already exists before fixing the order of new
 
 **Future reference review:** [ADV-02](../shared/prompts/ADV-02-reference-mix-guided-review.md) proposes comparing a musician's own mix with a reference, first by measurable stereo-mix properties and later by instrument/group when stems or track routing are supplied. High-effort research, not scheduled.
 
-**Future cross-product feature — Recording and Mixing Advisor:** optional, context-sensitive, plain-English explanations in each plugin, with whole-file recording-format advice in the separate standalone Loudness Analyser. Each message answers *what matters, why it matters, and whether any action is needed*. See [REC-01](../shared/prompts/REC-01-file-recording-advisor.md) and [ADV-01](../shared/prompts/done/ADV-01-musician-guidance.md).
+**Future cross-product feature — Recording and Mixing Advisor:** optional, context-sensitive, plain-English explanations in each plugin, with whole-file recording-format advice in the separate standalone Loudness Analyser. Each message answers *what matters, why it matters, and whether any action is needed*. See [REC-01](../shared/prompts/done/REC-01-file-recording-advisor.md) and [ADV-01](../shared/prompts/done/ADV-01-musician-guidance.md).
 
 ## Songsmith EQ — proposed instrument guide
 

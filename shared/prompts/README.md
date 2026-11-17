@@ -9,7 +9,7 @@ This is an index, not the queue: the board decides what runs and in what order. 
 | ID | Canonical prompt | Tracking issue |
 |---|---|---|
 | ARCH-01 | [Monorepo migration — plugins, Matrix and two websites](ARCH-01-songsmith-monorepo-migration.md) (parent epic, not one Matrix job) | [#194](https://github.com/tonygward/audio-plugins/issues/194) |
-| REC-01 | [Standalone file Recording and Streaming Advisor](REC-01-file-recording-advisor.md) | [#173](https://github.com/tonygward/audio-plugins/issues/173) |
+| REC-01 | [Standalone file Recording and Streaming Advisor](done/REC-01-file-recording-advisor.md) | [#173](https://github.com/tonygward/audio-plugins/issues/173) |
 | ADV-02 | [Reference-mix guided review](ADV-02-reference-mix-guided-review.md) | [#172](https://github.com/tonygward/audio-plugins/issues/172) |
 | PEQ-01 | [Pultec-style EQ](classics/PEQ-01-pultec-eq.md) | [#170](https://github.com/tonygward/audio-plugins/issues/170) |
 | OPT-01 | [Optical Leveller](classics/OPT-01-optical-leveller.md) | [#169](https://github.com/tonygward/audio-plugins/issues/169) |
