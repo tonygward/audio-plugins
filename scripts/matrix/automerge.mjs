@@ -12,8 +12,8 @@ export function inScope(file) {
   if (typeof file !== 'string' || !file || /[\\\x00-\x1f]/.test(file)) return false;
   if (file.split('/').some(part => part === '..' || part.startsWith('.'))) return false;
   if (/\.(exe|dll|cmd|bat|ps1|sh|cmake)$/i.test(file)) return false;
-  return /^(eq|analog-compressor|maximiser|compressor|shared)\/(Source|Tests|Resources|docs)\//.test(file)
-    || /^(eq|analog-compressor|maximiser|compressor)\/README\.md$/.test(file)
+  return /^(eq|analog-compressor|maximiser|compressor|optical-leveller|shared)\/(Source|Tests|Resources|docs)\//.test(file)
+    || /^(eq|analog-compressor|maximiser|compressor|optical-leveller)\/README\.md$/.test(file)
     || file === 'CHANGELOG.md';
 }
 
@@ -88,7 +88,7 @@ export function promptIdFromBranch(branch) {
 
 // dir/prompts/x.md -> dir/prompts/done/x.md. Refuses anything already archived or outside a prompts folder.
 export function archivePath(file) {
-  const match = /^((?:eq|analog-compressor|maximiser|compressor|shared)\/prompts)\/([^/]+\.md)$/.exec(file ?? '');
+  const match = /^((?:eq|analog-compressor|maximiser|compressor|optical-leveller|shared)\/prompts)\/([^/]+\.md)$/.exec(file ?? '');
   return match ? `${match[1]}/done/${match[2]}` : null;
 }
 

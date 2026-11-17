@@ -6,7 +6,7 @@
 # -EqInstaller is Songsmith EQ's own installer (eq/installer), used to check that the suite
 # replaces a per-plugin install. -OlderInstaller is a suite installer with a lower version, used
 # to check upgrades; if it's missing, it's built from the same plugins with an older version (see $olderVersion).
-# -EqDir, -FetDir, -MaxDir and -CompDir are the plugins' Release artefacts, as for build-installer.ps1
+# -EqDir, -FetDir, -MaxDir, -CompDir and -OptDir are the plugins' Release artefacts, as for build-installer.ps1
 # (CI passes the folders it downloaded; locally the plugins' own build folders are used).
 #
 # Everything happens inside a temporary folder. The installers run per-user (/CURRENTUSER) with
@@ -21,7 +21,8 @@ param(
     [string]$EqDir,
     [string]$FetDir,
     [string]$MaxDir,
-    [string]$CompDir
+    [string]$CompDir,
+    [string]$OptDir
 )
 
 $ErrorActionPreference = "Stop"
@@ -37,6 +38,7 @@ if ($EqDir)  { $builds.EqDir  = $EqDir }
 if ($FetDir) { $builds.FetDir = $FetDir }
 if ($MaxDir) { $builds.MaxDir = $MaxDir }
 if ($CompDir) { $builds.CompDir = $CompDir }
+if ($OptDir) { $builds.OptDir = $OptDir }
 if (-not $Installer) {
     $Installer = (& (Join-Path $PSScriptRoot "build-installer.ps1") @builds | Select-Object -Last 1)
 }
@@ -58,6 +60,7 @@ $plugins = [ordered]@{
     fet = "Songsmith Analog Compressor"
     max = "Songsmith Maximiser"
     comp = "Songsmith Compressor"
+    opt = "Songsmith Optical Leveller"
 }
 function Bundle([string]$key) { Join-Path $vst3Dir "$($plugins[$key]).vst3" }
 function Dll([string]$key)    { Join-Path (Bundle $key) "Contents\x86_64-win\$($plugins[$key]).vst3" }
@@ -141,13 +144,13 @@ try {
 
     Write-Host "`n1. Everything ticked"
     Check ((Run-Suite $Installer "1-all.log" "") -eq 0) "installer exits with 0"
-    Expect-Installed @("eq", "fet", "max", "comp") "everything"
+    Expect-Installed @("eq", "fet", "max", "comp", "opt") "everything"
     Check (Test-Path $suiteUninstaller) "one uninstaller"
     Check ((Split-Path $Installer -Leaf) -like "Songsmith-Plugins-*-win64-setup.exe") "the installer file is named Songsmith-Plugins-<version>-win64-setup.exe"
     Check ((Get-ItemProperty $suiteKey).DisplayName -like "Songsmith Plugins (*") "the Apps entry is called Songsmith Plugins: $((Get-ItemProperty $suiteKey).DisplayName)"
     Check ((Get-ItemProperty $suiteKey).Publisher -eq "Songsmith Studio") "the publisher is still Songsmith Studio"
     $name = (Get-ItemProperty $suiteKey).DisplayName
-    Check ($name -match "EQ \d+\.\d+\.\d+" -and $name -match "Analog Compressor \d+\.\d+\.\d+" -and $name -match "Maximiser \d+\.\d+\.\d+" -and $name -match ", Compressor \d+\.\d+\.\d+\)") "the Apps entry lists each plugin's version: $name"
+    Check ($name -match "EQ \d+\.\d+\.\d+" -and $name -match "Analog Compressor \d+\.\d+\.\d+" -and $name -match "Maximiser \d+\.\d+\.\d+" -and $name -match "Compressor \d+\.\d+\.\d+, Optical Leveller \d+\.\d+\.\d+\)") "the Apps entry lists each plugin's version: $name"
     Uninstall $suiteUninstaller
     Expect-Installed @() "after uninstall"
 
@@ -221,7 +224,7 @@ try {
     $iss = Get-Content (Join-Path $PSScriptRoot "SongsmithStudio.iss") -Raw
     Check ($iss -notmatch '(?im)^Name:\s*"\w+\\standalone"') "the Components list has no standalone sub-components"
     $componentLines = [regex]::Matches($iss, '(?im)^Name:\s*"(\w+)";\s+Description:.*Types:')
-    Check ($componentLines.Count -eq 4) "exactly four components (found $($componentLines.Count))"
+    Check ($componentLines.Count -eq 5) "exactly five components (found $($componentLines.Count))"
 
     # The installer must never reach user presets, whatever folder they're in.
     $iss = Get-Content (Join-Path $PSScriptRoot "SongsmithStudio.iss") -Raw

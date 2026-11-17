@@ -10,6 +10,7 @@ Songsmith Plugins, from Songsmith Studio, is a growing family of audio tools for
 - **Songsmith Analog Compressor** — smooth out volume changes and add punch and character.
 - **Songsmith Maximiser** — control peaks and bring your finished mix up to level.
 - **Songsmith Compressor** — even out the level with simple, clear controls and no added character.
+- **Songsmith Optical Leveller** — smooth, simple levelling with two knobs and a switch, inspired by a classic optical unit.
 
 Each plugin uses familiar controls, clear explanations and practical starting points. You can begin with a preset and adjust by ear.
 

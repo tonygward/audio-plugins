@@ -55,6 +55,8 @@ test('refuses any changed file outside the worker scope', () => {
   assert.equal(inScope('maximiser/Source/Engine.cpp'), true);
   assert.equal(inScope('compressor/Source/Engine.cpp'), true);
   assert.equal(inScope('compressor/README.md'), true);
+  assert.equal(inScope('optical-leveller/Source/OpticalEngine.h'), true);
+  assert.equal(inScope('optical-leveller/README.md'), true);
   assert.equal(inScope('shared/Resources/font.ttf'), true);
 });
 
@@ -76,6 +78,7 @@ test('branch names map to prompt ids and prompts to the done folder', () => {
   assert.equal(archivePath('shared/prompts/SUI-14-x.md'), 'shared/prompts/done/SUI-14-x.md');
   assert.equal(archivePath('eq/prompts/41-x.md'), 'eq/prompts/done/41-x.md');
   assert.equal(archivePath('compressor/prompts/01-x.md'), 'compressor/prompts/done/01-x.md');
+  assert.equal(archivePath('optical-leveller/prompts/01-x.md'), 'optical-leveller/prompts/done/01-x.md');
   assert.equal(archivePath('eq/prompts/done/41-x.md'), null);
   assert.equal(archivePath('docs/x.md'), null);
 });

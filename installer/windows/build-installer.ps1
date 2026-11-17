@@ -6,13 +6,14 @@
 #   .\installer\windows\build-installer.ps1 -SuiteVersion <older version> -OutDir <folder>   # tests: an "older" suite
 #
 # Every plugin and the suite share the one version in VERSION at the repository root.
-# Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser, compressor).
+# Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser, compressor, optical-leveller).
 # Writes the path of the installer to the output.
 param(
     [string]$EqDir,
     [string]$FetDir,
     [string]$MaxDir,
     [string]$CompDir,
+    [string]$OptDir,
     [string]$SuiteVersion,
     [string]$OutDir,
     [string]$Config = "Release"
@@ -34,7 +35,8 @@ $plugins = @(
     @{ Key = "Eq";  Folder = "eq";                Target = "SongsmithEQ";               Name = "Songsmith EQ";                Dir = $EqDir },
     @{ Key = "Fet"; Folder = "analog-compressor"; Target = "SongsmithAnalogCompressor"; Name = "Songsmith Analog Compressor"; Dir = $FetDir },
     @{ Key = "Max"; Folder = "maximiser";         Target = "SongsmithMaximiser";        Name = "Songsmith Maximiser";         Dir = $MaxDir },
-    @{ Key = "Comp"; Folder = "compressor";       Target = "SongsmithCompressor";       Name = "Songsmith Compressor";        Dir = $CompDir }
+    @{ Key = "Comp"; Folder = "compressor";       Target = "SongsmithCompressor";       Name = "Songsmith Compressor";        Dir = $CompDir },
+    @{ Key = "Opt";  Folder = "optical-leveller"; Target = "SongsmithOpticalLeveller";   Name = "Songsmith Optical Leveller";  Dir = $OptDir }
 )
 
 $defines = @("/DSuiteVersion=$SuiteVersion")

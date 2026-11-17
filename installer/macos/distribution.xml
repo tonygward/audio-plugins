@@ -40,6 +40,7 @@
         <line choice="fet"/>
         <line choice="max"/>
         <line choice="comp"/>
+        <line choice="opt"/>
     </choices-outline>
 
     <!-- Songsmith EQ -->
@@ -74,6 +75,14 @@
         <pkg-ref id="com.songsmithstudio.songsmithcompressor.app"/>
     </choice>
 
+    <!-- Songsmith Optical Leveller -->
+    <choice id="opt" title="Songsmith Optical Leveller @OPT_VERSION@" start_selected="true"
+            description="Songsmith Optical Leveller: smooth, simple levelling inspired by a classic optical unit. Installs the VST3 plugin, the Audio Unit (for Logic Pro and GarageBand) and a standalone app that runs without recording software.">
+        <pkg-ref id="com.songsmithstudio.songsmithopticalleveller.vst3"/>
+        <pkg-ref id="com.songsmithstudio.songsmithopticalleveller.au"/>
+        <pkg-ref id="com.songsmithstudio.songsmithopticalleveller.app"/>
+    </choice>
+
     <pkg-ref id="com.songsmithstudio.songsmitheq.vst3" version="@EQ_VERSION@" onConclusion="none">songsmitheq-vst3.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmitheq.au"   version="@EQ_VERSION@" onConclusion="none">songsmitheq-au.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmitheq.app"  version="@EQ_VERSION@" onConclusion="none">songsmitheq-app.pkg</pkg-ref>
@@ -84,6 +93,9 @@
     <pkg-ref id="com.songsmithstudio.songsmithmaximiser.au"   version="@MAX_VERSION@" onConclusion="none">songsmithmaximiser-au.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithmaximiser.app"  version="@MAX_VERSION@" onConclusion="none">songsmithmaximiser-app.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithcompressor.vst3" version="@COMP_VERSION@" onConclusion="none">songsmithcompressor-vst3.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithopticalleveller.vst3" version="@OPT_VERSION@" onConclusion="none">songsmithopticalleveller-vst3.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithopticalleveller.au"   version="@OPT_VERSION@" onConclusion="none">songsmithopticalleveller-au.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithopticalleveller.app"  version="@OPT_VERSION@" onConclusion="none">songsmithopticalleveller-app.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithcompressor.au"   version="@COMP_VERSION@" onConclusion="none">songsmithcompressor-au.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithcompressor.app"  version="@COMP_VERSION@" onConclusion="none">songsmithcompressor-app.pkg</pkg-ref>
 </installer-gui-script>
