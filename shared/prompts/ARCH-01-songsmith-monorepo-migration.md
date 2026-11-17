@@ -31,9 +31,11 @@ songsmith-plugins/                    # Rename existing audio-plugins repository
     analog-compressor/
     maximiser/
     compressor/
+    optical-leveller/
+    passive-eq/
     shared/                           # Shared JUCE UI, common source, resources and tests
-    ...                               # All other actual plugin products
-  agent-runner/                        # Host-neutral remote task pickup/orchestration, not 'matrix'
+    ...                               # Every existing/new plugin (inventory canonical paths)
+  agent/                        # Host-neutral remote task pickup/orchestration, not 'matrix'
   prompts/                             # Canonical task instructions and archive
   websites/
     beta/                              # Existing beta portal; existing Cloudflare Pages deploy
@@ -44,7 +46,9 @@ songsmith-plugins/                    # Rename existing audio-plugins repository
 
 **Repository scope and rename:** Rename `tonygward/audio-plugins` **in place** to `tonygward/songsmith-plugins`; import `tonygward/songsmith-website` with its history, rather than creating an unrelated empty destination repo. Only these **two** source repositories are in scope. Preserve the original audio repository's issues, PRs, tags, releases and audit history. Audit/update remote URLs, GitHub Project references, submodules, documentation, Actions, webhooks, branch protections, bots and Cloudflare integrations; do not assume GitHub redirects alone fix webhooks, API endpoints or CI workflows.
 
-**Agent name:** Replace the future top-level `matrix/` folder proposal with `agent-runner/`, expressing a **remote autonomous work-pickup/orchestration service independent of the machine hosting it**. Existing `tools/matrix` and `tools/matrix-linux` are implementation paths today; inventory all scripts, imports, CLI names, config, tests, Docker/WSLc entrypoints, service names and docs before changing paths. Preserve current scheduling, Claude execution, task claims, auto-merge and privilege boundaries. Historical references can retain the term Matrix when required for traceability.
+**Agent name:** Replace the future top-level `matrix/` folder proposal with `agent/`, expressing a **remote autonomous work-pickup/orchestration service independent of the machine hosting it**. Existing `tools/matrix` and `tools/matrix-linux` are implementation paths today; inventory all scripts, imports, CLI names, config, tests, Docker/WSLc entrypoints, service names and docs before changing paths. Preserve current scheduling, Claude execution, task claims, auto-merge and privilege boundaries. Historical references can retain the term Matrix when required for traceability.
+
+**Complete source inventory:** `src/` must include **every** currently implemented plugin (including newer modules such as Optical Leveller and Passive EQ), plus any additional modules discovered during inventory, rather than just the originally listed EQ/compressor/maximiser examples. Do not omit modules due to stale examples, and accommodate future plugins consistently. Move per-plugin CMake, source, tests, resources, presets, build manifests and installer registrations together, checking references and native builds for **each** plugin. Treat listed names as illustrative, not an exclusive inventory.
 
 **Shared folder:** Confirmed `shared/CMakeLists.txt` builds `songsmith_ui` consumed by plugins; move plugin-specific shared code, Resources, Tests and their relevant docs to `src/shared/`, fixing include paths, CMake targets and build/test references. **Do not** move `shared/prompts/` into plugins: move canonical prompts/archive to `prompts/`. Move architecture/operational docs to `docs/` and assess any other shared files individually. Include tests that all products still link shared code.
 
@@ -59,17 +63,17 @@ songsmith-plugins/                    # Rename existing audio-plugins repository
 1. **Preflight proof:** establish a complete real Todo → claimed Doing → Claude coding → exact-head Windows/macOS CI → trusted merge → incremented beta release → verified private R2 and authenticated site downloads → completion comment → closed issue → Done run. Document deficiencies first.
 2. **Inventory:** read all actual repositories, project board fields, issues, prompt indexes, redirects, workflows, branch protection/rulesets, Actions secrets/environment protections, releases, Cloudflare Pages and R2 deployment boundaries; map owner/consumer of every cross-repo webhook or dispatch.
 3. **Decision and migration design:** implement the approved in-place audio-plugins → songsmith-plugins rename (document ordering, history preservation and rollback); document Git history-preserving website import strategy, issue/PR retention, canonical links, release/tag continuity and GitHub redirects. Compare reversible approaches and submit for explicit owner approval.
-4. **Split into small child issues** for monorepo foundation; agent-runner resolver/orchestration; native build/release workflows; beta portal migration; public website scaffold; cutover and legacy retirement. Each implementation child must have its own issue + canonical Claude prompt, scope, acceptance tests, dependencies and evidence. Avoid duplicate infrastructure tickets.
+4. **Split into small child issues** for monorepo foundation; agent resolver/orchestration; native build/release workflows; beta portal migration; public website scaffold; cutover and legacy retirement. Each implementation child must have its own issue + canonical Claude prompt, scope, acceptance tests, dependencies and evidence. Avoid duplicate infrastructure tickets.
 5. **Migrate safely:** prepare a staging branch/cutover plan, preserve git history and exact commit mapping; protect agent scopes, GitHub rulesets, trusted auto-merge and release/Cloudflare secrets; support staged validation and rollback. Do not publish using Claude-held credentials.
 6. **Separate the websites:** `websites/beta` deploys to **beta.songsmith.uk** via Cloudflare Access, with private R2 and tester releases. `websites/public` independently deploys to **songsmith.uk** as a future public product catalogue / sales front. No automatic propagation of beta secrets/assets to public. Commercial fulfilment, licensing, payments and customer accounts require separate product/security decisions.
-7. **Path-based CI:** plugin changes trigger only relevant JUCE/native builds and beta VERSION/release rules; beta content deploys only beta; public content deploys only public; agent-runner/core changes invoke orchestration tests and independently gated deploy where appropriate. CI must still catch shared cross-component changes.
+7. **Path-based CI:** plugin changes trigger only relevant JUCE/native builds and beta VERSION/release rules; beta content deploys only beta; public content deploys only public; agent/core changes invoke orchestration tests and independently gated deploy where appropriate. CI must still catch shared cross-component changes.
 8. **Cutover:** prove board ordering, Doing run-now, one-task limit, claims, comments, resume/Blocked, exact-head checks, trusted merges, Windows EXE and macOS PKG installers, R2 integrity and authenticated beta downloads. Verify both domains and rollback before retiring old workflows.
 
 ## Acceptance criteria
 
 - A documented approved architecture, inventory, migration plan, owners, dependency graph and rollback playbook exist.
 - No website or git history is lost; canonical issues/prompts are resolvable, archived tasks are not recoded, links and redirects are checked.
-- Github Project board remains single source of ordering across any relevant issue repo. One active agent-runner task globally. Todo = one overnight pickup per London day; Doing = immediate unclaimed request or claimed work; claim/comment distinguishes them.
+- Github Project board remains single source of ordering across any relevant issue repo. One active agent task globally. Todo = one overnight pickup per London day; Doing = immediate unclaimed request or claimed work; claim/comment distinguishes them.
 - The current 60% usage gate, bounded Claude loop, Blocked/resume handling and task-specific verified Done are preserved with automated tests.
 - Windows/macOS CI and suites build from exact SHAs; beta third-component VERSION increments only for qualifying plugin changes, with major/minor deferred; no duplicate bump on retries.
 - `beta.songsmith.uk` stays private and independently deployable; R2/Cloudflare integrity and authenticated download route tested, no public beta exposure.
@@ -91,4 +95,4 @@ Depends on **verified** AUTO-11, AUTO-12 and AUTO-10 end-to-end operation, not m
 Follow the [execution policy](../../docs/songsmith-execution-policy.md). The board decides when this runs; Sonnet is the default model.
 
 ## Mandatory implementation issue/prompt inheritance
-Every ARCH-01 implementation child issue **and its canonical Claude prompt** must restate applicable requirements from this parent: exact two-repository scope, rename-in-place, `agent-runner` naming and host portability, split of `plugins/shared` versus `prompts`/`docs`, retention of existing beta Cloudflare Pages/Access deployment, future independent public Pages integration, unchanged Windows/macOS R2 installer publishing, secrets isolation, path-based CI, verification evidence, staged rollback and explicit owner approval. Link this epic in each child. No migration child is Done without relevant live integration evidence; parent remains open until all acceptance gates pass.
+Every ARCH-01 implementation child issue **and its canonical Claude prompt** must restate applicable requirements from this parent: exact two-repository scope, rename-in-place, `agent` naming and host portability, split of `plugins/shared` versus `prompts`/`docs`, retention of existing beta Cloudflare Pages/Access deployment, future independent public Pages integration, unchanged Windows/macOS R2 installer publishing, secrets isolation, path-based CI, verification evidence, staged rollback and explicit owner approval. Link this epic in each child. No migration child is Done without relevant live integration evidence; parent remains open until all acceptance gates pass.
