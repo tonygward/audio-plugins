@@ -1,0 +1,6 @@
+#!/bin/sh
+# Audio Unit component, after install: make macOS rescan Audio Units, so Logic and
+# GarageBand see the new version without a restart. The registrar restarts on demand;
+# if it isn't running, there's nothing to refresh.
+killall -9 AudioComponentRegistrar >/dev/null 2>&1 || true
+exit 0

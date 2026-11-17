@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- New plugin: **Songsmith Optical Leveller**, a smooth, simple leveller inspired by a classic optical unit. It has two knobs, Peak Reduction (how much levelling) and Gain (the level afterwards), a Compress or Limit switch, and a needle meter. It reacts in about a hundredth of a second and lets go more slowly the longer and harder the sound has pushed, which keeps vocals and bass even without squashing them. It comes with four starting points (Lead Vocal Levelling, Bass Guitar Levelling, Acoustic Guitar Smoothing and Drum Room Control) and is in both suite installers, with its own tick box. You do not need to do anything; your sessions and other plugins are unchanged. This has not yet been checked in a DAW.
+
 ## 0.5.39
 
 Behind-the-scenes improvements and fixes. There is nothing you need to do.
