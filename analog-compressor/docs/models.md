@@ -13,8 +13,8 @@ One plugin, one **Model** selector (lower right of the window). Each model chang
 
 | Index | Stable ID (in preset files) | Name on screen | Use (shown beside the selector and as a tooltip) |
 |---|---|---|---|
-| 0 | `revD-blackface` | Rev D · Blackface (Original Songsmith) | Start here to tame vocal, bass or guitar peaks while keeping the sound fairly clean. |
-| 1 | `revA-bluestripe` | Rev A · Blue Stripe | Try this for a gritty, upfront vocal or to make room mics sound more aggressive. |
+| 0 | `revD-blackface` | Blackface · Original Songsmith (Rev D reference) | Start here to tame vocal, bass or guitar peaks while keeping the sound fairly clean. |
+| 1 | `revA-bluestripe` | Blue Stripe (Rev A reference) | Try this for a gritty, upfront vocal or to make room mics sound more aggressive. |
 | 2 | `ae1176-anniversary` | 1176AE · Anniversary Edition | Try 2:1 for gentler control, or Slow Attack to let more of the first hit through. |
 | 3 | `lindell-inspired` | Lindell-inspired | Try this on acoustic guitar to even out strong strums while keeping the pick attack. |
 

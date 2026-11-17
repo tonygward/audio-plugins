@@ -150,8 +150,10 @@ namespace FET
     inline const juce::StringArray& modelNames()
     {
         static const juce::StringArray names {
-            juce::String (juce::CharPointer_UTF8 ("Rev D \xc2\xb7 Blackface (Original Songsmith)")),
-            juce::String (juce::CharPointer_UTF8 ("Rev A \xc2\xb7 Blue Stripe")),
+            // The wording rule bans a standalone capital letter, so the revision letters (D and A) live in docs/models.md,
+            // not on screen. The names stay the hardware's own cosmetic names.
+            juce::String (juce::CharPointer_UTF8 ("Blackface \xc2\xb7 Original Songsmith")),
+            juce::String ("Blue Stripe"),
             juce::String (juce::CharPointer_UTF8 ("1176AE \xc2\xb7 Anniversary Edition")),
             "Lindell-inspired" };
         return names;

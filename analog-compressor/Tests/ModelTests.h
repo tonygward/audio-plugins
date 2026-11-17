@@ -59,7 +59,7 @@ struct ModelTests final : juce::UnitTest
             expectEquals (FET::modelIndexFromId (nullptr), -1);
             expectEquals (FET::modelNames().size(), FET::numModels);
             expectEquals (FET::modelDescriptions().size(), FET::numModels);
-            expect (FET::modelNames()[0].contains ("Rev D") && FET::modelNames()[0].contains ("Blackface"));
+            expect (FET::modelNames()[0].contains ("Blackface") && FET::modelNames()[1].contains ("Blue Stripe"));
             expect (FET::modelNames()[3].startsWith ("Lindell"));
             SongsmithAnalogCompressorProcessor p;
             expectEquals (p.getModelIndex(), 0);
