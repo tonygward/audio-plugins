@@ -149,7 +149,7 @@ struct ModelTests final : juce::UnitTest
             set (b, ID::model, (float) ((m + 1) % FET::numModels));
             b.setStateInformation (mb.getData(), (int) mb.getSize());
             expectEquals (b.getModelIndex(), m);
-            expectEquals (b.isSlowAttackOn(), m == 2);
+            expect (b.isSlowAttackOn() == (m == 2));
         }
 
         beginTest ("sessions saved before models existed open as the Rev D Blackface");
@@ -202,8 +202,8 @@ struct ModelTests final : juce::UnitTest
                 set (b, ID::model, (float) ((m + 2) % FET::numModels));
                 expect (b.presets.loadFile (file, error), error);
                 expectEquals (b.getModelIndex(), m, "custom preset round-trip");
-                expectEquals (b.isGentleRatioOn(), m == 2);
-                expectEquals (b.isSlowAttackOn(), m == 2);
+                expect (b.isGentleRatioOn() == (m == 2));
+                expect (b.isSlowAttackOn() == (m == 2));
             }
 
             // A file from before models, and one naming a model this version does not know.
