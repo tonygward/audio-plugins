@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- The level meters in Songsmith EQ and Songsmith Compressor, and the gain reduction meter in Songsmith Compressor, now share the Maximiser's rounded, tube-like look. Gain reduction in the Compressor is shown in red. The readings and the sound have not changed, and you do not need to do anything.
+
 ## 0.5.43
 
 - New plugin: **Songsmith Bus Compressor**, a compressor for gluing a mix or a group of sounds together, inspired by a classic mixing desk bus compressor. It has Threshold, Ratio (2:1, 4:1 or 10:1), Attack (0.1 to 30 ms), Release (0.1 to 1.2 seconds, or Auto) and Make-up Gain, and both channels always get the same gain so the stereo picture holds. A row of lamps shows how much it is turning the sound down. It comes with five starting points (Mix Bus Glue, Finished Mix Gentle Glue, Drum Bus Punch, Drum Bus Heavy Control and Vocal Group Glue) and saved custom presets. It is in both suite installers with its own tick box. It has not yet been tried in a real recording program. You do not need to do anything; tick it in the installer if you want it.
