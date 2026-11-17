@@ -8,6 +8,7 @@ Audio plugins built with [JUCE](https://juce.com) and CMake.
 | **Songsmith Analog Compressor**: FET feedback compressor inspired by the 1176LN, see [`analog-compressor/README.md`](analog-compressor/README.md) | [`analog-compressor/`](analog-compressor/) | VST3, AU (macOS), Standalone |
 | **Songsmith Maximiser**: look-ahead brickwall maximiser with a loudness meter, see [`maximiser/README.md`](maximiser/README.md) | [`maximiser/`](maximiser/) | VST3, AU (macOS), Standalone |
 | **Songsmith Compressor**: clean, conventional compressor with Threshold, Ratio, Attack, Release and Knee, see [`compressor/README.md`](compressor/README.md) | [`compressor/`](compressor/) | VST3, AU (macOS), Standalone |
+| **Songsmith Optical Leveller**: LA-2A-inspired optical leveller with Peak Reduction, Gain and a Compress or Limit switch, see [`optical-leveller/README.md`](optical-leveller/README.md) | [`optical-leveller/`](optical-leveller/) | VST3, AU (macOS), Standalone |
 
 Every plugin shares one look: the same typeface, type sizes and title, from the shared UI library in [`shared/`](shared/). See the [style guide](docs/style-guide.md).
 

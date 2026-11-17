@@ -18,7 +18,7 @@ public:
     {
         using namespace Songsmith::Guidance;
 
-        const juce::StringArray names { "Songsmith EQ", "Songsmith Analog Compressor", "Songsmith Maximiser", "Songsmith Compressor" };
+        const juce::StringArray names { "Songsmith EQ", "Songsmith Analog Compressor", "Songsmith Maximiser", "Songsmith Compressor", "Songsmith Optical Leveller" };
 
         beginTest ("Every plugin title has a short, plain, truthful tooltip");
         {
