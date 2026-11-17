@@ -45,7 +45,7 @@ namespace
     const juce::Rectangle<int> grOffArea   { 592, 314, 150, 32 };
     // ACOMP-10: the Model selector fills the lower right, with its use-case line directly under it (two lines at 12 px).
     // Slow Attack (1176AE only) sits under the Release knob's column edge, the nearest free room to Attack.
-    const juce::Rectangle<int> modelBoxArea         { 592, 348, 344, 24 };
+    const juce::Rectangle<int> modelBoxArea         { 592, 346, 344, 26 };
     const juce::Rectangle<int> modelDescriptionArea { 592, 372, 344, 28 };
     const juce::Rectangle<int> slowAttackArea       { 382, 342, 112, 26 };
 
