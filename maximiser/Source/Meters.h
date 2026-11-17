@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "MaxLookAndFeel.h"
 #include "EditorLogic.h"
+#include "../../shared/Source/SongsmithTube.h"
 
 // Vertical meter, drawn as vectors. Level meters fill upwards (-48 to +3 dBFS); the gain-reduction
 // meter fills downwards from 0 (0 to 24 dB), like the L1's Attenuation meter. The owner feeds it
@@ -34,14 +35,8 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto r = getLocalBounds().toFloat().reduced (0.5f);
-        // Dark recessed housing: a deep well with a shadow along the top and a lit lower lip.
-        g.setColour (MaxColours::track.darker (0.35f));
-        g.fillRoundedRectangle (r, 3.0f);
-        g.setGradientFill (juce::ColourGradient (juce::Colours::black.withAlpha (0.45f), 0.0f, r.getY(),
-                                                 juce::Colours::transparentBlack, 0.0f, r.getY() + 10.0f, false));
-        g.fillRoundedRectangle (r, 3.0f);
-
-        const auto bar = r.reduced (3.0f);
+        // Dark recessed housing, shared by every Songsmith meter (shared/Source/SongsmithTube.h).
+        const auto bar = Songsmith::UI::Tube::paintHousing (g, r);
 
         // Scale ticks every 6 dB along both edges, drawn under the fill so the bar stays clean.
         {
@@ -90,7 +85,7 @@ public:
         else
         {
             auto toY = [&] (float db) { return bar.getY() + bar.getHeight() * juce::jlimit (0.0f, 1.0f, db / maxReductionDb); };
-            g.setColour (MaxColours::reduction);
+            g.setColour (Songsmith::UI::Tube::reductionRed);
             g.fillRect (bar.withBottom (toY (ballistics.getLevel())));
             // The zero line at the top, where reduction starts, matches the level meters' 0 dBFS line.
             g.setColour (MaxColours::text.withAlpha (0.45f));
@@ -99,14 +94,7 @@ public:
             g.fillRect (bar.withTop (toY (ballistics.getHold()) - 1.0f).withHeight (2.0f));
         }
 
-        // A soft sheen down the left of the active fill area, then crisp borders.
-        g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.08f), bar.getX(), 0.0f,
-                                                 juce::Colours::transparentWhite, bar.getX() + bar.getWidth() * 0.5f, 0.0f, false));
-        g.fillRect (bar);
-        g.setColour (juce::Colours::black.withAlpha (0.6f));
-        g.drawRoundedRectangle (r, 3.0f, 1.0f);
-        g.setColour (juce::Colours::white.withAlpha (0.07f));
-        g.drawRoundedRectangle (r.reduced (1.0f), 2.0f, 1.0f);
+        Songsmith::UI::Tube::paintFinish (g, r, bar);
     }
 
 private:
