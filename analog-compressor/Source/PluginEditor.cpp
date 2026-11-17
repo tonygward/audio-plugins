@@ -43,6 +43,11 @@ namespace
     const juce::Rectangle<int> meterArea   { 592, 64, 344, 170 };   // ACOMP-08: about 45 % more face than the original 296 x 132
     const juce::Rectangle<int> meterModes  { 592, 242, 344, 28 };   // a row under the meter
     const juce::Rectangle<int> grOffArea   { 592, 314, 150, 32 };
+    // ACOMP-10: the Model selector fills the lower right, with its use-case line directly under it (two lines at 12 px).
+    // Slow Attack (1176AE only) sits under the Release knob's column edge, the nearest free room to Attack.
+    const juce::Rectangle<int> modelBoxArea         { 592, 346, 344, 26 };
+    const juce::Rectangle<int> modelDescriptionArea { 592, 372, 344, 28 };
+    const juce::Rectangle<int> slowAttackArea       { 382, 342, 112, 26 };
 
     // Listening-oriented descriptions of typical uses, not promises about gain reduction.
     // Index 0..3 = 4:1, 8:1, 12:1, 20:1.
@@ -245,6 +250,19 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
       ratioAttachment (*p.apvts.getParameter (ID::ratio), [this] (float v) { ratioIndex = juce::roundToInt (v); refreshButtons(); }),
       allButtonsAttachment (*p.apvts.getParameter (ID::allButtons), [this] (float v) { allButtonsOn = v >= 0.5f; refreshButtons(); }),
       gentleAttachment (*p.apvts.getParameter (ID::ratioTwoToOne), [this] (float v) { gentleOn = v >= 0.5f; refreshButtons(); }),
+      modelAttachment (*p.apvts.getParameter (ID::model),
+                       [this] (float v)
+                       {
+                           modelShown = juce::jlimit (0, numModels - 1, juce::roundToInt (v));
+                           modelBox.setSelectedItemIndex (modelShown, juce::dontSendNotification);
+                           refreshModel();
+                       }),
+      slowAttackAttachment (*p.apvts.getParameter (ID::slowAttack),
+                            [this] (float v)
+                            {
+                                slowAttackOn = v >= 0.5f;
+                                slowAttackButton.setToggleState (slowAttackOn, juce::dontSendNotification);
+                            }),
       grOffAttachment (p.apvts, ID::grOff, grOffButton),
       bypassAttachment (p.apvts, ID::bypass, bypassButton),
       ignoreBelow (p.apvts),
@@ -284,6 +302,35 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     legacyRatioLabel.setTitle ("Saved 2:1 ratio");
     legacyRatioLabel.setVisible (false);
     content.addChildComponent (legacyRatioLabel);
+
+    // ACOMP-10: 2:1 is offered on the 1176AE only (the other models have the four hardware ratios).
+    gentleButton.setTooltip ("2:1: gentle compression that eases in softly. Good for light control on vocals and acoustic instruments.");
+    gentleButton.setTitle ("Ratio 2:1");
+    gentleButton.onClick = [this]
+    {
+        if (allButtonsOn)
+            allButtonsAttachment.setValueAsCompleteGesture (0.0f);
+        gentleAttachment.setValueAsCompleteGesture (1.0f);
+    };
+    content.addChildComponent (gentleButton);
+
+    slowAttackButton.setTooltip ("Slow Attack: the compressor takes longer to react, so more of the first hit of each note comes through. "
+                                 "Only the 1176AE has this switch.");
+    slowAttackButton.setTitle ("Slow Attack");
+    slowAttackButton.onClick = [this] { slowAttackAttachment.setValueAsCompleteGesture (slowAttackOn ? 0.0f : 1.0f); };
+    content.addChildComponent (slowAttackButton);
+
+    for (int i = 0; i < numModels; ++i)
+        modelBox.addItem (modelNames()[i], i + 1);
+    modelBox.setTitle ("Model");
+    modelBox.onChange = [this] { modelChosenByUser(); };
+    content.addAndMakeVisible (modelBox);
+    modelDescription.setTitle ("Model use");
+    modelDescription.setFont (juce::Font (font (Type::hint, Weight::Regular)));
+    modelDescription.setColour (juce::Label::textColourId, Colours::textDim);
+    modelDescription.setJustificationType (juce::Justification::topLeft);
+    modelDescription.setMinimumHorizontalScale (1.0f);   // wrap, never squash
+    content.addAndMakeVisible (modelDescription);
 
     allButton.setTooltip (allButtonTip);
     allButton.onClick = [this] { allButtonsAttachment.setValueAsCompleteGesture (allButtonsOn ? 0.0f : 1.0f); };
@@ -392,6 +439,9 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
 
     content.addAndMakeVisible (titleHint);   // SUI-17: the plugin name explains the plugin
 
+    slowAttackAttachment.sendInitialUpdate();
+    modelAttachment.sendInitialUpdate();   // after the diagnostics strip exists: it lays the window out
+
     layoutContent();
 
     // Drag-resizing keeps the design proportions. The saved width (or, for older sessions, the saved
@@ -464,15 +514,25 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     release.setBounds (releaseArea);
 
     // Hardware order, top to bottom: 20, 12, 8, 4, then All.
+    // ACOMP-10: the 1176AE adds 2:1 under 4:1, so its six buttons are a little shorter to fit the same column.
     auto col = ratioArea;
-    const int h = 40, gap = 8, allHeight = 40;   // four ratios plus All fit the 236-unit column
+    const bool withGentle = voicingFor (modelShown).hasGentleRatio;
+    const int h = withGentle ? 34 : 40, gap = withGentle ? 6 : 8, allHeight = withGentle ? 34 : 40;   // fit the 236-unit column
     for (int i : { 3, 2, 1, 0 })
     {
         ratioButtons[(size_t) i]->setBounds (col.removeFromTop (h));
         col.removeFromTop (gap);
     }
+    if (withGentle)
+    {
+        gentleButton.setBounds (col.removeFromTop (h));
+        col.removeFromTop (gap);
+    }
     allButton.setBounds (col.removeFromTop (allHeight));
     col.removeFromTop (4);
+    slowAttackButton.setBounds (slowAttackArea);
+    modelBox.setBounds (modelBoxArea);
+    modelDescription.setBounds (modelDescriptionArea);
     legacyRatioLabel.setBounds (ratioArea.getX(), ratioArea.getBottom() + 2, ratioArea.getWidth(), 18);   // only shown for a saved 2:1
 
     meter.setBounds (meterArea);
@@ -539,6 +599,32 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
         drawScrew (g, { plate.getRight() - inset, plate.getY() + inset }, 1.9f);
         drawScrew (g, { plate.getX() + inset, plate.getBottom() - inset }, 2.6f);
         drawScrew (g, { plate.getRight() - inset, plate.getBottom() - inset }, 0.9f);
+
+        // ACOMP-10: a subtle texture per model. The original Rev D Blackface is left exactly as it always looked.
+        // These are original designs, not copies of any faceplate: a faint tint plus one thin accent line or pinstripe.
+        if (modelShown == (int) Model::blueStripe)
+        {
+            g.setColour (juce::Colour (0xff3f6fb0).withAlpha (0.05f));
+            g.fillRoundedRectangle (plate, 8.0f);
+            g.setColour (juce::Colour (0xff3f6fb0).withAlpha (0.6f));
+            g.fillRect (plate.getX() + 24.0f, plate.getY() + 5.0f, plate.getWidth() - 48.0f, 2.5f);
+        }
+        else if (modelShown == (int) Model::anniversary)
+        {
+            g.setColour (juce::Colour (0xffc9a24a).withAlpha (0.045f));
+            g.fillRoundedRectangle (plate, 8.0f);
+            g.setColour (juce::Colour (0xffc9a24a).withAlpha (0.5f));
+            g.fillRect (plate.getX() + 24.0f, plate.getY() + 5.0f, plate.getWidth() - 48.0f, 1.0f);
+            g.fillRect (plate.getX() + 24.0f, plate.getY() + 8.0f, plate.getWidth() - 48.0f, 1.0f);
+        }
+        else if (modelShown == (int) Model::lindell)
+        {
+            g.setColour (juce::Colour (0xff2f7f78).withAlpha (0.05f));
+            g.fillRoundedRectangle (plate, 8.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.03f));
+            for (float x = plate.getX() + 18.0f; x < plate.getRight() - 14.0f; x += 7.0f)
+                g.fillRect (x, plate.getY() + 14.0f, 1.0f, plate.getHeight() - 28.0f);
+        }
     }
     Songsmith::UI::LookAndFeelBase::drawTitleBar (g, r.withHeight (Songsmith::UI::titleBarHeight));
     Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, Colours::text, Colours::accent);
@@ -580,12 +666,50 @@ juce::String SongsmithAnalogCompressorEditor::oversamplingText (int index)
     return index <= 0 ? juce::String ("Oversampling: off") : "Oversampling: " + juce::String (1 << index) + times;
 }
 
+// The selected model changed (the musician, a preset, automation or a loaded session): show its use, its buttons and
+// its faceplate.
+void SongsmithAnalogCompressorEditor::refreshModel()
+{
+    const auto& v = voicingFor (modelShown);
+    const auto description = modelDescriptions()[modelShown];
+    const auto tip = modelNames()[modelShown] + ": " + description;
+    modelDescription.setText (description, juce::dontSendNotification);
+    modelDescription.setTooltip (tip);
+    modelBox.setTooltip ("Model: " + tip);
+    gentleButton.setVisible (v.hasGentleRatio);
+    slowAttackButton.setVisible (v.hasSlowAttack);
+    layoutContent();
+    refreshButtons();   // repaints the faceplate too
+}
+
+// Switching model by hand maps what the new model does not have, so the sound stays predictable:
+// 2:1 (1176AE only) becomes 4:1, and Slow Attack (1176AE only) goes off. Attack, Release, Input, Output, the other
+// ratios, All Buttons and Ignore Below keep their positions. Presets and loaded sessions are never remapped.
+void SongsmithAnalogCompressorEditor::modelChosenByUser()
+{
+    const int m = modelBox.getSelectedItemIndex();
+    if (m < 0 || m >= numModels)
+        return;
+    const auto& v = voicingFor (m);
+    if (! v.hasGentleRatio && gentleOn)
+    {
+        gentleAttachment.setValueAsCompleteGesture (0.0f);
+        ratioAttachment.setValueAsCompleteGesture (0.0f);   // 4:1
+    }
+    if (! v.hasSlowAttack && slowAttackOn)
+        slowAttackAttachment.setValueAsCompleteGesture (0.0f);
+    modelAttachment.setValueAsCompleteGesture ((float) m);
+}
+
 void SongsmithAnalogCompressorEditor::refreshButtons()
 {
     for (int i = 0; i < 4; ++i)
         ratioButtons[(size_t) i]->setToggleState (allButtonsOn || (! gentleOn && i == ratioIndex), juce::dontSendNotification);
     // A saved 2:1 is labelled, and no ratio is lit as if it were 4:1 (or anything else).
-    legacyRatioLabel.setVisible (gentleOn && ! allButtonsOn);
+    // On the 1176AE, 2:1 is a real button, so it is lit instead and needs no label.
+    const bool hasGentle = voicingFor (modelShown).hasGentleRatio;
+    gentleButton.setToggleState (hasGentle && gentleOn && ! allButtonsOn, juce::dontSendNotification);
+    legacyRatioLabel.setVisible (gentleOn && ! allButtonsOn && ! hasGentle);
     allButton.setToggleState (allButtonsOn, juce::dontSendNotification);
     content.repaint();
 }

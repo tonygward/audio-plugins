@@ -19,6 +19,9 @@ namespace FET
         int ratio;           // 0..3 = 4, 8, 12, 20
         bool allButtons;
         const char* hint;    // listening cue, shown in the editor
+        // ACOMP-10: the model a starting point loads. Every factory preset states it (0 = Rev D Blackface, the
+        // original sound). Loading one switches to this model, whichever was selected before.
+        int model = 0;
     };
 
     class Presets

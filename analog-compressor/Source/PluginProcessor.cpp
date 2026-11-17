@@ -29,6 +29,8 @@ SongsmithAnalogCompressorProcessor::SongsmithAnalogCompressorProcessor()
     allButtonsParam = apvts.getRawParameterValue (ID::allButtons);
     lowCutParam = apvts.getRawParameterValue (ID::detectorLowCut);
     ignoreBelowParam = apvts.getRawParameterValue (ID::ignoreBelowHz);
+    modelParam = apvts.getRawParameterValue (ID::model);
+    slowAttackParam = apvts.getRawParameterValue (ID::slowAttack);
     jassert (bypassParam != nullptr && inputDb != nullptr && outputDb != nullptr);
 }
 
@@ -81,6 +83,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithAnalogCompressorPro
             .withValueFromStringFunction ([] (const String& text)
                                           { const float hz = ignoreBelowFromText (text); return hz < 0.0f ? 0.0f : hz; })));
 
+    // Added in state version 6 (ACOMP-10). The model defaults to index 0, the original Rev D Blackface, so older
+    // sessions and presets (which have no model) sound exactly as they did. Slow Attack is Off by default.
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ID::model, 6 }, "Model", modelNames(), modelDefault));
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ID::slowAttack, 6 }, "Slow Attack", false));
+
     return layout;
 }
 
@@ -95,6 +102,8 @@ FET::Calibration::Settings SongsmithAnalogCompressorProcessor::getCalibrationSet
     // The slider's value (the window follows old six-step automation within a tenth of a second).
     s.ignoreBelowHz = ignoreBelowSnap (ignoreBelowParam->load());
     s.colour = colourEnabled;
+    s.model = getModelIndex();
+    s.slowAttack = isSlowAttackOn();
     return s;
 }
 
@@ -263,8 +272,10 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
     engine.setReleaseKnob (releaseKnob->load());
     engine.setGainReductionEnabled (grOffParam->load() < 0.5f);
     engine.setAllButtons (isAllButtonsOn());
+    engine.setVoicing (getModelIndex(), isSlowAttackOn());   // the model's threshold, knee and timing
     engine.setDetectorLowCutHz (currentIgnoreBelowHz());   // detector only; the audio path is never filtered
-    fetFactor.setTargetValue (isAllButtonsOn() ? FET::FetCell::allButtonsFactor : 1.0f);
+    // The model's harmonic colour. The factor is smoothed, so switching model during playback does not click.
+    fetFactor.setTargetValue ((isAllButtonsOn() ? FET::FetCell::allButtonsFactor : 1.0f) * FET::voicingFor (getModelIndex()).colourScale);
 
     for (int pos = 0; pos < n; pos += chunkSize)
     {

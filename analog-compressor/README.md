@@ -22,6 +22,7 @@ A feedback FET compressor inspired by the Rev D blackface 1176LN, by Songsmith S
 - **Ignore Below (a Songsmith addition, formerly Low Cut):** a horizontal slider directly under the Input knob, with the name on the left and the frequency on the right (for example 127 Hz). It stops deep bass from making the compressor turn the whole sound down. Only what the compressor *listens to* is filtered; the bass you hear is untouched. Choose any whole number of Hz from 20 to 500 (gentle 12 dB/oct slope) by dragging, with the arrow keys, or by clicking the number and typing; double-click for Off. Off by default, including in sessions saved earlier, and sessions that used the old 60, 80, 100, 150 or 200 Hz steps keep exactly that frequency. The original 1176 has no such control. Details and tests: [docs/detector-low-cut.md](docs/detector-low-cut.md).
 - **Set Levels (optional):** a button under the Output knob. Press it, play a loud part of your song for 3 to 12 seconds, then press Finish Listening. It suggests an Input for about 3 dB of gain reduction on the louder peaks and an Output that keeps the level close to the original, using your current ratio, Attack, Release and Ignore Below. Apply writes both as one Undo step; Cancel changes nothing; the knobs stay adjustable and fixed during playback. It tells you when there was no sound, too little sound, or when a target cannot be reached. Details and tests: [docs/set-levels.md](docs/set-levels.md).
 - **Title tooltip:** hover over the plugin name at the top left for a short explanation of what the compressor does and one thing to listen for. It is fixed wording, not a measurement. See [shared/docs/guidance.md](../shared/docs/guidance.md).
+- **Model selector (lower right):** Blackface · Original Songsmith (the original Songsmith sound and the default), Blue Stripe, 1176AE · Anniversary Edition (adds 2:1 and Slow Attack buttons) and Lindell-inspired. Each changes the gain reduction, timing and harmonic colour, and gives the faceplate a subtle texture; a short line beside the selector says what it suits. The model is saved in sessions and presets, and older ones open on Rev D. Descriptions are not yet checked by listening and the Lindell reference is unconfirmed. Details, evidence gaps and the pending Acoustic Guitar Smoothing preset: [docs/models.md](docs/models.md).
 - **Presets:** four conservative, level-matched starting points (lead vocal, acoustic guitar, bass, drum room), each with a listening cue, plus your own presets.
 
 ## Install
@@ -79,6 +80,7 @@ To build and test the installers:
 | File | Contents |
 |---|---|
 | [references.md](docs/references.md) | Sources, and every design claim marked as published or as a modelling choice |
+| [models.md](docs/models.md) | The four models, what is published, measured or chosen, and the pending preset |
 | [engine.md](docs/engine.md) | The feedback loop and timing measurements |
 | [colour.md](docs/colour.md) | Analogue colour and oversampling |
 | [all-buttons.md](docs/all-buttons.md) | All Buttons |

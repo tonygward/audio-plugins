@@ -78,6 +78,8 @@ struct IdentityTests final : juce::UnitTest
             { "detectorLowCut", 0.0f, 5.0f, 0.0f, 3 },
             { "ratioTwoToOne", 0.0f, 1.0f, 0.0f, 4 },   // ACOMP-11: the Songsmith 2:1 switch
             { "ignoreBelowHz", 0.0f, 500.0f, 0.0f, 5 }, // ACOMP-16: continuous Ignore Below (0 = Off, else 20 to 500 Hz)
+            { "model",        0.0f,  3.0f, 0.0f, 6 },   // ACOMP-10: 0 = Rev D Blackface (the original), 1 Rev A, 2 1176AE, 3 Lindell-inspired
+            { "slowAttack",   0.0f,  1.0f, 0.0f, 6 },   // ACOMP-10: 1176AE only
         };
 
         expectEquals (p.getParameters().size(), (int) std::size (expected), "no parameters added or removed silently");
@@ -1278,6 +1280,10 @@ static int runBenchmark()
 #include "CalibrationEditorTests.h"
 static CalibrationTests calibrationTests;
 static CalibrationEditorTests calibrationEditorTests;
+
+// ACOMP-10: switchable models.
+#include "ModelTests.h"
+static ModelTests modelTests;
 
 //==============================================================================
 struct ConsoleRunner final : juce::UnitTestRunner

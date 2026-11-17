@@ -23,7 +23,9 @@ public:
     // 5 = adds the continuous Ignore Below cutoff `ignoreBelowHz` (ACOMP-16). Sessions from 1-4 load it from their
     // saved six-step `detectorLowCut`, which maps to exactly the same cutoff. `detectorLowCut` stays as a
     // hidden parameter so old automation still works; whichever of the two changed last decides.
-    static constexpr int stateVersion = 5;
+    // 6 = adds the Model choice and the 1176AE Slow Attack switch (ACOMP-10). Sessions from 1-5 have no model and load
+    // index 0, the original Rev D Blackface, with Slow Attack Off: they sound exactly as before.
+    static constexpr int stateVersion = 6;
 
     SongsmithAnalogCompressorProcessor();
     ~SongsmithAnalogCompressorProcessor() override;
@@ -80,6 +82,8 @@ public:
     }
     bool isAllButtonsOn() const noexcept { return allButtonsParam->load() >= 0.5f; }
     bool isGentleRatioOn() const noexcept { return gentleRatioParam->load() >= 0.5f; }
+    int getModelIndex() const noexcept { return juce::jlimit (0, FET::numModels - 1, (int) (modelParam->load() + 0.5f)); }
+    bool isSlowAttackOn() const noexcept { return slowAttackParam->load() >= 0.5f; }
 
     // Editor state saved with the session (not automatable): interface size and meter mode.
     std::atomic<float> uiScale { 1.0f };   // the nearest interface size option (menu); old sessions only had this
@@ -124,6 +128,8 @@ private:
     std::atomic<float>* allButtonsParam = nullptr;
     std::atomic<float>* lowCutParam = nullptr;       // legacy six-step choice (hidden)
     std::atomic<float>* ignoreBelowParam = nullptr;  // continuous Hz, 0 = Off
+    std::atomic<float>* modelParam = nullptr;        // ACOMP-10: Model choice index (0 = Rev D Blackface)
+    std::atomic<float>* slowAttackParam = nullptr;   // ACOMP-10: 1176AE Slow Attack
     // Which of the two cutoff parameters last changed (audio thread only, except the atomics).
     float seenLegacy = 0.0f, seenIgnoreBelow = 0.0f;
     bool legacyWins = false;

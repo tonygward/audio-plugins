@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "FETModels.h"
 
 // Parameter identities for Songsmith Analog Compressor.
 //
@@ -33,6 +34,8 @@ namespace FET
         inline constexpr const char* detectorLowCut = "detectorLowCut";   // version hint 3
         inline constexpr const char* ratioTwoToOne = "ratioTwoToOne";     // version hint 4
         inline constexpr const char* ignoreBelowHz = "ignoreBelowHz";     // version hint 5 (ACOMP-16)
+        inline constexpr const char* model      = "model";                // version hint 6 (ACOMP-10)
+        inline constexpr const char* slowAttack = "slowAttack";           // version hint 6 (ACOMP-10), 1176AE only
     }
 
     inline constexpr int parameterVersion = 1;
@@ -142,6 +145,28 @@ namespace FET
     // that takes over from `ratio` while it is on. See docs/two-to-one-ratio.md.
     inline constexpr float gentleRatioValue = 2.0f;
 
+    // ACOMP-10: model names, in `Model` order (index 0 = the original, which older sessions load). The text is on screen,
+    // spelled out. Descriptions are the use-case tooltips; listening-checked wording is a person's job (docs/models.md).
+    inline const juce::StringArray& modelNames()
+    {
+        static const juce::StringArray names {
+            // The wording rule bans a standalone capital letter, so the revision letters (D and A) live in docs/models.md,
+            // not on screen. The names stay the hardware's own cosmetic names.
+            juce::String (juce::CharPointer_UTF8 ("Blackface \xc2\xb7 Original Songsmith")),
+            juce::String ("Blue Stripe"),
+            juce::String (juce::CharPointer_UTF8 ("1176AE \xc2\xb7 Anniversary Edition")),
+            "Lindell-inspired" };
+        return names;
+    }
+    inline const juce::StringArray& modelDescriptions()
+    {
+        static const juce::StringArray tips {
+            "Start here to tame vocal, bass or guitar peaks while keeping the sound fairly clean.",
+            "Try this for a gritty, upfront vocal or to make room mics sound more aggressive.",
+            "Try 2:1 for gentler control, or Slow Attack to let more of the first hit through.",
+            "Try this on acoustic guitar to even out strong strums while keeping the pick attack." };
+        return tips;
+    }
     // Oversampling for the colour stages and the engine (Off, 2x, 4x). See docs/colour.md.
     inline const juce::StringArray& oversamplingNames()
     {
