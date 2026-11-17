@@ -93,6 +93,8 @@ namespace FET::Calibration
         float attackKnob = 4.0f, releaseKnob = 4.0f;
         float ignoreBelowHz = 0.0f;
         bool colour = true;
+        int model = 0;                      // ACOMP-10: the selected model (0 = Rev D Blackface), so Set Levels measures what plays
+        bool slowAttack = false;
         float targetDb = targetReductionDb;
     };
 
@@ -124,13 +126,14 @@ namespace FET::Calibration
         eng.setAttackKnob (s.attackKnob);
         eng.setReleaseKnob (s.releaseKnob);
         eng.setAllButtons (s.allButtons);
+        eng.setVoicing (s.model, s.slowAttack);
         eng.setDetectorLowCutHz (s.ignoreBelowHz);
         eng.reset();
         OutputStage stage;
         stage.prepare (rate);
 
         const float drive = std::abs (inputDb) < 0.005f ? 1.0f : std::pow (10.0f, inputDb / 20.0f);
-        const float factor = s.allButtons ? FetCell::allButtonsFactor : 1.0f;
+        const float factor = (s.allButtons ? FetCell::allButtonsFactor : 1.0f) * voicingFor (s.model).colourScale;
         constexpr int chunk = 512;
         const int window = juce::jmax (1, (int) (0.1 * rate));   // 100 ms
         std::vector<float> gains ((size_t) chunk), buf[2];

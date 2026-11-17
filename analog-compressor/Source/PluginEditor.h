@@ -97,6 +97,13 @@ public:
     IgnoreBelowControl& getIgnoreBelow() noexcept { return ignoreBelow; }
     juce::Rectangle<int> getDiagnosticsBounds() const { return diagnostics->getBounds(); }
     juce::ComboBox& getPresetBox() { return presetBox; }
+
+    // ACOMP-10: the Model selector, its use-case line, and the two buttons only the 1176AE has (for tests).
+    juce::ComboBox& getModelBox() noexcept { return modelBox; }
+    juce::Label& getModelDescription() noexcept { return modelDescription; }
+    juce::Button& getGentleRatioButton() noexcept { return gentleButton; }
+    juce::Button& getSlowAttackButton() noexcept { return slowAttackButton; }
+    int getShownModel() const noexcept { return modelShown; }
     void advanceMeter (float seconds);
 
     // ACOMP-09 Set Levels (for tests). idle -> listening -> proposal -> idle.
@@ -160,6 +167,17 @@ private:
     juce::TextButton allButton { "All" };
     juce::Label legacyRatioLabel;   // "Saved 2:1": shown only when an older session still uses 2:1
     juce::ParameterAttachment ratioAttachment, allButtonsAttachment, gentleAttachment;
+
+    // ACOMP-10. The box is driven by modelAttachment (so a preset, automation or a loaded session updates it without
+    // being mistaken for a choice by the musician); onChange is therefore only the musician choosing a model.
+    void refreshModel();
+    void modelChosenByUser();
+    juce::ComboBox modelBox;
+    juce::Label modelDescription;
+    juce::TextButton gentleButton { "2:1" }, slowAttackButton { "Slow Attack" };
+    juce::ParameterAttachment modelAttachment, slowAttackAttachment;
+    int modelShown = FET::modelDefault;
+    bool slowAttackOn = false;
 
     juce::TextButton grOffButton { "Gain Reduction Off" }, bypassButton { "Bypass" };
     juce::AudioProcessorValueTreeState::ButtonAttachment grOffAttachment, bypassAttachment;

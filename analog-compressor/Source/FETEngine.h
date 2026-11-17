@@ -3,6 +3,7 @@
 #include <array>
 #include <atomic>
 #include <cmath>
+#include "FETModels.h"
 
 // Clean feedback gain-reduction engine (no colour), testable without the plugin.
 //
@@ -53,6 +54,10 @@ namespace FET
         void setAllButtons (bool on) noexcept;
         bool isAllButtons() const noexcept { return allButtons; }
 
+        // ACOMP-10: model voicing (threshold, knee and timing) and the 1176AE Slow Attack. The default voicing is the
+        // original Rev D Blackface, bit-exact. No allocation; the coefficients re-derive.
+        void setVoicing (int model, bool slowAttack) noexcept;
+
         // ACOMP-07 detector Low Cut (a Songsmith addition; the 1176 has none). A 12 dB/oct Butterworth
         // high-pass that only the level detector listens through: the audio path is never filtered.
         // 0 Hz = Off. Changes glide (cutoff and the Off/On blend are smoothed), so there are no clicks.
@@ -98,6 +103,8 @@ namespace FET
         bool grEnabled = true;
         bool allButtons = false;
         float overSlope = 0.0f, overStartDb = 0.0f;
+        int modelIndex = 0;
+        bool slowAttack = false;
 
         float k = 3.0f, thresholdDb = -19.5f, kneeDb = 10.0f;   // k = ratio - 1 (feedback gain)
         float attackCoeff = 1.0f, releaseCoeff = 1.0f, grOffCoeff = 1.0f;

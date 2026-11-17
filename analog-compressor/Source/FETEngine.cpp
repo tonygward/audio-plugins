@@ -134,20 +134,33 @@ namespace FET
         if (on != allButtons) { allButtons = on; updateCoefficients(); }
     }
 
+    void Engine::setVoicing (int model, bool slow) noexcept
+    {
+        model = std::clamp (model, 0, numModels - 1);
+        slow = slow && voicingFor (model).hasSlowAttack;   // Slow Attack belongs to the 1176AE only
+        if (model != modelIndex || slow != slowAttack)
+        {
+            modelIndex = model;
+            slowAttack = slow;
+            updateCoefficients();
+        }
+    }
+
     void Engine::updateCoefficients() noexcept
     {
+        const auto& v = voicingFor (modelIndex);
         const auto r = (size_t) ratioIndex;
         k = ratios[r] - 1.0f;
-        thresholdDb = thresholdsDb[r];
-        kneeDb = kneeWidthsDb[r];
+        thresholdDb = thresholdsDb[r] + v.thresholdOffsetDb;
+        kneeDb = kneeWidthsDb[r] * v.kneeScale;
         const float ratio = allButtons ? abRatio : ratios[r];
         overSlope = 0.0f;
         overStartDb = 0.0f;
         if (allButtons)
         {
             k = abRatio - 1.0f;
-            thresholdDb = abThresholdDb;
-            kneeDb = abKneeDb;
+            thresholdDb = abThresholdDb + v.thresholdOffsetDb;
+            kneeDb = abKneeDb * v.kneeScale;
             overSlope = abOverSlope;
             overStartDb = abOverStartDb;
         }
@@ -156,8 +169,9 @@ namespace FET
         // ratio, so the internal attack constant is scaled by the ratio to make the MEASURED
         // attack match the knob (docs/engine.md "Timing"). Release runs with the detector below
         // threshold, where the loop is open, so it needs no scaling.
-        attackCoeff  = coeffFor (attackSeconds (attackKnob) * ratio, fs);
-        releaseCoeff = coeffFor (releaseSeconds (releaseKnob), fs);
+        const double attackMul = (double) v.attackScale * (slowAttack ? (double) slowAttackFactor : 1.0);
+        attackCoeff  = coeffFor (attackSeconds (attackKnob) * ratio * attackMul, fs);
+        releaseCoeff = coeffFor (releaseSeconds (releaseKnob) * (double) v.releaseScale, fs);
         grOffCoeff   = coeffFor (grOffFadeSeconds, fs);
     }
 

@@ -14,7 +14,10 @@ namespace FET
 
     const char* const Presets::presetParameterIds[] = { ID::input, ID::output, ID::attack, ID::release,
                                                         ID::ratio, ID::allButtons, ID::grOff,
-                                                        ID::ratioTwoToOne };   // older preset files lack it and load it Off
+                                                        ID::ratioTwoToOne,     // older preset files lack it and load it Off
+                                                        ID::slowAttack };      // ACOMP-10: likewise
+    // The model (ACOMP-10) is saved as its stable text ID (`model="revD-blackface"`), not the choice index, and is
+    // handled on its own. A file with no model, or one this version does not know, loads the original Rev D Blackface.
     const int Presets::numPresetParameters = (int) std::size (presetParameterIds);
     // Ignore Below (ACOMP-16) is handled on its own: files hold `ignoreBelowHz`; files saved before it hold only the
     // legacy six-step `detectorLowCut`, which maps to the exact same cutoff.
@@ -46,13 +49,15 @@ namespace FET
     {
         static const std::vector<FactoryPreset> presets {
             { "Lead Vocal Control", 1.0f, 3.7f, 3.0f, 5.0f, 0, false,
-              "4:1, about 3-5 dB on loud lines. Raise Input for more control; turn Attack down (counter-clockwise) if consonants dull." },
+              "4:1, about 3-5 dB on loud lines. Raise Input for more control; turn Attack down (counter-clockwise) if consonants dull.", 0 },
             { "Acoustic Guitar", 2.0f, 3.3f, 2.0f, 6.0f, 0, false,
-              "4:1 with a slower attack so each pick comes through. Listen for the strum to sit steady without the attack going soft." },
+              "4:1 with a slower attack so each pick comes through. Listen for the strum to sit steady without the attack going soft.", 0 },
             { "Bass Guitar", 3.0f, 2.4f, 3.0f, 3.0f, 1, false,
-              "8:1 with a moderate release so low notes don't distort. Each note should come out even; if it growls, slow the Release." },
+              "8:1 with a moderate release so low notes don't distort. Each note should come out even; if it growls, slow the Release.", 0 },
             { "Drum Room", 6.0f, 1.4f, 2.0f, 7.0f, 1, false,
-              "8:1, slow attack, fastest release: hits punch through and the room swells between them. For more, try All Buttons." },
+              "8:1, slow attack, fastest release: hits punch through and the room swells between them. For more, try All Buttons.", 0 },
+            // Acoustic Guitar Smoothing (Lindell-inspired, model 3) is PENDING: the tutorial settings could not be verified.
+            // See docs/models.md "Acoustic Guitar Smoothing". Do not add it until they are.
         };
         return presets;
     }
@@ -94,6 +99,8 @@ namespace FET
         if (index < 0 || index >= (int) list.size())
             return;
         const auto& f = list[(size_t) index];
+        setParam (ID::model, (float) juce::jlimit (0, numModels - 1, f.model));
+        setParam (ID::slowAttack, 0.0f);
         setParam (ID::input, f.input);
         setParam (ID::output, f.output);
         setParam (ID::attack, f.attack);
@@ -119,6 +126,11 @@ namespace FET
         {
             error = "\"" + file.getFileName() + "\" isn't a " + JucePlugin_Name + " preset.";
             return false;
+        }
+        // Model first, so the rest loads into the right voicing. No model (an older file) = the original Rev D Blackface.
+        {
+            const int m = modelIndexFromId (xml->getStringAttribute (ID::model).toRawUTF8());
+            setParam (ID::model, (float) (m < 0 ? modelDefault : m));
         }
         // Missing values load as defaults, like an old session; out-of-range values are clamped.
         for (int i = 0; i < numPresetParameters; ++i)
@@ -177,6 +189,7 @@ namespace FET
 
         juce::XmlElement xml (rootTag);
         xml.setAttribute ("version", 1);
+        xml.setAttribute (ID::model, modelIds[juce::jlimit (0, numModels - 1, (int) (apvts.getRawParameterValue (ID::model)->load() + 0.5f))]);
         for (int i = 0; i < numPresetParameters; ++i)
             xml.setAttribute (presetParameterIds[i], (double) apvts.getRawParameterValue (presetParameterIds[i])->load());
         const float hz = ignoreBelowSnap (apvts.getRawParameterValue (ID::ignoreBelowHz)->load());
