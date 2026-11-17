@@ -8,7 +8,7 @@ conflicts: []
 
 # ACOMP-10: Switchable FET compressor models
 
-Issue: [#265](https://github.com/tonygward/audio-plugins/issues/265). Follow [CLAUDE.md](../../CLAUDE.md); the rules for running it are in the [execution policy](../../docs/songsmith-execution-policy.md). Matrix runs Sonnet; the Opus suggestion below is advice for a person doing the DSP design by hand.
+Issue: [#265](https://github.com/tonygward/audio-plugins/issues/265). Follow [CLAUDE.md](../../../CLAUDE.md); the rules for running it are in the [execution policy](../../../docs/songsmith-execution-policy.md). Matrix runs Sonnet; the Opus suggestion below is advice for a person doing the DSP design by hand.
 
 **Recommended model:** Opus for DSP design and validation planning; Sonnet for implementation. **Estimated effort / usage:** High. **Escalation:** Use Opus only for model-specific DSP design and measurement plans, document decisions, then Sonnet for implementation and tests. Build on the 1176 editor and guided calibration prompts.
 

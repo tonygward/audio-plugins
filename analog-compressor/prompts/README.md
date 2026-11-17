@@ -15,7 +15,7 @@ Every task has a stable **ACOMP-##** reference (for example ACOMP-05), distinct 
 | [06 oversampling off by default](done/06-oversampling-off-by-default.md) | Done · Sonnet | |
 | [07 detector Low Cut](done/07-detector-low-cut.md) | Done · Sonnet | [#160](https://github.com/tonygward/audio-plugins/issues/160) (closed) |
 | [09 Guided compressor calibration](done/09-guided-compressor-calibration.md) | To do | [#264](https://github.com/tonygward/audio-plugins/issues/264) |
-| [10 Switchable FET compressor models](10-switchable-fet-models.md) | To do | [#265](https://github.com/tonygward/audio-plugins/issues/265) |
+| [10 Switchable FET compressor models](done/10-switchable-fet-models.md) | To do | [#265](https://github.com/tonygward/audio-plugins/issues/265) |
 | [11 Add 2:1 compression ratio](done/11-two-to-one-ratio.md) | Done · Sonnet | [#199](https://github.com/tonygward/audio-plugins/issues/199), PR #207 (shipped in 0.5.8) |
 | [12 Ignore Below rotary Hz control](done/12-ignore-below-rotary-hz.md) | Done · Sonnet | [#200](https://github.com/tonygward/audio-plugins/issues/200), PR #215 (shipped in 0.5.9) |
 | [13 Preset research for the Songsmith Compressor](done/13-joe-gilder-grounded-presets.md) | Done | [#233](https://github.com/tonygward/audio-plugins/issues/233), PR #245 (in 0.5.15) |
