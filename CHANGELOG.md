@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
-## Unreleased
+## 0.5.51
 
 - Songsmith Analog Compressor: the four models (Blackface, Blue Stripe, Anniversary Edition and Lindell) are now chosen from one Model dropdown, in a row of their own directly under the title bar, outside the textured panel, with Oversampling at the right of the same row, as in Songsmith EQ. The model in use is shown in the dropdown; hover over it to read what each model is good for. The Slow Attack button on Anniversary Edition now sits centred under Attack and Release with clear space above the panel's lower edge, and the panel's decorative lines no longer cross any label. The window is a little taller. The sound, saved settings, presets and automation are unchanged, and you do not need to do anything.
 
