@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
-## Unreleased
+## 0.5.50
 
 - Every Songsmith plugin now has the level meter at the far right of its window, laid out like the Songsmith Compressor's. Songsmith Optical Leveller, Songsmith Bus Compressor and Songsmith Analog Compressor gain a tall Gain Reduction bar and an Output meter (left and right channels, a clip warning and the highest recent level) at the far right, and their windows are a little wider to make room. Songsmith Maximiser's Gain Reduction and Output meters have moved to the far right to match, and Songsmith Passive EQ's meter now sits at the same distance from the edge. Their older needle and lamp meters stay as they were. The Output meter shows sample peak, not true peak. The Analog Compressor's bar shows no reduction while Bypass is on. The sound, presets and saved settings are unchanged, and you do not need to do anything.
 
