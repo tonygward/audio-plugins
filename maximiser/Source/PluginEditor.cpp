@@ -44,7 +44,9 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     setupLabel (releaseLabel, "Release");
     setupLabel (inLabel, "Input");
     setupLabel (grLabel, "Gain Reduction");
-    setupLabel (outLabel, "Output");
+    setupLabel (grValue, "0.0 dB");
+    grValue.setFont (juce::Font (MaxColours::numbers (MaxColours::Type::control)));
+    grValue.setColour (juce::Label::textColourId, MaxColours::text);
     setupLabel (peakLabel, "Peak", juce::Justification::centredRight);
     setupLabel (ditherLabel, "Dither", juce::Justification::centredRight);
     setupLabel (gainLabel, {});
@@ -165,9 +167,15 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     bypassButton.setExplicitFocusOrder (4);
 
     inputMeter.setTooltip ("Input peak (click to reset)");
-    reductionMeter.setTooltip ("Gain Reduction: how much the limiter is turning the level down, 0 to 24 dB");
-    outputMeter.setTooltip ("Output peak (click to reset)");
-    for (auto* m : { &inputMeter, &reductionMeter, &outputMeter })
+    reductionMeter.setTooltip ("Gain Reduction: how much the limiter is turning the level down right now, 0 to 24 dB. "
+                               "This is the reduction alone; the Output Ceiling is separate");
+    outputMeter.setTitle ("Output level");
+    outputMeter.setTooltip ("Output level for each channel, after the limiter, Dither and Bypass. "
+                            "The number under the clip warning is the highest sample level held for 1.5 seconds: negative means below 0 dBFS, "
+                            "positive means over it and is red. The warning lights when a sample reaches 0 dBFS and stays lit while "
+                            "sound continues. This is sample peak, not true peak, and it is separate from the Integrated LUFS loudness. "
+                            "Click to clear the held number");
+    for (auto* m : { (juce::Component*) &inputMeter, (juce::Component*) &reductionMeter, (juce::Component*) &outputMeter })
         content.addAndMakeVisible (*m);
 
     // Loudness section. A Songsmith addition (the L1 had none). It only hears audio as it plays through.
@@ -282,28 +290,37 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
     ceilingLabel.setBounds (248, top, 100, labelH);
     ceilingSlider.setBounds (258, meterTop, 80, faderBottom - meterTop);
 
-    grLabel.setBounds (346, top, 80, labelH);
-    reductionMeter.setBounds (372, meterTop, 28, bottom - meterTop - 26);
+    // SUI-23: the far-right meter column, as in the Songsmith Compressor: the Output meter at the very edge (full
+    // height), the Gain Reduction bar beside it with its number below, its bar starting level with the meter's bars.
+    const int colTop = (int) Songsmith::UI::titleBarHeight + 8, colBottom = designH - 12, colHeight = colBottom - colTop;
+    const int meterX = designW - 16 - Songsmith::UI::OutputMeterDisplay::preferredWidth;
+    outputMeter.setBounds (meterX, colTop, Songsmith::UI::OutputMeterDisplay::preferredWidth, colHeight);
+    {
+        const int barsTop = colTop + 46, barsBottom = colTop + colHeight - (int) Songsmith::UI::OutputMeterDisplay::bottomRow;
+        constexpr int grWidth = 88, grBarWidth = 26;
+        const int grX = meterX - 14 - grWidth;
+        grLabel.setBounds (grX, colTop + 4, grWidth, 36);
+        reductionMeter.setBounds (grX + (grWidth - grBarWidth) / 2, barsTop, grBarWidth, barsBottom - barsTop);
+        grValue.setBounds (grX, barsBottom + 2, grWidth, (int) Songsmith::UI::OutputMeterDisplay::bottomRow - 4);
+    }
 
-    outLabel.setBounds (426, top, 56, labelH);
-    outputMeter.setBounds (442, meterTop, 24, bottom - meterTop - 26);
-
-    const int releaseTop = top + 24;   // the Release knob stays where it was
-    releaseLabel.setBounds (500, top + (labelH - 20) / 2, 180, 20);   // on the same line as the other captions
-    releaseSlider.setBounds (515, releaseTop + 4, 150, 150);
-    autoReleaseButton.setBounds (530, releaseSlider.getBottom() + 14, 120, 28);
-    gainLabel.setBounds (490, autoReleaseButton.getBottom() + 22, 200, 22);
+    const int shift = 150;   // Release and its settings moved left to make room for the column
+    const int releaseTop = top + 24;
+    releaseLabel.setBounds (500 - shift, top + (labelH - 20) / 2, 180, 20);   // on the same line as the other captions
+    releaseSlider.setBounds (515 - shift, releaseTop + 4, 150, 150);
+    autoReleaseButton.setBounds (530 - shift, releaseSlider.getBottom() + 14, 120, 28);
+    gainLabel.setBounds (490 - shift, autoReleaseButton.getBottom() + 22, 200, 22);
 
     // Output settings, under Release and the gain readout: Peak Mode decides what the Output Ceiling measures,
     // and Dither is applied to the output (both moved out of the title bar).
-    const int boxX = 556, boxW = 124, rowY = gainLabel.getBottom() + 12;
-    peakLabel.setBounds (500, rowY, boxX - 500 - 4, 26);
+    const int boxX = 556 - shift, boxW = 124, rowY = gainLabel.getBottom() + 12;
+    peakLabel.setBounds (500 - shift, rowY, boxX - (500 - shift) - 4, 26);
     peakModeBox.setBounds (boxX, rowY, boxW, 26);
-    ditherLabel.setBounds (500, rowY + 32, boxX - 500 - 4, 26);
+    ditherLabel.setBounds (500 - shift, rowY + 32, boxX - (500 - shift) - 4, 26);
     ditherBox.setBounds (boxX, rowY + 32, boxW, 26);
 
     // Integrated LUFS (MAX-09): a column to the right of the Release dial, level with it, never below it.
-    // Release spans x 515..665 and the controls end at 720; the column starts at 720 + 12.
+    // Release spans x 365..515 and the controls end at 570; the column starts at 570 + 12.
     const int lx = Max::EditorLayout::controlsWidth + 12, lw = Max::EditorLayout::loudnessWidth - 24;
     integratedCaption.setBounds (lx, releaseTop + 40, lw, 20);
     integratedValue.setBounds (lx, releaseTop + 64, 76, 32);
@@ -340,6 +357,9 @@ void SongsmithMaximiserAudioProcessorEditor::paintContent (juce::Graphics& g)
     // A fine vertical line sets the loudness column apart from the controls on its left.
     g.setColour (MaxColours::panelEdge);
     g.drawVerticalLine (Max::EditorLayout::controlsWidth, (float) Songsmith::UI::titleBarHeight + 16.0f, (float) designH - 16.0f);
+    // SUI-23: and another sets the meter column apart from the loudness column.
+    g.drawVerticalLine (Max::EditorLayout::controlsWidth + Max::EditorLayout::loudnessWidth,
+                        (float) Songsmith::UI::titleBarHeight + 16.0f, (float) designH - 16.0f);
 
     // The Link bracket between the two faders while linked.
     if (linkButton.getToggleState())
@@ -404,8 +424,19 @@ void SongsmithMaximiserAudioProcessorEditor::syncFromParameters()
 void SongsmithMaximiserAudioProcessorEditor::updateMeters (double elapsedSeconds)
 {
     inputMeter.push (Max::gainToDb (SongsmithMaximiserAudioProcessor::readAndReset (proc.inputPeak)), elapsedSeconds);
-    outputMeter.push (Max::gainToDb (SongsmithMaximiserAudioProcessor::readAndReset (proc.outputPeak)), elapsedSeconds);
+    SongsmithMaximiserAudioProcessor::readAndReset (proc.outputPeak);   // the all-channel peak is kept for the tests; the meter uses per-channel ones
     reductionMeter.push (SongsmithMaximiserAudioProcessor::readAndReset (proc.gainReductionDb), elapsedSeconds);
+    grValue.setText (juce::String (reductionMeter.getBallistics().getLevel(), 1) + " dB", juce::dontSendNotification);
+
+    {
+        auto& m = proc.outputMeter;   // exactly as the Songsmith Compressor feeds it
+        m.readAndReset();
+        m.clipped.store (false, std::memory_order_relaxed);
+        outputMeter.update (m.readAndResetChannel (0), m.readAndResetChannel (1),
+                            m.channels.load (std::memory_order_relaxed),
+                            m.clipLatched.load (std::memory_order_relaxed),
+                            juce::Time::getMillisecondCounterHiRes() * 0.001, elapsedSeconds);
+    }
 
     proc.updateLoudness();
     showLoudness();

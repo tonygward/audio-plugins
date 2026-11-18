@@ -1381,6 +1381,47 @@ public:
                 expect (tip.containsIgnoreCase (word), context + ": tooltip mentions " + juce::String (word));
         }
 
+        beginTest ("SUI-23: Gain Reduction and Output meters sit at the far right, as in the Songsmith Compressor");
+        for (int width : { Max::EditorLayout::minWidth, Max::EditorLayout::defaultWidth, Max::EditorLayout::maxWidth })
+        {
+            SongsmithMaximiserAudioProcessor p;
+            p.editorWidth = width;
+            std::unique_ptr<SongsmithMaximiserAudioProcessorEditor> ed (dynamic_cast<SongsmithMaximiserAudioProcessorEditor*> (p.createEditor()));
+            const auto context = "at " + juce::String (width) + " px";
+            auto& content = ed->getContent();
+
+            const auto out = ed->getOutputMeter().getBounds();
+            const auto gr = ed->getReductionMeter().getBounds();
+            expect (content.getLocalBounds().contains (out) && content.getLocalBounds().contains (gr), context + ": inside the editor");
+            expectEquals (out.getRight(), Max::EditorLayout::designWidth - 16, context + ": Output is at the far right edge");
+            expectEquals (out.getWidth(), Songsmith::UI::OutputMeterDisplay::preferredWidth);
+            expect (gr.getRight() < out.getX(), context + ": Gain Reduction is beside Output, on its left");
+            expect (gr.getX() >= Max::EditorLayout::controlsWidth + Max::EditorLayout::loudnessWidth, context + ": right of the loudness column");
+            expectEquals (gr.getBottom(), out.getBottom() - (int) Songsmith::UI::OutputMeterDisplay::bottomRow, context + ": bars end level");
+
+            // Nothing else reaches into the column.
+            const int columnLeft = ed->getReductionLabel().getX();
+            for (auto* child : content.getChildren())
+                if (child != &ed->getOutputMeter() && child != &ed->getReductionMeter() && child != &ed->getReductionLabel()
+                    && child != &ed->getReductionValue() && child->isVisible() && child->getWidth() < Max::EditorLayout::designWidth)
+                    expect (! child->getBounds().intersects (juce::Rectangle<int> (columnLeft, out.getY(), content.getWidth() - columnLeft, out.getHeight())),
+                            context + ": no control overlaps the meter column");
+        }
+
+        beginTest ("SUI-23: the Output meter is fed per channel, after processing, and latches clipping");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            p.prepareToPlay (48000.0, 512);
+            juce::AudioBuffer<float> buffer (2, 512);
+            juce::MidiBuffer midi;
+            buffer.clear();
+            buffer.setSample (0, 10, 0.5f);
+            p.processBlock (buffer, midi);
+            expectGreaterThan (p.outputMeter.readAndResetChannel (0), 0.0f);
+            expectEquals (p.outputMeter.readAndResetChannel (1), 0.0f, "silent right channel stays silent");
+            expect (! p.outputMeter.clipLatched.load(), "no clip warning without clipping");
+        }
+
         beginTest ("Link follows the user, not host automation");
         {
             SongsmithMaximiserAudioProcessor p;

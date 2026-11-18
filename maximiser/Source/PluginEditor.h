@@ -4,10 +4,11 @@
 #include "PluginProcessor.h"
 #include "MaxLookAndFeel.h"
 #include "Meters.h"
+#include "../../shared/Source/SongsmithOutputMeter.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 
 // Songsmith Maximiser editor. Everything sits in one content component laid out at the design size
-// (860 x 448) and scaled as a whole, so the window can be resized (75 % to 300 %, fixed aspect)
+// (888 x 448) and scaled as a whole, so the window can be resized (75 % to 300 %, fixed aspect)
 // without anything getting cramped. Vector drawing and the embedded Inter font throughout.
 class SongsmithMaximiserAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
@@ -34,6 +35,9 @@ public:
     juce::ComboBox& getDitherBox() noexcept     { return ditherBox; }
     juce::ComboBox& getStartingPointBox() noexcept { return startingPointBox; }
     VerticalMeter& getReductionMeter() noexcept { return reductionMeter; }
+    Songsmith::UI::OutputMeterDisplay& getOutputMeter() noexcept { return outputMeter; }
+    juce::Label& getReductionValue() noexcept   { return grValue; }
+    juce::Label& getReductionLabel() noexcept   { return grLabel; }
     juce::Component& getContent() noexcept      { return content; }
     juce::Button& getLoudnessResetButton() noexcept { return loudnessResetButton; }
     juce::Label& getIntegratedLabel() noexcept  { return integratedValue; }
@@ -84,14 +88,17 @@ private:
     juce::Rectangle<int> titleBounds;   // the product name, painted
     void refreshHistoryButtons();
     juce::ComboBox peakModeBox, ditherBox, startingPointBox;
-    juce::Label thresholdLabel, ceilingLabel, releaseLabel, inLabel, grLabel, outLabel, peakLabel, ditherLabel, gainLabel;
+    juce::Label thresholdLabel, ceilingLabel, releaseLabel, inLabel, grLabel, peakLabel, ditherLabel, gainLabel;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoReleaseAttachment, bypassAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> peakModeAttachment, ditherAttachment;
 
-    VerticalMeter inputMeter { VerticalMeter::Kind::level }, reductionMeter { VerticalMeter::Kind::reduction },
-                  outputMeter { VerticalMeter::Kind::level };
+    // SUI-23: the far-right column is the Songsmith Compressor's: the shared Output meter at the very edge and the
+    // Gain Reduction bar (with its number) beside it.
+    VerticalMeter inputMeter { VerticalMeter::Kind::level }, reductionMeter { VerticalMeter::Kind::reduction };
+    Songsmith::UI::OutputMeterDisplay outputMeter;
+    juce::Label grValue;
 
     // Loudness section below the controls: readings in LUFS (kept by the processor, shown here).
     struct ReadoutLabel final : juce::Label

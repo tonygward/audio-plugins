@@ -11,13 +11,14 @@ namespace Max
     namespace EditorLayout
     {
         // MAX-09: the Integrated LUFS readout sits in its own column to the right of the Release dial
-        // (never below it), so the controls keep their 720 units and the column adds loudnessWidth.
-        constexpr int controlsWidth = 720, loudnessWidth = 140;
-        constexpr int designWidth = controlsWidth + loudnessWidth, contentHeight = 420;   // the controls sit in the top 420
+        // (never below it). SUI-23: the Gain Reduction and Output meters have their own column at the far right,
+        // laid out as in the Songsmith Compressor (16 margin, 48 Output meter, 14 gap, 88 Gain Reduction, 12 before it).
+        constexpr int controlsWidth = 570, loudnessWidth = 140, meterColumnWidth = 12 + 88 + 14 + 48 + 16;
+        constexpr int designWidth = controlsWidth + loudnessWidth + meterColumnWidth, contentHeight = 420;   // the controls sit in the top 420
         constexpr int footerHeight = 28;                      // the latency and Processing Load strip below them
         constexpr int designHeight = contentHeight + footerHeight;
         constexpr int defaultWidth = designWidth;
-        constexpr int minWidth = 645, maxWidth = 2580;   // 75 % to 300 %
+        constexpr int minWidth = 666, maxWidth = 2664;   // 75 % to 300 %
 
         inline int constrainWidth (int width) noexcept { return juce::jlimit (minWidth, maxWidth, width); }
         inline int heightFor (int width) noexcept      { return juce::roundToInt ((double) width * designHeight / designWidth); }
