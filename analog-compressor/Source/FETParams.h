@@ -181,13 +181,15 @@ namespace FET
     // Interface sizes (editor menu). The editor is drawn in design units and scaled as a whole,
     // so every option is equally sharp.
     inline constexpr float uiScales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f };
-    inline constexpr int designWidth = 1140, contentHeight = 416;   // 960 for the controls plus the right-hand meter column (SUI-23); they sit in the top 416
+    inline constexpr int designWidth = 1140, contentHeight = 442;   // 960 for the controls plus the right-hand meter column (SUI-23); they sit in the top 442 (ACOMP-23: 26 more, so the labels clear the top pinstripes and Slow Attack and the meter numbers clear the lower border)
 
-    // ACOMP-21: a secondary row under the title bar, as in Songsmith EQ. The four model buttons are at the left and
-    // Oversampling is at the right, right-aligned with the meter. Everything else sits faceShift units lower than before.
-    inline constexpr int modeRowY = 58, modeRowHeight = 28, faceShift = 34;
-    inline constexpr int modelButtonX = 24, modelButtonGap = 6;
-    inline constexpr int modelButtonWidths[4] = { 120, 130, 180, 110 };   // Blackface, Blue Stripe, Anniversary Edition, Lindell
+    // ACOMP-23: a configuration row directly under the title bar, as in Songsmith EQ, OUTSIDE the textured panel. The Model
+    // dropdown is at the left (with its caption) and Oversampling at the right, right-aligned with the meter column. The panel
+    // (the faceplate) begins below the row at plateTop, and everything in it sits faceShift units lower than it used to.
+    inline constexpr int modeRowY = 58, modeRowHeight = 28, plateTop = modeRowY + modeRowHeight + 6, faceShift = plateTop - 56 + 10;   // 10: clear of the panel's top pinstripes
+    inline constexpr int configMargin = 16;
+    inline constexpr int modelLabelX = configMargin, modelLabelWidth = 52;
+    inline constexpr int modelBoxX = modelLabelX + modelLabelWidth + 4, modelBoxWidth = 220;
 
     // ACOMP-19: the Ignore Below slider (the detector low cut, ACOMP-07/12/16) sits directly under the Input knob,
     // left-aligned with it and as wide as it.
@@ -199,7 +201,8 @@ namespace FET
     inline constexpr int levelsPanelWidth = 300, levelsPanelHeight = 136, levelsPanelGap = 6;
 
     // ACOMP-21 (replaces ACOMP-19's lower-right place): Oversampling is on the right of the secondary row.
-    inline constexpr int oversamplingX = 736, oversamplingY = modeRowY, oversamplingWidth = 200, oversamplingHeight = modeRowHeight;
+    inline constexpr int oversamplingWidth = 200, oversamplingHeight = modeRowHeight, oversamplingY = modeRowY;
+    inline constexpr int oversamplingX = designWidth - configMargin - oversamplingWidth;   // ACOMP-23: right-aligned with the meter column
     inline constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
     inline constexpr int designHeight = contentHeight + footerHeight;
 

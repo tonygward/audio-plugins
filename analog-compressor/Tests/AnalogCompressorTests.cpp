@@ -522,19 +522,19 @@ struct EditorTests final : juce::UnitTest
         {
             expect (ac->getOversamplingBox().getBottom() > 50, "Oversampling sits with the processing controls, below the title bar");
             {
-                // ACOMP-21 (supersedes ACOMP-19): the right of the secondary row, level with the four model buttons.
+                // ACOMP-23 (supersedes ACOMP-21): the right of the configuration row, level with the Model dropdown, outside the panel.
                 auto& os = ac->getOversamplingBox();
                 auto& inputKnob = ac->getKnob (ID::input);
                 const auto meterBounds = ac->getMeter().getBounds();
                 expect (os.getX() > meterBounds.getX(), "Oversampling is on the right-hand side");
-                expect (os.getBottom() <= meterBounds.getY(), "Oversampling is in the secondary row, above the meter");
+                expect (os.getBottom() <= meterBounds.getY(), "Oversampling is in the configuration row, above the meter");
+                expect (os.getBottom() < FET::plateTop, "outside the textured panel");
                 expect (os.getY() >= (int) Songsmith::UI::titleBarHeight, "and below the title bar");
-                expectEquals (os.getRight(), meterBounds.getRight(), "right-aligned with the meter");
-                for (int m = 0; m < 4; ++m)
+                expectEquals (os.getRight(), ac->getMeterColumn().getRight(), "right-aligned with the meter column");
                 {
-                    auto& mb = ac->getModelButton (m);
-                    expectEquals (mb.getY(), os.getY(), "level with the model buttons");
-                    expect (mb.getRight() < os.getX(), "the model buttons are to its left");
+                    auto& mb = ac->getModelBox();
+                    expectEquals (mb.getY(), os.getY(), "level with the Model dropdown");
+                    expect (mb.getRight() < os.getX(), "the Model dropdown is to its left");
                 }
                 expect (! os.getBounds().intersects (meterBounds), "Oversampling does not overlap the meter");
                 expect (! os.getBounds().intersects (ac->getGrOffBounds()), "nor Gain Reduction Off");
