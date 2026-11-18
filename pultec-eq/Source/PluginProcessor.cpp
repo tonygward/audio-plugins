@@ -101,6 +101,8 @@ void SongsmithPassiveEQProcessor::prepareToPlay (double sampleRate, int samplesP
     engine.setParams (getEngineParams());
     engine.prepare (sampleRate);
     engine.setParams (getEngineParams());
+    outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, getMainBusNumOutputChannels()), std::memory_order_relaxed);
+    outputMeter.resetLatch (sampleRate);   // a new session or layout starts without a warning
     setLatencySamples (0);
 }
 
@@ -121,6 +123,7 @@ void SongsmithPassiveEQProcessor::processBlock (juce::AudioBuffer<float>& buffer
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
     engine.setParams (getEngineParams());
 
+    float blockPeak = 0.0f;
     for (int pos = 0; pos < total;)
     {
         const int num = juce::jmin (chunk, total - pos);
@@ -150,8 +153,20 @@ void SongsmithPassiveEQProcessor::processBlock (juce::AudioBuffer<float>& buffer
                 juce::FloatVectorOperations::copy (ch[c], dryBuffer.getReadPointer (c), num);   // bit-exact dry
         }
 
+        // The output meter reads what actually leaves the plugin: after the filters and after Bypass.
+        for (int c = 0; c < numCh; ++c)
+        {
+            const float channelPeak = buffer.getMagnitude (c, pos, num);
+            blockPeak = juce::jmax (blockPeak, channelPeak);
+            outputMeter.pushChannel (c, channelPeak);
+        }
+
         pos += num;
     }
+
+    outputMeter.push (blockPeak);
+    outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, numOut), std::memory_order_relaxed);
+    outputMeter.updateClipLatch (blockPeak, total);
 }
 
 //==============================================================================

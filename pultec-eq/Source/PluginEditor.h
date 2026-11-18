@@ -5,6 +5,7 @@
 #include "PeqLookAndFeel.h"
 #include "PeqCurve.h"
 #include "../../shared/Source/SongsmithGuidance.h"
+#include "../../shared/Source/SongsmithOutputMeter.h"
 
 // A rotary control with its name above, a printed scale around it and a readable value below.
 class PeqKnob : public juce::Component
@@ -71,6 +72,9 @@ public:
 
     // For tests and screenshots.
     Peq::UI::ResponseCurve& getCurve() noexcept { return curve; }
+    Songsmith::UI::OutputMeterDisplay& getOutputMeter() noexcept { return outputMeter; }
+    // Reads the audio thread's output peaks into the meter, as the timer does 30 times a second.
+    void advanceMeter (double elapsedSeconds);
     PeqKnob& getLowBoostKnob() noexcept { return lowBoostKnob; }
     PeqKnob& getLowCutKnob() noexcept { return lowCutKnob; }
     PeqKnob& getHighBoostKnob() noexcept { return highBoostKnob; }
@@ -92,7 +96,7 @@ public:
 
 private:
     void syncSizeFromWidth();
-    void timerCallback() override { refreshCurve(); refreshHistoryButtons(); }
+    void timerCallback() override { refreshCurve(); refreshHistoryButtons(); advanceMeter (1.0 / 30.0); }
     void refreshHistoryButtons();
     void rebuildPresetMenu();
     void presetChosen();
@@ -115,6 +119,7 @@ private:
     juce::Rectangle<int> titleBounds;   // the product name, painted
 
     Peq::UI::ResponseCurve curve;
+    Songsmith::UI::OutputMeterDisplay outputMeter;   // the output level of each channel, on the right
 
     PeqSwitch lowSwitch, highBoostSwitch, highCutSwitch;
     PeqKnob lowBoostKnob, lowCutKnob, highBoostKnob, bandwidthKnob, highCutKnob;
