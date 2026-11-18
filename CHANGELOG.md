@@ -6,6 +6,11 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - Songsmith Maximiser: the Gain Reduction and Output meters are now together at the far right of the window, laid out exactly like the Songsmith Compressor's. The Output meter shows the level of each channel (Left and Right), a clip warning and a held peak number, measured after the limiter, Dither and Bypass. Gain Reduction shows a number below its bar. Integrated LUFS is unchanged and separate from the peak meter. The window is a little wider. The sound, presets and saved sessions are unchanged, and you don't need to do anything.
 
+## 0.5.49
+
+- Songsmith Analog Compressor: the four models (Blackface, Blue Stripe, Anniversary Edition and Lindell) are now a row of buttons under the title bar, with Oversampling at the right of the same row, as in Songsmith EQ. The selected model is lit. The model descriptions are no longer printed on the faceplate: hover over any model button to read what it is good for. The main controls have moved down a little to make room; nothing else about them has changed.
+- Songsmith Analog Compressor: Set Levels now keeps one small button under Output, and its steps (listening, the suggested Input and Output, Apply and Cancel) appear in a temporary panel above it, so the faceplate no longer changes while you use it. Press Escape or Cancel to close the panel without changing anything. The suggestions work exactly as before and nothing changes until you press Apply. You do not need to do anything.
+
 ## 0.5.48
 
 - Songsmith Analog Compressor: each model now has a clearly different faceplate colour: Blackface is dark as before, Blue Stripe is a clear blue, Anniversary Edition is navy blue with white pinstripes, and Lindell is grey. The model name box is quieter, and the names are shorter: Blackface, Blue Stripe, Anniversary Edition and Lindell. Lindell now has a 2:1 ratio button. Your saved sessions and presets are unchanged. If you switch by hand from Lindell or Anniversary Edition to a model without 2:1, a 2:1 ratio becomes 4:1.

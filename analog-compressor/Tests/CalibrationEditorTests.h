@@ -30,13 +30,49 @@ struct CalibrationEditorTests final : juce::UnitTest
             expect (! button.getBounds().intersects (e.getIgnoreBelow().getBounds()), "clear of Ignore Below");
             expect (! button.getBounds().intersects (e.getGrOffBounds()), "clear of Gain Reduction Off");
             expect (button.getBottom() <= FET::contentHeight, "inside the controls area");
-            expect (! e.getSetLevelsCancelButton().isVisible(), "Cancel only while a calibration is open");
+            expect (! e.getSetLevelsPanel().isVisible(), "the steps panel is only open while Set Levels is in use");
+
+            // ACOMP-21: the faceplate stays exactly where it is while the panel opens and its stages change.
+            auto snapshot = [&]
+            {
+                juce::Array<juce::Rectangle<int>> r;
+                for (auto id : { ID::input, ID::output, ID::attack, ID::release })
+                    r.add (e.getKnob (id).getBounds());
+                r.add (e.getIgnoreBelow().getBounds());
+                r.add (e.getMeter().getBounds());
+                r.add (button.getBounds());
+                r.add (e.getGrOffBounds());
+                r.add (e.getOversamplingBox().getBounds());
+                for (int i = 0; i < 4; ++i)
+                    r.add (e.getRatioButton (i).getBounds());
+                return r;
+            };
+            const auto before = snapshot();
 
             const float in0 = getParam (p, ID::input);
             button.onClick();   // start listening
             expect (e.getLevelsStage() == Stage::listening);
-            expect (e.getSetLevelsCancelButton().isVisible());
+            expect (e.getSetLevelsPanel().isVisible() && e.getSetLevelsCancelButton().isVisible(), "the panel opens, with Cancel in it");
+            expect (e.getSetLevelsActionButton().isVisible());
             expectWithinAbsoluteError (getParam (p, ID::input), in0, 0.011f, "Input does not move while listening");
+
+            const auto panel = e.getSetLevelsPanel().getBounds();
+            expect (juce::Rectangle<int> (0, 0, FET::designWidth, FET::contentHeight).contains (panel), "the panel stays inside the editor");
+            expect (panel.getBottom() <= button.getY(), "the panel is anchored above the entry button");
+            expect (panel.getRight() >= button.getRight() - 1 && panel.getX() <= button.getX(), "and over it, not drifting away");
+            for (auto* c : { &e.getSetLevelsActionButton(), &e.getSetLevelsCancelButton() })
+            {
+                expect (c->getHeight() >= 26, "click target height");
+                expect (e.getSetLevelsPanel().getLocalBounds().contains (c->getBounds()), "buttons are inside the panel");
+            }
+            expect (! e.getSetLevelsActionButton().getBounds().intersects (e.getSetLevelsCancelButton().getBounds()));
+            expect (! e.getSetLevelsMessage().getBounds().intersects (e.getSetLevelsActionButton().getBounds()), "message clear of the buttons");
+            expect (button.getButtonText() == "Set Levels", "the entry button never changes its label");
+
+            expect (snapshot() == before, "listening does not move or resize any faceplate control");
+            e.getSetLevelsPanel().keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+            expect (e.getLevelsStage() == Stage::idle && ! e.getSetLevelsPanel().isVisible(), "Escape cancels and closes the panel");
+            expect (snapshot() == before, "and nothing moved");
         }
 
         beginTest ("listen, finish, apply: Input and Output are written once, undoable and still adjustable");
@@ -46,9 +82,10 @@ struct CalibrationEditorTests final : juce::UnitTest
             SongsmithAnalogCompressorEditor e (p);
             e.getSetLevelsButton().onClick();
             play (p, sustained (fs, 6.0, 0.1f));
-            e.getSetLevelsButton().onClick();   // Finish Listening
+            e.getSetLevelsActionButton().onClick();   // Finish Listening
             expect (e.getLevelsStage() == Stage::proposal);
-            expectEquals (e.getSetLevelsButton().getButtonText(), juce::String ("Apply"));
+            expectEquals (e.getSetLevelsActionButton().getButtonText(), juce::String ("Apply"));
+            expect (e.getSetLevelsPanel().isVisible(), "the proposal is shown in the panel");
             const auto r = e.getLevelsResult();
             expect (r.status == FET::Calibration::Status::good);
             expect (e.getSetLevelsMessage().getText().contains ("Input") && e.getSetLevelsMessage().getText().contains ("Output"),
@@ -56,8 +93,12 @@ struct CalibrationEditorTests final : juce::UnitTest
             expect (e.getSetLevelsMessage().getText().contains ("gain reduction"));
             expectWithinAbsoluteError (getParam (p, ID::input), 0.0f, 0.011f, "nothing changes before Apply");
 
-            e.getSetLevelsButton().onClick();   // Apply
+            e.getSetLevelsActionButton().onClick();   // Apply
             expect (e.getLevelsStage() == Stage::idle);
+            expect (e.getSetLevelsMessage().getText().startsWith ("Applied"), "the result is confirmed in the panel");
+            expect (! e.getSetLevelsActionButton().isVisible() && e.getSetLevelsCancelButton().getButtonText() == "Close", "only Close is left");
+            e.getSetLevelsCancelButton().onClick();
+            expect (! e.getSetLevelsPanel().isVisible(), "Close dismisses the panel");
             expectWithinAbsoluteError (getParam (p, ID::input), r.inputDb, 0.011f);
             expectWithinAbsoluteError (getParam (p, ID::output), r.outputDb, 0.011f);
 
@@ -81,12 +122,12 @@ struct CalibrationEditorTests final : juce::UnitTest
             set (p, ID::input, 3.0f);
             e.getSetLevelsButton().onClick();
             play (p, Signal ((size_t) (fs * 4.0), 0.0f));
-            e.getSetLevelsButton().onClick();
+            e.getSetLevelsActionButton().onClick();
             expect (e.getLevelsResult().status == FET::Calibration::Status::silent);
-            expect (! e.getSetLevelsButton().isEnabled(), "nothing to apply");
+            expect (! e.getSetLevelsActionButton().isEnabled(), "nothing to apply");
             expect (e.getSetLevelsMessage().getText().containsIgnoreCase ("no sound"), e.getSetLevelsMessage().getText());
             e.getSetLevelsCancelButton().onClick();
-            expect (e.getLevelsStage() == Stage::idle);
+            expect (e.getLevelsStage() == Stage::idle && ! e.getSetLevelsPanel().isVisible(), "Cancel closes the panel");
             expectWithinAbsoluteError (getParam (p, ID::input), 3.0f, 0.011f);
             expect (! p.history.canUndo());
         }
@@ -99,16 +140,17 @@ struct CalibrationEditorTests final : juce::UnitTest
             e.getSetLevelsButton().onClick();
             play (p, sustained (fs, 4.0, 0.1f));
             set (p, ID::output, -6.0f);   // automation or the musician moves Output mid-way
-            e.getSetLevelsButton().onClick();
+            e.getSetLevelsActionButton().onClick();   // Finish Listening
             expect (e.getLevelsStage() == Stage::idle, "no proposal from stale settings");
+            expect (e.getSetLevelsPanel().isVisible() && e.getSetLevelsMessage().getText().contains ("changed"), "and the panel says why");
             expectWithinAbsoluteError (getParam (p, ID::output), -6.0f, 0.011f);
 
-            e.getSetLevelsButton().onClick();
+            e.getSetLevelsButton().onClick();   // try again
             play (p, sustained (fs, 4.0, 0.1f));
-            e.getSetLevelsButton().onClick();
+            e.getSetLevelsActionButton().onClick();
             expect (e.getLevelsStage() == Stage::proposal);
             set (p, ID::input, 20.0f);
-            e.getSetLevelsButton().onClick();   // Apply
+            e.getSetLevelsActionButton().onClick();   // Apply
             expectWithinAbsoluteError (getParam (p, ID::input), 20.0f, 0.011f, "the newer change wins");
             expectWithinAbsoluteError (getParam (p, ID::output), -6.0f, 0.011f);
         }
@@ -134,6 +176,7 @@ struct CalibrationEditorTests final : juce::UnitTest
             SongsmithAnalogCompressorEditor e (p);
             expect (Wording::findBanned (e.getSetLevelsButton().getTooltip()).isEmpty());
             expect (Wording::findBanned (e.getSetLevelsCancelButton().getTooltip()).isEmpty());
+            expect (Wording::findBanned (e.getSetLevelsPanel().getTitle()).isEmpty());
         }
 
         beginTest ("Attack and Release tooltips say what they do and that clockwise is faster, and the DSP agrees");

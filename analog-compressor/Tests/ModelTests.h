@@ -296,12 +296,31 @@ struct ModelTests final : juce::UnitTest
             expect (ed != nullptr);
             if (ed == nullptr)
                 return;
-            expectEquals (ed->getModelBox().getNumItems(), 4);
+            // ACOMP-21: four buttons in one row under the title bar, each with its own tooltip.
             for (int i = 0; i < 4; ++i)
-                expectEquals (ed->getModelBox().getItemText (i), FET::modelNames()[i]);
-            expect (ed->getModelBox().findColour (juce::ComboBox::textColourId) == Songsmith::UI::Colours::textDim, "the selector is quiet: dimmer text");
-            expect (ed->getModelBox().getHeight() >= 26, "and still an easy click target");
-            expectEquals (ed->getModelBox().getTitle(), juce::String ("Model"));
+            {
+                auto& b = ed->getModelButton (i);
+                expectEquals (b.getButtonText(), FET::modelNames()[i]);
+                expect (b.findColour (juce::TextButton::textColourOffId) == Songsmith::UI::Colours::textDim, "the names are quiet: dimmer text");
+                expect (b.getHeight() >= 26, "and still an easy click target");
+                expect (b.isVisible());
+                expect (b.getTitle().contains (FET::modelNames()[i]), "accessible name");
+                expect (b.getTooltip().startsWith (FET::modelNames()[i]) && b.getTooltip().contains (FET::modelDescriptions()[i]),
+                        "each model button has its own tooltip, selected or not: " + b.getTooltip());
+                expect (Songsmith::UI::Wording::findBanned (b.getTooltip()).isEmpty(), "plain words: " + b.getTooltip());
+                if (i > 0)
+                {
+                    expectEquals (b.getY(), ed->getModelButton (0).getY(), "one row");
+                    expect (b.getX() > ed->getModelButton (i - 1).getRight(), "left to right, not overlapping");
+                }
+            }
+            expect (ed->getModelButton (0).getToggleState() && ! ed->getModelButton (1).getToggleState(), "Blackface is the default and lit");
+            expect (ed->getModelButton (3).getRight() < ed->getOversamplingBox().getX(), "Oversampling is to the right of the model buttons");
+            expect (ed->getModelButton (3).getBottom() <= ed->getMeter().getY(), "the row is above the meter, not among the controls");
+            ed->getModelButton (3).onClick();
+            expectEquals (ed->getShownModel(), 3);
+            expect (ed->getModelButton (3).getToggleState() && ! ed->getModelButton (0).getToggleState(), "the chosen model is lit");
+            expect (! ed->getModelButton (0).getTooltip().isEmpty(), "an unselected model keeps its tooltip");
         }
 
         beginTest ("ACOMP-20: each model has its own faceplate colour, and it follows automation, presets and restored sessions");
@@ -383,7 +402,7 @@ struct ModelTests final : juce::UnitTest
             };
             expectGreaterThan (loudRms (true), loudRms (false) * 1.05, "2:1 turns the sound down less than 4:1 on Lindell");
 
-            ed->getModelBox().setSelectedItemIndex (0, juce::sendNotificationSync);   // by hand to Blackface
+            ed->getModelButton (0).onClick();   // by hand to Blackface
             expect (! p.isGentleRatioOn(), "leaving Lindell by hand turns 2:1 off, so no ratio is falsely shown");
             expect (! ed->getGentleRatioButton().isVisible(), "and the button goes");
         }

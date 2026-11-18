@@ -181,21 +181,25 @@ namespace FET
     // Interface sizes (editor menu). The editor is drawn in design units and scaled as a whole,
     // so every option is equally sharp.
     inline constexpr float uiScales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f };
-    inline constexpr int designWidth = 960, contentHeight = 400;   // the controls sit in the top 400
+    inline constexpr int designWidth = 960, contentHeight = 416;   // the controls sit in the top 416
+
+    // ACOMP-21: a secondary row under the title bar, as in Songsmith EQ. The four model buttons are at the left and
+    // Oversampling is at the right, right-aligned with the meter. Everything else sits faceShift units lower than before.
+    inline constexpr int modeRowY = 58, modeRowHeight = 28, faceShift = 34;
+    inline constexpr int modelButtonX = 24, modelButtonGap = 6;
+    inline constexpr int modelButtonWidths[4] = { 120, 130, 180, 110 };   // Blackface, Blue Stripe, Anniversary Edition, Lindell
 
     // ACOMP-19: the Ignore Below slider (the detector low cut, ACOMP-07/12/16) sits directly under the Input knob,
     // left-aligned with it and as wide as it.
-    inline constexpr int ignoreBelowX = 24, ignoreBelowY = 290, ignoreBelowWidth = 170, ignoreBelowHeight = 50;
+    inline constexpr int ignoreBelowX = 24, ignoreBelowY = 290 + faceShift, ignoreBelowWidth = 170, ignoreBelowHeight = 50;
 
-    // ACOMP-09: Set Levels sits directly under the Output knob, beside Input (which it also sets). The button is
-    // on the first row, Cancel (only while a calibration is open) below it, and the one-line-or-two message under both.
-    inline constexpr int setLevelsX = 200, setLevelsY = 290, setLevelsWidth = 170, setLevelsHeight = 30;
-    inline constexpr int setLevelsCancelY = 324, setLevelsCancelHeight = 26;
-    inline constexpr int setLevelsMessageX = 24, setLevelsMessageY = 352, setLevelsMessageWidth = 346, setLevelsMessageHeight = 46;
+    // ACOMP-09 / ACOMP-21: the small Set Levels button sits directly under the Output knob, beside Input. Its steps
+    // (listening, proposal, Apply, Cancel) are in a temporary panel above the button, so nothing on the faceplate moves.
+    inline constexpr int setLevelsX = 200, setLevelsY = 290 + faceShift, setLevelsWidth = 170, setLevelsHeight = 30;
+    inline constexpr int levelsPanelWidth = 300, levelsPanelHeight = 136, levelsPanelGap = 6;
 
-    // ACOMP-19: Oversampling sits on the right, on the row of "Gain Reduction Off", under the Gain Reduction meter,
-    // right-aligned with the meter. (This replaces the far-left place from ACOMP-15.)
-    inline constexpr int oversamplingX = 760, oversamplingY = 314, oversamplingWidth = 176, oversamplingHeight = 32;
+    // ACOMP-21 (replaces ACOMP-19's lower-right place): Oversampling is on the right of the secondary row.
+    inline constexpr int oversamplingX = 736, oversamplingY = modeRowY, oversamplingWidth = 200, oversamplingHeight = modeRowHeight;
     inline constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
     inline constexpr int designHeight = contentHeight + footerHeight;
 
