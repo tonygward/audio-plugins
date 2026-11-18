@@ -125,8 +125,18 @@ public:
                 { "high_cut_frequency", 0.0f, 2.0f, 1.0f, "High Cut Frequency" },
                 { "high_cut", 0.0f, 16.0f, 0.0f, "High Cut" },
                 { "bypass", 0.0f, 1.0f, 0.0f, "Bypass" },
+                // PEQ-04 (version 2): the mode and the Mid Shaper and Frequency Filter controls. Defaults leave the sound unchanged.
+                { "eq_mode", 0.0f, 2.0f, 0.0f, "EQ Mode" },
+                { "mid_low_frequency", 0.0f, 4.0f, 2.0f, "Low-Mid Boost Frequency" },
+                { "mid_low_boost", 0.0f, 10.0f, 0.0f, "Low-Mid Boost" },
+                { "mid_dip_frequency", 0.0f, 9.0f, 4.0f, "Mid Dip Frequency" },
+                { "mid_dip", 0.0f, 10.0f, 0.0f, "Mid Dip" },
+                { "mid_high_frequency", 0.0f, 4.0f, 2.0f, "High-Mid Boost Frequency" },
+                { "mid_high_boost", 0.0f, 10.0f, 0.0f, "High-Mid Boost" },
+                { "high_pass_frequency", 0.0f, 5.0f, 0.0f, "High-Pass Frequency" },
+                { "low_pass_frequency", 0.0f, 4.0f, 0.0f, "Low-Pass Frequency" },
             };
-            expectEquals (p.getParameters().size(), (int) std::size (rows), "nine parameters, no more");
+            expectEquals (p.getParameters().size(), (int) std::size (rows), "the nine original parameters (never renamed) and the nine PEQ-04 ones, no more");
             for (const auto& r : rows)
             {
                 auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p.apvts.getParameter (r.id));
@@ -339,9 +349,9 @@ public:
         beginTest ("The starting points set every sound parameter, leave Bypass alone, and are the host's programs");
         {
             const auto& list = Peq::Presets::factory();
-            expectEquals ((int) list.size(), 6);
+            expectEquals ((int) list.size(), 10, "six Tone Shaper starting points and four for the other modes");
             SongsmithPassiveEQProcessor p;
-            expectEquals (p.getNumPrograms(), 6);
+            expectEquals (p.getNumPrograms(), 10);
             setParam (p, Peq::bypassId, 1.0f);
             for (int i = 0; i < p.getNumPrograms(); ++i)
             {
@@ -356,6 +366,15 @@ public:
                 expectWithinAbsoluteError (getParam (p, Peq::highBandwidthId), f.bandwidth, 1.0e-3f, f.name);
                 expectEquals (getParam (p, Peq::highCutFrequencyId), (float) f.highCutFrequency, f.name);
                 expectWithinAbsoluteError (getParam (p, Peq::highCutId), f.highCut, 1.0e-3f, f.name);
+                expectEquals (getParam (p, Peq::modeId), (float) f.mode, f.name);
+                expectEquals (getParam (p, Peq::midLowFrequencyId), (float) f.midLowFrequency, f.name);
+                expectWithinAbsoluteError (getParam (p, Peq::midLowBoostId), f.midLowBoost, 1.0e-3f, f.name);
+                expectEquals (getParam (p, Peq::midDipFrequencyId), (float) f.midDipFrequency, f.name);
+                expectWithinAbsoluteError (getParam (p, Peq::midDipId), f.midDip, 1.0e-3f, f.name);
+                expectEquals (getParam (p, Peq::midHighFrequencyId), (float) f.midHighFrequency, f.name);
+                expectWithinAbsoluteError (getParam (p, Peq::midHighBoostId), f.midHighBoost, 1.0e-3f, f.name);
+                expectEquals (getParam (p, Peq::highPassFrequencyId), (float) f.highPass, f.name);
+                expectEquals (getParam (p, Peq::lowPassFrequencyId), (float) f.lowPass, f.name);
                 expectEquals (getParam (p, Peq::bypassId), 1.0f, "Bypass is not a preset's business");
                 expectEquals (p.getCurrentProgram(), i);
                 expectEquals (p.presets.currentName, juce::String (f.name));
@@ -364,8 +383,18 @@ public:
                 SongsmithPassive::Engine e;
                 e.prepare (48000.0);
                 e.setParams (p.getEngineParams());
-                for (double hz = 20.0; hz < 20000.0; hz *= 1.1)
-                    expect (std::abs (e.responseDb (hz)) <= 6.0f, juce::String (f.name) + " stays gentle at " + juce::String (hz) + " Hz");
+                // (A Frequency Filter starting point is a filter: it takes the sound away beyond its frequency by design, so it is
+                // checked to leave the middle alone instead.)
+                if (f.mode == 2)
+                {
+                    for (double hz = 400.0; hz < 4000.0; hz *= 1.1)
+                        expect (std::abs (e.responseDb (hz)) <= 0.5f, juce::String (f.name) + " leaves the middle alone at " + juce::String (hz) + " Hz");
+                }
+                else
+                {
+                    for (double hz = 20.0; hz < 20000.0; hz *= 1.1)
+                        expect (std::abs (e.responseDb (hz)) <= 6.0f, juce::String (f.name) + " stays gentle at " + juce::String (hz) + " Hz");
+                }
             }
             expectEquals (p.getProgramName (99), juce::String());
 
@@ -659,9 +688,9 @@ public:
             auto& box = ed->getPresetBox();
             int starting = 0;
             for (int i = 0; i < box.getNumItems(); ++i)
-                if (box.getItemId (i) >= 1 && box.getItemId (i) <= 6)
+                if (box.getItemId (i) >= 1 && box.getItemId (i) <= 10)
                     ++starting;
-            expectEquals (starting, 6, "six starting points");
+            expectEquals (starting, 10, "ten starting points");
             box.setSelectedId (1, juce::sendNotificationSync);
             expectWithinAbsoluteError (getParam (p, Peq::lowBoostId), Peq::Presets::factory()[0].lowBoost, 1.0e-3f);
             expect (ed->getUndoButton().isEnabled(), "Undo is available after loading");
@@ -797,6 +826,8 @@ public:
 
 static PassiveEQPluginTests passiveEQPluginTests;
 static PassiveEQEditorTests passiveEQEditorTests;
+
+#include "ModePluginTests.h"   // PEQ-04: the EQ Mode (parameters, sessions, presets, editor)
 
 //==============================================================================
 static SongsmithUITests sharedUITests { "PassiveEQ" };

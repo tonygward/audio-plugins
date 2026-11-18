@@ -275,3 +275,5 @@ public:
 
 static PassiveEngineTests passiveEngineTests;
 
+#include "ModeEngineTests.h"   // PEQ-04: the Mid Shaper and Frequency Filter modes
+

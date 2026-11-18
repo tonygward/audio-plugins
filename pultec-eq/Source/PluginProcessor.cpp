@@ -23,9 +23,20 @@ SongsmithPassiveEQProcessor::SongsmithPassiveEQProcessor()
     highBandwidthRaw      = apvts.getRawParameterValue (Peq::highBandwidthId);
     highCutFrequencyRaw   = apvts.getRawParameterValue (Peq::highCutFrequencyId);
     highCutRaw            = apvts.getRawParameterValue (Peq::highCutId);
+    modeRaw               = apvts.getRawParameterValue (Peq::modeId);
+    midLowFrequencyRaw    = apvts.getRawParameterValue (Peq::midLowFrequencyId);
+    midLowBoostRaw        = apvts.getRawParameterValue (Peq::midLowBoostId);
+    midDipFrequencyRaw    = apvts.getRawParameterValue (Peq::midDipFrequencyId);
+    midDipRaw             = apvts.getRawParameterValue (Peq::midDipId);
+    midHighFrequencyRaw   = apvts.getRawParameterValue (Peq::midHighFrequencyId);
+    midHighBoostRaw       = apvts.getRawParameterValue (Peq::midHighBoostId);
+    highPassRaw           = apvts.getRawParameterValue (Peq::highPassFrequencyId);
+    lowPassRaw            = apvts.getRawParameterValue (Peq::lowPassFrequencyId);
     bypassParam           = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Peq::bypassId));
     jassert (lowFrequencyRaw && lowBoostRaw && lowCutRaw && highBoostFrequencyRaw && highBoostRaw
-             && highBandwidthRaw && highCutFrequencyRaw && highCutRaw && bypassParam);
+             && highBandwidthRaw && highCutFrequencyRaw && highCutRaw && bypassParam
+             && modeRaw && midLowFrequencyRaw && midLowBoostRaw && midDipFrequencyRaw && midDipRaw
+             && midHighFrequencyRaw && midHighBoostRaw && highPassRaw && lowPassRaw);
 
     dryBuffer.setSize (2, 512, false, true);   // resized in prepareToPlay
 }
@@ -63,6 +74,29 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithPassiveEQProcessor:
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { Peq::bypassId, 1 }, "Bypass", false));
 
+    // PEQ-04 (ParameterID version 2): the EQ Mode and the Mid Shaper and Frequency Filter controls. Every amount starts at zero
+    // and every filter at Off, so a new instance, and any session saved before these existed, leaves the sound as it was.
+    layout.add (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { Peq::modeId, 2 }, "EQ Mode", Peq::modeNames(), 0));
+    auto gain2 = [&layout] (const char* id, const char* name, float maxDb)
+    {
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { id, 2 }, name, juce::NormalisableRange<float> (0.0f, maxDb, 0.1f), 0.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("dB")));
+    };
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { Peq::midLowFrequencyId, 2 }, "Low-Mid Boost Frequency", Peq::frequencyNames (midLowFrequencies), Peq::defaultMidLowFrequency));
+    gain2 (Peq::midLowBoostId, "Low-Mid Boost", maxMidBoostDb);
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { Peq::midDipFrequencyId, 2 }, "Mid Dip Frequency", Peq::frequencyNames (midDipFrequencies), Peq::defaultMidDipFrequency));
+    gain2 (Peq::midDipId, "Mid Dip", maxMidDipDb);
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { Peq::midHighFrequencyId, 2 }, "High-Mid Boost Frequency", Peq::frequencyNames (midHighFrequencies), Peq::defaultMidHighFrequency));
+    gain2 (Peq::midHighBoostId, "High-Mid Boost", maxMidBoostDb);
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { Peq::highPassFrequencyId, 2 }, "High-Pass Frequency", Peq::frequencyNamesWithOff (highPassFrequencies), 0));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { Peq::lowPassFrequencyId, 2 }, "Low-Pass Frequency", Peq::frequencyNamesWithOff (lowPassFrequencies), 0));
+
     return layout;
 }
 
@@ -77,6 +111,15 @@ SongsmithPassive::Params SongsmithPassiveEQProcessor::getEngineParams() const no
     p.bandwidth               = highBandwidthRaw->load (std::memory_order_relaxed) / Peq::maxBandwidth;
     p.highCutFrequencyIndex   = juce::roundToInt (highCutFrequencyRaw->load (std::memory_order_relaxed));
     p.highCutDb               = highCutRaw->load (std::memory_order_relaxed);
+    p.mode                    = (SongsmithPassive::Mode) juce::jlimit (0, SongsmithPassive::numModes - 1, juce::roundToInt (modeRaw->load (std::memory_order_relaxed)));
+    p.midLowFrequencyIndex    = juce::roundToInt (midLowFrequencyRaw->load (std::memory_order_relaxed));
+    p.midLowBoostDb           = midLowBoostRaw->load (std::memory_order_relaxed);
+    p.midDipFrequencyIndex    = juce::roundToInt (midDipFrequencyRaw->load (std::memory_order_relaxed));
+    p.midDipDb                = midDipRaw->load (std::memory_order_relaxed);
+    p.midHighFrequencyIndex   = juce::roundToInt (midHighFrequencyRaw->load (std::memory_order_relaxed));
+    p.midHighBoostDb          = midHighBoostRaw->load (std::memory_order_relaxed);
+    p.highPassIndex           = juce::roundToInt (highPassRaw->load (std::memory_order_relaxed));
+    p.lowPassIndex            = juce::roundToInt (lowPassRaw->load (std::memory_order_relaxed));
     return p;
 }
 

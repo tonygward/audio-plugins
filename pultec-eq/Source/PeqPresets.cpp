@@ -12,8 +12,12 @@ namespace Peq
         }
     }
 
+    // The sound: every frequency and amount in every mode, and the mode. (Bypass and editor state are never part of a preset.)
+    // A preset saved before the modes existed has none of the PEQ-04 entries, so it loads as Tone Shaper.
     const char* const Presets::presetParameterIds[] = { lowFrequencyId, lowBoostId, lowCutId, highBoostFrequencyId,
-                                                        highBoostId, highBandwidthId, highCutFrequencyId, highCutId };
+                                                        highBoostId, highBandwidthId, highCutFrequencyId, highCutId,
+                                                        modeId, midLowFrequencyId, midLowBoostId, midDipFrequencyId, midDipId,
+                                                        midHighFrequencyId, midHighBoostId, highPassFrequencyId, lowPassFrequencyId };
     const int Presets::numPresetParameters = (int) std::size (presetParameterIds);
 
     // Conservative starting points, named for what they are used for. They are Songsmith starting points, not copies of
@@ -43,6 +47,24 @@ namespace Peq
             { "Soften Harsh Highs",           3, 0.0f, 0.0f,   3, 0.0f, 5.0f,   1, 3.0f,
               "Turns down the very top of a bright or harsh recording from 10 kHz upwards. Listen for the edge becoming smoother. "
               "If the sound turns dull, lower High Cut." },
+
+            // PEQ-04: starting points for the Mid Shaper and the Frequency Filter. Songsmith starting points, named for their use.
+            { "Lead Vocal Presence",          2, 0.0f, 0.0f,   3, 0.0f, 5.0f,   1, 0.0f,
+              "Brings a lead vocal forward with a broad lift around 3 kHz and a little less boxiness around 500 Hz. Listen for the words becoming easier to understand. "
+              "If it sounds harsh or nasal, lower High-Mid Boost. It also makes the sound louder, so compare at the same level.",
+              1,  2, 0.0f,  2, 3.0f,  2, 4.0f,  0, 0 },
+            { "Reduce Boxy Mids",             2, 0.0f, 0.0f,   3, 0.0f, 5.0f,   1, 0.0f,
+              "Turns down the cardboard-box sound that can build up around 300 to 500 Hz on guitars, drums and vocals. Listen for the sound opening up. "
+              "If it sounds thin, lower Mid Dip.",
+              1,  1, 0.0f,  1, 4.0f,  2, 0.0f,  0, 0 },
+            { "Clear Low Rumble",             2, 0.0f, 0.0f,   3, 0.0f, 5.0f,   1, 0.0f,
+              "Removes the very low rumble that is not part of the sound, using a high-pass filter at 80 Hz. Listen for a tidier low end. "
+              "If a bass or kick loses weight, choose a lower frequency or Off.",
+              2,  2, 0.0f,  4, 0.0f,  2, 0.0f,  3, 0 },
+            { "Soften Top Hiss",    2, 0.0f, 0.0f,   3, 0.0f, 5.0f,   1, 0.0f,
+              "Rolls off the very top with a low-pass filter at 10 kHz, which tames hiss and a brittle top end. Listen for a smoother, darker sound. "
+              "If it sounds dull, choose a higher frequency or Off.",
+              2,  2, 0.0f,  4, 0.0f,  2, 0.0f,  0, 3 },
         };
         return presets;
     }
@@ -92,6 +114,15 @@ namespace Peq
         setParam (highBandwidthId, f.bandwidth);
         setParam (highCutFrequencyId, (float) f.highCutFrequency);
         setParam (highCutId, f.highCut);
+        setParam (modeId, (float) f.mode);
+        setParam (midLowFrequencyId, (float) f.midLowFrequency);
+        setParam (midLowBoostId, f.midLowBoost);
+        setParam (midDipFrequencyId, (float) f.midDipFrequency);
+        setParam (midDipId, f.midDip);
+        setParam (midHighFrequencyId, (float) f.midHighFrequency);
+        setParam (midHighBoostId, f.midHighBoost);
+        setParam (highPassFrequencyId, (float) f.highPass);
+        setParam (lowPassFrequencyId, (float) f.lowPass);
         currentName = f.name;
         currentHint = f.hint;
     }
