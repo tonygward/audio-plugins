@@ -287,6 +287,107 @@ struct ModelTests final : juce::UnitTest
             }
         }
 
+        beginTest ("ACOMP-20: the four model names are exactly Blackface, Blue Stripe, Anniversary Edition and Lindell");
+        {
+            expectEquals (FET::modelNames().joinIntoString ("/"), juce::String ("Blackface/Blue Stripe/Anniversary Edition/Lindell"));
+            SongsmithAnalogCompressorProcessor p;
+            std::unique_ptr<juce::AudioProcessorEditor> base (p.createEditor());
+            auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (base.get());
+            expect (ed != nullptr);
+            if (ed == nullptr)
+                return;
+            expectEquals (ed->getModelBox().getNumItems(), 4);
+            for (int i = 0; i < 4; ++i)
+                expectEquals (ed->getModelBox().getItemText (i), FET::modelNames()[i]);
+            expect (ed->getModelBox().findColour (juce::ComboBox::textColourId) == Songsmith::UI::Colours::textDim, "the selector is quiet: dimmer text");
+            expect (ed->getModelBox().getHeight() >= 26, "and still an easy click target");
+            expectEquals (ed->getModelBox().getTitle(), juce::String ("Model"));
+        }
+
+        beginTest ("ACOMP-20: each model has its own faceplate colour, and it follows automation, presets and restored sessions");
+        {
+            auto plate = [] (SongsmithAnalogCompressorProcessor& p, SongsmithAnalogCompressorEditor& ed)
+            {
+                juce::ignoreUnused (p);
+                const auto image = ed.createComponentSnapshot (ed.getLocalBounds(), true, 1.0f);
+                float r = 0.0f, g = 0.0f, b = 0.0f;
+                int n = 0;
+                for (int y = 150; y < 250; ++y)
+                    for (int x = 9; x < 13; ++x)
+                    {
+                        const auto c = image.getPixelAt (x, y);
+                        r += c.getFloatRed(); g += c.getFloatGreen(); b += c.getFloatBlue(); ++n;
+                    }
+                return std::array<float, 3> { r / (float) n, g / (float) n, b / (float) n };
+            };
+            auto brightness = [] (const std::array<float, 3>& c) { return (c[0] + c[1] + c[2]) / 3.0f; };
+
+            std::array<std::array<float, 3>, 4> shown;
+            for (int m = 0; m < 4; ++m)
+            {
+                SongsmithAnalogCompressorProcessor p;
+                set (p, ID::model, (float) m);   // a restored session or a preset sets the parameter before the editor opens
+                std::unique_ptr<juce::AudioProcessorEditor> base (p.createEditor());
+                auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (base.get());
+                expect (ed != nullptr && ed->getShownModel() == m);
+                if (ed == nullptr)
+                    return;
+                shown[(size_t) m] = plate (p, *ed);
+            }
+            const auto& black = shown[0]; const auto& blueStripe = shown[1]; const auto& anniversary = shown[2]; const auto& lindell = shown[3];
+            expect (std::abs (black[2] - black[0]) < 0.06f, "Blackface stays neutral and dark");
+            expect (blueStripe[2] > blueStripe[0] + 0.12f && blueStripe[2] > blueStripe[1] + 0.05f, "Blue Stripe is distinctly blue");
+            expect (anniversary[2] > anniversary[0] + 0.12f, "Anniversary Edition is blue");
+            expect (std::abs (anniversary[2] - blueStripe[2]) + std::abs (anniversary[0] - blueStripe[0]) > 0.05f, "and a different blue from Blue Stripe");
+            expect (std::abs (lindell[2] - lindell[0]) < 0.06f && brightness (lindell) > brightness (black) + 0.08f, "Lindell is a lighter, neutral grey");
+
+            // Automation moves it live.
+            SongsmithAnalogCompressorProcessor p;
+            std::unique_ptr<juce::AudioProcessorEditor> base (p.createEditor());
+            auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (base.get());
+            const auto before = plate (p, *ed);
+            set (p, ID::model, 1.0f);
+            expectEquals (ed->getShownModel(), 1);
+            const auto after = plate (p, *ed);
+            expect (after[2] > before[2] + 0.1f, "automating the model changes the faceplate at once");
+        }
+
+        beginTest ("ACOMP-20: Lindell offers a working 2:1, Blackface and Blue Stripe do not, and leaving Lindell maps 2:1 to 4:1");
+        {
+            for (int m = 0; m < 4; ++m)
+                expect (FET::voicingFor (m).hasGentleRatio == (m == 2 || m == 3), "2:1 is offered on Anniversary Edition and Lindell only");
+
+            SongsmithAnalogCompressorProcessor p;
+            set (p, ID::model, 3.0f);
+            std::unique_ptr<juce::AudioProcessorEditor> base (p.createEditor());
+            auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (base.get());
+            expect (ed->getGentleRatioButton().isVisible(), "the 2:1 button is shown on Lindell");
+            ed->getGentleRatioButton().onClick();
+            expect (p.isGentleRatioOn(), "pressing it turns 2:1 on");
+            expect (ed->getGentleRatioButton().getToggleState(), "and it lights");
+
+            // It really is gentler: the same loud sound is turned down less at 2:1 than at 4:1 on Lindell.
+            auto loudRms = [] (bool gentle)
+            {
+                SongsmithAnalogCompressorProcessor q;
+                q.prepareToPlay (fs, 512);
+                set (q, ID::model, 3.0f);
+                set (q, ID::input, 18.0f);
+                set (q, ID::ratio, 0.0f);
+                set (q, ID::ratioTwoToOne, gentle ? 1.0f : 0.0f);
+                const auto out = play (q, sustained (fs, 3.0, 0.3f));
+                double sum = 0.0;
+                for (size_t i = out.size() / 2; i < out.size(); ++i)
+                    sum += (double) out[i] * out[i];
+                return std::sqrt (sum / (double) (out.size() / 2));
+            };
+            expectGreaterThan (loudRms (true), loudRms (false) * 1.05, "2:1 turns the sound down less than 4:1 on Lindell");
+
+            ed->getModelBox().setSelectedItemIndex (0, juce::sendNotificationSync);   // by hand to Blackface
+            expect (! p.isGentleRatioOn(), "leaving Lindell by hand turns 2:1 off, so no ratio is falsely shown");
+            expect (! ed->getGentleRatioButton().isVisible(), "and the button goes");
+        }
+
         beginTest ("Set Levels works for every model and measures what that model plays");
         {
             const auto in = sustained (fs, 6.0, 0.1f);

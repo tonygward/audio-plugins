@@ -1144,7 +1144,7 @@ static int runTimingReport()
 static int renderScreenshots (const juce::File& folder, float backingScale)
 {
     folder.createDirectory();
-    const auto shoot = [&] (float uiScale, bool allButtons, int meterMode, const juce::String& name)
+    const auto shoot = [&] (float uiScale, bool allButtons, int meterMode, const juce::String& name, int model = 0)
     {
         SongsmithAnalogCompressorProcessor p;
         const auto set = [&] (const char* id, float v) { auto* rp = p.apvts.getParameter (id); rp->setValueNotifyingHost (rp->convertTo0to1 (v)); };
@@ -1154,6 +1154,7 @@ static int renderScreenshots (const juce::File& folder, float backingScale)
         set (ID::release, 6.0f);
         set (ID::ratio, 0.0f);
         set (ID::allButtons, allButtons ? 1.0f : 0.0f);
+        set (ID::model, (float) model);
         p.uiScale.store (uiScale);
         p.meterMode.store (meterMode);
         p.prepareToPlay (48000.0, 480);
@@ -1180,6 +1181,10 @@ static int renderScreenshots (const juce::File& folder, float backingScale)
         shoot (s, false, 0, "analog-compressor-" + juce::String (juce::roundToInt (s * 100.0f)));
     shoot (1.0f, true, 0, "analog-compressor-all-buttons");
     shoot (1.0f, false, 1, "analog-compressor-meter-plus4");
+    // ACOMP-20: each model's faceplate.
+    shoot (1.0f, false, 0, "analog-compressor-model-blue-stripe", 1);
+    shoot (1.0f, false, 0, "analog-compressor-model-anniversary-edition", 2);
+    shoot (1.0f, false, 0, "analog-compressor-model-lindell", 3);
 
     // Every control state, drawn by the editor's look-and-feel.
     FET::UI::LookAndFeel lf;
