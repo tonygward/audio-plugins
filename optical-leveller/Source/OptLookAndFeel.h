@@ -19,6 +19,9 @@ namespace Opt::UI
         inline const juce::Colour textDim    = Songsmith::UI::Colours::textDim;
         // ...the leveller's accent (a soft sky blue), and colours only the meter uses.
         inline const juce::Colour accent     { 0xff7fb2e5 };
+        // The grey of the textured faceplate (OPT-02): lit from the top, deeper at the bottom.
+        inline const juce::Colour plateTop    { 0xff5a5d63 };
+        inline const juce::Colour plateBottom { 0xff393b40 };
         inline const juce::Colour meterFace  { 0xfff1e6c8 };
         inline const juce::Colour meterInk   { 0xff2a2620 };
         inline const juce::Colour meterRed   { 0xffb8402e };
