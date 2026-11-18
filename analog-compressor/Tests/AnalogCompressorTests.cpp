@@ -521,13 +521,20 @@ struct EditorTests final : juce::UnitTest
         {
             expect (ac->getOversamplingBox().getBottom() > 50, "Oversampling sits with the processing controls, below the title bar");
             {
-                // ACOMP-19 (supersedes ACOMP-15): lower right, under the Gain Reduction meter, on the Gain Reduction Off row.
+                // ACOMP-21 (supersedes ACOMP-19): the right of the secondary row, level with the four model buttons.
                 auto& os = ac->getOversamplingBox();
                 auto& inputKnob = ac->getKnob (ID::input);
                 const auto meterBounds = ac->getMeter().getBounds();
-                expect (os.getX() > meterBounds.getX(), "Oversampling is on the right-hand side, under the meter");
-                expect (os.getY() > meterBounds.getBottom(), "Oversampling is below the meter");
+                expect (os.getX() > meterBounds.getX(), "Oversampling is on the right-hand side");
+                expect (os.getBottom() <= meterBounds.getY(), "Oversampling is in the secondary row, above the meter");
+                expect (os.getY() >= (int) Songsmith::UI::titleBarHeight, "and below the title bar");
                 expectEquals (os.getRight(), meterBounds.getRight(), "right-aligned with the meter");
+                for (int m = 0; m < 4; ++m)
+                {
+                    auto& mb = ac->getModelButton (m);
+                    expectEquals (mb.getY(), os.getY(), "level with the model buttons");
+                    expect (mb.getRight() < os.getX(), "the model buttons are to its left");
+                }
                 expect (! os.getBounds().intersects (meterBounds), "Oversampling does not overlap the meter");
                 expect (! os.getBounds().intersects (ac->getGrOffBounds()), "nor Gain Reduction Off");
                 expect (! os.getBounds().intersects (ac->getIgnoreBelow().getBounds()), "nor Ignore Below");
@@ -825,7 +832,8 @@ struct EditorRefinementTests final : juce::UnitTest
             // The strip under the Gain Reduction readout, where the note used to be, is plain faceplate (no amber text).
             const float sx = (float) ed->getWidth() / (float) designWidth, sy = (float) ed->getHeight() / (float) designHeight;
             int amber = 0;
-            for (int y = juce::roundToInt (296.0f * sy); y < juce::roundToInt (312.0f * sy); ++y)
+            const float shiftY = (float) FET::faceShift;   // ACOMP-21: the faceplate sits below the secondary row
+            for (int y = juce::roundToInt ((296.0f + shiftY) * sy); y < juce::roundToInt ((312.0f + shiftY) * sy); ++y)
                 for (int x = juce::roundToInt (592.0f * sx); x < juce::roundToInt (936.0f * sx); ++x)
                 {
                     const auto c = image.getPixelAt (x, y);
@@ -854,7 +862,7 @@ struct EditorRefinementTests final : juce::UnitTest
             expectEquals (image.getWidth(), juce::roundToInt ((float) ed->getWidth() * scale));
             // An empty strip of the faceplate (between the knobs and the hint line) is not one flat colour.
             std::set<juce::uint32> colours;
-            const int y = juce::roundToInt (340.0f * ed->getHeight() / (float) designHeight * scale);
+            const int y = juce::roundToInt ((340.0f + (float) FET::faceShift) * ed->getHeight() / (float) designHeight * scale);
             for (int x = juce::roundToInt (60.0f * scale); x < juce::roundToInt (360.0f * scale); ++x)
                 for (int dy = 0; dy < juce::roundToInt (8.0f * scale); ++dy)
                     colours.insert (image.getPixelAt (x, y + dy).getARGB());
