@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <cmath>
 #include <random>
+#include <set>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
@@ -671,6 +672,28 @@ public:
             expectEquals (getParam (p, Peq::lowBoostId), 0.0f, "one Undo restores everything the preset changed");
             expectEquals (getParam (p, Peq::lowCutId), 0.0f);
             expectEquals (getParam (p, Peq::lowFrequencyId), (float) Peq::defaultLowFrequency);
+        }
+
+        beginTest ("The faceplate is blue and textured, not flat, and the title bar keeps the suite's neutral look");
+        {
+            SongsmithPassiveEQProcessor p;
+            auto ed = make (p, Peq::EditorLayout::defaultWidth);
+            const auto image = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
+            // The strip of faceplate left of the first group, between the screws, over a tall stretch.
+            int bluer = 0, samples = 0;
+            std::set<juce::uint32> distinct;
+            for (int y = 200; y < 380; ++y)
+                for (int x = 9; x < 13; ++x)
+                {
+                    const auto c = image.getPixelAt (x, y);
+                    ++samples;
+                    bluer += c.getBlue() > c.getRed() + 30 && c.getBlue() > c.getGreen() + 10 ? 1 : 0;
+                    distinct.insert (c.getARGB());
+                }
+            expect (bluer > samples * 9 / 10, "the faceplate is clearly blue: " + juce::String (bluer) + " of " + juce::String (samples));
+            expect (distinct.size() > 8, "with a grain and a shaded gradient, not a flat fill: " + juce::String ((int) distinct.size()) + " colours");
+            const auto titleBar = image.getPixelAt (700, 10);
+            expect (std::abs (titleBar.getBlue() - titleBar.getRed()) < 20, "the suite's title bar stays neutral");
         }
     }
 };

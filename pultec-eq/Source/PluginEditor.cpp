@@ -316,13 +316,15 @@ void SongsmithPassiveEQEditor::paintContent (juce::Graphics& g)
     const auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) designWidth, (float) designHeight);
     Songsmith::UI::LookAndFeelBase::drawPanel (g, r);
 
-    // Faceplate: a fine brushed grain, a lit inner edge and four screws. All vector, so it scales.
+    // Faceplate: blue, with the suite's fine brushed grain over it, a lit inner edge and four screws. All vector, so it scales.
     {
-        static const Grain grain;
-        grain.draw (g);
-
         const auto plate = juce::Rectangle<float> (6.0f, (float) Songsmith::UI::titleBarHeight + 4.0f, (float) designWidth - 12.0f,
                                                    (float) contentHeight - (float) Songsmith::UI::titleBarHeight - 10.0f);
+        g.setGradientFill (juce::ColourGradient (Colours::plateTop, 0.0f, plate.getY(), Colours::plateBottom, 0.0f, plate.getBottom(), false));
+        g.fillRoundedRectangle (plate, 8.0f);
+
+        static const Grain grain;
+        grain.draw (g);
         g.setColour (juce::Colours::white.withAlpha (0.06f));
         g.drawRoundedRectangle (plate, 8.0f, 1.0f);
         g.setColour (juce::Colours::black.withAlpha (0.25f));
