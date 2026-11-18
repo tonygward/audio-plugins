@@ -10,6 +10,7 @@
 #include "../../shared/Tests/SongsmithUITests.h"
 #include "../../shared/Tests/SongsmithHeaderTests.h"
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
+#include "../../shared/Tests/SongsmithMeterColumnTests.h"
 #include "EngineMeasure.h"
 #include "ColourMeasure.h"
 
@@ -1126,6 +1127,7 @@ struct TwoToOneTests final : juce::UnitTest
 static IdentityTests identityTests;
 static TwoToOneTests twoToOneTests;
 static DiagnosticsTests diagnosticsTests;
+static SongsmithMeterColumnTests<SongsmithAnalogCompressorProcessor, SongsmithAnalogCompressorEditor> sharedMeterColumnTests { "FET", FET::designWidth, FET::contentHeight };
 static LayoutTests layoutTests;
 static TransparencyTests transparencyTests;
 static StateTests stateTests;

@@ -181,7 +181,7 @@ namespace FET
     // Interface sizes (editor menu). The editor is drawn in design units and scaled as a whole,
     // so every option is equally sharp.
     inline constexpr float uiScales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f };
-    inline constexpr int designWidth = 960, contentHeight = 416;   // the controls sit in the top 416
+    inline constexpr int designWidth = 1140, contentHeight = 416;   // 960 for the controls plus the right-hand meter column (SUI-23); they sit in the top 416
 
     // ACOMP-21: a secondary row under the title bar, as in Songsmith EQ. The four model buttons are at the left and
     // Oversampling is at the right, right-aligned with the meter. Everything else sits faceShift units lower than before.

@@ -25,7 +25,7 @@ namespace
     const juce::Rectangle<int> highBoostGroup { 316, 216, 380, 224 };
     const juce::Rectangle<int> highCutGroup  { 708, 216, 228, 224 };
     // The output meter runs the full height of the curve and the groups, on the right edge.
-    const juce::Rectangle<int> meterArea     { designWidth - 20 - Songsmith::UI::OutputMeterDisplay::preferredWidth, 60, Songsmith::UI::OutputMeterDisplay::preferredWidth, 380 };
+    const juce::Rectangle<int> meterArea     = Songsmith::UI::MeterColumn::boundsFor (designWidth, 60, 440, false);   // SUI-23: the suite's margin and place
     constexpr int groupInset = 12, switchTop = 34, switchHeight = 28, knobTop = 70;
 
     // The faceplate's fine brushed-metal grain (shared with the other plugins). Built once; the same grain every time.

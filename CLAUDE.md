@@ -36,6 +36,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 - Shared neutral colours. Each plugin has one accent colour.
 - Every editor is vector-drawn, scales as a whole (interface size at least 75–200 %; see the style guide for each plugin's range), and stays crisp on Retina and Windows display scaling.
 - New plugins link the shared UI library; they don't copy fonts or look-and-feel code.
+- **Every plugin has the Output level meter at the far right**, laid out like the Songsmith Compressor, and every plugin that turns the level down also has the Gain Reduction bar beside it. Use `Songsmith::UI::MeterColumn` (SUI-23). Equalisers show Output only. `test/suite-meters.test.mjs` enforces it.
 
 ### 4. Controls belong beside what they affect
 - **Place each UI widget near the feature, graph, value, meter, or region it controls.** Spatial proximity should make its effect obvious without requiring the user to search the interface. Do not put controls into a generic toolbar simply because it has spare space.

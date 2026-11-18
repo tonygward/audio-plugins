@@ -6,6 +6,7 @@
 #include "OpticalEngine.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
 #include "../../shared/Source/SongsmithHeader.h"
+#include "../../shared/Source/SongsmithOutputMeter.h"
 
 class SongsmithOpticalLevellerProcessor : public juce::AudioProcessor
 {
@@ -66,6 +67,9 @@ public:
     // Editor state saved with the session (not automatable): window width and meter mode.
     std::atomic<int> editorWidth { Opt::EditorLayout::defaultWidth };
     std::atomic<int> meterMode { 0 };   // 0 = Gain Reduction, 1 = Output
+
+    // SUI-23: what leaves the plugin, per channel, for the far-right Output meter (lock-free, read by the editor).
+    Songsmith::UI::OutputMeterState outputMeter;
 
     // Optional timing of processBlock for the editor's Processing Load readout (off unless the editor switches it on).
     Songsmith::Diagnostics::LoadMeter loadMeter;

@@ -4,7 +4,7 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 ## Unreleased
 
-- Songsmith Maximiser: the Gain Reduction and Output meters are now together at the far right of the window, laid out exactly like the Songsmith Compressor's. The Output meter shows the level of each channel (Left and Right), a clip warning and a held peak number, measured after the limiter, Dither and Bypass. Gain Reduction shows a number below its bar. Integrated LUFS is unchanged and separate from the peak meter. The window is a little wider. The sound, presets and saved sessions are unchanged, and you don't need to do anything.
+- Every Songsmith plugin now has the level meter at the far right of its window, laid out like the Songsmith Compressor's. Songsmith Optical Leveller, Songsmith Bus Compressor and Songsmith Analog Compressor gain a tall Gain Reduction bar and an Output meter (left and right channels, a clip warning and the highest recent level) at the far right, and their windows are a little wider to make room. Songsmith Maximiser's Gain Reduction and Output meters have moved to the far right to match, and Songsmith Passive EQ's meter now sits at the same distance from the edge. Their older needle and lamp meters stay as they were. The Output meter shows sample peak, not true peak. The Analog Compressor's bar shows no reduction while Bypass is on. The sound, presets and saved settings are unchanged, and you do not need to do anything.
 
 ## 0.5.49
 

@@ -352,6 +352,9 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
         content.addAndMakeVisible (meterButtons[(size_t) m]);
     }
     content.addAndMakeVisible (meter);
+    meterColumn.getOutput().setTooltip ("Output level of the left and right channels, after the compressor, Output and Bypass. The number under the warning is the highest sample level held for 1.5 seconds. "
+                                        "This is sample peak, not true peak. Nothing to do unless the clip warning lights: then lower Output. Click to clear the held number.");
+    content.addAndMakeVisible (meterColumn);
 
     for (int i = 0; i < oversamplingNames().size(); ++i)
         oversampling.addItem (oversamplingText (i), i + 1);
@@ -567,6 +570,7 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     legacyRatioLabel.setBounds (ratioArea.getX(), ratioArea.getBottom() + 2, ratioArea.getWidth(), 18);   // only shown for a saved 2:1
 
     meter.setBounds (meterArea);
+    meterColumn.setBounds (Songsmith::UI::MeterColumn::boundsFor (designWidth, (int) Songsmith::UI::titleBarHeight + 8, contentHeight - 12, true));
     auto modes = meterModes;
     const int gainReductionWidth = 116, modeGap = 8;
     meterButtons[0].setBounds (modes.removeFromLeft (gainReductionWidth));
@@ -768,6 +772,16 @@ void SongsmithAnalogCompressorEditor::advanceMeter (float seconds)
 
     // The numeric readout: instant rise, ~300 ms fall.
     grDisplayDb = gr > grDisplayDb ? gr : grDisplayDb * 0.9f + gr * 0.1f;
+
+    {
+        auto& m = proc.outputMeter;
+        m.readAndReset();   // the all-channel peak isn't shown; the per-channel ones are
+        m.clipped.store (false, std::memory_order_relaxed);
+        meterColumn.update (m.readAndResetChannel (0), m.readAndResetChannel (1), m.channels.load (std::memory_order_relaxed),
+                            m.clipLatched.load (std::memory_order_relaxed),
+                            bypassButton.getToggleState() ? 0.0f : gr,   // the column never shows reduction that is not being applied (the needle keeps ACOMP-18's behaviour)
+                            juce::Time::getMillisecondCounterHiRes() * 0.001, seconds);
+    }
 
     content.repaint (meterArea.getX(), meterArea.getY(), meterArea.getWidth(), meterModes.getBottom() + 50 - meterArea.getY());
 }

@@ -9,6 +9,7 @@
 #include "../../shared/Tests/SongsmithUITests.h"
 #include "../../shared/Tests/SongsmithHeaderTests.h"
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
+#include "../../shared/Tests/SongsmithMeterColumnTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
 #include "SongsmithWording.h"
 
@@ -655,6 +656,7 @@ static BusCompressorEditorTests busCompressorEditorTests;
 //==============================================================================
 static SongsmithUITests sharedUITests { "BusCompressor" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "BusCompressor" };
+static SongsmithMeterColumnTests<SongsmithBusCompressorProcessor, SongsmithBusCompressorEditor> sharedMeterColumnTests { "BusCompressor", BusComp::EditorLayout::designWidth, BusComp::EditorLayout::contentHeight };
 static SongsmithGuidanceTests sharedGuidanceTests { "BusCompressor" };
 
 struct ConsoleRunner final : juce::UnitTestRunner

@@ -32,11 +32,11 @@ namespace BusComp
     // The editor is laid out once at a design size and scaled as a whole, so every size looks the same.
     namespace EditorLayout
     {
-        constexpr int designWidth = 800, contentHeight = 392;   // the controls sit above the footer strip
+        constexpr int designWidth = 980, contentHeight = 392;   // 800 for the controls plus the right-hand meter column (SUI-23); they sit above the footer strip
         constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
         constexpr int designHeight = contentHeight + footerHeight;
         constexpr int defaultWidth = designWidth;
-        constexpr int minWidth = 600, maxWidth = 2400;           // 75 % to 300 %
+        constexpr int minWidth = 735, maxWidth = 2940;           // 75 % to 300 %
 
         inline int constrainWidth (int width) noexcept { return juce::jlimit (minWidth, maxWidth, width); }
         inline int heightFor (int width) noexcept      { return juce::roundToInt ((double) width * designHeight / designWidth); }

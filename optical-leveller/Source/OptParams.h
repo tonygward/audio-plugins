@@ -28,11 +28,11 @@ namespace Opt
     // The editor is laid out once at a design size and scaled as a whole, so every size looks the same.
     namespace EditorLayout
     {
-        constexpr int designWidth = 760, contentHeight = 372;   // the controls sit above the footer strip
+        constexpr int designWidth = 940, contentHeight = 372;   // 760 for the controls plus the right-hand meter column (SUI-23); they sit above the footer strip
         constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
         constexpr int designHeight = contentHeight + footerHeight;
         constexpr int defaultWidth = designWidth;
-        constexpr int minWidth = 570, maxWidth = 2280;           // 75 % to 300 %
+        constexpr int minWidth = 705, maxWidth = 2820;           // 75 % to 300 %
 
         inline int constrainWidth (int width) noexcept { return juce::jlimit (minWidth, maxWidth, width); }
         inline int heightFor (int width) noexcept      { return juce::roundToInt ((double) width * designHeight / designWidth); }

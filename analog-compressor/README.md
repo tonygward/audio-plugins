@@ -18,6 +18,7 @@ A feedback FET compressor inspired by the Rev D blackface 1176LN, by Songsmith S
 - **Analogue colour:** FET gain-cell distortion while compressing, plus the Class A output amplifier and transformer. **Gain Reduction Off** keeps the colour without compressing. Calibrated to the published specs: [docs/colour.md](docs/colour.md).
 - **Models in a row** (a secondary row under the title bar, as in Songsmith EQ): Blackface, Blue Stripe, Anniversary Edition and Lindell are four buttons, with the selected one lit. There is no description text on the faceplate; hover over each button for a short, plain description of its character. Ignore Below stays under Input.
 - **Oversampling** (right of the same secondary row, above the meter): Off / 2x / 4x (default Off, so a new instance adds no delay and uses the least processing power; turn it up for a cleaner top end when compressing hard). Sessions saved earlier keep their setting. The latency is reported to the host, and the bypass stays aligned. If you switch Processing Load on (far left of the strip along the bottom of the editor), the readout beside it shows this instance's CPU use and that latency in milliseconds and samples.
+- **Far-right meters** (SUI-23, the same on every Songsmith plugin): a tall **Gain Reduction** bar and the **Output** meter (left and right channels, clip warning, held peak; sample peak after Output and Bypass, not true peak). The bar shows no reduction while Bypass is on.
 - **Needle meter** (about 45 % larger than before, with bigger scale numbers): Gain Reduction, Output +4 and Output +8 modes (0 on the scale at +4 or +8 dBu) with VU ballistics, plus a numeric gain reduction readout.
 - **Scalable vector editor:** drag the bottom-right corner to resize it from 100 % to 200 % (a 75 % minimum is planned in [ACOMP-17](https://github.com/tonygward/audio-plugins/issues/255)), sharp on any display, on a fine brushed faceplate drawn as vectors. The ratio buttons read 20:1, 12:1, 8:1 and 4:1, then All, each with a plain tooltip. See [docs/editor.md](docs/editor.md).
 - **Ignore Below (a Songsmith addition, formerly Low Cut):** a horizontal slider directly under the Input knob, with the name on the left and the frequency on the right (for example 127 Hz). It stops deep bass from making the compressor turn the whole sound down. Only what the compressor *listens to* is filtered; the bass you hear is untouched. Choose any whole number of Hz from 20 to 500 (gentle 12 dB/oct slope) by dragging, with the arrow keys, or by clicking the number and typing; double-click for Off. Off by default, including in sessions saved earlier, and sessions that used the old 60, 80, 100, 150 or 200 Hz steps keep exactly that frequency. The original 1176 has no such control. Details and tests: [docs/detector-low-cut.md](docs/detector-low-cut.md).
@@ -91,3 +92,10 @@ To build and test the installers:
 | [presets.md](docs/presets.md) | How the controls work, and the starting points |
 | [daw-checks.md](docs/daw-checks.md) | Studio One and Logic checks, executed vs pending |
 | [smoke-test.md](docs/smoke-test.md) | Studio One smoke test |
+
+
+**SUI-23, before and after the far-right meters** (real screenshots at 200 %, rendered by the test executable):
+
+| Before | After |
+|---|---|
+| ![before](docs/images/sui-23-before.png) | ![after](docs/images/sui-23-after.png) |

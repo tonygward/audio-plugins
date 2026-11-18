@@ -182,6 +182,9 @@ SongsmithOpticalLevellerEditor::SongsmithOpticalLevellerEditor (SongsmithOptical
         content.addAndMakeVisible (meterButtons[(size_t) m]);
     }
     content.addAndMakeVisible (meter);
+    meterColumn.getOutput().setTooltip ("Output level of the left and right channels, after the leveller and Bypass. The number under the warning is the highest sample level held for 1.5 seconds. "
+                                        "This is sample peak, not true peak. Nothing to do unless the clip warning lights: then lower Gain. Click to clear the held number.");
+    content.addAndMakeVisible (meterColumn);
 
     // The window is resized by dragging the bottom-right corner; the size is saved with the session.
     setWantsKeyboardFocus (true);
@@ -270,6 +273,7 @@ void SongsmithOpticalLevellerEditor::layoutContent()
     peakReductionKnob.setBounds (peakReductionArea);
 
     meter.setBounds (meterArea);
+    meterColumn.setBounds (Songsmith::UI::MeterColumn::boundsFor (designWidth, (int) Songsmith::UI::titleBarHeight + 8, contentHeight - 12, true));
     auto modes = meterModes;
     const int gainReductionWidth = 128, modeGap = 8;
     meterButtons[0].setBounds (modes.removeFromLeft (gainReductionWidth));
@@ -370,6 +374,15 @@ void SongsmithOpticalLevellerEditor::advanceMeter (float seconds)
 
     // The numeric readout: instant rise, about 300 ms fall.
     grDisplayDb = gr > grDisplayDb ? gr : grDisplayDb * 0.9f + gr * 0.1f;
+
+    {
+        auto& m = proc.outputMeter;
+        m.readAndReset();   // the all-channel peak isn't shown; the per-channel ones are
+        m.clipped.store (false, std::memory_order_relaxed);
+        meterColumn.update (m.readAndResetChannel (0), m.readAndResetChannel (1), m.channels.load (std::memory_order_relaxed),
+                            m.clipLatched.load (std::memory_order_relaxed), gr,
+                            juce::Time::getMillisecondCounterHiRes() * 0.001, seconds);
+    }
 
     content.repaint (meterArea.getX(), meterArea.getY(), meterArea.getWidth(), meterModes.getBottom() + 40 - meterArea.getY());
 }
