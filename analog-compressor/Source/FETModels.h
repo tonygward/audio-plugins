@@ -47,7 +47,7 @@ namespace FET
         { 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, false, false },     // Rev D · Blackface: the original Songsmith sound
         { -1.5f, 0.7f, 0.7f, 0.85f, 2.0f, false, false },   // Rev A · Blue Stripe: firmer, faster, grittier
         { 2.0f, 1.3f, 1.0f, 1.15f, 0.6f, true, true },    // 1176AE · Anniversary Edition: gentler, cleaner, 2:1 and Slow Attack
-        { -0.5f, 1.5f, 1.6f, 1.3f, 1.0f, false, false },    // Lindell-inspired: soft knee, lets the first hit through
+        { -0.5f, 1.5f, 1.6f, 1.3f, 1.0f, true, false },     // Lindell-inspired: soft knee, lets the first hit through, and 2:1 (ACOMP-20)
     };
 
     // Slow Attack (1176AE only): the attack takes this many times longer. A Songsmith design choice.

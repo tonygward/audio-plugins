@@ -303,7 +303,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     legacyRatioLabel.setVisible (false);
     content.addChildComponent (legacyRatioLabel);
 
-    // ACOMP-10: 2:1 is offered on the 1176AE only (the other models have the four hardware ratios).
+    // ACOMP-10 / ACOMP-20: 2:1 is offered on the Anniversary Edition and Lindell models (the others have the four hardware ratios).
     gentleButton.setTooltip ("2:1: gentle compression that eases in softly. Good for light control on vocals and acoustic instruments.");
     gentleButton.setTitle ("Ratio 2:1");
     gentleButton.onClick = [this]
@@ -315,7 +315,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     content.addChildComponent (gentleButton);
 
     slowAttackButton.setTooltip ("Slow Attack: the compressor takes longer to react, so more of the first hit of each note comes through. "
-                                 "Only the 1176AE has this switch.");
+                                 "Only the Anniversary Edition model has this switch.");
     slowAttackButton.setTitle ("Slow Attack");
     slowAttackButton.onClick = [this] { slowAttackAttachment.setValueAsCompleteGesture (slowAttackOn ? 0.0f : 1.0f); };
     content.addChildComponent (slowAttackButton);
@@ -323,6 +323,10 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     for (int i = 0; i < numModels; ++i)
         modelBox.addItem (modelNames()[i], i + 1);
     modelBox.setTitle ("Model");
+    // ACOMP-20: the name is quiet but findable: dimmer text, a lighter outline and a less prominent well.
+    modelBox.setColour (juce::ComboBox::textColourId, Colours::textDim);
+    modelBox.setColour (juce::ComboBox::backgroundColourId, Colours::recess.withAlpha (0.55f));
+    modelBox.setColour (juce::ComboBox::outlineColourId, Songsmith::UI::Colours::edge.withAlpha (0.5f));
     modelBox.onChange = [this] { modelChosenByUser(); };
     content.addAndMakeVisible (modelBox);
     modelDescription.setTitle ("Model use");
@@ -600,28 +604,33 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
         drawScrew (g, { plate.getX() + inset, plate.getBottom() - inset }, 2.6f);
         drawScrew (g, { plate.getRight() - inset, plate.getBottom() - inset }, 0.9f);
 
-        // ACOMP-10: a subtle texture per model. The original Rev D Blackface is left exactly as it always looked.
-        // These are original designs, not copies of any faceplate: a faint tint plus one thin accent line or pinstripe.
+        // ACOMP-20: the model shows mainly through its faceplate colour, under the same brushed grain (drawn before this).
+        // Blackface is left exactly as it always looked. These are original designs, not copies of any faceplate.
+        const auto tint = [&] (juce::Colour colour, float strength)
+        {
+            g.setGradientFill (juce::ColourGradient (colour.withAlpha (strength * 1.15f), 0.0f, plate.getY(),
+                                                     colour.withAlpha (strength * 0.75f), 0.0f, plate.getBottom(), false));
+            g.fillRoundedRectangle (plate, 8.0f);
+        };
         if (modelShown == (int) Model::blueStripe)
         {
-            g.setColour (juce::Colour (0xff3f6fb0).withAlpha (0.05f));
-            g.fillRoundedRectangle (plate, 8.0f);
-            g.setColour (juce::Colour (0xff3f6fb0).withAlpha (0.6f));
-            g.fillRect (plate.getX() + 24.0f, plate.getY() + 5.0f, plate.getWidth() - 48.0f, 2.5f);
+            tint (juce::Colour (0xff2f6bc4), 0.34f);   // a clear, bright blue, with one broad stripe
+            g.setColour (juce::Colour (0xff6fa8ee).withAlpha (0.85f));
+            g.fillRect (plate.getX() + 24.0f, plate.getY() + 5.0f, plate.getWidth() - 48.0f, 4.0f);
         }
         else if (modelShown == (int) Model::anniversary)
         {
-            g.setColour (juce::Colour (0xffc9a24a).withAlpha (0.045f));
-            g.fillRoundedRectangle (plate, 8.0f);
-            g.setColour (juce::Colour (0xffc9a24a).withAlpha (0.5f));
-            g.fillRect (plate.getX() + 24.0f, plate.getY() + 5.0f, plate.getWidth() - 48.0f, 1.0f);
-            g.fillRect (plate.getX() + 24.0f, plate.getY() + 8.0f, plate.getWidth() - 48.0f, 1.0f);
+            tint (juce::Colour (0xff1c3f94), 0.40f);   // a deeper, navy blue, with white pinstripes
+            g.setColour (juce::Colours::white.withAlpha (0.78f));
+            g.fillRect (plate.getX() + 24.0f, plate.getY() + 5.0f, plate.getWidth() - 48.0f, 1.5f);
+            g.fillRect (plate.getX() + 24.0f, plate.getY() + 9.0f, plate.getWidth() - 48.0f, 1.5f);
+            g.fillRect (plate.getX() + 24.0f, plate.getBottom() - 11.0f, plate.getWidth() - 48.0f, 1.5f);
+            g.fillRect (plate.getX() + 24.0f, plate.getBottom() - 7.0f, plate.getWidth() - 48.0f, 1.5f);
         }
         else if (modelShown == (int) Model::lindell)
         {
-            g.setColour (juce::Colour (0xff2f7f78).withAlpha (0.05f));
-            g.fillRoundedRectangle (plate, 8.0f);
-            g.setColour (juce::Colours::white.withAlpha (0.03f));
+            tint (juce::Colour (0xff9aa1ab), 0.30f);   // grey, with fine vertical lines
+            g.setColour (juce::Colours::white.withAlpha (0.05f));
             for (float x = plate.getX() + 18.0f; x < plate.getRight() - 14.0f; x += 7.0f)
                 g.fillRect (x, plate.getY() + 14.0f, 1.0f, plate.getHeight() - 28.0f);
         }

@@ -152,10 +152,10 @@ namespace FET
         static const juce::StringArray names {
             // The wording rule bans a standalone capital letter, so the revision letters (D and A) live in docs/models.md,
             // not on screen. The names stay the hardware's own cosmetic names.
-            juce::String (juce::CharPointer_UTF8 ("Blackface \xc2\xb7 Original Songsmith")),
+            "Blackface",
             juce::String ("Blue Stripe"),
-            juce::String (juce::CharPointer_UTF8 ("1176AE \xc2\xb7 Anniversary Edition")),
-            "Lindell-inspired" };
+            "Anniversary Edition",
+            "Lindell" };
         return names;
     }
     inline const juce::StringArray& modelDescriptions()
@@ -164,7 +164,7 @@ namespace FET
             "Start here to tame vocal, bass or guitar peaks while keeping the sound fairly clean.",
             "Try this for a gritty, upfront vocal or to make room mics sound more aggressive.",
             "Try 2:1 for gentler control, or Slow Attack to let more of the first hit through.",
-            "Try this on acoustic guitar to even out strong strums while keeping the pick attack." };
+            "Try this on acoustic guitar to even out strong strums while keeping the pick attack. It also has 2:1 for gentler control." };
         return tips;
     }
     // Oversampling for the colour stages and the engine (Off, 2x, 4x). See docs/colour.md.
