@@ -9,6 +9,7 @@
 #include "StartingPoints.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
 #include "../../shared/Source/SongsmithHeader.h"
+#include "../../shared/Source/SongsmithOutputMeter.h"
 
 class SongsmithMaximiserAudioProcessor : public juce::AudioProcessor
 {
@@ -87,6 +88,7 @@ public:
     // Meters, written by the audio thread after every block and read (and reset) by the UI.
     // Peaks are linear; gain reduction is the deepest limiter gain since the last read, in dB.
     std::atomic<float> inputPeak { 0.0f }, outputPeak { 0.0f }, gainReductionDb { 0.0f };   // GR: positive dB
+    Songsmith::UI::OutputMeterState outputMeter;   // SUI-23: per-channel output peaks and the CLIP latch, as in every plugin
     static float readAndReset (std::atomic<float>& meter, float resetTo = 0.0f) noexcept { return meter.exchange (resetTo, std::memory_order_relaxed); }
 
     const Max::BrickwallLimiter& getLimiter() const noexcept { return limiter; }

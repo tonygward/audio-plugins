@@ -18,7 +18,7 @@ It turns the loud parts of a sound down gently and evenly, so a vocal, a bass or
 - **Gain** sets the level after levelling. Turn it up to bring the sound back to the level it had before.
 - **Compress or Limit** chooses gentle, smooth levelling (Compress) or firmer control of the loudest peaks (Limit).
 
-The needle meter shows **Gain Reduction** (how much the level is being turned down) or **Output** (the level coming out, with 0 on the scale at -18 dBFS). Everything else is the same as the other Songsmith plugins: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu, and **Processing Load** at the bottom left.
+At the far right, as in every Songsmith plugin, are the **Gain Reduction** bar and the **Output** meter (left and right channels, clip warning, held peak). Output is the sample peak after the leveller and Bypass, not true peak. The needle meter shows **Gain Reduction** (how much the level is being turned down) or **Output** (the level coming out, with 0 on the scale at -18 dBFS). Everything else is the same as the other Songsmith plugins: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu, and **Processing Load** at the bottom left.
 
 ## What makes it "optical"
 
@@ -53,3 +53,10 @@ cmake --build optical-leveller/build --config Release
 ```
 
 `OpticalLevellerTests` checks the engine ([docs/engine.md](docs/engine.md)), the plugin (identity, parameters, saved state, Bypass, presets, Undo and Redo) and the editor (layout at every size, plain wording, the shared Songsmith look), together with the shared Songsmith checks.
+
+
+**SUI-23, before and after the far-right meters** (real screenshots at 200 %, rendered by the test executable):
+
+| Before | After |
+|---|---|
+| ![before](docs/images/sui-23-before-compress.png) | ![after](docs/images/editor-compress.png) |

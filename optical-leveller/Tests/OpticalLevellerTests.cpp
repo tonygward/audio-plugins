@@ -10,6 +10,7 @@
 #include "../../shared/Tests/SongsmithUITests.h"
 #include "../../shared/Tests/SongsmithHeaderTests.h"
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
+#include "../../shared/Tests/SongsmithMeterColumnTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
 #include "SongsmithWording.h"
 
@@ -683,6 +684,7 @@ static OpticalLevellerEditorTests opticalLevellerEditorTests;
 //==============================================================================
 static SongsmithUITests sharedUITests { "OpticalLeveller" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "OpticalLeveller" };
+static SongsmithMeterColumnTests<SongsmithOpticalLevellerProcessor, SongsmithOpticalLevellerEditor> sharedMeterColumnTests { "OpticalLeveller", Opt::EditorLayout::designWidth, Opt::EditorLayout::contentHeight };
 static SongsmithGuidanceTests sharedGuidanceTests { "OpticalLeveller" };
 
 struct ConsoleRunner final : juce::UnitTestRunner

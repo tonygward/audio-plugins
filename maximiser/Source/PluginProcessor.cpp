@@ -101,6 +101,9 @@ void SongsmithMaximiserAudioProcessor::prepareToPlay (double sampleRate, int sam
     dither.reset();
     loudnessMeter.prepare (sampleRate);
     wasPlaying = false;
+    outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, getMainBusNumOutputChannels()),
+                                std::memory_order_relaxed);
+    outputMeter.resetLatch (sampleRate);   // a new session or layout starts without a warning
 
     dryDelay.setSize (2, limiter.getLatencySamples() + 1, false, true, false);
     dryDelay.clear();
@@ -195,7 +198,11 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
         }
 
         for (int c = 0; c < numCh; ++c)
-            outPeak = juce::jmax (outPeak, buffer.getMagnitude (c, pos, num));
+        {
+            const float channelPeak = buffer.getMagnitude (c, pos, num);
+            outPeak = juce::jmax (outPeak, channelPeak);
+            outputMeter.pushChannel (c, channelPeak);   // SUI-23: measured after the limiter, dither and bypass
+        }
     }
 
     // Loudness of what leaves the plugin (after the limiter, dither and bypass mix).
@@ -206,6 +213,9 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
 
     pushPeak (inputPeak, inPeak);
     pushPeak (outputPeak, outPeak);
+    outputMeter.push (outPeak);
+    outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, numOut), std::memory_order_relaxed);
+    outputMeter.updateClipLatch (outPeak, total);
 
     // Deepest gain reduction since the UI last read it (stored as a positive dB amount).
     pushPeak (gainReductionDb, -limiter.readAndResetMaxGainReductionDb());

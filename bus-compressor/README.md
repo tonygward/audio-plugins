@@ -18,7 +18,7 @@ It turns the loud parts of a stereo sound down a little, so the whole thing sits
 - **Release** is how quickly it lets go: 0.1 to 1.2 s, or **Auto**, which lets go quickly after a short hit and slowly after a long loud passage.
 - **Make-up Gain** adds back the level that compressing took away.
 
-The row of lamps at the top is the **Gain Reduction** meter, one lamp for each decibel. Also: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu with five starting points and your own saved presets, and **Processing Load** at the bottom left.
+The row of lamps at the top is the **Gain Reduction** meter, one lamp for each decibel. At the far right, as in every Songsmith plugin, are a tall **Gain Reduction** bar and the **Output** meter (left and right channels, clip warning, held peak; sample peak after the compressor, Make-up Gain and Bypass, not true peak). Also: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu with five starting points and your own saved presets, and **Processing Load** at the bottom left.
 
 ## Where the numbers come from
 
@@ -37,3 +37,10 @@ cmake -S bus-compressor -B bus-compressor/build -G "Visual Studio 18 2026" -A x6
 cmake --build bus-compressor/build --config Release
 .\bus-compressor\build\BusCompressorTests_artefacts\Release\BusCompressorTests.exe
 ```
+
+
+**SUI-23, before and after the far-right meters** (real screenshots at 200 %, rendered by the test executable):
+
+| Before | After |
+|---|---|
+| ![before](docs/images/sui-23-before-mix-bus-glue.png) | ![after](docs/images/editor-mix-bus-glue.png) |

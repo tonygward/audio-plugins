@@ -6,6 +6,7 @@
 #include "PeqCurve.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
+#include "../../shared/Source/SongsmithMeterColumn.h"
 
 // A rotary control with its name above, a printed scale around it and a readable value below.
 class PeqKnob : public juce::Component

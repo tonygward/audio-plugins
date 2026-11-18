@@ -121,6 +121,11 @@ jobs:
       - name: No file holds its own version
         shell: pwsh
         run: ./installer/check-version.ps1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Every plugin has the far-right meters (SUI-23)
+        run: node --test test/suite-meters.test.mjs
 
   eq:
     name: EQ - ${{ matrix.name }}

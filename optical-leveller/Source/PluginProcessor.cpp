@@ -79,6 +79,8 @@ void SongsmithOpticalLevellerProcessor::prepareToPlay (double sampleRate, int sa
     engine.setParams (getEngineParams());
     gainReductionDb.store (0.0f);
     outputMs.store (0.0f);
+    outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, getMainBusNumOutputChannels()), std::memory_order_relaxed);
+    outputMeter.resetLatch (sampleRate);   // a new session or layout starts without a warning
     setLatencySamples (0);
 }
 
@@ -99,7 +101,7 @@ void SongsmithOpticalLevellerProcessor::processBlock (juce::AudioBuffer<float>& 
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
     engine.setParams (getEngineParams());
 
-    float reduction = 0.0f, outputPower = 0.0f;
+    float reduction = 0.0f, outputPower = 0.0f, blockPeak = 0.0f;
     const bool bypassedNow = bypassParam->get();
 
     for (int pos = 0; pos < total;)
@@ -136,6 +138,9 @@ void SongsmithOpticalLevellerProcessor::processBlock (juce::AudioBuffer<float>& 
         {
             const float rms = buffer.getRMSLevel (c, pos, num);
             outputPower = juce::jmax (outputPower, rms * rms);
+            const float channelPeak = buffer.getMagnitude (c, pos, num);   // after the leveller and Bypass
+            blockPeak = juce::jmax (blockPeak, channelPeak);
+            outputMeter.pushChannel (c, channelPeak);
         }
 
         pos += num;
@@ -143,6 +148,10 @@ void SongsmithOpticalLevellerProcessor::processBlock (juce::AudioBuffer<float>& 
 
     pushMax (gainReductionDb, bypassedNow ? 0.0f : reduction);
     pushMax (outputMs, outputPower);
+
+    outputMeter.push (blockPeak);
+    outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, numOut), std::memory_order_relaxed);
+    outputMeter.updateClipLatch (blockPeak, total);
 }
 
 //==============================================================================

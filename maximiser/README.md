@@ -62,7 +62,7 @@ New parameters (ID version 2; state version 2): `peak_mode` (Sample peak / True 
 
 ## Editor and dither (step 04)
 
-- **Editor:** a vector UI laid out at 860 × 448 and scaled as a whole. The window resizes from 75 % to 300 % at a fixed aspect ratio, and its size is saved with the session. It uses the shared Songsmith UI library (`shared/`) for its embedded Inter font (SIL OFL), type sizes, title, colours and the slightly bevelled controls shared by every Songsmith plugin; see `docs/style-guide.md`. Controls: Threshold and Output Ceiling faders (the L1 calls it "Out Ceiling"; every word is spelled out here), **Link**, Release with **Auto Release**, **Peak** (sample / true peak), **Dither**, Bypass, and the Input, Gain Reduction (0–24 dB, filling downwards like the L1's attenuation meter) and Output meters. `MaximiserTests --screenshot file.png [--scale 2]` renders it.
+- **Editor:** a vector UI laid out at 888 × 448 and scaled as a whole. The window resizes from 75 % to 300 % at a fixed aspect ratio, and its size is saved with the session. It uses the shared Songsmith UI library (`shared/`) for its embedded Inter font (SIL OFL), type sizes, title, colours and the slightly bevelled controls shared by every Songsmith plugin; see `docs/style-guide.md`. Controls: Threshold and Output Ceiling faders (the L1 calls it "Out Ceiling"; every word is spelled out here), **Link**, Release with **Auto Release**, **Peak** (sample / true peak), **Dither**, Bypass, and the Input, Gain Reduction (0–24 dB, filling downwards like the L1's attenuation meter) and Output meters. `MaximiserTests --screenshot file.png [--scale 2]` renders it.
 - **Link (design choice):** with Link on, moving Threshold or Output Ceiling moves the other by the same amount, so C − T (the gain below threshold) stays exactly the same. The movement stops where either control would leave its range (the common movement range); C − T is never squashed. Link only follows the user's own moves. Host automation of one parameter never drags the other, which is why the two faders are driven by hand rather than by parameter attachments. Link is saved with the session (UI state, not automatable). Tested in "Linked move…" and "Link follows the user, not host automation".
 - **Meter ballistics:** these live in the editor only (`Max::MeterBallistics`: instant rise, 20 dB/s fall, 1.5 s peak hold). The audio thread only publishes raw block peaks and the deepest gain reduction. Tested in "Meter ballistics", plus a check that the audio is identical with and without an editor open.
 - **Dither (design choice; the legacy IDR controls were only a workflow reference):** new parameter `dither` (Off / 16-bit / 24-bit, ID version 3, state version 3, default Off).
@@ -133,3 +133,10 @@ Hover over **Songsmith Maximiser** at the top left for a short explanation of wh
   - the raw `Songsmith-Maximiser-<OS>` builds;
   - the editor screenshots.
 - **Host checks:** see [`docs/host-checks.md`](docs/host-checks.md) for Studio One and Logic (scan, mono/stereo, automation, recall, offline render, latency compensation, multiple instances), listening checks, and the L1 comparison procedure. The L1 comparison hasn't been done: no L1 instance was available.
+
+
+**Far-right meters (SUI-23): the Gain Reduction and Output meters sit at the far right, laid out like the Songsmith Compressor's** (real screenshots at 200 %, rendered by the test executable):
+
+| Before | After |
+|---|---|
+| ![before](docs/images/sui-23-before.png) | ![after](docs/images/sui-23-after.png) |

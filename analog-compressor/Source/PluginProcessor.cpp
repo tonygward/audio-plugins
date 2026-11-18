@@ -199,6 +199,8 @@ void SongsmithAnalogCompressorProcessor::prepareToPlay (double sampleRate, int /
         osLatency[k] = juce::roundToInt (oversamplers[k]->getLatencyInSamples());
     }
 
+    outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, numCh), std::memory_order_relaxed);
+    outputMeter.resetLatch (sampleRate);   // a new session or layout starts without a warning
     calibrationCapture.prepare (sampleRate, numCh);
     gains.assign ((size_t) chunkSize * 4, 1.0f);
     dry.setSize (numCh, chunkSize, false, true, true);
@@ -287,12 +289,18 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
     }
 
     // Output level for the meter (after bypass, so the +4/+8 modes show what leaves the plugin).
-    float ms = 0.0f;
+    float ms = 0.0f, blockPeak = 0.0f;
     for (int c = 0; c < numCh; ++c)
     {
         const float rms = buffer.getRMSLevel (c, 0, n);
         ms = juce::jmax (ms, rms * rms);
+        const float channelPeak = buffer.getMagnitude (c, 0, n);   // SUI-23: peak of what leaves the plugin
+        blockPeak = juce::jmax (blockPeak, channelPeak);
+        outputMeter.pushChannel (c, channelPeak);
     }
+    outputMeter.push (blockPeak);
+    outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, getTotalNumOutputChannels()), std::memory_order_relaxed);
+    outputMeter.updateClipLatch (blockPeak, n);
     float prevMs = outputMs.load (std::memory_order_relaxed);
     while (ms > prevMs && ! outputMs.compare_exchange_weak (prevMs, ms, std::memory_order_relaxed)) {}
 }

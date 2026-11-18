@@ -5,6 +5,7 @@
 #include "BusLookAndFeel.h"
 #include "BusMeter.h"
 #include "../../shared/Source/SongsmithGuidance.h"
+#include "../../shared/Source/SongsmithMeterColumn.h"
 
 // A rotary control with its name above, a printed scale around it and a readable value below. It works for the
 // stepped controls too: their scale marks are the steps, and their value text is the step's name.
@@ -50,6 +51,7 @@ public:
 
     // For tests and screenshots.
     BusComp::UI::LampMeter& getMeter() noexcept { return meter; }
+    Songsmith::UI::MeterColumn& getMeterColumn() noexcept { return meterColumn; }
     BusKnob& getThresholdKnob() noexcept { return thresholdKnob; }
     BusKnob& getRatioKnob() noexcept { return ratioKnob; }
     BusKnob& getAttackKnob() noexcept { return attackKnob; }
@@ -91,6 +93,7 @@ private:
     juce::AudioProcessorValueTreeState::ButtonAttachment bypassAttachment;
 
     BusComp::UI::LampMeter meter;
+    Songsmith::UI::MeterColumn meterColumn { true };   // SUI-23: Gain Reduction and Output at the far right, like the Songsmith Compressor
     float grDisplayDb = 0.0f;
 
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };

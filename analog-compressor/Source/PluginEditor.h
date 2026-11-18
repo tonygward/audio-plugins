@@ -5,6 +5,7 @@
 #include "FETLookAndFeel.h"
 #include "NeedleMeter.h"
 #include "../../shared/Source/SongsmithGuidance.h"
+#include "../../shared/Source/SongsmithMeterColumn.h"
 
 // A rotary control with its name above, a printed scale around it and a readable value below.
 class FETKnob : public juce::Component
@@ -89,6 +90,7 @@ public:
 
     // For tests and screenshots.
     FET::UI::NeedleMeter& getMeter() noexcept { return meter; }
+    Songsmith::UI::MeterColumn& getMeterColumn() noexcept { return meterColumn; }
     FETKnob& getKnob (const juce::String& id);
     juce::Button& getRatioButton (int index) { return *ratioButtons[(size_t) index]; }   // 0..3 = 4, 8, 12, 20
     juce::Label& getLegacyRatioLabel() noexcept { return legacyRatioLabel; }
@@ -209,6 +211,7 @@ private:
 
     std::array<juce::TextButton, 3> meterButtons { juce::TextButton (meterModeName (0)), juce::TextButton (meterModeName (1)), juce::TextButton (meterModeName (2)) };
     FET::UI::NeedleMeter meter;
+    Songsmith::UI::MeterColumn meterColumn { true };   // SUI-23: Gain Reduction and Output at the far right, like the Songsmith Compressor
     float grDisplayDb = 0.0f;
 
     juce::ComboBox oversampling;

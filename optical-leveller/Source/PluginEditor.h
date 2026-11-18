@@ -5,6 +5,7 @@
 #include "OptLookAndFeel.h"
 #include "OptMeter.h"
 #include "../../shared/Source/SongsmithGuidance.h"
+#include "../../shared/Source/SongsmithMeterColumn.h"
 
 // A rotary control with its name above, a printed scale around it and a readable value below.
 class OptKnob : public juce::Component
@@ -67,6 +68,7 @@ public:
 
     // For tests and screenshots.
     Opt::UI::NeedleMeter& getMeter() noexcept { return meter; }
+    Songsmith::UI::MeterColumn& getMeterColumn() noexcept { return meterColumn; }
     OptKnob& getGainKnob() noexcept { return gainKnob; }
     OptKnob& getPeakReductionKnob() noexcept { return peakReductionKnob; }
     juce::Button& getModeButton (int index) { return modeButtons[(size_t) index]; }   // 0 = Compress, 1 = Limit
@@ -114,6 +116,7 @@ private:
     std::array<juce::TextButton, 2> meterButtons { juce::TextButton (Opt::meterModeName (0)), juce::TextButton (Opt::meterModeName (1)) };
     Opt::UI::NeedleMeter meter;
     float grDisplayDb = 0.0f;
+    Songsmith::UI::MeterColumn meterColumn { true };   // SUI-23: Gain Reduction and Output at the far right, like the Songsmith Compressor
 
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
     juce::ComboBox presetBox;
