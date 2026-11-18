@@ -98,9 +98,9 @@ public:
     juce::Rectangle<int> getDiagnosticsBounds() const { return diagnostics->getBounds(); }
     juce::ComboBox& getPresetBox() { return presetBox; }
 
-    // ACOMP-10: the Model selector, its use-case line, and the two buttons only the 1176AE has (for tests).
-    juce::ComboBox& getModelBox() noexcept { return modelBox; }
-    juce::Label& getModelDescription() noexcept { return modelDescription; }
+    // ACOMP-21: the four model buttons in the secondary row (each with its own tooltip), and the two buttons
+    // only some models have (for tests).
+    juce::Button& getModelButton (int index) { return *modelButtons[(size_t) index]; }
     juce::Button& getGentleRatioButton() noexcept { return gentleButton; }
     juce::Button& getSlowAttackButton() noexcept { return slowAttackButton; }
     int getShownModel() const noexcept { return modelShown; }
@@ -109,9 +109,14 @@ public:
     // ACOMP-09 Set Levels (for tests). idle -> listening -> proposal -> idle.
     enum class LevelsStage { idle, listening, proposal };
     LevelsStage getLevelsStage() const noexcept { return levelsStage; }
-    juce::Button& getSetLevelsButton() noexcept { return setLevelsButton; }
-    juce::Button& getSetLevelsCancelButton() noexcept { return setLevelsCancel; }
+    // ACOMP-21: the faceplate keeps one small entry button; the steps are in a temporary panel above it.
+    juce::Button& getSetLevelsButton() noexcept { return setLevelsButton; }          // the entry button on the faceplate
+    juce::Button& getSetLevelsActionButton() noexcept { return setLevelsAction; }    // in the panel: Finish Listening, then Apply
+    juce::Button& getSetLevelsCancelButton() noexcept { return setLevelsCancel; }    // in the panel: Cancel, or Close after a result
     juce::Label& getSetLevelsMessage() noexcept { return setLevelsMessage; }
+    juce::Component& getSetLevelsPanel() noexcept { return levelsPanel; }
+    bool isSetLevelsPanelOpen() const noexcept { return levelsPanel.isVisible(); }
+    void closeSetLevelsNotice();           // dismisses the panel after a result (nothing is changed)
     const FET::Calibration::Result& getLevelsResult() const noexcept { return levelsResult; }
     void beginListening();                 // what the button does when idle
     void finishListening();                // stops capturing and works out the proposal
@@ -128,13 +133,34 @@ public:
 
 private:
     void syncSizeFromWidth();
-    void timerCallback() override { advanceMeter (1.0f / 30.0f); refreshHistoryButtons(); updateLevelsListening(); }
+    void timerCallback() override
+    {
+        advanceMeter (1.0f / 30.0f);
+        refreshHistoryButtons();
+        updateLevelsListening();
+        if (levelsNoticeTicks > 0 && --levelsNoticeTicks == 0)
+            closeSetLevelsNotice();
+    }
     void updateLevelsListening();
     void showLevelsStage (LevelsStage stage);
     bool levelsSettingsUnchanged() const;
     LevelsStage levelsStage = LevelsStage::idle;
-    juce::TextButton setLevelsButton { "Set Levels" }, setLevelsCancel { "Cancel" };
+
+    // The temporary Set Levels panel. It floats over the faceplate (never rearranging it), sits inside the editor and
+    // closes on Escape. After Apply or a notice it shows the result for a few seconds, then goes.
+    struct LevelsPanel : juce::Component
+    {
+        void paint (juce::Graphics&) override;
+        bool keyPressed (const juce::KeyPress&) override;
+        std::function<void()> onEscape;
+        juce::Label heading;
+    };
+    void layoutLevelsPanel();
+    void showLevelsNotice (const juce::String& text);
+    LevelsPanel levelsPanel;
+    juce::TextButton setLevelsButton { "Set Levels" }, setLevelsAction { "Finish Listening" }, setLevelsCancel { "Cancel" };
     juce::Label setLevelsMessage;
+    int levelsNoticeTicks = 0;   // counts down (in timer ticks) while a result is shown with the stage idle
     FET::Calibration::Result levelsResult;
     FET::Calibration::Settings levelsSettings;   // the ratio, attack, release and Ignore Below the proposal was measured with
     float levelsInput = 0.0f, levelsOutput = 0.0f;   // Input and Output when listening began
@@ -171,9 +197,8 @@ private:
     // ACOMP-10. The box is driven by modelAttachment (so a preset, automation or a loaded session updates it without
     // being mistaken for a choice by the musician); onChange is therefore only the musician choosing a model.
     void refreshModel();
-    void modelChosenByUser();
-    juce::ComboBox modelBox;
-    juce::Label modelDescription;
+    void modelChosenByUser (int model);
+    std::array<std::unique_ptr<juce::TextButton>, 4> modelButtons;   // Blackface, Blue Stripe, Anniversary Edition, Lindell
     juce::TextButton gentleButton { "2:1" }, slowAttackButton { "Slow Attack" };
     juce::ParameterAttachment modelAttachment, slowAttackAttachment;
     int modelShown = FET::modelDefault;

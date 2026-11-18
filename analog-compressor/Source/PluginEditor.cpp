@@ -35,19 +35,18 @@ namespace
     // Layout, in design units (FET::designWidth x FET::designHeight).
     // Input and Output are 216 high so Ignore Below fits under Input (ACOMP-19); the knobs keep their size,
     // because they were limited by the width, not the height.
-    const juce::Rectangle<int> inputArea   { 24, 64, 170, 216 };
-    const juce::Rectangle<int> outputArea  { 200, 64, 170, 216 };
-    const juce::Rectangle<int> attackArea  { 382, 56, 112, 138 };
-    const juce::Rectangle<int> releaseArea { 382, 200, 112, 138 };
-    const juce::Rectangle<int> ratioArea   { 510, 72, 66, 236 };
-    const juce::Rectangle<int> meterArea   { 592, 64, 344, 170 };   // ACOMP-08: about 45 % more face than the original 296 x 132
-    const juce::Rectangle<int> meterModes  { 592, 242, 344, 28 };   // a row under the meter
-    const juce::Rectangle<int> grOffArea   { 592, 314, 150, 32 };
-    // ACOMP-10: the Model selector fills the lower right, with its use-case line directly under it (two lines at 12 px).
-    // Slow Attack (1176AE only) sits under the Release knob's column edge, the nearest free room to Attack.
-    const juce::Rectangle<int> modelBoxArea         { 592, 346, 344, 26 };
-    const juce::Rectangle<int> modelDescriptionArea { 592, 372, 344, 28 };
-    const juce::Rectangle<int> slowAttackArea       { 382, 342, 112, 26 };
+    // ACOMP-21: everything below the secondary row (model buttons and Oversampling) sits faceShift units lower.
+    constexpr int fs = FET::faceShift;
+    const juce::Rectangle<int> inputArea   { 24, 64 + fs, 170, 216 };
+    const juce::Rectangle<int> outputArea  { 200, 64 + fs, 170, 216 };
+    const juce::Rectangle<int> attackArea  { 382, 56 + fs, 112, 138 };
+    const juce::Rectangle<int> releaseArea { 382, 200 + fs, 112, 138 };
+    const juce::Rectangle<int> ratioArea   { 510, 72 + fs, 66, 236 };
+    const juce::Rectangle<int> meterArea   { 592, 64 + fs, 344, 170 };   // ACOMP-08: about 45 % more face than the original 296 x 132
+    const juce::Rectangle<int> meterModes  { 592, 242 + fs, 344, 28 };   // a row under the meter
+    const juce::Rectangle<int> grOffArea   { 592, 314 + fs, 150, 32 };
+    // Slow Attack (Anniversary Edition only) sits under the Release knob's column edge, the nearest free room to Attack.
+    const juce::Rectangle<int> slowAttackArea       { 382, 342 + fs, 112, 26 };
 
     // Listening-oriented descriptions of typical uses, not promises about gain reduction.
     // Index 0..3 = 4:1, 8:1, 12:1, 20:1.
@@ -254,7 +253,6 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
                        [this] (float v)
                        {
                            modelShown = juce::jlimit (0, numModels - 1, juce::roundToInt (v));
-                           modelBox.setSelectedItemIndex (modelShown, juce::dontSendNotification);
                            refreshModel();
                        }),
       slowAttackAttachment (*p.apvts.getParameter (ID::slowAttack),
@@ -320,21 +318,17 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     slowAttackButton.onClick = [this] { slowAttackAttachment.setValueAsCompleteGesture (slowAttackOn ? 0.0f : 1.0f); };
     content.addChildComponent (slowAttackButton);
 
+    // ACOMP-21: the four models are a row of buttons under the title bar (as in Songsmith EQ). The selected one is
+    // lit; the names are understated. Each button has its own tooltip, so no description is painted on the faceplate.
     for (int i = 0; i < numModels; ++i)
-        modelBox.addItem (modelNames()[i], i + 1);
-    modelBox.setTitle ("Model");
-    // ACOMP-20: the name is quiet but findable: dimmer text, a lighter outline and a less prominent well.
-    modelBox.setColour (juce::ComboBox::textColourId, Colours::textDim);
-    modelBox.setColour (juce::ComboBox::backgroundColourId, Colours::recess.withAlpha (0.55f));
-    modelBox.setColour (juce::ComboBox::outlineColourId, Songsmith::UI::Colours::edge.withAlpha (0.5f));
-    modelBox.onChange = [this] { modelChosenByUser(); };
-    content.addAndMakeVisible (modelBox);
-    modelDescription.setTitle ("Model use");
-    modelDescription.setFont (juce::Font (font (Type::hint, Weight::Regular)));
-    modelDescription.setColour (juce::Label::textColourId, Colours::textDim);
-    modelDescription.setJustificationType (juce::Justification::topLeft);
-    modelDescription.setMinimumHorizontalScale (1.0f);   // wrap, never squash
-    content.addAndMakeVisible (modelDescription);
+    {
+        auto b = std::make_unique<juce::TextButton> (modelNames()[i]);
+        b->setTitle ("Model " + modelNames()[i]);
+        b->setColour (juce::TextButton::textColourOffId, Colours::textDim);
+        b->onClick = [this, i] { modelChosenByUser (i); };
+        content.addAndMakeVisible (*b);
+        modelButtons[(size_t) i] = std::move (b);
+    }
 
     allButton.setTooltip (allButtonTip);
     allButton.onClick = [this] { allButtonsAttachment.setValueAsCompleteGesture (allButtonsOn ? 0.0f : 1.0f); };
@@ -414,23 +408,48 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     setLevelsButton.setTooltip ("Set Levels: play a loud part of your song and the plugin suggests an Input setting for a few decibels of "
                                 "gain reduction on the louder peaks and an Output setting that keeps the level close to the original. "
                                 "Nothing changes until you press Apply. Optional.");
+    // ACOMP-21: the entry button opens (or closes) a temporary panel; the steps are in the panel.
     setLevelsButton.onClick = [this]
     {
-        if (levelsStage == LevelsStage::idle)           beginListening();
-        else if (levelsStage == LevelsStage::listening) finishListening();
-        else                                            applyProposal();
+        if (levelsStage == LevelsStage::idle)
+            beginListening();   // also when a result is still showing: it starts a fresh attempt
+        else
+            cancelLevels();     // pressing it again while a calibration is open closes it, leaving everything as it was
+    };
+    setLevelsAction.setTitle ("Finish Listening");
+    setLevelsAction.setTooltip ("Finish Listening: stop listening and see the suggested Input and Output. Nothing changes until you press Apply.");
+    setLevelsAction.onClick = [this]
+    {
+        if (levelsStage == LevelsStage::listening)     finishListening();
+        else if (levelsStage == LevelsStage::proposal) applyProposal();
     };
     setLevelsCancel.setTitle ("Cancel Set Levels");
     setLevelsCancel.setTooltip ("Cancel: leave Input and Output exactly as they are.");
-    setLevelsCancel.onClick = [this] { cancelLevels(); };
+    setLevelsCancel.onClick = [this]
+    {
+        if (levelsStage == LevelsStage::idle)
+            closeSetLevelsNotice();
+        else
+            cancelLevels();
+    };
     setLevelsMessage.setTitle ("Set Levels message");
     setLevelsMessage.setFont (juce::Font (font (Type::hint, Weight::Regular)));
-    setLevelsMessage.setColour (juce::Label::textColourId, Colours::textDim);
+    setLevelsMessage.setColour (juce::Label::textColourId, Colours::text);
     setLevelsMessage.setJustificationType (juce::Justification::topLeft);
     setLevelsMessage.setMinimumHorizontalScale (1.0f);   // wrap, never squash
+    levelsPanel.setTitle ("Set Levels panel");
+    levelsPanel.setWantsKeyboardFocus (true);
+    levelsPanel.onEscape = [this] { if (levelsStage == LevelsStage::idle) closeSetLevelsNotice(); else cancelLevels(); };
+    levelsPanel.heading.setText ("Set Levels", juce::dontSendNotification);
+    levelsPanel.heading.setFont (juce::Font (font (Type::heading, Weight::SemiBold)));
+    levelsPanel.heading.setColour (juce::Label::textColourId, Colours::text);
+    levelsPanel.heading.setInterceptsMouseClicks (false, false);
+    levelsPanel.addAndMakeVisible (levelsPanel.heading);
+    levelsPanel.addAndMakeVisible (setLevelsMessage);
+    levelsPanel.addAndMakeVisible (setLevelsAction);
+    levelsPanel.addAndMakeVisible (setLevelsCancel);
     content.addAndMakeVisible (setLevelsButton);
-    content.addChildComponent (setLevelsCancel);
-    content.addChildComponent (setLevelsMessage);
+    // The panel is added last (further down, after every faceplate control) so it floats above them.
 
     ratioAttachment.sendInitialUpdate();
     allButtonsAttachment.sendInitialUpdate();
@@ -442,6 +461,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     content.addAndMakeVisible (*diagnostics);
 
     content.addAndMakeVisible (titleHint);   // SUI-17: the plugin name explains the plugin
+    content.addChildComponent (levelsPanel);   // ACOMP-21: last, so it floats above the faceplate; hidden until Set Levels is pressed
 
     slowAttackAttachment.sendInitialUpdate();
     modelAttachment.sendInitialUpdate();   // after the diagnostics strip exists: it lays the window out
@@ -535,8 +555,15 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     allButton.setBounds (col.removeFromTop (allHeight));
     col.removeFromTop (4);
     slowAttackButton.setBounds (slowAttackArea);
-    modelBox.setBounds (modelBoxArea);
-    modelDescription.setBounds (modelDescriptionArea);
+    // ACOMP-21: the secondary row. Model buttons from the left; Oversampling (below) at the right.
+    {
+        int x = modelButtonX;
+        for (int i = 0; i < numModels; ++i)
+        {
+            modelButtons[(size_t) i]->setBounds (x, modeRowY, modelButtonWidths[i], modeRowHeight);
+            x += modelButtonWidths[i] + modelButtonGap;
+        }
+    }
     legacyRatioLabel.setBounds (ratioArea.getX(), ratioArea.getBottom() + 2, ratioArea.getWidth(), 18);   // only shown for a saved 2:1
 
     meter.setBounds (meterArea);
@@ -551,8 +578,7 @@ void SongsmithAnalogCompressorEditor::layoutContent()
 
     grOffButton.setBounds (grOffArea);
     setLevelsButton.setBounds (setLevelsX, setLevelsY, setLevelsWidth, setLevelsHeight);
-    setLevelsCancel.setBounds (setLevelsX, setLevelsCancelY, setLevelsWidth, setLevelsCancelHeight);
-    setLevelsMessage.setBounds (setLevelsMessageX, setLevelsMessageY, setLevelsMessageWidth, setLevelsMessageHeight);
+    layoutLevelsPanel();
     // ACOMP-19: Ignore Below sits directly under the Input knob, because it shapes what the input drives.
     ignoreBelow.setBounds (ignoreBelowX, ignoreBelowY, ignoreBelowWidth, ignoreBelowHeight);
 
@@ -570,8 +596,8 @@ void SongsmithAnalogCompressorEditor::layoutContent()
         bypassButton.setBounds (header.bypass);
     }
 
-    // ACOMP-19 (replaces ACOMP-15's far-left place): Oversampling is a processing setting. It sits in the lower
-    // right, under the Gain Reduction meter, clear of the title bar and right-aligned with the meter.
+    // ACOMP-21 (replaces ACOMP-19's lower-right place): Oversampling is a processing setting. It sits on the right of
+    // the secondary row under the title bar, right-aligned with the meter.
     oversampling.setBounds (oversamplingX, oversamplingY, oversamplingWidth, oversamplingHeight);
 
     diagnostics->setBounds (0, FET::contentHeight, FET::designWidth, FET::footerHeight);
@@ -640,13 +666,14 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
 
     // Section rules and captions.
     g.setColour (Colours::panelLight.brighter (0.1f));
+    const float ruleTop = 70.0f + (float) fs, ruleBottom = 340.0f + (float) fs;
     for (float x : { 376.0f, 502.0f })
-        g.drawLine (x, 70.0f, x, 340.0f, 1.0f);
-    g.drawLine ((float) meterArea.getX() - 8.0f, 70.0f, (float) meterArea.getX() - 8.0f, 340.0f, 1.0f);
+        g.drawLine (x, ruleTop, x, ruleBottom, 1.0f);
+    g.drawLine ((float) meterArea.getX() - 8.0f, ruleTop, (float) meterArea.getX() - 8.0f, ruleBottom, 1.0f);
 
     g.setColour (Colours::textDim);
     g.setFont (font (Type::heading, Weight::Medium));
-    g.drawText ("Ratio", juce::Rectangle<float> ((float) ratioArea.getX(), 52.0f, (float) ratioArea.getWidth(), 18.0f), juce::Justification::centred);
+    g.drawText ("Ratio", juce::Rectangle<float> ((float) ratioArea.getX(), (float) (52 + fs), (float) ratioArea.getWidth(), 18.0f), juce::Justification::centred);
 
     // Numeric GR under the needle (the needle has VU ballistics; this shows the value).
     g.setColour (Colours::text);
@@ -680,11 +707,12 @@ juce::String SongsmithAnalogCompressorEditor::oversamplingText (int index)
 void SongsmithAnalogCompressorEditor::refreshModel()
 {
     const auto& v = voicingFor (modelShown);
-    const auto description = modelDescriptions()[modelShown];
-    const auto tip = modelNames()[modelShown] + ": " + description;
-    modelDescription.setText (description, juce::dontSendNotification);
-    modelDescription.setTooltip (tip);
-    modelBox.setTooltip ("Model: " + tip);
+    // ACOMP-21: every model button keeps its own tooltip (selected or not); nothing is painted on the faceplate.
+    for (int i = 0; i < numModels; ++i)
+    {
+        modelButtons[(size_t) i]->setTooltip (modelNames()[i] + ": " + modelDescriptions()[i]);
+        modelButtons[(size_t) i]->setToggleState (i == modelShown, juce::dontSendNotification);
+    }
     gentleButton.setVisible (v.hasGentleRatio);
     slowAttackButton.setVisible (v.hasSlowAttack);
     layoutContent();
@@ -694,9 +722,8 @@ void SongsmithAnalogCompressorEditor::refreshModel()
 // Switching model by hand maps what the new model does not have, so the sound stays predictable:
 // 2:1 (1176AE only) becomes 4:1, and Slow Attack (1176AE only) goes off. Attack, Release, Input, Output, the other
 // ratios, All Buttons and Ignore Below keep their positions. Presets and loaded sessions are never remapped.
-void SongsmithAnalogCompressorEditor::modelChosenByUser()
+void SongsmithAnalogCompressorEditor::modelChosenByUser (int m)
 {
-    const int m = modelBox.getSelectedItemIndex();
     if (m < 0 || m >= numModels)
         return;
     const auto& v = voicingFor (m);
@@ -794,12 +821,89 @@ juce::String SongsmithAnalogCompressorEditor::levelsMessageFor (const Calibratio
 void SongsmithAnalogCompressorEditor::showLevelsStage (LevelsStage stage)
 {
     levelsStage = stage;
-    setLevelsButton.setButtonText (stage == LevelsStage::idle ? "Set Levels" : stage == LevelsStage::listening ? "Finish Listening" : "Apply");
-    setLevelsButton.setTitle (setLevelsButton.getButtonText());
-    setLevelsButton.setEnabled (stage != LevelsStage::proposal || levelsResult.usable());
-    setLevelsCancel.setVisible (stage != LevelsStage::idle);
-    setLevelsMessage.setVisible (setLevelsMessage.getText().isNotEmpty());
+    levelsNoticeTicks = 0;
+    // The faceplate's entry button never changes. The panel's main button goes Finish Listening, then Apply; with the
+    // stage idle (a result or notice is showing) there is only Close.
+    const bool idle = stage == LevelsStage::idle;
+    setLevelsAction.setButtonText (stage == LevelsStage::proposal ? "Apply" : "Finish Listening");
+    setLevelsAction.setTitle (setLevelsAction.getButtonText());
+    setLevelsAction.setTooltip (stage == LevelsStage::proposal
+                                    ? "Apply: set Input and Output to the suggestion. Undo restores the old settings."
+                                    : "Finish Listening: stop listening and see the suggested Input and Output. Nothing changes until you press Apply.");
+    setLevelsAction.setVisible (! idle);
+    setLevelsAction.setEnabled (stage != LevelsStage::proposal || levelsResult.usable());
+    setLevelsCancel.setButtonText (idle ? "Close" : "Cancel");
+    setLevelsCancel.setTitle (idle ? "Close Set Levels" : "Cancel Set Levels");
     setLevelsMessage.setTooltip (setLevelsMessage.getText());
+    levelsPanel.heading.setText (stage == LevelsStage::listening ? "Set Levels: listening"
+                                 : stage == LevelsStage::proposal ? "Set Levels: proposal" : "Set Levels",
+                                 juce::dontSendNotification);
+    const bool open = ! idle || setLevelsMessage.getText().isNotEmpty();
+    if (open && ! levelsPanel.isVisible())
+    {
+        layoutLevelsPanel();
+        levelsPanel.setVisible (true);
+        levelsPanel.toFront (false);
+    }
+    else if (! open)
+        levelsPanel.setVisible (false);
+}
+
+// Keeps the panel above the entry button, inside the editor, at a fixed size. Nothing else on the faceplate moves.
+void SongsmithAnalogCompressorEditor::layoutLevelsPanel()
+{
+    const auto entry = juce::Rectangle<int> (setLevelsX, setLevelsY, setLevelsWidth, setLevelsHeight);
+    juce::Rectangle<int> panel (0, 0, levelsPanelWidth, levelsPanelHeight);
+    panel.setPosition (entry.getRight() - levelsPanelWidth, entry.getY() - levelsPanelGap - levelsPanelHeight);
+    const int top = (int) Songsmith::UI::titleBarHeight + 2;
+    panel = panel.constrainedWithin (juce::Rectangle<int> (6, top, designWidth - 12, contentHeight - top - 4));
+    levelsPanel.setBounds (panel);
+
+    auto r = levelsPanel.getLocalBounds().reduced (12, 10);
+    levelsPanel.heading.setBounds (r.removeFromTop (22));
+    auto buttons = r.removeFromBottom (28);
+    r.removeFromBottom (6);
+    setLevelsMessage.setBounds (r);
+    setLevelsAction.setBounds (buttons.removeFromLeft ((buttons.getWidth() - 8) / 2));
+    buttons.removeFromLeft (8);
+    setLevelsCancel.setBounds (buttons);
+}
+
+void SongsmithAnalogCompressorEditor::LevelsPanel::paint (juce::Graphics& g)
+{
+    const auto r = getLocalBounds().toFloat().reduced (1.0f);
+    g.setColour (juce::Colours::black.withAlpha (0.35f));
+    g.fillRoundedRectangle (r.translated (0.0f, 2.0f), 8.0f);
+    g.setColour (Colours::panel.brighter (0.12f));
+    g.fillRoundedRectangle (r, 8.0f);
+    g.setColour (Colours::accent.withAlpha (0.8f));
+    g.drawRoundedRectangle (r, 8.0f, 1.2f);
+}
+
+bool SongsmithAnalogCompressorEditor::LevelsPanel::keyPressed (const juce::KeyPress& key)
+{
+    if (key == juce::KeyPress::escapeKey && onEscape != nullptr)
+    {
+        onEscape();
+        return true;
+    }
+    return false;
+}
+
+void SongsmithAnalogCompressorEditor::showLevelsNotice (const juce::String& text)
+{
+    setLevelsMessage.setText (text, juce::dontSendNotification);
+    showLevelsStage (LevelsStage::idle);
+    levelsNoticeTicks = 8 * 30;   // a result stays for eight seconds, or until Close or Escape
+}
+
+void SongsmithAnalogCompressorEditor::closeSetLevelsNotice()
+{
+    if (levelsStage != LevelsStage::idle)
+        return;   // an open calibration is closed with Cancel
+    levelsNoticeTicks = 0;
+    setLevelsMessage.setText ({}, juce::dontSendNotification);
+    levelsPanel.setVisible (false);
 }
 
 bool SongsmithAnalogCompressorEditor::levelsSettingsUnchanged() const
@@ -823,6 +927,7 @@ void SongsmithAnalogCompressorEditor::beginListening()
     setLevelsMessage.setText ("Listening. Play a loud, typical part of your song for 3 to 12 seconds, then press Finish Listening.",
                               juce::dontSendNotification);
     showLevelsStage (LevelsStage::listening);
+    levelsPanel.grabKeyboardFocus();   // the musician just pressed Set Levels: Escape cancels, Tab reaches the panel's buttons
 }
 
 void SongsmithAnalogCompressorEditor::updateLevelsListening()
@@ -851,9 +956,7 @@ void SongsmithAnalogCompressorEditor::finishListening()
     if (! levelsSettingsUnchanged())
     {
         levelsResult = {};
-        setLevelsMessage.setText ("Settings or automation changed while listening, so the result would not fit. Press Set Levels to try again.",
-                                  juce::dontSendNotification);
-        showLevelsStage (LevelsStage::idle);
+        showLevelsNotice ("Settings or automation changed while listening, so the result would not fit. Press Set Levels to try again.");
         return;
     }
 
@@ -870,9 +973,7 @@ void SongsmithAnalogCompressorEditor::applyProposal()
 
     if (! levelsSettingsUnchanged())   // never write over a change the musician or host automation made meanwhile
     {
-        setLevelsMessage.setText ("Settings or automation changed since listening, so nothing was applied. Press Set Levels to try again.",
-                                  juce::dontSendNotification);
-        showLevelsStage (LevelsStage::idle);
+        showLevelsNotice ("Settings or automation changed since listening, so nothing was applied. Press Set Levels to try again.");
         return;
     }
 
@@ -886,10 +987,8 @@ void SongsmithAnalogCompressorEditor::applyProposal()
     const auto result = levelsResult;
     proc.history.runStep ("set levels", [&] { set (ID::input, result.inputDb); set (ID::output, result.outputDb); });
 
-    setLevelsMessage.setText ("Applied: Input " + dbText (result.inputDb) + ", Output " + dbText (result.outputDb)
-                                  + ". Both knobs still turn freely, and Undo restores the old settings.",
-                              juce::dontSendNotification);
-    showLevelsStage (LevelsStage::idle);
+    showLevelsNotice ("Applied: Input " + dbText (result.inputDb) + ", Output " + dbText (result.outputDb)
+                      + ". Both knobs still turn freely, and Undo restores the old settings.");
     refreshHistoryButtons();
 }
 
@@ -898,7 +997,7 @@ void SongsmithAnalogCompressorEditor::cancelLevels()
     proc.calibrationCapture.stop();
     levelsResult = {};
     setLevelsMessage.setText ({}, juce::dontSendNotification);
-    showLevelsStage (LevelsStage::idle);
+    showLevelsStage (LevelsStage::idle);   // no message: the panel closes
 }
 
 FETKnob& SongsmithAnalogCompressorEditor::getKnob (const juce::String& id)
