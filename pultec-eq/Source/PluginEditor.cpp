@@ -24,6 +24,8 @@ namespace
     const juce::Rectangle<int> lowGroup      { 24, 216, 280, 224 };
     const juce::Rectangle<int> highBoostGroup { 316, 216, 380, 224 };
     const juce::Rectangle<int> highCutGroup  { 708, 216, 228, 224 };
+    // The output meter runs the full height of the curve and the groups, on the right edge.
+    const juce::Rectangle<int> meterArea     { designWidth - 20 - Songsmith::UI::OutputMeterDisplay::preferredWidth, 60, Songsmith::UI::OutputMeterDisplay::preferredWidth, 380 };
     constexpr int groupInset = 12, switchTop = 34, switchHeight = 28, knobTop = 70;
 
     // The faceplate's fine brushed-metal grain (shared with the other plugins). Built once; the same grain every time.
@@ -169,6 +171,11 @@ SongsmithPassiveEQEditor::SongsmithPassiveEQEditor (SongsmithPassiveEQProcessor&
     addAndMakeVisible (content);
 
     content.addAndMakeVisible (curve);
+    outputMeter.setTitle ("Output level");
+    outputMeter.setTooltip ("Output level of the left and right channels, after the equaliser and Bypass. This equaliser has no output control, so a boost makes the sound louder: "
+                            "if the clip warning lights, lower the boosts. The number under the warning is the highest sample level held for 1.5 seconds. "
+                            "This is sample peak, not true peak. Click to clear the held number.");
+    content.addAndMakeVisible (outputMeter);
     for (auto* c : std::initializer_list<juce::Component*> { &lowSwitch, &highBoostSwitch, &highCutSwitch,
                                                               &lowBoostKnob, &lowCutKnob, &highBoostKnob, &bandwidthKnob, &highCutKnob })
         content.addAndMakeVisible (*c);
@@ -273,9 +280,21 @@ void SongsmithPassiveEQEditor::resized()
     syncSizeFromWidth();
 }
 
+void SongsmithPassiveEQEditor::advanceMeter (double elapsedSeconds)
+{
+    auto& m = proc.outputMeter;
+    m.readAndReset();   // the all-channel peak isn't shown; the per-channel ones are
+    m.clipped.store (false, std::memory_order_relaxed);
+    outputMeter.update (m.readAndResetChannel (0), m.readAndResetChannel (1),
+                        m.channels.load (std::memory_order_relaxed),
+                        m.clipLatched.load (std::memory_order_relaxed),
+                        juce::Time::getMillisecondCounterHiRes() * 0.001, elapsedSeconds);
+}
+
 void SongsmithPassiveEQEditor::layoutContent()
 {
     curve.setBounds (curveArea);
+    outputMeter.setBounds (meterArea);
 
     lowSwitch.setBounds (inside (lowGroup));
     highBoostSwitch.setBounds (inside (highBoostGroup));
@@ -316,13 +335,15 @@ void SongsmithPassiveEQEditor::paintContent (juce::Graphics& g)
     const auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) designWidth, (float) designHeight);
     Songsmith::UI::LookAndFeelBase::drawPanel (g, r);
 
-    // Faceplate: a fine brushed grain, a lit inner edge and four screws. All vector, so it scales.
+    // Faceplate: blue, with the suite's fine brushed grain over it, a lit inner edge and four screws. All vector, so it scales.
     {
-        static const Grain grain;
-        grain.draw (g);
-
         const auto plate = juce::Rectangle<float> (6.0f, (float) Songsmith::UI::titleBarHeight + 4.0f, (float) designWidth - 12.0f,
                                                    (float) contentHeight - (float) Songsmith::UI::titleBarHeight - 10.0f);
+        g.setGradientFill (juce::ColourGradient (Colours::plateTop, 0.0f, plate.getY(), Colours::plateBottom, 0.0f, plate.getBottom(), false));
+        g.fillRoundedRectangle (plate, 8.0f);
+
+        static const Grain grain;
+        grain.draw (g);
         g.setColour (juce::Colours::white.withAlpha (0.06f));
         g.drawRoundedRectangle (plate, 8.0f, 1.0f);
         g.setColour (juce::Colours::black.withAlpha (0.25f));

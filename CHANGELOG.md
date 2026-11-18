@@ -6,6 +6,18 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - Songsmith Analog Compressor: each model now has a clearly different faceplate colour: Blackface is dark as before, Blue Stripe is a clear blue, Anniversary Edition is navy blue with white pinstripes, and Lindell is grey. The model name box is quieter, and the names are shorter: Blackface, Blue Stripe, Anniversary Edition and Lindell. Lindell now has a 2:1 ratio button. Your saved sessions and presets are unchanged. If you switch by hand from Lindell or Anniversary Edition to a model without 2:1, a 2:1 ratio becomes 4:1.
 
+## 0.5.47
+
+- Songsmith Passive EQ now has two tall output meters on the right, one for each channel, in the same rounded style as the other plugins, with a clip warning and a held peak number. They show the sound after the equaliser and Bypass, as sample peak, not true peak. The window is a little wider. The sound has not changed. A boost makes the sound louder, so if the clip warning lights, lower the boosts.
+
+## 0.5.46
+
+- Songsmith Optical Leveller now has a grey, textured faceplate, and the Compress and Limit buttons each show a small picture of what they do: Compress bends the level gently, Limit flattens it much more. The Limit tooltip now says plainly that it is a firmer setting of the same smooth action, not a hard ceiling. The sound has not changed, and you do not need to do anything.
+
+## 0.5.45
+
+- Songsmith Passive EQ now has a blue, textured faceplate with a matching soft blue accent, instead of the plain dark grey. Everything works exactly as before, and you do not need to do anything.
+
 ## 0.5.44
 
 - The level meters in Songsmith EQ and Songsmith Compressor, and the gain reduction meter in Songsmith Compressor, now share the Maximiser's rounded, tube-like look. Gain reduction in the Compressor is shown in red. The readings and the sound have not changed, and you do not need to do anything.

@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <cmath>
 #include <random>
+#include <set>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
@@ -477,6 +478,54 @@ public:
             expect (ed->getModeButton (0).getX() < ed->getModeButton (1).getX(), context + ": Compress, then Limit");
             expect (ed->getBypassButton().getRight() <= content->getWidth(), context + ": Bypass is inside");
             Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), context);
+        }
+
+        beginTest ("The faceplate is grey and textured, not flat, and the title bar keeps the suite's neutral look");
+        {
+            SongsmithOpticalLevellerProcessor p;
+            auto ed = make (p, Opt::EditorLayout::defaultWidth);
+            const auto image = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
+            int grey = 0, samples = 0;
+            std::set<juce::uint32> distinct;
+            float topBrightness = 0.0f, bottomBrightness = 0.0f;
+            for (int y = 130; y < 330; ++y)
+                for (int x = 14; x < 22; ++x)
+                {
+                    const auto c = image.getPixelAt (x, y);
+                    ++samples;
+                    grey += std::abs (c.getRed() - c.getBlue()) < 14 && c.getBrightness() > 0.2f ? 1 : 0;
+                    distinct.insert (c.getARGB());
+                    if (y < 180) topBrightness += c.getBrightness();
+                    if (y >= 280) bottomBrightness += c.getBrightness();
+                }
+            expect (grey > samples * 9 / 10, "the faceplate is neutral grey and lighter than the dark panel: " + juce::String (grey) + " of " + juce::String (samples));
+            expect (distinct.size() > 8, "with a grain and a shaded gradient, not a flat fill: " + juce::String ((int) distinct.size()) + " colours");
+            expect (topBrightness > bottomBrightness, "lit from the top");
+        }
+
+        beginTest ("Compress and Limit carry a picture of what they do, beside the label, without covering it");
+        for (int width : { Opt::EditorLayout::minWidth, Opt::EditorLayout::defaultWidth, Opt::EditorLayout::maxWidth })
+        {
+            SongsmithOpticalLevellerProcessor p;
+            auto ed = make (p, width);
+            const auto context = "at " + juce::String (width) + " px";
+            for (int i = 0; i < 2; ++i)
+            {
+                auto& button = ed->getModeButton (i);
+                const auto bounds = button.getLocalBounds();
+                const auto icon = OptModeButton::iconArea (bounds);
+                expect (bounds.toFloat().contains (icon), context + ": the picture is inside the button");
+                const juce::Font font (ed->getLookAndFeel().getTextButtonFont (static_cast<juce::TextButton&> (button), bounds.getHeight()));
+                juce::GlyphArrangement glyphs;
+                glyphs.addLineOfText (font, button.getButtonText(), 0.0f, 0.0f);
+                const float textWidth = glyphs.getBoundingBox (0, -1, true).getWidth();
+                const float textLeft = ((float) bounds.getWidth() - textWidth) * 0.5f;
+                expect (icon.getRight() + 3.0f <= textLeft, context + ": the picture clears the word " + button.getButtonText());
+                expect (button.getButtonText().isNotEmpty(), context + ": the label stays");
+            }
+            expect (OptModeButton::slopeAfterBend (false) > 0.0f && OptModeButton::slopeAfterBend (false) < 1.0f, "Compress bends to a gentler slope");
+            expect (OptModeButton::slopeAfterBend (true) < OptModeButton::slopeAfterBend (false) * 0.5f, "Limit flattens much more than Compress");
+            expect (ed->getModeButton (1).getTooltip().containsIgnoreCase ("not a hard ceiling"), "the Limit tooltip does not promise a hard ceiling");
         }
 
         beginTest ("Compress and Limit light up for the mode, from a click, automation and a restored session");
