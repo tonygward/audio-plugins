@@ -187,7 +187,7 @@ namespace FET
     // Oversampling is at the right, right-aligned with the meter. Everything else sits faceShift units lower than before.
     inline constexpr int modeRowY = 58, modeRowHeight = 28, faceShift = 34;
     inline constexpr int modelButtonX = 24, modelButtonGap = 6;
-    inline constexpr int modelButtonWidths[4] = { 100, 104, 150, 92 };   // Blackface, Blue Stripe, Anniversary Edition, Lindell
+    inline constexpr int modelButtonWidths[4] = { 120, 130, 180, 110 };   // Blackface, Blue Stripe, Anniversary Edition, Lindell
 
     // ACOMP-19: the Ignore Below slider (the detector low cut, ACOMP-07/12/16) sits directly under the Input knob,
     // left-aligned with it and as wide as it.
@@ -199,7 +199,7 @@ namespace FET
     inline constexpr int levelsPanelWidth = 300, levelsPanelHeight = 136, levelsPanelGap = 6;
 
     // ACOMP-21 (replaces ACOMP-19's lower-right place): Oversampling is on the right of the secondary row.
-    inline constexpr int oversamplingX = 760, oversamplingY = modeRowY, oversamplingWidth = 176, oversamplingHeight = modeRowHeight;
+    inline constexpr int oversamplingX = 736, oversamplingY = modeRowY, oversamplingWidth = 200, oversamplingHeight = modeRowHeight;
     inline constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
     inline constexpr int designHeight = contentHeight + footerHeight;
 
