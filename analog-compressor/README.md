@@ -16,8 +16,8 @@ A feedback FET compressor inspired by the Rev D blackface 1176LN, by Songsmith S
 - **No 2:1 button:** gentle compression now belongs to Songsmith Compressor, so this plugin offers the four 1176 ratios and All; the default is still 4:1. Older sessions, presets and host automation that used the gentle 2:1 ratio still sound exactly as saved, and the editor shows a small "Saved 2:1" note until you press a ratio. Details: [docs/two-to-one-ratio.md](docs/two-to-one-ratio.md).
 - **All** (the All Buttons function): all four ratios pressed in, with its own curve, attack lag on transients and extra distortion. See [docs/all-buttons.md](docs/all-buttons.md).
 - **Analogue colour:** FET gain-cell distortion while compressing, plus the Class A output amplifier and transformer. **Gain Reduction Off** keeps the colour without compressing. Calibrated to the published specs: [docs/colour.md](docs/colour.md).
-- **Models in a row** (a secondary row under the title bar, as in Songsmith EQ): Blackface, Blue Stripe, Anniversary Edition and Lindell are four buttons, with the selected one lit. There is no description text on the faceplate; hover over each button for a short, plain description of its character. Ignore Below stays under Input.
-- **Oversampling** (right of the same secondary row, above the meter): Off / 2x / 4x (default Off, so a new instance adds no delay and uses the least processing power; turn it up for a cleaner top end when compressing hard). Sessions saved earlier keep their setting. The latency is reported to the host, and the bypass stays aligned. If you switch Processing Load on (far left of the strip along the bottom of the editor), the readout beside it shows this instance's CPU use and that latency in milliseconds and samples.
+- **Model dropdown** (a configuration row directly under the title bar, outside the textured panel, as in Songsmith EQ): choose Blackface, Blue Stripe, Anniversary Edition or Lindell from one dropdown; the one in use is shown. There is no description text on the faceplate; hover over the dropdown for a short, plain description of all four. Ignore Below stays under Input. Anniversary Edition's Slow Attack button sits centred under Attack and Release, clear of the panel's lower edge.
+- **Oversampling** (right of the same configuration row, outside the panel and right-aligned with the meter column): Off / 2x / 4x (default Off, so a new instance adds no delay and uses the least processing power; turn it up for a cleaner top end when compressing hard). Sessions saved earlier keep their setting. The latency is reported to the host, and the bypass stays aligned. If you switch Processing Load on (far left of the strip along the bottom of the editor), the readout beside it shows this instance's CPU use and that latency in milliseconds and samples.
 - **Far-right meters** (SUI-23, the same on every Songsmith plugin): a tall **Gain Reduction** bar and the **Output** meter (left and right channels, clip warning, held peak; sample peak after Output and Bypass, not true peak). The bar shows no reduction while Bypass is on.
 - **Needle meter** (about 45 % larger than before, with bigger scale numbers): Gain Reduction, Output +4 and Output +8 modes (0 on the scale at +4 or +8 dBu) with VU ballistics, plus a numeric gain reduction readout.
 - **Scalable vector editor:** drag the bottom-right corner to resize it from 100 % to 200 % (a 75 % minimum is planned in [ACOMP-17](https://github.com/tonygward/audio-plugins/issues/255)), sharp on any display, on a fine brushed faceplate drawn as vectors. The ratio buttons read 20:1, 12:1, 8:1 and 4:1, then All, each with a plain tooltip. See [docs/editor.md](docs/editor.md).
@@ -99,3 +99,10 @@ To build and test the installers:
 | Before | After |
 |---|---|
 | ![before](docs/images/sui-23-before.png) | ![after](docs/images/sui-23-after.png) |
+
+
+**ACOMP-23, the Model dropdown and configuration row** (real screenshots at 200 %, rendered by the test executable). Before (0.5.50, four model buttons inside the panel) and after:
+
+| Before | After (Blackface) | After (Anniversary Edition, with Slow Attack) |
+|---|---|---|
+| ![before](docs/images/sui-23-after.png) | ![after](docs/images/acomp-23-blackface.png) | ![after](docs/images/acomp-23-anniversary-edition.png) |

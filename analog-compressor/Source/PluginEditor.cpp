@@ -35,7 +35,7 @@ namespace
     // Layout, in design units (FET::designWidth x FET::designHeight).
     // Input and Output are 216 high so Ignore Below fits under Input (ACOMP-19); the knobs keep their size,
     // because they were limited by the width, not the height.
-    // ACOMP-21: everything below the secondary row (model buttons and Oversampling) sits faceShift units lower.
+    // ACOMP-23: everything inside the panel (below the configuration row with the Model dropdown and Oversampling) sits faceShift units lower.
     constexpr int fs = FET::faceShift;
     const juce::Rectangle<int> inputArea   { 24, 64 + fs, 170, 216 };
     const juce::Rectangle<int> outputArea  { 200, 64 + fs, 170, 216 };
@@ -70,7 +70,7 @@ namespace
     // Built once; the same grain every time.
     struct Grain : Songsmith::UI::BrushedGrain
     {
-        Grain() : BrushedGrain (juce::Rectangle<float>::leftTopRightBottom (10.0f, (float) Songsmith::UI::titleBarHeight + 2.0f,
+        Grain() : BrushedGrain (juce::Rectangle<float>::leftTopRightBottom (10.0f, (float) FET::plateTop + 2.0f,
                                                                          (float) designWidth - 10.0f, (float) contentHeight - 6.0f)) {}
     };
 
@@ -318,17 +318,25 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     slowAttackButton.onClick = [this] { slowAttackAttachment.setValueAsCompleteGesture (slowAttackOn ? 0.0f : 1.0f); };
     content.addChildComponent (slowAttackButton);
 
-    // ACOMP-21: the four models are a row of buttons under the title bar (as in Songsmith EQ). The selected one is
-    // lit; the names are understated. Each button has its own tooltip, so no description is painted on the faceplate.
+    // ACOMP-23: the four models are one dropdown in the configuration row under the title bar (as Songsmith EQ's
+    // Zero Latency / Linear Phase), outside the textured panel. The tooltip describes all four, so no description is painted
+    // on the faceplate. The box follows modelAttachment (presets, automation, sessions); onChange is only the musician.
     for (int i = 0; i < numModels; ++i)
+        modelBox.addItem (modelNames()[i], i + 1);
+    modelBox.setTitle ("Model");
+    modelBox.onChange = [this]
     {
-        auto b = std::make_unique<juce::TextButton> (modelNames()[i]);
-        b->setTitle ("Model " + modelNames()[i]);
-        b->setColour (juce::TextButton::textColourOffId, Colours::textDim);
-        b->onClick = [this, i] { modelChosenByUser (i); };
-        content.addAndMakeVisible (*b);
-        modelButtons[(size_t) i] = std::move (b);
-    }
+        const int i = modelBox.getSelectedItemIndex();
+        if (i >= 0 && i != modelShown)
+            modelChosenByUser (i);
+    };
+    content.addAndMakeVisible (modelBox);
+    modelLabel.setText ("Model", juce::dontSendNotification);
+    modelLabel.setFont (juce::Font (font (Type::heading, Weight::Medium)));
+    modelLabel.setColour (juce::Label::textColourId, Colours::textDim);
+    modelLabel.setJustificationType (juce::Justification::centredRight);
+    modelLabel.setInterceptsMouseClicks (false, false);
+    content.addAndMakeVisible (modelLabel);
 
     allButton.setTooltip (allButtonTip);
     allButton.onClick = [this] { allButtonsAttachment.setValueAsCompleteGesture (allButtonsOn ? 0.0f : 1.0f); };
@@ -558,19 +566,13 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     allButton.setBounds (col.removeFromTop (allHeight));
     col.removeFromTop (4);
     slowAttackButton.setBounds (slowAttackArea);
-    // ACOMP-21: the secondary row. Model buttons from the left; Oversampling (below) at the right.
-    {
-        int x = modelButtonX;
-        for (int i = 0; i < numModels; ++i)
-        {
-            modelButtons[(size_t) i]->setBounds (x, modeRowY, modelButtonWidths[i], modeRowHeight);
-            x += modelButtonWidths[i] + modelButtonGap;
-        }
-    }
+    // ACOMP-23: the configuration row. The Model dropdown from the left; Oversampling (below) at the right.
+    modelLabel.setBounds (modelLabelX, modeRowY, modelLabelWidth, modeRowHeight);
+    modelBox.setBounds (modelBoxX, modeRowY, modelBoxWidth, modeRowHeight);
     legacyRatioLabel.setBounds (ratioArea.getX(), ratioArea.getBottom() + 2, ratioArea.getWidth(), 18);   // only shown for a saved 2:1
 
     meter.setBounds (meterArea);
-    meterColumn.setBounds (Songsmith::UI::MeterColumn::boundsFor (designWidth, (int) Songsmith::UI::titleBarHeight + 8, contentHeight - 12, true));
+    meterColumn.setBounds (Songsmith::UI::MeterColumn::boundsFor (designWidth, FET::plateTop + 14, contentHeight - 26, true));
     auto modes = meterModes;
     const int gainReductionWidth = 116, modeGap = 8;
     meterButtons[0].setBounds (modes.removeFromLeft (gainReductionWidth));
@@ -622,8 +624,9 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
         static const Grain grain;
         grain.draw (g);
 
-        const auto plate = juce::Rectangle<float> (6.0f, (float) Songsmith::UI::titleBarHeight + 4.0f, (float) designWidth - 12.0f,
-                                                   (float) contentHeight - (float) Songsmith::UI::titleBarHeight - 10.0f);
+        // ACOMP-23: the textured panel begins below the configuration row.
+        const auto plate = juce::Rectangle<float> (6.0f, (float) FET::plateTop, (float) designWidth - 12.0f,
+                                                   (float) contentHeight - (float) FET::plateTop - 6.0f);
         g.setColour (juce::Colours::white.withAlpha (0.06f));
         g.drawRoundedRectangle (plate, 8.0f, 1.0f);
         g.setColour (juce::Colours::black.withAlpha (0.25f));
@@ -711,12 +714,13 @@ juce::String SongsmithAnalogCompressorEditor::oversamplingText (int index)
 void SongsmithAnalogCompressorEditor::refreshModel()
 {
     const auto& v = voicingFor (modelShown);
-    // ACOMP-21: every model button keeps its own tooltip (selected or not); nothing is painted on the faceplate.
+    // ACOMP-23: the dropdown shows the model in use and its tooltip describes all four; nothing is painted on the faceplate.
+    juce::String tip = "Model: the character of the compressor. Changing it keeps your settings where they make sense.";
     for (int i = 0; i < numModels; ++i)
-    {
-        modelButtons[(size_t) i]->setTooltip (modelNames()[i] + ": " + modelDescriptions()[i]);
-        modelButtons[(size_t) i]->setToggleState (i == modelShown, juce::dontSendNotification);
-    }
+        tip << "\n" << modelNames()[i] << ": " << modelDescriptions()[i];
+    modelBox.setTooltip (tip);
+    if (modelBox.getSelectedItemIndex() != modelShown)
+        modelBox.setSelectedItemIndex (modelShown, juce::dontSendNotification);
     gentleButton.setVisible (v.hasGentleRatio);
     slowAttackButton.setVisible (v.hasSlowAttack);
     layoutContent();
@@ -869,7 +873,7 @@ void SongsmithAnalogCompressorEditor::layoutLevelsPanel()
     const auto entry = juce::Rectangle<int> (setLevelsX, setLevelsY, setLevelsWidth, setLevelsHeight);
     juce::Rectangle<int> panel (0, 0, levelsPanelWidth, levelsPanelHeight);
     panel.setPosition (entry.getRight() - levelsPanelWidth, entry.getY() - levelsPanelGap - levelsPanelHeight);
-    const int top = (int) Songsmith::UI::titleBarHeight + 2;
+    const int top = FET::plateTop + 2;
     panel = panel.constrainedWithin (juce::Rectangle<int> (6, top, designWidth - 12, contentHeight - top - 4));
     levelsPanel.setBounds (panel);
 
