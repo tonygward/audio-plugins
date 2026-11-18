@@ -417,6 +417,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
             cancelLevels();     // pressing it again while a calibration is open closes it, leaving everything as it was
     };
     setLevelsAction.setTitle ("Finish Listening");
+    setLevelsAction.setTooltip ("Finish Listening: stop listening and see the suggested Input and Output. Nothing changes until you press Apply.");
     setLevelsAction.onClick = [this]
     {
         if (levelsStage == LevelsStage::listening)     finishListening();
@@ -826,6 +827,9 @@ void SongsmithAnalogCompressorEditor::showLevelsStage (LevelsStage stage)
     const bool idle = stage == LevelsStage::idle;
     setLevelsAction.setButtonText (stage == LevelsStage::proposal ? "Apply" : "Finish Listening");
     setLevelsAction.setTitle (setLevelsAction.getButtonText());
+    setLevelsAction.setTooltip (stage == LevelsStage::proposal
+                                    ? "Apply: set Input and Output to the suggestion. Undo restores the old settings."
+                                    : "Finish Listening: stop listening and see the suggested Input and Output. Nothing changes until you press Apply.");
     setLevelsAction.setVisible (! idle);
     setLevelsAction.setEnabled (stage != LevelsStage::proposal || levelsResult.usable());
     setLevelsCancel.setButtonText (idle ? "Close" : "Cancel");
