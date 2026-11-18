@@ -100,9 +100,10 @@ public:
     juce::Rectangle<int> getDiagnosticsBounds() const { return diagnostics->getBounds(); }
     juce::ComboBox& getPresetBox() { return presetBox; }
 
-    // ACOMP-21: the four model buttons in the secondary row (each with its own tooltip), and the two buttons
+    // ACOMP-23: the Model dropdown in the configuration row (outside the panel), and the two buttons
     // only some models have (for tests).
-    juce::Button& getModelButton (int index) { return *modelButtons[(size_t) index]; }
+    juce::ComboBox& getModelBox() noexcept { return modelBox; }
+    juce::Label& getModelLabel() noexcept { return modelLabel; }
     juce::Button& getGentleRatioButton() noexcept { return gentleButton; }
     juce::Button& getSlowAttackButton() noexcept { return slowAttackButton; }
     int getShownModel() const noexcept { return modelShown; }
@@ -200,7 +201,8 @@ private:
     // being mistaken for a choice by the musician); onChange is therefore only the musician choosing a model.
     void refreshModel();
     void modelChosenByUser (int model);
-    std::array<std::unique_ptr<juce::TextButton>, 4> modelButtons;   // Blackface, Blue Stripe, Anniversary Edition, Lindell
+    juce::ComboBox modelBox;      // Blackface, Blue Stripe, Anniversary Edition, Lindell (ACOMP-23)
+    juce::Label modelLabel;       // "Model", its caption in the configuration row
     juce::TextButton gentleButton { "2:1" }, slowAttackButton { "Slow Attack" };
     juce::ParameterAttachment modelAttachment, slowAttackAttachment;
     int modelShown = FET::modelDefault;

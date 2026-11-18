@@ -296,31 +296,58 @@ struct ModelTests final : juce::UnitTest
             expect (ed != nullptr);
             if (ed == nullptr)
                 return;
-            // ACOMP-21: four buttons in one row under the title bar, each with its own tooltip.
+            // ACOMP-23: one Model dropdown (not four buttons) in the configuration row, outside the textured panel.
+            auto& box = ed->getModelBox();
+            expectEquals (box.getNumItems(), 4, "one dropdown lists the four models");
             for (int i = 0; i < 4; ++i)
-            {
-                auto& b = ed->getModelButton (i);
-                expectEquals (b.getButtonText(), FET::modelNames()[i]);
-                expect (b.findColour (juce::TextButton::textColourOffId) == Songsmith::UI::Colours::textDim, "the names are quiet: dimmer text");
-                expect (b.getHeight() >= 26, "and still an easy click target");
-                expect (b.isVisible());
-                expect (b.getTitle().contains (FET::modelNames()[i]), "accessible name");
-                expect (b.getTooltip().startsWith (FET::modelNames()[i]) && b.getTooltip().contains (FET::modelDescriptions()[i]),
-                        "each model button has its own tooltip, selected or not: " + b.getTooltip());
-                expect (Songsmith::UI::Wording::findBanned (b.getTooltip()).isEmpty(), "plain words: " + b.getTooltip());
-                if (i > 0)
-                {
-                    expectEquals (b.getY(), ed->getModelButton (0).getY(), "one row");
-                    expect (b.getX() > ed->getModelButton (i - 1).getRight(), "left to right, not overlapping");
-                }
-            }
-            expect (ed->getModelButton (0).getToggleState() && ! ed->getModelButton (1).getToggleState(), "Blackface is the default and lit");
-            expect (ed->getModelButton (3).getRight() < ed->getOversamplingBox().getX(), "Oversampling is to the right of the model buttons");
-            expect (ed->getModelButton (3).getBottom() <= ed->getMeter().getY(), "the row is above the meter, not among the controls");
-            ed->getModelButton (3).onClick();
-            expectEquals (ed->getShownModel(), 3);
-            expect (ed->getModelButton (3).getToggleState() && ! ed->getModelButton (0).getToggleState(), "the chosen model is lit");
-            expect (! ed->getModelButton (0).getTooltip().isEmpty(), "an unselected model keeps its tooltip");
+                expectEquals (box.getItemText (i), FET::modelNames()[i]);
+            expect (box.isVisible() && box.getHeight() >= 26, "visible, and an easy click target");
+            expect (box.getTitle() == "Model", "accessible name");
+            expect (ed->getModelLabel().getText() == "Model" && ed->getModelLabel().getRight() <= box.getX(), "captioned Model, to its left");
+            for (int i = 0; i < 4; ++i)
+                expect (box.getTooltip().contains (FET::modelNames()[i] + ": " + FET::modelDescriptions()[i]), "the tooltip describes every model: " + box.getTooltip());
+            expect (Songsmith::UI::Wording::findBanned (box.getTooltip()).isEmpty(), "plain words: " + box.getTooltip());
+            expectEquals (box.getSelectedItemIndex(), 0, "Blackface is the default and shown");
+
+            // The row is directly under the title bar and above the textured panel, with Oversampling level with it on the right.
+            expect (box.getY() >= (int) Songsmith::UI::titleBarHeight, "below the title bar");
+            expect (box.getBottom() < FET::plateTop, "outside the textured panel: the panel starts below the row");
+            const auto os = ed->getOversamplingBox().getBounds();
+            expectEquals (os.getY(), box.getY(), "Oversampling is level with it");
+            expect (os.getBottom() < FET::plateTop, "and outside the panel too");
+            expect (box.getRight() < os.getX(), "to its right");
+            expectEquals (os.getRight(), ed->getMeterColumn().getRight(), "right-aligned with the meter column");
+            expect (box.getBottom() <= ed->getMeter().getY(), "nothing of the row is among the controls");
+
+            box.setSelectedItemIndex (3, juce::sendNotificationSync);
+            expectEquals (ed->getShownModel(), 3, "choosing from the dropdown selects the model");
+            expectEquals (box.getSelectedItemIndex(), 3);
+            expect (p.apvts.getRawParameterValue (ID::model)->load() == 3.0f, "and writes the model parameter");
+            auto* modelParam = p.apvts.getParameter (ID::model);
+            modelParam->setValueNotifyingHost (modelParam->convertTo0to1 (1.0f));
+            expectEquals (box.getSelectedItemIndex(), 1, "automation, presets and sessions update the dropdown");
+        }
+
+        beginTest ("ACOMP-23: Slow Attack is centred under Attack and Release and clears the lower border");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            auto* modelParam = p.apvts.getParameter (ID::model);
+            modelParam->setValueNotifyingHost (modelParam->convertTo0to1 ((float) FET::Model::anniversary));
+            std::unique_ptr<juce::AudioProcessorEditor> base (p.createEditor());
+            auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (base.get());
+            expect (ed != nullptr);
+            if (ed == nullptr)
+                return;
+            auto& slow = ed->getSlowAttackButton();
+            expect (slow.isVisible(), "Anniversary Edition has Slow Attack");
+            const auto attack = ed->getKnob (ID::attack).getBounds(), release = ed->getKnob (ID::release).getBounds();
+            expect (std::abs (slow.getBounds().getCentreX() - attack.getCentreX()) <= 1 && std::abs (slow.getBounds().getCentreX() - release.getCentreX()) <= 1,
+                    "centred beneath Attack and Release");
+            expect (slow.getY() >= release.getBottom(), "below Release, not on it");
+            // The panel's lower border and its pinstripes (11 and 7 units above the bottom edge) stay clear, with room to spare.
+            const int plateBottom = FET::contentHeight - 6;
+            expect (slow.getBottom() <= plateBottom - 11 - 8, "at least 8 units of clear space above the lower pinstripes: bottom "
+                    + juce::String (slow.getBottom()) + " plate bottom " + juce::String (plateBottom));
         }
 
         beginTest ("ACOMP-20: each model has its own faceplate colour, and it follows automation, presets and restored sessions");
@@ -402,7 +429,7 @@ struct ModelTests final : juce::UnitTest
             };
             expectGreaterThan (loudRms (true), loudRms (false) * 1.05, "2:1 turns the sound down less than 4:1 on Lindell");
 
-            ed->getModelButton (0).onClick();   // by hand to Blackface
+            ed->getModelBox().setSelectedItemIndex (0, juce::sendNotificationSync);   // by hand to Blackface
             expect (! p.isGentleRatioOn(), "leaving Lindell by hand turns 2:1 off, so no ratio is falsely shown");
             expect (! ed->getGentleRatioButton().isVisible(), "and the button goes");
         }
