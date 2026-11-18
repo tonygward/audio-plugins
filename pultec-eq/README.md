@@ -40,7 +40,7 @@ It lifts or lowers the low end and the high end in broad, gentle strokes. The co
 
 The curve at the top shows the combined effect, from 20 Hz to 20 kHz. The two tall meters on the right show the output level of the left and right channels, after the filters and Bypass, in dBFS. There is no output level control, so a boost makes the sound louder: if the CLIP warning lights, lower the boosts. It measures sample peak, not true peak. Everything else is the same as the other Songsmith plugins: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu, and **Processing Load** at the bottom left.
 
-![Songsmith Passive EQ with the output meters showing a tone](docs/images/peq-03-output-meters.png)
+![Songsmith Passive EQ with the output meters showing a tone](docs/images/editor-lead-vocal-air.png)
 
 *Real screenshot at 200 %, with a steady tone playing through it.*
 
