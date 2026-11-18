@@ -28,6 +28,24 @@ private:
     juce::AudioProcessorValueTreeState::SliderAttachment attachment;
 };
 
+// The Compress and Limit buttons: the label, plus a small picture of what the mode does to the sound. The picture is a
+// concept, not a measurement: input level along the bottom, output level up the side. Compress bends gently above the
+// threshold; Limit flattens much more. (Both are the leveller's own smooth optical action: neither is a hard ceiling.)
+class OptModeButton : public juce::TextButton
+{
+public:
+    OptModeButton (const juce::String& text, bool isLimit) : juce::TextButton (text), limit (isLimit) {}
+    void paintButton (juce::Graphics&, bool isHighlighted, bool isDown) override;
+
+    // The icon's area inside a button of this size, at the left edge. Tests read it.
+    static juce::Rectangle<float> iconArea (juce::Rectangle<int> buttonBounds) noexcept;
+    // The two slopes of the picture after the bend, as output rise for input rise (Compress shallower than 1, Limit flatter still).
+    static float slopeAfterBend (bool isLimit) noexcept { return isLimit ? 0.08f : 0.40f; }
+
+private:
+    bool limit;
+};
+
 class SongsmithOpticalLevellerEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
@@ -86,7 +104,7 @@ private:
     juce::Rectangle<int> titleBounds;   // the product name, painted
 
     OptKnob gainKnob, peakReductionKnob;
-    std::array<juce::TextButton, 2> modeButtons { juce::TextButton ("Compress"), juce::TextButton ("Limit") };
+    std::array<OptModeButton, 2> modeButtons { OptModeButton ("Compress", false), OptModeButton ("Limit", true) };
     juce::ParameterAttachment modeAttachment;
     int modeIndex = 0;
 
