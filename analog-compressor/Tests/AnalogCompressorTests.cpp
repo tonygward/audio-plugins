@@ -1194,6 +1194,20 @@ static int renderScreenshots (const juce::File& folder, float backingScale)
     shoot (1.0f, false, 0, "analog-compressor-model-anniversary-edition", 2);
     shoot (1.0f, false, 0, "analog-compressor-model-lindell", 3);
 
+    // ACOMP-21: the Set Levels panel open above its button while listening.
+    {
+        SongsmithAnalogCompressorProcessor p;
+        p.prepareToPlay (48000.0, 480);
+        SongsmithAnalogCompressorEditor e (p);
+        e.getSetLevelsButton().onClick();
+        const auto image = e.createComponentSnapshot (e.getLocalBounds(), true, backingScale);
+        const auto file = folder.getChildFile ("analog-compressor-set-levels-panel" + (backingScale != 1.0f ? "@" + juce::String (backingScale, 0) + "x" : juce::String()) + ".png");
+        file.deleteFile();
+        juce::FileOutputStream out (file);
+        juce::PNGImageFormat().writeImageToStream (image, out);
+        std::printf ("%s\n", file.getFullPathName().toRawUTF8());
+    }
+
     // Every control state, drawn by the editor's look-and-feel.
     FET::UI::LookAndFeel lf;
     Songsmith::UI::Testing::writeControlSheet (lf, FET::UI::Colours::panel, backingScale,
