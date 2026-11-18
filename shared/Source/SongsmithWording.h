@@ -45,6 +45,12 @@ namespace Songsmith::UI::Wording
         if (text.startsWith ("CPU ") && text.contains (", Latency "))
             return findBanned (text.substring (3));
 
+        // PEQ-04: the classic units a Songsmith mode is inspired by may be named in tooltip help (never as a mode name),
+        // exactly as written. They are product names, not shorthand, so they are not checked as capital-letter words.
+        for (const auto* model : { "EQP-1A", "MEQ-5", "HLF-3C" })
+            if (text.contains (model))
+                return findBanned (text.replace (model, "Pultec", false));
+
         juce::String word;
         juce::juce_wchar before = 0, previous = 0;
         bool sentenceStart = true, wordStartsSentence = true;   // at the start, or after . : ! ? (

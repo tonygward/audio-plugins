@@ -21,13 +21,48 @@ namespace Peq
     inline constexpr const char* highCutId            = "high_cut";             // 0 to 16 dB
     inline constexpr const char* bypassId             = "bypass";               // the host's native bypass
 
+    // --- Added in PEQ-04 (ParameterID version 2). Sessions and presets saved before it have none of these, so they
+    // load with the mode at Tone Shaper (index 0) and every new amount at zero: the sound they always had.
+    inline constexpr const char* modeId               = "eq_mode";              // choice: Tone Shaper, Mid Shaper, Frequency Filter
+    inline constexpr const char* midLowFrequencyId    = "mid_low_frequency";    // choice: 200, 300, 500, 700 Hz, 1 kHz
+    inline constexpr const char* midLowBoostId        = "mid_low_boost";        // 0 to 10 dB
+    inline constexpr const char* midDipFrequencyId    = "mid_dip_frequency";    // choice: ten steps, 200 Hz to 7 kHz
+    inline constexpr const char* midDipId             = "mid_dip";              // 0 to 10 dB
+    inline constexpr const char* midHighFrequencyId   = "mid_high_frequency";   // choice: 1.5, 2, 3, 4.5, 6 kHz
+    inline constexpr const char* midHighBoostId       = "mid_high_boost";       // 0 to 10 dB
+    inline constexpr const char* highPassFrequencyId  = "high_pass_frequency";  // choice: Off, 30, 50, 80, 120, 200 Hz
+    inline constexpr const char* lowPassFrequencyId   = "low_pass_frequency";   // choice: Off, 5, 7, 10, 15 kHz
+
+    // The mode names, as shown (Songsmith names; the classic units they are inspired by are only in the help text).
+    inline const juce::StringArray& modeNames()
+    {
+        static const juce::StringArray names { "Tone Shaper", "Mid Shaper", "Frequency Filter" };
+        return names;
+    }
+    constexpr int defaultMidLowFrequency = 2, defaultMidDipFrequency = 4, defaultMidHighFrequency = 2;   // 500 Hz, 1 kHz, 3 kHz
+
     // --- Defaults: every gain at zero, so a new instance leaves the sound exactly as it was --------------
     constexpr int defaultLowFrequency = 2, defaultHighBoostFrequency = 3, defaultHighCutFrequency = 1;   // 60 Hz, 8 kHz, 10 kHz
     constexpr float defaultBandwidth = 5.0f, maxBandwidth = 10.0f;
 
+    // "60 Hz", "8 kHz", "1.5 kHz": whole numbers stay whole.
     inline juce::String frequencyName (float hz)
     {
-        return hz >= 1000.0f ? juce::String (hz / 1000.0f, 0) + " kHz" : juce::String ((int) hz) + " Hz";
+        if (hz < 1000.0f)
+            return juce::String ((int) hz) + " Hz";
+        const float khz = hz / 1000.0f;
+        const bool whole = std::abs (khz - std::round (khz)) < 0.001f;
+        return juce::String (khz, whole ? 0 : 1) + " kHz";
+    }
+
+    // A choice whose first position is Off: "Off", "30 Hz", ...
+    template <typename Array>
+    juce::StringArray frequencyNamesWithOff (const Array& frequencies)
+    {
+        juce::StringArray names;
+        for (auto hz : frequencies)
+            names.add (hz <= 0.0f ? juce::String ("Off") : frequencyName (hz));
+        return names;
     }
 
     template <typename Array>
@@ -42,7 +77,10 @@ namespace Peq
     // The editor is laid out once at a design size and scaled as a whole, so every size looks the same.
     namespace EditorLayout
     {
-        constexpr int designWidth = 1016, contentHeight = 448;   // the controls sit above the footer strip
+        // PEQ-04: a configuration row (the EQ Mode dropdown) sits under the title bar, outside the blue panel, so the panel starts
+        // lower (plateTop) and the window is taller by the row and by a little more room for the Mid Shaper's two-line switch.
+        constexpr int modeRowY = 58, modeRowHeight = 28, plateTop = modeRowY + modeRowHeight + 6;
+        constexpr int designWidth = 1016, contentHeight = 500;   // the controls sit above the footer strip
         constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
         constexpr int designHeight = contentHeight + footerHeight;
         constexpr int defaultWidth = designWidth;

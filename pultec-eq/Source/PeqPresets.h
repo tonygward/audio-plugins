@@ -21,6 +21,17 @@ namespace Peq
         int highCutFrequency;    // index into the high cut switch
         float highCut;
         const char* hint;        // a listening cue, shown on hover
+
+        // PEQ-04: the mode this starting point is in, and the Mid Shaper and Frequency Filter settings. The Tone Shaper
+        // starting points above leave these at their defaults (Tone Shaper, nothing set in the other modes).
+        int mode = 0;                         // 0 Tone Shaper, 1 Mid Shaper, 2 Frequency Filter
+        int midLowFrequency = 2;              // index into the low-mid switch
+        float midLowBoost = 0.0f;
+        int midDipFrequency = 4;              // index into the mid dip switch
+        float midDip = 0.0f;
+        int midHighFrequency = 2;             // index into the high-mid switch
+        float midHighBoost = 0.0f;
+        int highPass = 0, lowPass = 0;        // 0 = Off
     };
 
     class Presets

@@ -43,6 +43,9 @@ public:
     int getNumButtons() const noexcept { return buttons.size(); }
     juce::TextButton& getButton (int index) { return *buttons[index]; }
     int getSelected() const noexcept { return selected; }
+    // PEQ-04: a long row of choices can wrap onto more lines (the buttons fill the rows left to right).
+    void setRows (int numRows) { rows = juce::jmax (1, numRows); resized(); }
+    int getRows() const noexcept { return rows; }
 
 private:
     void refresh();
@@ -50,6 +53,7 @@ private:
     juce::OwnedArray<juce::TextButton> buttons;
     juce::ParameterAttachment attachment;
     int selected = 0;
+    int rows = 1;
 };
 
 class SongsmithPassiveEQEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -81,6 +85,25 @@ public:
     PeqKnob& getHighBoostKnob() noexcept { return highBoostKnob; }
     PeqKnob& getBandwidthKnob() noexcept { return bandwidthKnob; }
     PeqKnob& getHighCutKnob() noexcept { return highCutKnob; }
+    // PEQ-04: the EQ Mode dropdown (in its own row under the title bar, outside the blue panel) and the controls of each mode.
+    juce::ComboBox& getModeBox() noexcept { return modeBox; }
+    juce::Label& getModeLabel() noexcept { return modeLabel; }
+    int getShownMode() const noexcept { return shownMode; }
+    PeqKnob& getMidLowKnob() noexcept { return midLowKnob; }
+    PeqKnob& getMidDipKnob() noexcept { return midDipKnob; }
+    PeqKnob& getMidHighKnob() noexcept { return midHighKnob; }
+    PeqSwitch& getMidLowSwitch() noexcept { return midLowSwitch; }
+    PeqSwitch& getMidDipSwitch() noexcept { return midDipSwitch; }
+    PeqSwitch& getMidHighSwitch() noexcept { return midHighSwitch; }
+    PeqSwitch& getHighPassSwitch() noexcept { return highPassSwitch; }
+    PeqSwitch& getLowPassSwitch() noexcept { return lowPassSwitch; }
+    juce::Rectangle<int> getMidLowGroup() const noexcept;
+    juce::Rectangle<int> getMidDipGroup() const noexcept;
+    juce::Rectangle<int> getMidHighGroup() const noexcept;
+    juce::Rectangle<int> getHighPassGroup() const noexcept;
+    juce::Rectangle<int> getLowPassGroup() const noexcept;
+    juce::Rectangle<int> getMeterBounds() const noexcept { return outputMeter.getBounds(); }
+    juce::Rectangle<int> getCurveBounds() const noexcept { return curve.getBounds(); }
     PeqSwitch& getLowSwitch() noexcept { return lowSwitch; }
     PeqSwitch& getHighBoostSwitch() noexcept { return highBoostSwitch; }
     PeqSwitch& getHighCutSwitch() noexcept { return highCutSwitch; }
@@ -100,6 +123,7 @@ private:
     void timerCallback() override { refreshCurve(); refreshHistoryButtons(); advanceMeter (1.0 / 30.0); }
     void refreshHistoryButtons();
     void rebuildPresetMenu();
+    void refreshMode();   // the mode changed (the musician, a preset, automation or a loaded session): show its controls
     void presetChosen();
     void savePresetAsync();
 
@@ -124,6 +148,15 @@ private:
 
     PeqSwitch lowSwitch, highBoostSwitch, highCutSwitch;
     PeqKnob lowBoostKnob, lowCutKnob, highBoostKnob, bandwidthKnob, highCutKnob;
+
+    // PEQ-04: Mid Shaper and Frequency Filter controls (shown only in their mode), and the mode selector.
+    PeqSwitch midLowSwitch, midDipSwitch, midHighSwitch, highPassSwitch, lowPassSwitch;
+    PeqKnob midLowKnob, midDipKnob, midHighKnob;
+    juce::ComboBox modeBox;
+    juce::Label modeLabel;
+    juce::ParameterAttachment modeAttachment;
+    int shownMode = 0;
+    int filterKey = -1;   // the Frequency Filter group paints the chosen frequencies, so it repaints when they change
 
     juce::TextButton bypassButton { "Bypass" };
     juce::AudioProcessorValueTreeState::ButtonAttachment bypassAttachment;

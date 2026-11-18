@@ -13,7 +13,7 @@ class SongsmithPassiveEQProcessor : public juce::AudioProcessor
 public:
     // Saved-state format. 1 = the three frequency switches, the four amounts, the bandwidth, Bypass, and the editor's
     // width and preset name. Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 1;
+    static constexpr int stateVersion = 2;   // 2: PEQ-04 added the EQ Mode and its controls (older sessions load as Tone Shaper)
 
     SongsmithPassiveEQProcessor();
 
@@ -82,6 +82,15 @@ private:
     std::atomic<float>* highBandwidthRaw = nullptr;
     std::atomic<float>* highCutFrequencyRaw = nullptr;
     std::atomic<float>* highCutRaw = nullptr;
+    std::atomic<float>* modeRaw = nullptr;
+    std::atomic<float>* midLowFrequencyRaw = nullptr;
+    std::atomic<float>* midLowBoostRaw = nullptr;
+    std::atomic<float>* midDipFrequencyRaw = nullptr;
+    std::atomic<float>* midDipRaw = nullptr;
+    std::atomic<float>* midHighFrequencyRaw = nullptr;
+    std::atomic<float>* midHighBoostRaw = nullptr;
+    std::atomic<float>* highPassRaw = nullptr;
+    std::atomic<float>* lowPassRaw = nullptr;
 
     SongsmithPassive::Engine engine;
     int currentProgram = 0;

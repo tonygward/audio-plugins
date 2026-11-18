@@ -10,7 +10,27 @@ A gentle tone equaliser inspired by the Pultec EQP-1A, by Songsmith Studio, buil
 
 *The Bass Weight starting point: a low boost and a low cut at 30 Hz together.*
 
-## What it does
+## Three modes
+
+One **EQ Mode** dropdown, in a row of its own under the title bar (outside the blue panel, as in the Songsmith Analog Compressor), chooses what the equaliser does. The graph, the output meters, the preset menu, Undo and Redo, Bypass and Processing Load stay the same; only the controls in the blue panel change.
+
+| Mode | What it does | Controls |
+|---|---|---|
+| **Tone Shaper** (the default, and what every earlier session is) | Broad, gentle low and high shaping, inspired by the Pultec EQP-1A | Low frequency, Boost and Cut; High Boost frequency, Boost and Bandwidth; High Cut frequency and Cut |
+| **Mid Shaper** | Broad midrange shaping, inspired by the Pultec MEQ-5 | Low-Mid Boost, Mid Dip and High-Mid Boost, each with its own frequency switch (5, 10 and 5 positions) and an amount from 0 to 10 dB |
+| **Frequency Filter** | A high-pass and a low-pass filter, inspired by the Pultec HLF-3C | High-Pass: Off, 30, 50, 80, 120 or 200 Hz. Low-Pass: Off, 5, 7, 10 or 15 kHz. Each is one 12 dB per octave filter |
+
+Each mode keeps its own settings, so you can switch back and forth without losing anything. Changing the mode while sound plays is blended over 20 milliseconds, so it does not click. These are Songsmith designs inspired by the classic units, not measured copies, and the Mid Shaper and Frequency Filter steps are Songsmith choices (see [docs/reference.md](docs/reference.md)). **Sessions and presets saved before the modes existed open as Tone Shaper and sound exactly as they did.**
+
+![Songsmith Passive EQ in Tone Shaper mode, with the EQ Mode dropdown in its own row above the blue panel](docs/images/peq-04-tone-shaper.png)
+
+![Songsmith Passive EQ in Mid Shaper mode](docs/images/peq-04-mid-shaper.png)
+
+![Songsmith Passive EQ in Frequency Filter mode](docs/images/peq-04-frequency-filter.png)
+
+*Real screenshots at 200 %, rendered by the test executable (`PassiveEQTests --screenshot <file> --scale 2 --preset 2`, `6` and `8`). The curve is the response of the filters the sound actually goes through.*
+
+## What Tone Shaper does
 
 It lifts or lowers the low end and the high end in broad, gentle strokes. The controls are in three groups, each with its own frequency switch above its knobs:
 
@@ -20,7 +40,7 @@ It lifts or lowers the low end and the high end in broad, gentle strokes. The co
 
 The curve at the top shows the combined effect, from 20 Hz to 20 kHz. The two tall meters on the right show the output level of the left and right channels, after the filters and Bypass, in dBFS. There is no output level control, so a boost makes the sound louder: if the CLIP warning lights, lower the boosts. It measures sample peak, not true peak. Everything else is the same as the other Songsmith plugins: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu, and **Processing Load** at the bottom left.
 
-![Songsmith Passive EQ with the output meters showing a tone](docs/images/peq-03-output-meters.png)
+![Songsmith Passive EQ with the output meters showing a tone](docs/images/editor-lead-vocal-air.png)
 
 *Real screenshot at 200 %, with a steady tone playing through it.*
 
@@ -34,11 +54,11 @@ It does not model the original's valves or transformers, so it shapes the tone w
 
 ## Presets
 
-Six starting points, each named for what it is used for: **Bass Weight**, **Kick Drum Weight**, **Lead Vocal Air**, **Acoustic Guitar Brightness**, **Mix Bus Polish** and **Soften Harsh Highs**. There is no output level control, so every boost also makes the sound louder: compare with the plugin switched in and out at the same listening level. Hover over the preset menu for a listening cue. **Save preset...** keeps your own as `.sspreset` files in `%APPDATA%\Songsmith Studio\Songsmith Passive EQ\Presets` (Windows) or `~/Library/Songsmith Studio/Songsmith Passive EQ/Presets` (macOS), and **Open presets folder** takes you there. Where each starting point comes from: [docs/presets.md](docs/presets.md).
+Ten starting points, each named for what it is used for. Six are Tone Shaper: **Bass Weight**, **Kick Drum Weight**, **Lead Vocal Air**, **Acoustic Guitar Brightness**, **Mix Bus Polish** and **Soften Harsh Highs**. Two are Mid Shaper: **Lead Vocal Presence** and **Reduce Boxy Mids**. Two are Frequency Filter: **Clear Low Rumble** and **Soften Top Hiss**. Choosing one also selects its mode. There is no output level control, so every boost also makes the sound louder: compare with the plugin switched in and out at the same listening level. Hover over the preset menu for a listening cue. **Save preset...** keeps your own as `.sspreset` files in `%APPDATA%\Songsmith Studio\Songsmith Passive EQ\Presets` (Windows) or `~/Library/Songsmith Studio/Songsmith Passive EQ/Presets` (macOS), and **Open presets folder** takes you there. Where each starting point comes from: [docs/presets.md](docs/presets.md).
 
 ## Good to know
 
-- **Sessions and presets stay safe.** The parameter names, the plugin identity and the saved format never change for existing sessions.
+- **Sessions and presets stay safe.** The parameter names, the plugin identity and the saved format never change for existing sessions. The modes added new parameters (every amount at zero, every filter Off, the mode on Tone Shaper), so an older session or preset file loads as Tone Shaper with the sound it always had. A preset saved now stores the mode and every mode's settings.
 - **No delay.** It adds no latency, so there is nothing to compensate for.
 - **Switching a frequency does not click.** The old and new filters are blended over 20 milliseconds.
 - **Resizable.** Drag the bottom-right corner, from 75 % to 300 %. The size is saved with the session.

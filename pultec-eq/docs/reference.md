@@ -49,3 +49,23 @@ Joe Gilder's broad tone-shaping tutorials are the named starting point for prese
 - Reviewing Joe Gilder's tone-shaping tutorials for presets.
 - Optional colour (tube or transformer saturation).
 - A measured comparison with a real unit: the low cut's corner ratio and the bandwidth mapping are design choices, not measurements.
+
+
+## Modes (PEQ-04)
+
+The engine has three modes that share the same four filter slots in series (minimum phase biquads, no latency, double precision). Tone Shaper is the original design above and is unchanged. The two new modes are Songsmith designs inspired by other classic Pultec units; the **step values below are Songsmith design choices**, listed rather than claimed from a measured or published hardware chart, and no bit-exact or measured hardware match is claimed.
+
+| Mode | Filters | Status | Test |
+|---|---|---|---|
+| Tone Shaper | the four above | Unchanged from PEQ-01 (the parameters and sound are the same) | `Backward compatibility: a session saved before the modes loads as Tone Shaper and sounds exactly as it did` (bit-identical output) |
+| Mid Shaper | three peak filters: low-mid boost (200, 300, 500, 700 Hz, 1 kHz, 0 to 10 dB), mid dip (200 Hz to 7 kHz in ten steps, 0 to 10 dB), high-mid boost (1.5, 2, 3, 4.5, 6 kHz, 0 to 10 dB) | Frequencies, ranges and the broad shapes (Q 0.55 for the boosts, 0.6 for the dip) are Songsmith choices inspired by the MEQ-5's published layout of three overlapping bands; not measured | `Mid Shaper: ...` (each band reaches its amount at its frequency, shapes keep about half the amount an octave either side, every switch position peaks where it says, a boost and a dip together cancel) |
+| Frequency Filter | one high-pass (Off, 30, 50, 80, 120, 200 Hz) and one low-pass (Off, 5, 7, 10, 15 kHz), each a 12 dB per octave section with Q 0.7071 (flat in the pass band, 3 dB down at the chosen frequency) | Steps and slope are Songsmith choices inspired by the HLF-3C's high and low filters; not measured | `Frequency Filter: ...` (3 dB down at the frequency at every position, steep below and above, flat in the middle) |
+
+Behaviour notes:
+
+- **Mode changes crossfade.** Changing the mode keeps the old filters running and fades to the new ones over 20 ms, exactly as a frequency switch does. The gains start at their new values instead of gliding from the other mode's amounts. Test: `Changing the mode while sound plays fades, without a click, and settles to the new mode`.
+- **Settings of other modes do nothing.** Only the selected mode's controls reach the sound; each mode keeps its own settings for when you return. Test: `Each mode's settings do nothing while another mode is selected`.
+- **Neutral means untouched.** With nothing set in a mode (every amount 0, both filters Off) the output is bit-identical to the input, in every mode. Test: `Tone Shaper is the default mode, and a mode with nothing set leaves every sample unchanged`.
+- **Backward compatibility.** Parameters added in version 2 of the parameter list (`eq_mode` and eight more) and state version 2. A session or preset without them loads with the mode on Tone Shaper (index 0), amounts at zero and filters Off. Tests: `Backward compatibility: ...` (session, host state path, preset file loaded from another mode).
+- **Block size and sample rate.** Results do not depend on the host's block size, and the filters behave at 44.1, 48 and 96 kHz.
+- **Response display.** The graph draws the engine's own response in every mode (test: `The response display is the engine's own response in every mode and follows the settings`).

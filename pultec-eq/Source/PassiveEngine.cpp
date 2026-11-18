@@ -66,6 +66,73 @@ namespace SongsmithPassive
                           1.0 + alpha / A, -2.0 * cw, 1.0 - alpha / A);
     }
 
+    Biquad makeHighPass (double fs, double f, double q) noexcept
+    {
+        const double w = 2.0 * pi * limitFrequency (f, fs) / fs;
+        const double cw = std::cos (w), alpha = std::sin (w) / (2.0 * q);
+        return normalise ((1.0 + cw) * 0.5, -(1.0 + cw), (1.0 + cw) * 0.5, 1.0 + alpha, -2.0 * cw, 1.0 - alpha);
+    }
+
+    Biquad makeLowPass (double fs, double f, double q) noexcept
+    {
+        const double w = 2.0 * pi * limitFrequency (f, fs) / fs;
+        const double cw = std::cos (w), alpha = std::sin (w) / (2.0 * q);
+        return normalise ((1.0 - cw) * 0.5, 1.0 - cw, (1.0 - cw) * 0.5, 1.0 + alpha, -2.0 * cw, 1.0 - alpha);
+    }
+
+    std::array<float, 4> Engine::targetGains (const Params& p) noexcept
+    {
+        switch (p.mode)
+        {
+            case Mode::midShaper:       return { p.midLowBoostDb, -p.midDipDb, p.midHighBoostDb, 0.0f };
+            case Mode::frequencyFilter: return { 0.0f, 0.0f, 0.0f, 0.0f };   // the filters have no gain
+            case Mode::toneShaper:      break;
+        }
+        return { p.lowBoostDb, -p.lowCutDb, p.highBoostDb, -p.highCutDb };
+    }
+
+    std::array<Biquad, Engine::numSections> Engine::buildSections (const Params& p, const std::array<float, 4>& g, double fs) noexcept
+    {
+        std::array<Biquad, numSections> s {};   // every slot starts as a neutral filter (passes everything)
+        switch (p.mode)
+        {
+            case Mode::midShaper:
+                s[0] = makePeak (fs, midLowFrequencies[(size_t) p.midLowFrequencyIndex], midBoostQ, g[0]);
+                s[1] = makePeak (fs, midDipFrequencies[(size_t) p.midDipFrequencyIndex], midDipQ, g[1]);
+                s[2] = makePeak (fs, midHighFrequencies[(size_t) p.midHighFrequencyIndex], midBoostQ, g[2]);
+                break;
+
+            case Mode::frequencyFilter:
+                if (p.highPassIndex > 0)
+                    s[0] = makeHighPass (fs, highPassFrequencies[(size_t) p.highPassIndex], filterQ);
+                if (p.lowPassIndex > 0)
+                    s[1] = makeLowPass (fs, lowPassFrequencies[(size_t) p.lowPassIndex], filterQ);
+                break;
+
+            case Mode::toneShaper:
+            {
+                const double lowF = lowFrequencies[(size_t) p.lowFrequencyIndex];
+                const double q = minBandwidthQ + (maxBandwidthQ - minBandwidthQ) * p.bandwidth;
+                s[0] = makeLowShelf  (fs, lowF, shelfQ, g[0]);
+                s[1] = makeLowShelf  (fs, lowF * lowCutCornerRatio, shelfQ, g[1]);
+                s[2] = makePeak      (fs, highBoostFrequencies[(size_t) p.highBoostFrequencyIndex], q, g[2]);
+                s[3] = makeHighShelf (fs, highCutFrequencies[(size_t) p.highCutFrequencyIndex], shelfQ, g[3]);
+                break;
+            }
+        }
+        return s;
+    }
+
+    bool Engine::isNeutral (const Params& p) noexcept
+    {
+        if (p.mode == Mode::frequencyFilter)
+            return p.highPassIndex == 0 && p.lowPassIndex == 0;
+        for (float g : targetGains (p))
+            if (g != 0.0f)
+                return false;
+        return true;
+    }
+
     void Engine::prepare (double sampleRate)
     {
         fs = juce::jmax (8000.0, sampleRate);
@@ -76,7 +143,7 @@ namespace SongsmithPassive
         setParams (params);
         for (auto& g : gain)
             g.setCurrentAndTargetValue (g.getTargetValue());
-        updateSections ({ gain[0].getTargetValue(), gain[1].getTargetValue(), gain[2].getTargetValue(), gain[3].getTargetValue() });
+        updateSections (targetGains (params));
     }
 
     void Engine::reset() noexcept
@@ -97,6 +164,15 @@ namespace SongsmithPassive
         params.lowFrequencyIndex       = juce::jlimit (0, (int) lowFrequencies.size() - 1, p.lowFrequencyIndex);
         params.highBoostFrequencyIndex = juce::jlimit (0, (int) highBoostFrequencies.size() - 1, p.highBoostFrequencyIndex);
         params.highCutFrequencyIndex   = juce::jlimit (0, (int) highCutFrequencies.size() - 1, p.highCutFrequencyIndex);
+        params.mode = (int) p.mode >= 0 && (int) p.mode < numModes ? p.mode : Mode::toneShaper;
+        params.midLowFrequencyIndex  = juce::jlimit (0, (int) midLowFrequencies.size() - 1, p.midLowFrequencyIndex);
+        params.midDipFrequencyIndex  = juce::jlimit (0, (int) midDipFrequencies.size() - 1, p.midDipFrequencyIndex);
+        params.midHighFrequencyIndex = juce::jlimit (0, (int) midHighFrequencies.size() - 1, p.midHighFrequencyIndex);
+        params.highPassIndex = juce::jlimit (0, (int) highPassFrequencies.size() - 1, p.highPassIndex);
+        params.lowPassIndex  = juce::jlimit (0, (int) lowPassFrequencies.size() - 1, p.lowPassIndex);
+        params.midLowBoostDb  = juce::jlimit (0.0f, maxMidBoostDb, sane (p.midLowBoostDb));
+        params.midDipDb       = juce::jlimit (0.0f, maxMidDipDb,   sane (p.midDipDb));
+        params.midHighBoostDb = juce::jlimit (0.0f, maxMidBoostDb, sane (p.midHighBoostDb));
         params.lowBoostDb  = juce::jlimit (0.0f, maxLowBoostDb,  sane (p.lowBoostDb));
         params.lowCutDb    = juce::jlimit (0.0f, maxLowCutDb,    sane (p.lowCutDb));
         params.highBoostDb = juce::jlimit (0.0f, maxHighBoostDb, sane (p.highBoostDb));
@@ -104,9 +180,25 @@ namespace SongsmithPassive
         params.bandwidth   = juce::jlimit (0.0f, 1.0f, sane (p.bandwidth));
 
         // A switch moved while sound is passing: keep the filters as they were and fade to the new ones.
-        const bool switchMoved = before.lowFrequencyIndex != params.lowFrequencyIndex
-                                 || before.highBoostFrequencyIndex != params.highBoostFrequencyIndex
-                                 || before.highCutFrequencyIndex != params.highCutFrequencyIndex;
+        // Only the controls of the mode in use count: a switch of another mode changes nothing you can hear.
+        const bool modeChanged = before.mode != params.mode;
+        bool switchMoved = modeChanged;
+        switch (params.mode)
+        {
+            case Mode::midShaper:
+                switchMoved = switchMoved || before.midLowFrequencyIndex != params.midLowFrequencyIndex
+                                          || before.midDipFrequencyIndex != params.midDipFrequencyIndex
+                                          || before.midHighFrequencyIndex != params.midHighFrequencyIndex;
+                break;
+            case Mode::frequencyFilter:
+                switchMoved = switchMoved || before.highPassIndex != params.highPassIndex || before.lowPassIndex != params.lowPassIndex;
+                break;
+            case Mode::toneShaper:
+                switchMoved = switchMoved || before.lowFrequencyIndex != params.lowFrequencyIndex
+                                          || before.highBoostFrequencyIndex != params.highBoostFrequencyIndex
+                                          || before.highCutFrequencyIndex != params.highCutFrequencyIndex;
+                break;
+        }
         if (switchMoved && ! flat)
         {
             fadeSections = sections;
@@ -114,32 +206,27 @@ namespace SongsmithPassive
             fadeRemaining = fadeLength;
         }
 
-        gain[0].setTargetValue (params.lowBoostDb);
-        gain[1].setTargetValue (-params.lowCutDb);
-        gain[2].setTargetValue (params.highBoostDb);
-        gain[3].setTargetValue (-params.highCutDb);
+        // A different mode means different filters in each slot, so its gains start where they are going (the crossfade
+        // above covers the change) instead of gliding from the other mode's amounts.
+        const auto target = targetGains (params);
+        for (size_t i = 0; i < 4; ++i)
+        {
+            if (modeChanged)
+                gain[i].setCurrentAndTargetValue (target[i]);
+            else
+                gain[i].setTargetValue (target[i]);
+        }
     }
 
     void Engine::updateSections (const std::array<float, 4>& g) noexcept
     {
-        const double lowF = lowFrequencies[(size_t) params.lowFrequencyIndex];
-        const double q = minBandwidthQ + (maxBandwidthQ - minBandwidthQ) * params.bandwidth;
-        sections[0] = makeLowShelf  (fs, lowF, shelfQ, g[0]);
-        sections[1] = makeLowShelf  (fs, lowF * lowCutCornerRatio, shelfQ, g[1]);
-        sections[2] = makePeak      (fs, highBoostFrequencies[(size_t) params.highBoostFrequencyIndex], q, g[2]);
-        sections[3] = makeHighShelf (fs, highCutFrequencies[(size_t) params.highCutFrequencyIndex], shelfQ, g[3]);
+        sections = buildSections (params, g, fs);
     }
 
     float Engine::responseDb (double frequency) const noexcept
     {
-        const double lowF = lowFrequencies[(size_t) params.lowFrequencyIndex];
-        const double q = minBandwidthQ + (maxBandwidthQ - minBandwidthQ) * params.bandwidth;
-        const Biquad s[] = { makeLowShelf  (fs, lowF, shelfQ, gain[0].getTargetValue()),
-                             makeLowShelf  (fs, lowF * lowCutCornerRatio, shelfQ, gain[1].getTargetValue()),
-                             makePeak      (fs, highBoostFrequencies[(size_t) params.highBoostFrequencyIndex], q, gain[2].getTargetValue()),
-                             makeHighShelf (fs, highCutFrequencies[(size_t) params.highCutFrequencyIndex], shelfQ, gain[3].getTargetValue()) };
         float total = 0.0f;
-        for (const auto& b : s)
+        for (const auto& b : buildSections (params, targetGains (params), fs))
             total += b.magnitudeDb (frequency, fs);
         return total;
     }
@@ -164,7 +251,7 @@ namespace SongsmithPassive
                 for (size_t i = 0; i < 4; ++i)
                     g[i] = moving ? gain[i].skip (chunk) : gain[i].getTargetValue();
 
-                flat = ! moving && fadeRemaining == 0 && g[0] == 0.0f && g[1] == 0.0f && g[2] == 0.0f && g[3] == 0.0f;
+                flat = ! moving && fadeRemaining == 0 && isNeutral (params);
                 if (flat)
                     reset();   // all gains zero: the input passes untouched and the filter memory is cleared
                 else

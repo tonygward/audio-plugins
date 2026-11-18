@@ -1,6 +1,6 @@
 # Songsmith Passive EQ: where the starting points come from
 
-The six factory starting points, written down before the plugin is called release-ready, as the prompt asks. They are Songsmith starting points, not copies of anyone's settings. Names follow the suite rule: each is named for the job it does, and keeps hardware names, tutorial titles and educators' names out of the title.
+The ten factory starting points (six for the Tone Shaper and, since PEQ-04, two each for the Mid Shaper and the Frequency Filter; see [the end of the settings table](#the-settings)), written down before the plugin is called release-ready, as the prompt asks. They are Songsmith starting points, not copies of anyone's settings. Names follow the suite rule: each is named for the job it does, and keeps hardware names, tutorial titles and educators' names out of the title.
 
 ## Sources used
 
@@ -25,10 +25,19 @@ Only part of the Vintage King article was available when this was written, so th
 
 Amounts are small on purpose: the hardware's ranges go much further, and these are places to start from.
 
+PEQ-04 added four starting points for the new modes. They are Songsmith starting points from general practice, not from any named source, and have not been listened to level-matched:
+
+| Starting point | Mode | Settings | Why |
+|---|---|---|---|
+| Lead Vocal Presence | Mid Shaper | Mid Dip 500 Hz, 3 dB; High-Mid Boost 3 kHz, +4 dB | a broad lift around 3 kHz for clarity, with a little less boxiness around 500 Hz |
+| Reduce Boxy Mids | Mid Shaper | Mid Dip 300 Hz, 4 dB | takes out the cardboard-box build-up on guitars, drums and vocals |
+| Clear Low Rumble | Frequency Filter | High-Pass 80 Hz | removes rumble below the useful range |
+| Soften Top Hiss | Frequency Filter | Low-Pass 10 kHz | tames hiss and a brittle top end |
+
 ## What the tests check
 
 - Every starting point sets every sound parameter, leaves Bypass alone, and is available as a host program (`The starting points set every sound parameter, leave Bypass alone, and are the host's programs`).
-- No starting point lifts or cuts more than 6 dB anywhere between 20 Hz and 20 kHz (same test, using the engine's own response).
+- No Tone Shaper or Mid Shaper starting point lifts or cuts more than 6 dB anywhere between 20 Hz and 20 kHz (same test, using the engine's own response). A Frequency Filter starting point is a filter, so it is checked to leave 400 Hz to 4 kHz alone (within 0.5 dB) instead.
 - Names are short, in Title Case and free of hardware and educator names; each has a listening cue that stands on its own (same test).
 - Every word on screen, including the listening cues, passes the plain-words check with no abbreviations (`Plain words: ...`).
 
