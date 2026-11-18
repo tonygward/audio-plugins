@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "CompLookAndFeel.h"
 #include "CompParams.h"
+#include "../../shared/Source/SongsmithTube.h"
 
 // Vertical meter, drawn as vectors. Level meters fill upwards (-48 to +3 dBFS, sample peak); the
 // gain-reduction meter fills downwards from 0 (0 to 24 dB). The owner feeds it from its timer; the
@@ -34,9 +35,7 @@ public:
     void paint (juce::Graphics& g) override
     {
         auto r = getLocalBounds().toFloat().reduced (0.5f);
-        g.setColour (CompColours::track);
-        g.fillRoundedRectangle (r, 3.0f);
-        const auto bar = r.reduced (3.0f);
+        const auto bar = Songsmith::UI::Tube::paintHousing (g, r);   // the suite's tubular look, from the Maximiser
 
         g.setColour (CompColours::label.withAlpha (0.35f));
         const float tickLength = juce::jmin (4.0f, bar.getWidth() * 0.25f);
@@ -77,7 +76,7 @@ public:
             for (float db = 6.0f; db < maxReductionDb; db += 6.0f)
                 tick (bar.getY() + bar.getHeight() * db / maxReductionDb);
             auto toY = [&] (float db) { return bar.getY() + bar.getHeight() * juce::jlimit (0.0f, 1.0f, db / maxReductionDb); };
-            g.setColour (CompColours::reduction);
+            g.setColour (Songsmith::UI::Tube::reductionRed);   // reduction is red in every plugin
             g.fillRect (bar.withBottom (toY (ballistics.getLevel())));
             g.setColour (CompColours::text.withAlpha (0.45f));
             g.drawHorizontalLine (juce::roundToInt (bar.getY()), bar.getX(), bar.getRight());
@@ -85,8 +84,7 @@ public:
             g.fillRect (bar.withTop (toY (ballistics.getHold()) - 1.0f).withHeight (2.0f));
         }
 
-        g.setColour (juce::Colours::black.withAlpha (0.6f));
-        g.drawRoundedRectangle (r, 3.0f, 1.0f);
+        Songsmith::UI::Tube::paintFinish (g, r, bar);
     }
 
 private:

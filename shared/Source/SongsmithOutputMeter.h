@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SongsmithTube.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <array>
 #include <atomic>
@@ -183,10 +184,7 @@ namespace Songsmith::UI
             for (int c = 0; c < numChannels; ++c)
             {
                 const auto bar = snap (getChannelBar (c));
-                g.setColour (Colours::panelLight);
-                g.fillRoundedRectangle (bar, 2.0f);
-                g.setColour (Colours::edge);
-                g.drawRoundedRectangle (bar, 2.0f, 1.0f);
+                Tube::paintHousing (g, bar, 2.0f, 1.0f);   // the suite's tubular look, from the Maximiser
 
                 // Bar: the existing teal-to-yellow gradient up to 0 dBFS, red above.
                 const float y = toY (level[c]);
@@ -208,6 +206,8 @@ namespace Songsmith::UI
                     g.setColour (holdDb[c] >= 0.0f ? juce::Colour (0xffff5c5c) : Colours::text);
                     g.fillRect (juce::Rectangle<float> (bar.getX() + 1.0f, toY (holdDb[c]) - 1.0f, bar.getWidth() - 2.0f, 2.0f));
                 }
+
+                Tube::paintFinish (g, bar, bar.reduced (1.0f), 2.0f);
 
                 if (numChannels == 2)   // Left and Right, as on a mixer strip
                 {

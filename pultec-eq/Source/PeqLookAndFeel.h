@@ -17,8 +17,11 @@ namespace Peq::UI
         inline const juce::Colour recess     = Songsmith::UI::Colours::recess;
         inline const juce::Colour text       = Songsmith::UI::Colours::text;
         inline const juce::Colour textDim    = Songsmith::UI::Colours::textDim;
-        // ...and this plugin's accent (a soft lavender).
-        inline const juce::Colour accent     { 0xffb9a3ee };
+        // ...this plugin's accent (a soft sky blue, lighter than the compressor's blue themes)...
+        inline const juce::Colour accent     { 0xff9fc8ff };
+        // ...and the blue of its textured faceplate (PEQ-02): deeper at the bottom, lit from the top.
+        inline const juce::Colour plateTop    { 0xff2a548f };
+        inline const juce::Colour plateBottom { 0xff183560 };
     }
 
     // The shared Songsmith typeface and type scale (shared/Source/SongsmithType.h).
