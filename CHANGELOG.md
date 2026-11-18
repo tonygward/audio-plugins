@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
-## Unreleased
+## 0.5.49
 
 - Songsmith Analog Compressor: the four models (Blackface, Blue Stripe, Anniversary Edition and Lindell) are now a row of buttons under the title bar, with Oversampling at the right of the same row, as in Songsmith EQ. The selected model is lit. The model descriptions are no longer printed on the faceplate: hover over any model button to read what it is good for. The main controls have moved down a little to make room; nothing else about them has changed.
 - Songsmith Analog Compressor: Set Levels now keeps one small button under Output, and its steps (listening, the suggested Input and Output, Apply and Cancel) appear in a temporary panel above it, so the faceplate no longer changes while you use it. Press Escape or Cancel to close the panel without changing anything. The suggestions work exactly as before and nothing changes until you press Apply. You do not need to do anything.
