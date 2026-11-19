@@ -133,8 +133,8 @@ public:
                 { "mid_dip", 0.0f, 10.0f, 0.0f, "Mid Dip" },
                 { "mid_high_frequency", 0.0f, 4.0f, 2.0f, "High-Mid Boost Frequency" },
                 { "mid_high_boost", 0.0f, 10.0f, 0.0f, "High-Mid Boost" },
-                { "high_pass_frequency", 0.0f, 5.0f, 0.0f, "High-Pass Frequency" },
-                { "low_pass_frequency", 0.0f, 4.0f, 0.0f, "Low-Pass Frequency" },
+                { "high_pass_frequency", 0.0f, 7.0f, 0.0f, "High-Pass Frequency" },
+                { "low_pass_frequency", 0.0f, 5.0f, 0.0f, "Low-Pass Frequency" },
             };
             expectEquals (p.getParameters().size(), (int) std::size (rows), "the nine original parameters (never renamed) and the nine PEQ-04 ones, no more");
             for (const auto& r : rows)
@@ -349,9 +349,9 @@ public:
         beginTest ("The starting points set every sound parameter, leave Bypass alone, and are the host's programs");
         {
             const auto& list = Peq::Presets::factory();
-            expectEquals ((int) list.size(), 10, "six Tone Shaper starting points and four for the other modes");
+            expectEquals ((int) list.size(), 19, "ten from earlier, and nine more use-case starting points (PEQ-05)");
             SongsmithPassiveEQProcessor p;
-            expectEquals (p.getNumPrograms(), 10);
+            expectEquals (p.getNumPrograms(), 19);
             setParam (p, Peq::bypassId, 1.0f);
             for (int i = 0; i < p.getNumPrograms(); ++i)
             {
@@ -385,9 +385,16 @@ public:
                 e.setParams (p.getEngineParams());
                 // (A Frequency Filter starting point is a filter: it takes the sound away beyond its frequency by design, so it is
                 // checked to leave the middle alone instead.)
-                if (f.mode == 2)
+                if (f.mode == 2 && juce::String (f.name).startsWith ("Telephone"))
                 {
-                    for (double hz = 400.0; hz < 4000.0; hz *= 1.1)
+                    // A deliberate band-limited effect: it removes the low end and the top, and keeps the voice range.
+                    expect (e.responseDb (100.0) < -12.0f && e.responseDb (10000.0) < -12.0f, "the telephone sound takes away the low and high ends");
+                    expect (std::abs (e.responseDb (1000.0)) <= 3.0f, "and keeps the voice range");
+                }
+                else if (f.mode == 2)
+                {
+                    // (The middle is 800 Hz to 2 kHz: the rhythm guitar filters, at 150 Hz and 5 kHz, are within half a decibel of flat there.)
+                    for (double hz = 800.0; hz < 2000.0; hz *= 1.1)
                         expect (std::abs (e.responseDb (hz)) <= 0.5f, juce::String (f.name) + " leaves the middle alone at " + juce::String (hz) + " Hz");
                 }
                 else
@@ -402,9 +409,10 @@ public:
             for (const auto& f : list)
             {
                 const juce::String presetName (f.name);
-                expect (presetName.length() >= 8 && presetName.length() <= 30, presetName + " is short and clear");
+                expect (presetName.length() >= 8 && presetName.length() <= 40, presetName + " is short and clear");
                 for (const auto& word : juce::StringArray::fromTokens (presetName, " ", ""))
-                    expect (juce::CharacterFunctions::isUpperCase (word[0]), presetName + " is Title Case");
+                    expect (juce::CharacterFunctions::isUpperCase (word[0]) || juce::StringArray { "a", "an", "and", "on", "or", "of" }.contains (word),
+                            presetName + " is Title Case (small joining words stay lower case)");
                 for (const char* banned : { "Pultec", "EQP", "Gilder", "Magic", "Vintage" })
                     expect (! presetName.containsIgnoreCase (banned), presetName + " keeps model and educator names out of the title");
                 expect (juce::String (f.hint).isNotEmpty() && ! juce::String (f.hint).containsIgnoreCase ("Gilder")

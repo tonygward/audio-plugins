@@ -64,7 +64,43 @@ namespace Peq
             { "Soften Top Hiss",    2, 0.0f, 0.0f,   3, 0.0f, 5.0f,   1, 0.0f,
               "Rolls off the very top with a low-pass filter at 10 kHz, which tames hiss and a brittle top end. Listen for a smoother, darker sound. "
               "If it sounds dull, choose a higher frequency or Off.",
-              2,  2, 0.0f,  4, 0.0f,  2, 0.0f,  0, 3 },
+              2,  2, 0.0f,  4, 0.0f,  2, 0.0f,  0, 4 },
+
+            // PEQ-05: nine use-case starting points across the three modes. Songsmith starting points from general practice,
+            // tuned against the engine's own response (see docs/presets.md); not listened to level-matched yet.
+            { "Punchy Kick",                  2, 9.5f, 3.0f,   3, 0.0f, 5.0f,   1, 0.0f,
+              "Gives a kick drum more punch and weight at 60 Hz, with a Low Cut that keeps the low middle from turning boomy. Listen for a firmer thump. "
+              "If the kick sounds hollow, lower Low Cut. It also makes the sound louder, so compare at the same level." },
+            { "Deep, Tight Bass",             1, 9.0f, 3.5f,   3, 0.0f, 5.0f,   1, 0.0f,
+              "Adds deep weight to a bass at 30 Hz and tightens the notes so they stop ringing. Listen for low notes that are solid and clean. "
+              "If you want more punch and less depth, choose 60 Hz instead. It also makes the sound louder, so compare at the same level." },
+            { "Mix Bus Air",                  1, 0.0f, 0.0f,   6, 2.0f, 1.5f,   1, 0.0f,
+              "A small, broad lift of the very top of a whole mix at 16 kHz. Listen for a little more openness and shine. "
+              "If nothing seems to change at the same level, nothing needs to change." },
+            { "Bass Definition",              2, 0.0f, 0.0f,   3, 0.0f, 5.0f,   1, 0.0f,
+              "Turns down the muddy area around 300 Hz and lifts 1 kHz, so each bass note can be heard more clearly on small speakers. Listen for the notes sounding more distinct. "
+              "If the bass turns thin or clicky, lower Low-Mid Boost. It also makes the sound louder, so compare at the same level.",
+              1,  4, 3.0f,  1, 4.0f,  2, 0.0f,  0, 0 },
+            { "Clear Lead Vocal",             2, 0.0f, 0.0f,   3, 0.0f, 5.0f,   1, 0.0f,
+              "Takes a little thickness out of a lead vocal at 300 Hz and adds a small lift at 3 kHz so the words come through. Listen for a clearer, closer voice. "
+              "If it sounds harsh, lower High-Mid Boost. It also makes the sound louder, so compare at the same level.",
+              1,  2, 0.0f,  1, 2.0f,  2, 2.5f,  0, 0 },
+            { "More Attack on a Soft-Sounding Part", 2, 0.0f, 0.0f,   3, 0.0f, 5.0f,   1, 0.0f,
+              "Helps a dull or soft part cut through: less woolliness at 500 Hz, a small lift at 700 Hz and a lift at 3 kHz for the start of each note. Listen for crisper, more defined notes. "
+              "If it sounds sharp or tiring, lower High-Mid Boost. It also makes the sound louder, so compare at the same level.",
+              1,  3, 2.0f,  2, 4.5f,  2, 3.0f,  0, 0 },
+            { "Rumble Cleanup",               2, 0.0f, 0.0f,   3, 0.0f, 5.0f,   1, 0.0f,
+              "Removes the very low rumble from stands, footsteps and handling noise with a high-pass filter at 50 Hz. Listen for a tidier low end with the notes untouched. "
+              "If a bass or kick loses weight, choose a lower frequency or Off. For a stronger clean-up, choose 80 Hz.",
+              2,  2, 0.0f,  4, 0.0f,  2, 0.0f,  2, 0 },
+            { "Tighter Rhythm Guitar",        2, 0.0f, 0.0f,   3, 0.0f, 5.0f,   1, 0.0f,
+              "Keeps a rhythm guitar out of the way of the bass and the cymbals: a high-pass filter at 150 Hz and a low-pass filter at 5 kHz. Listen for a narrower, tighter guitar that sits in the middle. "
+              "If it sounds thin or dull on its own, lower the filters. That is normal, because it is meant to sit inside the mix.",
+              2,  2, 0.0f,  4, 0.0f,  2, 0.0f,  5, 2 },
+            { "Telephone Voice or Guitar",    2, 0.0f, 0.0f,   3, 0.0f, 5.0f,   1, 0.0f,
+              "A deliberately thin, small sound, like an old telephone or a cheap radio: a high-pass filter at 500 Hz and a low-pass filter at 3 kHz. Listen for the body and the shine disappearing. "
+              "If it is too extreme, choose lower and higher frequencies. Use it as an effect, not on a whole mix.",
+              2,  2, 0.0f,  4, 0.0f,  2, 0.0f,  7, 1 },
         };
         return presets;
     }
@@ -140,13 +176,20 @@ namespace Peq
             error = "\"" + file.getFileName() + "\" isn't a " + JucePlugin_Name + " preset.";
             return false;
         }
-        // Missing values load as defaults, like an old session; out-of-range values are clamped.
+        // Missing values load as defaults, like an old session; out-of-range values are clamped. A file written before
+        // the filter steps grew (no "version" 2) stores the old filter positions, so those are moved to the same frequency.
+        const bool oldFilterSteps = xml->getIntAttribute ("version", 1) < 2;
         for (int i = 0; i < numPresetParameters; ++i)
         {
             const char* id = presetParameterIds[i];
             auto* p = apvts.getParameter (id);
             const float def = p->convertFrom0to1 (p->getDefaultValue());
-            const double v = xml->getDoubleAttribute (id, def);
+            double v = xml->getDoubleAttribute (id, def);
+            if (std::isfinite (v) && oldFilterSteps && xml->hasAttribute (id))
+            {
+                if (juce::String (id) == highPassFrequencyId) v = migratedHighPassIndex ((int) std::lround (v));
+                if (juce::String (id) == lowPassFrequencyId)  v = migratedLowPassIndex ((int) std::lround (v));
+            }
             setParam (id, std::isfinite (v) ? (float) v : def);
         }
         currentName = file.getFileNameWithoutExtension();
@@ -156,9 +199,10 @@ namespace Peq
 
     bool Presets::isFactoryName (const juce::String& name)
     {
+        // A starting point's name may hold a character a file name cannot (the comma in "Deep, Tight Bass"), so both sides are cleaned.
         const auto clean = juce::File::createLegalFileName (name.trim());
         for (const auto& f : factory())
-            if (clean.equalsIgnoreCase (f.name))
+            if (clean.equalsIgnoreCase (f.name) || clean.equalsIgnoreCase (juce::File::createLegalFileName (f.name)))
                 return true;
         return false;
     }
@@ -189,7 +233,7 @@ namespace Peq
         }
 
         juce::XmlElement xml (rootTag);
-        xml.setAttribute ("version", 1);
+        xml.setAttribute ("version", 2);   // 2: the filter positions follow the PEQ-05 steps
         for (int i = 0; i < numPresetParameters; ++i)
             xml.setAttribute (presetParameterIds[i], (double) apvts.getRawParameterValue (presetParameterIds[i])->load());
 

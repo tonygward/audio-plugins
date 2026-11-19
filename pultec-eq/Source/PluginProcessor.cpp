@@ -264,6 +264,7 @@ void SongsmithPassiveEQProcessor::restoreFromValueTree (const juce::ValueTree& s
     // otherwise leave missing parameters at their current values.) A state from a newer version keeps
     // the parameters this version knows, by ID, and ignores the rest.
     juce::ValueTree fresh (apvts.state.getType());
+    const int savedVersion = (int) saved.getProperty (versionId, 1);
 
     for (auto* p : getParameters())
     {
@@ -278,6 +279,11 @@ void SongsmithPassiveEQProcessor::restoreFromValueTree (const juce::ValueTree& s
             const float v = (float) child.getProperty ("value");
             if (std::isfinite (v))
                 value = rp->getNormalisableRange().snapToLegalValue (v);
+            // Version 2 saved the filter positions before the 150 Hz, 500 Hz and 3 kHz steps were added in between.
+            if (child.isValid() && savedVersion < 3 && rp->paramID == Peq::highPassFrequencyId)
+                value = (float) Peq::migratedHighPassIndex ((int) std::lround (value));
+            if (child.isValid() && savedVersion < 3 && rp->paramID == Peq::lowPassFrequencyId)
+                value = (float) Peq::migratedLowPassIndex ((int) std::lround (value));
         }
         fresh.appendChild (juce::ValueTree ("PARAM", { { "id", rp->paramID }, { "value", value } }), nullptr);
     }

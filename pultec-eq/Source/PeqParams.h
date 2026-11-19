@@ -30,10 +30,16 @@ namespace Peq
     inline constexpr const char* midDipId             = "mid_dip";              // 0 to 10 dB
     inline constexpr const char* midHighFrequencyId   = "mid_high_frequency";   // choice: 1.5, 2, 3, 4.5, 6 kHz
     inline constexpr const char* midHighBoostId       = "mid_high_boost";       // 0 to 10 dB
-    inline constexpr const char* highPassFrequencyId  = "high_pass_frequency";  // choice: Off, 30, 50, 80, 120, 200 Hz
-    inline constexpr const char* lowPassFrequencyId   = "low_pass_frequency";   // choice: Off, 5, 7, 10, 15 kHz
+    inline constexpr const char* highPassFrequencyId  = "high_pass_frequency";  // choice: Off, 30, 50, 80, 120, 150, 200, 500 Hz
+    inline constexpr const char* lowPassFrequencyId   = "low_pass_frequency";   // choice: Off, 3, 5, 7, 10, 15 kHz
 
     // The mode names, as shown (Songsmith names; the classic units they are inspired by are only in the help text).
+    // PEQ-05 put new steps in the middle of the filter switches (150 Hz and 500 Hz high-pass, 3 kHz low-pass). A session or
+    // a preset file saved before that stores the old position, so it is moved to where the same frequency now sits.
+    // Old high-pass: Off, 30, 50, 80, 120, 200.  Old low-pass: Off, 5, 7, 10, 15 kHz.
+    inline int migratedHighPassIndex (int oldIndex) noexcept { return oldIndex >= 5 ? oldIndex + 1 : oldIndex; }
+    inline int migratedLowPassIndex (int oldIndex) noexcept  { return oldIndex >= 1 ? oldIndex + 1 : oldIndex; }
+
     inline const juce::StringArray& modeNames()
     {
         static const juce::StringArray names { "Tone Shaper", "Mid Shaper", "Frequency Filter" };
