@@ -213,7 +213,9 @@ public:
         beginTest ("A measurement that cannot be made is said to be missing, never invented");
         {
             AnalyzerUI ui;
-            expect (analyseInWindow (ui, writeWav (folder, "silence.wav", 44100.0, 16, false, juce::AudioBuffer<float> (2, 44100 * 3))), "silent file");
+            juce::AudioBuffer<float> silence (2, 44100 * 3);
+            silence.clear();   // a new buffer holds whatever was in memory: silence has to be asked for
+            expect (analyseInWindow (ui, writeWav (folder, "silence.wav", 44100.0, 16, false, silence)), "silent file");
             expectEquals (readingValue (ui, "Integrated Loudness"), juce::String ("Not available"));
             expectEquals (readingNote (ui, "Integrated Loudness"), juce::String ("The file is silent"));
             expectEquals (readingValue (ui, "True Peak"), juce::String ("Silent"));
