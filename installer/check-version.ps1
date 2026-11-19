@@ -2,14 +2,14 @@
 #
 #   pwsh installer/check-version.ps1            # the files that must read VERSION, not hold a version
 #   pwsh installer/check-version.ps1 -Built     # also: every built plugin reports the same version
-#   pwsh installer/check-version.ps1 -Built -Plugin eq   # only that plugin's build (eq, analog-compressor, maximiser, compressor, optical-leveller, pultec-eq, bus-compressor)
+#   pwsh installer/check-version.ps1 -Built -Plugin eq   # only that plugin's build (eq, analog-compressor, maximiser, compressor, optical-leveller, pultec-eq, bus-compressor, audio-analyzer)
 #
 # Checks:
 #  1. VERSION (repository root) holds exactly one x.y.z line.
 #  2. Each plugin's CMakeLists.txt reads ../VERSION and has no x.y.z of its own.
 #  3. No installer script, installer definition or workflow writes its own x.y.z.
 #     (JUCE's own version in the workflow is the one allowed exception.)
-#  4. With -Built: JucePlugin_VersionString in each plugin's build folder equals VERSION.
+#  4. With -Built: JucePlugin_VersionString in each plugin's build folder (ANALYZER_VERSION for the Audio Analyzer app) equals VERSION.
 param([switch]$Built, [string]$Plugin)
 
 $ErrorActionPreference = "Stop"
@@ -33,7 +33,9 @@ $plugins = @(
     @{ Folder = "compressor";        Target = "SongsmithCompressor" },
     @{ Folder = "optical-leveller";   Target = "SongsmithOpticalLeveller" },
     @{ Folder = "pultec-eq";          Target = "SongsmithPassiveEQ" },
-    @{ Folder = "bus-compressor";     Target = "SongsmithBusCompressor" }
+    @{ Folder = "bus-compressor";     Target = "SongsmithBusCompressor" },
+    # REC-02: an application, not a plugin: its build reports the version as ANALYZER_VERSION.
+    @{ Folder = "audio-analyzer";     Target = "SongsmithAudioAnalyzer"; Define = "ANALYZER_VERSION" }
 )
 
 # 2. CMake reads the file and holds no version of its own.
@@ -74,10 +76,11 @@ if ($Built) {
         $defs = @(Get-ChildItem (Join-Path $repo "$($p.Folder)\build\$($p.Target)_artefacts\JuceLibraryCode") -Recurse -Filter Defs.txt -ErrorAction SilentlyContinue)
         if ($defs.Count -eq 0) { Fail "$($p.Folder): no build found to check (build it first)"; continue }
         foreach ($d in $defs) {
-            if ((Get-Content $d.FullName -Raw) -match 'JucePlugin_VersionString="([^"]+)"') {
+            $define = if ($p.Define) { $p.Define } else { "JucePlugin_VersionString" }
+            if ((Get-Content $d.FullName -Raw) -match "$define=`"([^`"]+)`"") {
                 if ($Matches[1] -eq $version) { Ok "$($p.Folder) ($($d.Directory.Name)) reports $($Matches[1])" }
                 else { Fail "$($p.Folder) ($($d.Directory.Name)) reports $($Matches[1]) but VERSION is $version (reconfigure and rebuild)" }
-            } else { Fail "$($p.Folder): no JucePlugin_VersionString in $($d.FullName)" }
+            } else { Fail "$($p.Folder): no $define in $($d.FullName)" }
         }
     }
 }

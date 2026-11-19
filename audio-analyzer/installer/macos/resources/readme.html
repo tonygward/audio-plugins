@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>body { font: 13px -apple-system, "Helvetica Neue", sans-serif; } pre { font: 11px Menlo, monospace; background: #f2f2f2; padding: 8px; white-space: pre-wrap; }</style>
+</head><body>
+<p><b>Where things go</b></p>
+<pre>/Applications/Songsmith Audio Analyzer.app</pre>
+<p>The installer never touches anything in your home folder.</p>
+
+<p><b>Why macOS warned you about this installer</b></p>
+<p>The installer isn't signed or notarised by Apple (that needs a paid developer account), so Gatekeeper blocks it the first time. To open it: try to open it once, then go to <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b>. The app itself may ask the same way the first time you open it.</p>
+
+<p><b>Uninstalling</b></p>
+<p>Quit the app, then run <code>uninstall.sh</code> from the Songsmith Audio Analyzer source (<code>audio-analyzer/installer/macos/uninstall.sh</code> on GitHub, tonygward/audio-plugins), or paste this into Terminal:</p>
+<pre>sudo rm -rf "/Applications/Songsmith Audio Analyzer.app"
+sudo pkgutil --forget com.songsmithstudio.songsmithaudioanalyzer.app</pre>
+
+</body></html>

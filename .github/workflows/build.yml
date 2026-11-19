@@ -29,6 +29,7 @@ on:
       - 'optical-leveller/**'
       - 'pultec-eq/**'
       - 'bus-compressor/**'
+      - 'audio-analyzer/**'
       - 'shared/**'
       - 'installer/**'
       - 'VERSION'
@@ -66,6 +67,7 @@ jobs:
       optical-leveller: ${{ steps.pick.outputs.optical-leveller }}
       passive-eq: ${{ steps.pick.outputs.passive-eq }}
       bus-compressor: ${{ steps.pick.outputs.bus-compressor }}
+      audio-analyzer: ${{ steps.pick.outputs.audio-analyzer }}
       suite: ${{ steps.pick.outputs.suite }}
     steps:
       - uses: actions/checkout@v4
@@ -86,7 +88,7 @@ jobs:
           BUMP_ENABLED: ${{ vars.AUTO_BETA_VERSION_ENABLED }}
         run: |
           set -euo pipefail
-          eq=false; analog=false; max=false; comp=false; opt=false; peq=false; bus=false; all=false
+          eq=false; analog=false; max=false; comp=false; opt=false; peq=false; bus=false; ana=false; all=false
           if [ "$EVENT" = "push" ]; then
             # Two builds per release: this pull request's changed plugins were built when it was reviewed, and the version bump follows the merge.
             # So a plain source merge builds nothing; the bump commit is the one packaging build (everything, plus both installers) the release is made from.
@@ -107,11 +109,12 @@ jobs:
             if echo "$files" | grep -q '^optical-leveller/'; then opt=true; fi
             if echo "$files" | grep -q '^pultec-eq/'; then peq=true; fi
             if echo "$files" | grep -q '^bus-compressor/'; then bus=true; fi
+            if echo "$files" | grep -q '^audio-analyzer/'; then ana=true; fi
             # Anything unexpected at the top level: build everything rather than guess.
-            if [ -n "$files" ] && echo "$files" | grep -q -v -E '^(eq/|analog-compressor/|maximiser/|compressor/|optical-leveller/|pultec-eq/|bus-compressor/|shared/|installer/|\.github/|\.gitattributes$|VERSION$)'; then all=true; fi
+            if [ -n "$files" ] && echo "$files" | grep -q -v -E '^(eq/|analog-compressor/|maximiser/|compressor/|optical-leveller/|pultec-eq/|bus-compressor/|audio-analyzer/|shared/|installer/|\.github/|\.gitattributes$|VERSION$)'; then all=true; fi
           fi
-          if [ "$all" = true ]; then eq=true; analog=true; max=true; comp=true; opt=true; peq=true; bus=true; fi
-          { echo "eq=$eq"; echo "analog-compressor=$analog"; echo "maximiser=$max"; echo "compressor=$comp"; echo "optical-leveller=$opt"; echo "passive-eq=$peq"; echo "bus-compressor=$bus"; echo "suite=$all"; } | tee -a "$GITHUB_OUTPUT"
+          if [ "$all" = true ]; then eq=true; analog=true; max=true; comp=true; opt=true; peq=true; bus=true; ana=true; fi
+          { echo "eq=$eq"; echo "analog-compressor=$analog"; echo "maximiser=$max"; echo "compressor=$comp"; echo "optical-leveller=$opt"; echo "passive-eq=$peq"; echo "bus-compressor=$bus"; echo "audio-analyzer=$ana"; echo "suite=$all"; } | tee -a "$GITHUB_OUTPUT"
 
   version:
     name: One version number
@@ -1011,13 +1014,106 @@ jobs:
             bus-compressor/build/SongsmithBusCompressor_artefacts/Release/AU/
             bus-compressor/build/SongsmithBusCompressor_artefacts/Release/Standalone/
 
+  # Songsmith Audio Analyzer (audio-analyzer/, REC-02): a standalone application, not a plugin (no VST3, no Audio Unit), with its
+  # own build and tests. Its macOS package is built and tested here; the Windows installer is the suite's.
+  audio-analyzer:
+    name: Audio Analyzer - ${{ matrix.name }}
+    needs: changes
+    if: needs.changes.outputs.audio-analyzer == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (VS, x64)
+            os: windows-latest
+            configure: -A x64
+            tests: audio-analyzer/build/AudioAnalyzerTests_artefacts/Release/AudioAnalyzerTests.exe
+          - name: macOS (Xcode, ${{ github.event_name == 'pull_request' && 'arm64' || 'universal' }})
+            os: macos-latest
+            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="${{ github.event_name == 'pull_request' && 'arm64' || 'arm64;x86_64' }}"
+            tests: audio-analyzer/build/AudioAnalyzerTests_artefacts/Release/AudioAnalyzerTests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE ${{ env.JUCE_VERSION }}
+        id: juce-cache
+        uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-${{ env.JUCE_VERSION }}-${{ runner.os }}
+
+      - name: Check out JUCE ${{ env.JUCE_VERSION }}
+        if: steps.juce-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: ${{ env.JUCE_VERSION }}
+          path: JUCE
+
+      - name: Configure
+        shell: bash
+        run: cmake -S audio-analyzer -B audio-analyzer/build ${{ matrix.configure }} -DJUCE_DIR="${{ github.workspace }}/JUCE"
+
+      - name: Build (Release)
+        shell: bash
+        run: cmake --build audio-analyzer/build --config Release --parallel 4
+
+      - name: Check the build reports the shared version
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./installer/check-version.ps1 -Built -Plugin audio-analyzer
+
+      - name: Run AudioAnalyzerTests
+        shell: bash
+        run: ${{ matrix.tests }}
+
+      - name: Render window screenshots
+        shell: bash
+        run: |
+          mkdir -p screenshots
+          ${{ matrix.tests }} --screenshots screenshots
+          ${{ matrix.tests }} --screenshots screenshots/2x --scale 2
+
+      - name: Upload window screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Audio-Analyzer-screenshots-${{ runner.os }}
+          path: screenshots/
+
+      # Unsigned .pkg, built and tested end to end on the throwaway runner: installs system-wide, checks the app is
+      # there and launchable and that no plugin was installed, reinstalls over itself and uninstalls.
+      - name: Build and test the macOS installer
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          pkg=$(audio-analyzer/installer/macos/build-installer.sh | tail -n 1)
+          audio-analyzer/installer/macos/test-installer.sh --pkg "$pkg"
+
+      - name: Upload macOS installer
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Audio-Analyzer-macOS-pkg
+          path: audio-analyzer/build/installer/*-macOS.pkg
+
+      # The Windows suite installer takes the app from here: the exe sits at the top of the artifact.
+      - name: Upload the app
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Audio-Analyzer-Windows
+          if-no-files-found: error
+          path: audio-analyzer/build/SongsmithAudioAnalyzer_artefacts/Release/*.exe
+
   # Songsmith Plugins: one Windows installer with every plugin (installer/windows). Built from the
   # Release builds the three plugin jobs upload, then tested end to end (per-user, in a temp
   # folder), including replacing Songsmith EQ's own installer. (needs: waits for each job's
   # macOS leg too; a job's matrix legs can't be waited for separately.)
   suite-windows:
     name: Songsmith Plugins installer - Windows
-    needs: [changes, eq, analog-compressor, maximiser, compressor, optical-leveller, passive-eq, bus-compressor]
+    needs: [changes, eq, analog-compressor, maximiser, compressor, optical-leveller, passive-eq, bus-compressor, audio-analyzer]
     if: needs.changes.outputs.suite == 'true'
     runs-on: windows-latest
     steps:
@@ -1061,6 +1157,11 @@ jobs:
         with:
           name: Songsmith-Bus-Compressor-Windows
           path: suite/bus
+      - name: Download Songsmith Audio Analyzer (Windows build)
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-Audio-Analyzer-Windows
+          path: suite/ana
 
       - name: Download Songsmith EQ's own installer
         uses: actions/download-artifact@v4
@@ -1075,7 +1176,7 @@ jobs:
               -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
             choco install innosetup -y --no-progress
           }
-          $builds = @{ EqDir = "suite/eq"; FetDir = "suite/fet"; MaxDir = "suite/max"; CompDir = "suite/comp"; OptDir = "suite/opt"; PeqDir = "suite/peq"; BusDir = "suite/bus" }
+          $builds = @{ EqDir = "suite/eq"; FetDir = "suite/fet"; MaxDir = "suite/max"; CompDir = "suite/comp"; OptDir = "suite/opt"; PeqDir = "suite/peq"; BusDir = "suite/bus"; AnaDir = "suite/ana" }
           $setup = installer/windows/build-installer.ps1 @builds | Select-Object -Last 1
           $eqSetup = (Get-ChildItem suite/eq-setup/*-win64-setup.exe | Select-Object -First 1).FullName
           installer/windows/test-installer.ps1 -Installer $setup -EqInstaller $eqSetup @builds
@@ -1093,7 +1194,7 @@ jobs:
   # (needs: waits for the Windows legs too; a job's matrix legs can't be waited for separately.)
   suite-macos:
     name: Songsmith Plugins installer - macOS
-    needs: [changes, eq, analog-compressor, maximiser, compressor, optical-leveller, passive-eq, bus-compressor]
+    needs: [changes, eq, analog-compressor, maximiser, compressor, optical-leveller, passive-eq, bus-compressor, audio-analyzer]
     if: needs.changes.outputs.suite == 'true'
     runs-on: macos-latest
     steps:
@@ -1137,6 +1238,11 @@ jobs:
         with:
           name: Songsmith-Bus-Compressor-macOS-pkg
           path: suite/bus
+      - name: Download Songsmith Audio Analyzer's installer
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-Audio-Analyzer-macOS-pkg
+          path: suite/ana
 
       - name: Build and test the suite installer
         shell: bash
@@ -1148,9 +1254,10 @@ jobs:
           opt_pkg=$(ls suite/opt/*-macOS.pkg | head -n 1)
           peq_pkg=$(ls suite/peq/*-macOS.pkg | head -n 1)
           bus_pkg=$(ls suite/bus/*-macOS.pkg | head -n 1)
-          pkg=$(installer/macos/build-installer.sh --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" --comp-pkg "$comp_pkg" --opt-pkg "$opt_pkg" --peq-pkg "$peq_pkg" --bus-pkg "$bus_pkg" | tail -n 1)
+          ana_pkg=$(ls suite/ana/*-macOS.pkg | head -n 1)
+          pkg=$(installer/macos/build-installer.sh --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" --comp-pkg "$comp_pkg" --opt-pkg "$opt_pkg" --peq-pkg "$peq_pkg" --bus-pkg "$bus_pkg" --ana-pkg "$ana_pkg" | tail -n 1)
           installer/macos/test-installer.sh --i-know-this-installs-system-wide \
-              --pkg "$pkg" --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" --comp-pkg "$comp_pkg" --opt-pkg "$opt_pkg" --peq-pkg "$peq_pkg" --bus-pkg "$bus_pkg"
+              --pkg "$pkg" --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" --comp-pkg "$comp_pkg" --opt-pkg "$opt_pkg" --peq-pkg "$peq_pkg" --bus-pkg "$bus_pkg" --ana-pkg "$ana_pkg"
 
       - name: Upload the suite installer
         uses: actions/upload-artifact@v4

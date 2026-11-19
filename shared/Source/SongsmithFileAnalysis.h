@@ -161,8 +161,9 @@ namespace Songsmith::FileAnalysis
     }
 
     // Analyses already-open audio. 'read' supplies the samples; used by analyseFile and by tests.
-    // Offline only: call from a background thread. 'cancel' may be null.
-    inline Result analyseReader (juce::AudioFormatReader& reader, const std::atomic<bool>* cancel = nullptr)
+    // Offline only: call from a background thread. 'cancel' and 'progress' may be null. 'progress' is written with
+    // how far through the file the reading is, 0 to 1 (REC-02: the app shows it while a long file is read).
+    inline Result analyseReader (juce::AudioFormatReader& reader, const std::atomic<bool>* cancel = nullptr, std::atomic<float>* progress = nullptr)
     {
         Result r;
         r.opened = true;
@@ -249,6 +250,8 @@ namespace Songsmith::FileAnalysis
                 if (++accCount == subLen) { subSums.push_back (acc / subLen); acc = 0.0; accCount = 0; }
             }
             pos += n;
+            if (progress != nullptr)
+                progress->store ((float) ((double) pos / (double) r.frames));
         }
         for (auto& p : peaks) p.flush();
 
@@ -296,7 +299,7 @@ namespace Songsmith::FileAnalysis
 
     // Opens and analyses a WAV, AIFF or FLAC file. Anything else, or anything damaged, comes back
     // with opened = false and a plain-words reason.
-    inline Result analyseFile (const juce::File& file, const std::atomic<bool>* cancel = nullptr)
+    inline Result analyseFile (const juce::File& file, const std::atomic<bool>* cancel = nullptr, std::atomic<float>* progress = nullptr)
     {
         Result r;
         if (! file.existsAsFile()) { r.error = "That file could not be found."; return r; }
@@ -306,6 +309,6 @@ namespace Songsmith::FileAnalysis
         manager.registerBasicFormats();
         std::unique_ptr<juce::AudioFormatReader> reader (manager.createReaderFor (file));
         if (reader == nullptr) { r.error = "This file could not be opened. It may be damaged, or not the kind of file its name suggests."; return r; }
-        return analyseReader (*reader, cancel);
+        return analyseReader (*reader, cancel, progress);
     }
 }

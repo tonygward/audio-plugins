@@ -2,10 +2,10 @@
 # End-to-end test of the Songsmith Plugins macOS installer. CI runs it in the suite-macos job.
 #
 #   installer/macos/test-installer.sh --i-know-this-installs-system-wide \
-#       --pkg <suite pkg> --eq-pkg <pkg> --fet-pkg <pkg> --max-pkg <pkg> --comp-pkg <pkg> --opt-pkg <pkg> --peq-pkg <pkg> --bus-pkg <pkg>
+#       --pkg <suite pkg> --eq-pkg <pkg> --fet-pkg <pkg> --max-pkg <pkg> --comp-pkg <pkg> --opt-pkg <pkg> --peq-pkg <pkg> --bus-pkg <pkg> --ana-pkg <pkg>
 #
-# --eq-pkg, --fet-pkg, --max-pkg, --comp-pkg, --opt-pkg, --peq-pkg and --bus-pkg are the plugins' own installers: the EQ's is installed before
-# the suite to check that the suite replaces it, and all seven are used to build an "older"
+# --eq-pkg, --fet-pkg, --max-pkg, --comp-pkg, --opt-pkg, --peq-pkg, --bus-pkg and --ana-pkg (the Audio Analyzer app) are the products' own installers: the EQ's is installed before
+# the suite to check that the suite replaces it, and all eight are used to build an "older"
 # suite (an older version derived from VERSION) for the upgrade test. Without --pkg, the suite is built from them first.
 #
 # WARNING: this installs for real, system-wide (sudo installer -target /), removes every
@@ -15,7 +15,7 @@
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-pkg="" eq_pkg="" fet_pkg="" max_pkg="" comp_pkg="" opt_pkg="" peq_pkg="" bus_pkg="" allow=0
+pkg="" eq_pkg="" fet_pkg="" max_pkg="" comp_pkg="" opt_pkg="" peq_pkg="" bus_pkg="" ana_pkg="" allow=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --pkg)     pkg="$2"; shift 2 ;;
@@ -26,6 +26,7 @@ while [ $# -gt 0 ]; do
         --opt-pkg) opt_pkg="$2"; shift 2 ;;
         --peq-pkg) peq_pkg="$2"; shift 2 ;;
         --bus-pkg) bus_pkg="$2"; shift 2 ;;
+        --ana-pkg) ana_pkg="$2"; shift 2 ;;
         --i-know-this-installs-system-wide) allow=1; shift ;;
         -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 2 ;;
@@ -37,15 +38,15 @@ if [ "$allow" -ne 1 ]; then
     echo "It's meant for CI. To run it anyway, pass --i-know-this-installs-system-wide." >&2
     exit 2
 fi
-for p in "$eq_pkg" "$fet_pkg" "$max_pkg" "$comp_pkg" "$opt_pkg" "$peq_pkg" "$bus_pkg"; do
+for p in "$eq_pkg" "$fet_pkg" "$max_pkg" "$comp_pkg" "$opt_pkg" "$peq_pkg" "$bus_pkg" "$ana_pkg"; do
     if [ -z "$p" ] || [ ! -f "$p" ]; then
-        echo "Pass the plugins' own installers: --eq-pkg, --fet-pkg, --max-pkg, --comp-pkg, --opt-pkg, --peq-pkg and --bus-pkg." >&2
+        echo "Pass the products' own installers: --eq-pkg, --fet-pkg, --max-pkg, --comp-pkg, --opt-pkg, --peq-pkg, --bus-pkg and --ana-pkg." >&2
         exit 2
     fi
 done
 
 work=$(mktemp -d -t songsmith-studio-installer-test)
-build_args=(--eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" --comp-pkg "$comp_pkg" --opt-pkg "$opt_pkg" --peq-pkg "$peq_pkg" --bus-pkg "$bus_pkg")
+build_args=(--eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" --comp-pkg "$comp_pkg" --opt-pkg "$opt_pkg" --peq-pkg "$peq_pkg" --bus-pkg "$bus_pkg" --ana-pkg "$ana_pkg")
 if [ -z "$pkg" ]; then
     pkg=$("$here/build-installer.sh" "${build_args[@]}" | tail -n 1) || { echo "build-installer.sh failed" >&2; exit 1; }
 fi
@@ -61,16 +62,19 @@ SUDO=""
 
 VST3_DIR="/Library/Audio/Plug-Ins/VST3"
 AU_DIR="/Library/Audio/Plug-Ins/Components"
-keys=(eq fet max comp opt peq bus)
-name_of()   { case "$1" in eq) echo "Songsmith EQ" ;; fet) echo "Songsmith Analog Compressor" ;; max) echo "Songsmith Maximiser" ;; comp) echo "Songsmith Compressor" ;; opt) echo "Songsmith Optical Leveller" ;; peq) echo "Songsmith Passive EQ" ;; bus) echo "Songsmith Bus Compressor" ;; esac; }
-prefix_of() { case "$1" in eq) echo "com.songsmithstudio.songsmitheq" ;; fet) echo "com.songsmithstudio.songsmithanalogcompressor" ;; max) echo "com.songsmithstudio.songsmithmaximiser" ;; comp) echo "com.songsmithstudio.songsmithcompressor" ;; opt) echo "com.songsmithstudio.songsmithopticalleveller" ;; peq) echo "com.songsmithstudio.songsmithpassiveeq" ;; bus) echo "com.songsmithstudio.songsmithbuscompressor" ;; esac; }
-auval_of()  { case "$1" in eq) echo "aufx Eq3b Tnyw" ;; fet) echo "aufx Sfc1 Tnyw" ;; max) echo "aufx Mxlm Tnyw" ;; comp) echo "aufx Cmp1 Tnyw" ;; opt) echo "aufx Opt1 Tnyw" ;; peq) echo "aufx Peq1 Tnyw" ;; bus) echo "aufx Bus1 Tnyw" ;; esac; }
+keys=(eq fet max comp opt peq bus ana)
+name_of()   { case "$1" in ana) echo "Songsmith Audio Analyzer" ;; eq) echo "Songsmith EQ" ;; fet) echo "Songsmith Analog Compressor" ;; max) echo "Songsmith Maximiser" ;; comp) echo "Songsmith Compressor" ;; opt) echo "Songsmith Optical Leveller" ;; peq) echo "Songsmith Passive EQ" ;; bus) echo "Songsmith Bus Compressor" ;; esac; }
+prefix_of() { case "$1" in ana) echo "com.songsmithstudio.songsmithaudioanalyzer" ;; eq) echo "com.songsmithstudio.songsmitheq" ;; fet) echo "com.songsmithstudio.songsmithanalogcompressor" ;; max) echo "com.songsmithstudio.songsmithmaximiser" ;; comp) echo "com.songsmithstudio.songsmithcompressor" ;; opt) echo "com.songsmithstudio.songsmithopticalleveller" ;; peq) echo "com.songsmithstudio.songsmithpassiveeq" ;; bus) echo "com.songsmithstudio.songsmithbuscompressor" ;; esac; }
+auval_of()  { case "$1" in ana) echo "" ;; eq) echo "aufx Eq3b Tnyw" ;; fet) echo "aufx Sfc1 Tnyw" ;; max) echo "aufx Mxlm Tnyw" ;; comp) echo "aufx Cmp1 Tnyw" ;; opt) echo "aufx Opt1 Tnyw" ;; peq) echo "aufx Peq1 Tnyw" ;; bus) echo "aufx Bus1 Tnyw" ;; esac; }
 # Every plugin carries the one version in VERSION at the repository root.
 version_of() { tr -d '[:space:]' < "$here/../../VERSION"; }
 
+# The Audio Analyzer is an app only (no VST3, no Audio Unit): one bundle and one package.
+parts_of() { case "$1" in ana) echo "app" ;; *) echo "vst3 au app" ;; esac; }
 bundles_of() {
     local n; n=$(name_of "$1")
-    echo "$VST3_DIR/$n.vst3"; echo "$AU_DIR/$n.component"; echo "/Applications/$n.app"
+    if [ "$1" != "ana" ]; then echo "$VST3_DIR/$n.vst3"; echo "$AU_DIR/$n.component"; fi
+    echo "/Applications/$n.app"
 }
 
 failures=0
@@ -83,17 +87,17 @@ receipt_version() { pkgutil --pkg-info "$1" 2>/dev/null | awk '/^version:/ { pri
 install_pkg() { local p="$1"; shift; $SUDO installer -pkg "$p" -target / "$@"; }
 uninstall_all() { "$here/uninstall.sh" --yes >/dev/null; }
 
-# expect_installed "<keys installed>" "<context>": the listed plugins' three bundles and receipts
+# expect_installed "<keys installed>" "<context>": the listed products' bundles and receipts
 # are there, the others' aren't.
 expect_installed() {
     local want=" $1 " context="$2" k b part
     for k in "${keys[@]}"; do
         if [[ "$want" == *" $k "* ]]; then
             while read -r b; do check "$context: installed $b" test -d "$b"; done < <(bundles_of "$k")
-            for part in vst3 au app; do check "$context: receipt $(prefix_of "$k").$part" receipt "$(prefix_of "$k").$part"; done
+            for part in $(parts_of "$k"); do check "$context: receipt $(prefix_of "$k").$part" receipt "$(prefix_of "$k").$part"; done
         else
             while read -r b; do check "$context: not installed $b" test ! -e "$b"; done < <(bundles_of "$k")
-            for part in vst3 au app; do check "$context: no receipt $(prefix_of "$k").$part" no_receipt "$(prefix_of "$k").$part"; done
+            for part in vst3 au app; do check "$context: no receipt $(prefix_of "$k").$part" no_receipt "$(prefix_of "$k").$part"; done   # (the app has none for vst3 and au either)
         fi
     done
 }
@@ -102,7 +106,7 @@ expect_installed() {
 one_copy_each() {
     test "$(ls -d "$VST3_DIR"/Songsmith* 2>/dev/null | wc -l | tr -d ' ')" -le 7 &&
     test "$(ls -d "$AU_DIR"/Songsmith* 2>/dev/null | wc -l | tr -d ' ')" -le 7 &&
-    test "$(ls -d /Applications/Songsmith* 2>/dev/null | wc -l | tr -d ' ')" -le 7
+    test "$(ls -d /Applications/Songsmith* 2>/dev/null | wc -l | tr -d ' ')" -le 8
 }
 
 presets=()
@@ -114,7 +118,7 @@ trap cleanup EXIT
 
 echo "Installer:        $pkg"
 echo "Older installer:  $older"
-echo "Plugin installers: $eq_pkg, $fet_pkg, $max_pkg, $comp_pkg, $opt_pkg, $peq_pkg, $bus_pkg"
+echo "Product installers: $eq_pkg, $fet_pkg, $max_pkg, $comp_pkg, $opt_pkg, $peq_pkg, $bus_pkg, $ana_pkg"
 
 # --- The package itself ---------------------------------------------------------------------
 echo
@@ -123,24 +127,24 @@ pkgutil --expand "$pkg" "$work/expanded" >/dev/null
 for k in "${keys[@]}"; do
     prefix=$(prefix_of "$k")
     file="${prefix##*.}"   # com.songsmithstudio.songsmitheq -> songsmitheq
-    for part in vst3 au app; do
+    for part in $(parts_of "$k"); do
         check "$k: component package $file-$part.pkg present" test -f "$work/expanded/$file-$part.pkg/PackageInfo"
         check "$k: $file-$part.pkg is $prefix.$part" grep -q "identifier=\"$prefix.$part\"" "$work/expanded/$file-$part.pkg/PackageInfo"
     done
 done
 installer -pkg "$pkg" -target / -showChoicesXML > "$work/choices.xml" 2>/dev/null
-for c in eq fet max comp opt peq bus; do
+for c in eq fet max comp opt peq bus ana; do
     check "choice '$c' offered" grep -q "<string>$c</string>" "$work/choices.xml"
 done
-# One choice per plugin: exactly seven, and none of the old per-format or per-app sub-choices.
+# One choice per product: exactly eight, and none of the old per-format or per-app sub-choices.
 # -showChoicesXML lists the choices as a tree, with the installer's own root entry first (named
 # __ROOT_CHOICE_IDENT_ plus the installer's title, spaces included). Apart from that root, exactly
-# the seven plugin choices must be offered.
+# the eight choices (seven plugins and the Audio Analyzer) must be offered.
 choice_ids=$(grep -A1 '<key>choiceIdentifier</key>' "$work/choices.xml" | grep -o '<string>[^<]*</string>' | sed -E 's/<\/?string>//g' | sort -u)
 plugin_choices=$(printf '%s\n' "$choice_ids" | grep -v '^__ROOT_CHOICE_IDENT_' | tr '\n' ' ')
 echo "  choices offered: $(printf '%s' "$choice_ids" | tr '\n' ',')"
-check "exactly the seven plugin choices are offered (found: $plugin_choices)" test "$plugin_choices" = "bus comp eq fet max opt peq "
-check "no separate format or app choices" test "$(grep -cE '<string>(eq|fet|max|comp|opt|peq|bus)_(vst3|au|app)</string>' "$work/choices.xml" | tr -d ' ')" -eq 0
+check "exactly the eight choices are offered (found: $plugin_choices)" test "$plugin_choices" = "ana bus comp eq fet max opt peq "
+check "no separate format or app choices" test "$(grep -cE '<string>(eq|fet|max|comp|opt|peq|bus|ana)_(vst3|au|app)</string>' "$work/choices.xml" | tr -d ' ')" -eq 0
 for k in "${keys[@]}"; do
     check "the welcome page names $(name_of "$k") $(version_of "$k")" grep -rq "$(name_of "$k") $(version_of "$k")" "$work/expanded/Resources"
 done
@@ -161,10 +165,13 @@ uninstall_all   # start clean (an earlier CI step may have installed something)
 echo
 echo "1. Install everything"
 install_pkg "$pkg"; check "installer exits 0" test $? -eq 0
-expect_installed "eq fet max comp opt peq bus" "everything"
+expect_installed "eq fet max comp opt peq bus ana" "everything"
+check "the Audio Analyzer installed no VST3 or Audio Unit" test ! -e "$VST3_DIR/Songsmith Audio Analyzer.vst3" -a ! -e "$AU_DIR/Songsmith Audio Analyzer.component"
+check "the Audio Analyzer app can be launched (a real executable)" test -x "/Applications/Songsmith Audio Analyzer.app/Contents/MacOS/Songsmith Audio Analyzer"
 killall -9 AudioComponentRegistrar >/dev/null 2>&1 || true
 sleep 2
 for k in "${keys[@]}"; do
+    [ -z "$(auval_of "$k")" ] && continue   # the Audio Analyzer is not an Audio Unit
     # shellcheck disable=SC2046
     if auval -v $(auval_of "$k") > "$work/auval-$k.txt" 2>&1; then
         ok "auval -v $(auval_of "$k") ($(name_of "$k"))"
@@ -182,7 +189,7 @@ uninstall_all
     echo '<?xml version="1.0" encoding="UTF-8"?>'
     echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
     echo '<plist version="1.0"><array>'
-    for c in eq fet max comp opt peq bus; do
+    for c in eq fet max comp opt peq bus ana; do
         setting=0; [[ "$c" == max* ]] && setting=1
         echo "<dict><key>attributeSetting</key><integer>$setting</integer><key>choiceAttribute</key><string>selected</string><key>choiceIdentifier</key><string>$c</string></dict>"
     done
@@ -191,6 +198,24 @@ uninstall_all
 install_pkg "$pkg" -applyChoiceChangesXML "$work/only-max.xml"; check "installer exits 0" test $? -eq 0
 expect_installed "max" "only the maximiser"
 
+# --- 2b. Only the Audio Analyzer ----------------------------------------------------------------
+echo
+echo "2b. Install with only Songsmith Audio Analyzer selected"
+uninstall_all
+{
+    echo '<?xml version="1.0" encoding="UTF-8"?>'
+    echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+    echo '<plist version="1.0"><array>'
+    for c in eq fet max comp opt peq bus ana; do
+        setting=0; [[ "$c" == ana ]] && setting=1
+        echo "<dict><key>attributeSetting</key><integer>$setting</integer><key>choiceAttribute</key><string>selected</string><key>choiceIdentifier</key><string>$c</string></dict>"
+    done
+    echo '</array></plist>'
+} > "$work/only-ana.xml"
+install_pkg "$pkg" -applyChoiceChangesXML "$work/only-ana.xml"; check "installer exits 0" test $? -eq 0
+expect_installed "ana" "only the Audio Analyzer"
+check "no plugin folder gained a Songsmith bundle" test -z "$(ls -d "$VST3_DIR"/Songsmith* "$AU_DIR"/Songsmith* 2>/dev/null)"
+
 # --- 3. The EQ's own installer first, then the suite ---------------------------------------
 echo
 echo "3. Songsmith EQ's own installer, then the suite"
@@ -198,7 +223,7 @@ uninstall_all
 install_pkg "$eq_pkg"; check "Songsmith EQ's own installer exits 0" test $? -eq 0
 expect_installed "eq" "the EQ on its own"
 install_pkg "$pkg"; check "suite installer exits 0" test $? -eq 0
-expect_installed "eq fet max comp opt peq bus" "after the suite"
+expect_installed "eq fet max comp opt peq bus ana" "after the suite"
 check "one copy of each plugin" one_copy_each
 for part in vst3 au app; do
     id="$(prefix_of eq).$part"
@@ -210,9 +235,9 @@ echo
 echo "4. Upgrade from suite $older_version"
 uninstall_all
 install_pkg "$older"; check "older suite installer exits 0" test $? -eq 0
-expect_installed "eq fet max comp opt peq bus" "older suite"
+expect_installed "eq fet max comp opt peq bus ana" "older suite"
 install_pkg "$pkg"; check "newer suite installer exits 0" test $? -eq 0
-expect_installed "eq fet max comp opt peq bus" "upgraded"
+expect_installed "eq fet max comp opt peq bus ana" "upgraded"
 check "one copy of each plugin (upgraded in place)" one_copy_each
 
 # --- 5. Uninstall --------------------------------------------------------------------------------

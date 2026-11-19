@@ -1,12 +1,13 @@
 # Builds the Songsmith Plugins Windows installer (Inno Setup 6): every plugin in one Setup, each
-# one ticked by default. Uses existing Release builds of the seven plugins.
+# one ticked by default, and the Songsmith Audio Analyzer app. Uses existing Release builds of the seven plugins and the app.
 #
 #   .\installer\windows\build-installer.ps1                  # -> build\suite-installer\Songsmith-Plugins-<version>-win64-setup.exe
 #   .\installer\windows\build-installer.ps1 -EqDir <folder>  # a plugin's Release artefacts from somewhere else (CI)
 #   .\installer\windows\build-installer.ps1 -SuiteVersion <older version> -OutDir <folder>   # tests: an "older" suite
 #
 # Every plugin and the suite share the one version in VERSION at the repository root.
-# Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser, compressor, optical-leveller, pultec-eq, bus-compressor).
+# Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser, compressor, optical-leveller, pultec-eq, bus-compressor)
+# and the app (audio-analyzer).
 # Writes the path of the installer to the output.
 param(
     [string]$EqDir,
@@ -16,6 +17,7 @@ param(
     [string]$OptDir,
     [string]$PeqDir,
     [string]$BusDir,
+    [string]$AnaDir,
     [string]$SuiteVersion,
     [string]$OutDir,
     [string]$Config = "Release"
@@ -57,6 +59,17 @@ foreach ($p in $plugins) {
     $defines += "/D$($p.Key)Dir=$dir"
     $defines += "/D$($p.Key)Version=$sharedVersion"
 }
+
+# The Songsmith Audio Analyzer (REC-02) is an application, not a plugin: there is no VST3 and no Standalone folder, only its exe.
+$analyzer = @{ Key = "Ana"; Folder = "audio-analyzer"; Target = "SongsmithAudioAnalyzer"; Name = "Songsmith Audio Analyzer"; Dir = $AnaDir }
+$anaDir = $analyzer.Dir
+if (-not $anaDir) { $anaDir = Join-Path $repo "$($analyzer.Folder)\build\$($analyzer.Target)_artefacts\$Config" }
+$anaDir = (Resolve-Path $anaDir -ErrorAction SilentlyContinue).Path
+if (-not $anaDir -or -not (Test-Path (Join-Path $anaDir "$($analyzer.Name).exe"))) {
+    throw "Missing '$($analyzer.Name).exe' in '$anaDir'. Build first: cmake --build $($analyzer.Folder)/build --config $Config"
+}
+$defines += "/DAnaDir=$anaDir"
+$defines += "/DAnaVersion=$sharedVersion"
 
 # Inno Setup's compiler: on PATH (CI), or the machine-wide / per-user (winget --scope user) install.
 $iscc = (Get-Command iscc.exe -ErrorAction SilentlyContinue).Source

@@ -2,7 +2,9 @@
 
 Whole-file, analysis-only advice for the standalone Songsmith Loudness Analyser: drag in a finished track and see its format and loudness in plain words. It never remasters, resamples, converts or overwrites anything, and it never reads a file inside a plugin's real-time audio callback.
 
-**Status:** the analysis core, the advice wording and the tests are in place. The Loudness Analyser application and its window do not exist yet in this repository, so there is **no app screenshot** to show; the first one belongs here (and in the app's README) when the window is built. Nothing in this change is visible in any plugin. The tests run inside `MaximiserTests` until the analyser has its own project.
+**Status:** the analysis core, the advice wording and the tests are in place, and since REC-02 the standalone app is built on them: [Songsmith Audio Analyzer](../../audio-analyzer/README.md) (`audio-analyzer/`), with its own window, installers and tests. The shared tests now run inside `AudioAnalyzerTests`. Nothing here is visible in any plugin.
+
+![Songsmith Audio Analyzer](../../audio-analyzer/docs/images/audio-analyzer-results.png)
 
 | Part | File |
 |---|---|
