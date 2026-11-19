@@ -13,7 +13,8 @@ class SongsmithPassiveEQProcessor : public juce::AudioProcessor
 public:
     // Saved-state format. 1 = the three frequency switches, the four amounts, the bandwidth, Bypass, and the editor's
     // width and preset name. Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 2;   // 2: PEQ-04 added the EQ Mode and its controls (older sessions load as Tone Shaper)
+    static constexpr int stateVersion = 3;   // 2: PEQ-04 added the EQ Mode and its controls (older sessions load as Tone Shaper)
+                                              // 3: PEQ-05 added 150 and 500 Hz High-Pass and 3 kHz Low-Pass steps (version 2 filter positions are remapped)
 
     SongsmithPassiveEQProcessor();
 

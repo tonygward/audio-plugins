@@ -82,7 +82,7 @@ public:
 
             // Saving now records the new version, and loading that back keeps everything.
             expectEquals (oldSession.createState().getProperty ("stateVersion", 0).operator int(), SongsmithPassiveEQProcessor::stateVersion);
-            expectEquals (SongsmithPassiveEQProcessor::stateVersion, 2);
+            expectEquals (SongsmithPassiveEQProcessor::stateVersion, 3);
         }
 
         beginTest ("Backward compatibility: a preset file saved before the modes loads as Tone Shaper, even from another mode");
@@ -118,6 +118,153 @@ public:
             }
             root.deleteRecursively();
             Peq::Presets::setDefaultFolderRootForTesting ({});
+        }
+
+        beginTest ("PEQ-05: a session or a preset file saved with the earlier filter steps keeps the same frequencies");
+        {
+            // Version 2 (0.5.52): high-pass Off, 30, 50, 80, 120, 200 Hz; low-pass Off, 5, 7, 10, 15 kHz.
+            SongsmithPassiveEQProcessor a;
+            setParam (a, Peq::modeId, 2.0f);
+            setParam (a, Peq::highPassFrequencyId, 5.0f);   // 200 Hz then
+            setParam (a, Peq::lowPassFrequencyId, 3.0f);    // 10 kHz then
+            auto saved = a.createState();
+            saved.setProperty ("stateVersion", 2, nullptr);
+            SongsmithPassiveEQProcessor b;
+            b.restoreFromValueTree (saved);
+            expectEquals (SongsmithPassive::highPassFrequencies[(size_t) getParam (b, Peq::highPassFrequencyId)], 200.0f, "200 Hz stays 200 Hz");
+            expectEquals (SongsmithPassive::lowPassFrequencies[(size_t) getParam (b, Peq::lowPassFrequencyId)], 10000.0f, "10 kHz stays 10 kHz");
+            const float oldHighPassHz[] = { 0.0f, 30.0f, 50.0f, 80.0f, 120.0f, 200.0f };
+            for (int oldIndex = 0; oldIndex < 6; ++oldIndex)
+                expectEquals (SongsmithPassive::highPassFrequencies[(size_t) Peq::migratedHighPassIndex (oldIndex)], oldHighPassHz[oldIndex], "every old high-pass step");
+            const float oldLowPassHz[] = { 0.0f, 5000.0f, 7000.0f, 10000.0f, 15000.0f };
+            for (int oldIndex = 0; oldIndex < 5; ++oldIndex)
+                expectEquals (SongsmithPassive::lowPassFrequencies[(size_t) Peq::migratedLowPassIndex (oldIndex)], oldLowPassHz[oldIndex], "every old low-pass step");
+
+            // The same session saved now (version 3) is not remapped.
+            const auto block = stateOf (a);
+            SongsmithPassiveEQProcessor c;
+            c.setStateInformation (block.getData(), (int) block.getSize());
+            expectEquals (getParam (c, Peq::highPassFrequencyId), 5.0f, "a current session loads as saved");
+
+            // A preset file written by 0.5.52 has version 1 and the old positions.
+            const auto root = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("peq-mode-preset3-" + juce::String (juce::Random::getSystemRandom().nextInt()));
+            Peq::Presets::setDefaultFolderRootForTesting (root);
+            {
+                SongsmithPassiveEQProcessor p;
+                const auto folder = p.presets.getUserFolder();
+                folder.createDirectory();
+                juce::XmlElement xml (Peq::Presets::rootTag);
+                xml.setAttribute ("version", 1);
+                xml.setAttribute (Peq::modeId, 2.0);
+                xml.setAttribute (Peq::highPassFrequencyId, 5.0);   // 200 Hz
+                xml.setAttribute (Peq::lowPassFrequencyId, 4.0);    // 15 kHz
+                const auto file = folder.getChildFile ("Old Filter.sspreset");
+                expect (xml.writeTo (file));
+                juce::String error;
+                expect (p.presets.loadFile (file, error), error);
+                expectEquals (SongsmithPassive::highPassFrequencies[(size_t) getParam (p, Peq::highPassFrequencyId)], 200.0f, "an old preset keeps 200 Hz");
+                expectEquals (SongsmithPassive::lowPassFrequencies[(size_t) getParam (p, Peq::lowPassFrequencyId)], 15000.0f, "and 15 kHz");
+
+                // A preset saved now is version 2 and loads exactly as saved.
+                setParam (p, Peq::highPassFrequencyId, 7.0f);   // 500 Hz
+                setParam (p, Peq::lowPassFrequencyId, 1.0f);    // 3 kHz
+                expect (p.presets.saveAs ("New Filter", error), error);
+                setParam (p, Peq::highPassFrequencyId, 0.0f);
+                setParam (p, Peq::lowPassFrequencyId, 0.0f);
+                expect (p.presets.loadFile (folder.getChildFile ("New Filter.sspreset"), error), error);
+                expectEquals (getParam (p, Peq::highPassFrequencyId), 7.0f, "a new preset is not remapped");
+                expectEquals (getParam (p, Peq::lowPassFrequencyId), 1.0f);
+            }
+            root.deleteRecursively();
+            Peq::Presets::setDefaultFolderRootForTesting ({});
+        }
+
+        beginTest ("PEQ-05: the nine use-case starting points restore their whole sound from any mode, and one Undo undoes each");
+        {
+            const char* names[] = { "Punchy Kick", "Deep, Tight Bass", "Mix Bus Air", "Bass Definition", "Clear Lead Vocal",
+                                    "More Attack on a Soft-Sounding Part", "Rumble Cleanup", "Tighter Rhythm Guitar", "Telephone Voice or Guitar" };
+            const int modes[] = { 0, 0, 0, 1, 1, 1, 2, 2, 2 };
+            SongsmithPassiveEQProcessor p;
+            const auto& list = Peq::Presets::factory();
+            for (int k = 0; k < 9; ++k)
+            {
+                int index = -1;
+                for (int i = 0; i < (int) list.size(); ++i)
+                    if (juce::String (list[(size_t) i].name) == names[k])
+                        index = i;
+                expectGreaterOrEqual (index, 0, juce::String (names[k]) + " is in the menu");
+                if (index < 0)
+                    continue;
+
+                // From a different mode, with leftovers in every mode, to prove nothing stays behind.
+                setParam (p, Peq::modeId, (float) ((modes[k] + 1) % 3));
+                setParam (p, Peq::lowBoostId, 9.0f); setParam (p, Peq::midDipId, 7.0f); setParam (p, Peq::highPassFrequencyId, 4.0f); setParam (p, Peq::lowPassFrequencyId, 2.0f);
+                p.history.clear();
+                p.history.runStep ("preset load", [&] { p.presets.loadFactory (index); });
+                const auto& f = list[(size_t) index];
+                expectEquals (getParam (p, Peq::modeId), (float) modes[k], juce::String (names[k]) + " switches to its mode");
+                expectWithinAbsoluteError (getParam (p, Peq::lowBoostId), f.lowBoost, 1.0e-3f, "the Tone Shaper leftovers are replaced");
+                expectWithinAbsoluteError (getParam (p, Peq::midDipId), f.midDip, 1.0e-3f, "the Mid Shaper leftovers are replaced");
+                expectEquals (getParam (p, Peq::highPassFrequencyId), (float) f.highPass, "the filter leftovers are replaced");
+                expectEquals (getParam (p, Peq::lowPassFrequencyId), (float) f.lowPass);
+
+                // A saved and reopened session recalls the same mode and settings.
+                const auto block = stateOf (p);
+                SongsmithPassiveEQProcessor reopened;
+                reopened.setStateInformation (block.getData(), (int) block.getSize());
+                for (auto* id : { Peq::modeId, Peq::lowFrequencyId, Peq::lowBoostId, Peq::lowCutId, Peq::highBoostId, Peq::midLowFrequencyId, Peq::midLowBoostId,
+                                  Peq::midDipFrequencyId, Peq::midDipId, Peq::midHighFrequencyId, Peq::midHighBoostId, Peq::highPassFrequencyId, Peq::lowPassFrequencyId })
+                    expectWithinAbsoluteError (getParam (reopened, id), getParam (p, id), 1.0e-3f, juce::String (names[k]) + " reopened: " + id);
+
+                p.history.undo();
+                expectEquals (getParam (p, Peq::modeId), (float) ((modes[k] + 1) % 3), "one Undo returns to the previous mode");
+                p.history.redo();
+                expectEquals (getParam (p, Peq::modeId), (float) modes[k], "and Redo brings the preset back");
+                expectEquals (getParam (p, Peq::highPassFrequencyId), (float) f.highPass);
+            }
+        }
+
+        beginTest ("PEQ-05: each use-case starting point does what its name says");
+        {
+            auto responseFor = [] (const char* name)
+            {
+                SongsmithPassiveEQProcessor p;
+                const auto& list = Peq::Presets::factory();
+                for (int i = 0; i < (int) list.size(); ++i)
+                    if (juce::String (list[(size_t) i].name) == name)
+                        p.presets.loadFactory (i);
+                auto e = std::make_unique<SongsmithPassive::Engine>();
+                e->prepare (48000.0);
+                e->setParams (p.getEngineParams());
+                return e;
+            };
+            auto kick = responseFor ("Punchy Kick");
+            expectGreaterThan (kick->responseDb (60.0), 1.5f, "Punchy Kick lifts 60 Hz");
+            expectLessThan (kick->responseDb (200.0), 0.0f, "and takes a little away from the low middle");
+            auto bass = responseFor ("Deep, Tight Bass");
+            expectGreaterThan (bass->responseDb (30.0), 1.0f, "Deep, Tight Bass lifts 30 Hz");
+            expectLessThan (bass->responseDb (100.0), -0.3f, "and tightens the notes above it");
+            auto air = responseFor ("Mix Bus Air");
+            expectGreaterThan (air->responseDb (16000.0), 1.5f, "Mix Bus Air lifts 16 kHz");
+            expectLessThan (std::abs (air->responseDb (500.0)), 0.3f, "and leaves the middle alone");
+            auto definition = responseFor ("Bass Definition");
+            expectLessThan (definition->responseDb (300.0), -2.0f, "Bass Definition dips 300 Hz");
+            expectGreaterThan (definition->responseDb (1000.0), 2.0f, "and lifts 1 kHz");
+            auto vocal = responseFor ("Clear Lead Vocal");
+            expectLessThan (vocal->responseDb (300.0), -1.0f, "Clear Lead Vocal dips 300 Hz");
+            expectGreaterThan (vocal->responseDb (3000.0), 1.5f, "and lifts 3 kHz");
+            auto attack = responseFor ("More Attack on a Soft-Sounding Part");
+            expectLessThan (attack->responseDb (500.0), -1.0f, "More Attack dips 500 Hz");
+            expectGreaterThan (attack->responseDb (3000.0), 2.0f, "and lifts 3 kHz");
+            auto rumble = responseFor ("Rumble Cleanup");
+            expectWithinAbsoluteError (rumble->responseDb (50.0), -3.0f, 0.2f, "Rumble Cleanup is 3 dB down at 50 Hz");
+            expectLessThan (std::abs (rumble->responseDb (10000.0)), 0.1f, "with the top untouched");
+            auto guitar = responseFor ("Tighter Rhythm Guitar");
+            expectWithinAbsoluteError (guitar->responseDb (150.0), -3.0f, 0.2f, "Tighter Rhythm Guitar is 3 dB down at 150 Hz");
+            expectWithinAbsoluteError (guitar->responseDb (5000.0), -3.0f, 0.5f, "and at 5 kHz");
+            auto phone = responseFor ("Telephone Voice or Guitar");
+            expectWithinAbsoluteError (phone->responseDb (500.0), -3.0f, 0.2f, "Telephone Voice is 3 dB down at 500 Hz");
+            expectWithinAbsoluteError (phone->responseDb (3000.0), -3.0f, 0.5f, "and at 3 kHz");
         }
 
         beginTest ("A new preset saves the mode and every setting, and reloads them");
@@ -298,8 +445,8 @@ public:
                 midCount += f.mode == 1;
                 filterCount += f.mode == 2;
             }
-            expectEquals (midCount, 2, "two Mid Shaper starting points");
-            expectEquals (filterCount, 2, "two Frequency Filter starting points");
+            expectEquals (midCount, 5, "five Mid Shaper starting points (two, and three more in PEQ-05)");
+            expectEquals (filterCount, 5, "five Frequency Filter starting points (two, and three more in PEQ-05)");
             p.history.runStep ("preset load", [&] { p.presets.loadFactory (6); });
             expectEquals (getParam (p, Peq::modeId), 1.0f, "loading a Mid Shaper starting point selects Mid Shaper");
             p.history.undo();
@@ -442,8 +589,8 @@ public:
             setParam (p, Peq::modeId, 2.0f);
             auto f = make (p, L::defaultWidth);
             expectEquals (f->getHighPassSwitch().getButton (0).getButtonText(), juce::String ("Off"));
-            expectEquals (f->getHighPassSwitch().getNumButtons(), 6);
-            expectEquals (f->getLowPassSwitch().getNumButtons(), 5);
+            expectEquals (f->getHighPassSwitch().getNumButtons(), 8);
+            expectEquals (f->getLowPassSwitch().getNumButtons(), 6);
             f->getLowPassSwitch().getButton (3).onClick();
             expectEquals (getParam (p, Peq::lowPassFrequencyId), 3.0f);
         }

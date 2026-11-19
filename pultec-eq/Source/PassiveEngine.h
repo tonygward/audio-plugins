@@ -17,8 +17,8 @@
 //     mid peak dip       (200 Hz to 7 kHz in ten steps, 0 to 10 dB)
 //     high-mid peak boost (1.5, 2, 3, 4.5 or 6 kHz, 0 to 10 dB)
 //   Frequency Filter (inspired by the HLF-3C):
-//     high-pass filter (Off, 30, 50, 80, 120 or 200 Hz)
-//     low-pass filter  (Off, 5, 7, 10 or 15 kHz)
+//     high-pass filter (Off, 30, 50, 80, 120, 150, 200 or 500 Hz)
+//     low-pass filter  (Off, 3, 5, 7, 10 or 15 kHz)
 //
 // The EQP-1A frequency choices and gain ranges are the published panel values. The Mid Shaper and Frequency Filter
 // steps and every filter shape, the bandwidth mapping and the corner offset of the low cut are Songsmith design choices,
@@ -38,8 +38,8 @@ namespace SongsmithPassive
     inline constexpr std::array<float, 5>  midHighFrequencies { 1500.0f, 2000.0f, 3000.0f, 4500.0f, 6000.0f };
 
     // Frequency Filter (design choices). Position 0 is Off (the frequency 0 means "no filter").
-    inline constexpr std::array<float, 6> highPassFrequencies { 0.0f, 30.0f, 50.0f, 80.0f, 120.0f, 200.0f };
-    inline constexpr std::array<float, 5> lowPassFrequencies  { 0.0f, 5000.0f, 7000.0f, 10000.0f, 15000.0f };
+    inline constexpr std::array<float, 8> highPassFrequencies { 0.0f, 30.0f, 50.0f, 80.0f, 120.0f, 150.0f, 200.0f, 500.0f };
+    inline constexpr std::array<float, 6> lowPassFrequencies  { 0.0f, 3000.0f, 5000.0f, 7000.0f, 10000.0f, 15000.0f };
 
     inline constexpr float maxLowBoostDb = 13.5f, maxLowCutDb = 17.5f, maxHighBoostDb = 18.0f, maxHighCutDb = 16.0f;
     inline constexpr float maxMidBoostDb = 10.0f, maxMidDipDb = 10.0f;
@@ -77,8 +77,8 @@ namespace SongsmithPassive
         float midHighBoostDb = 0.0f;        // 0..10
 
         // Frequency Filter
-        int   highPassIndex = 0;            // 0..5, 0 = Off
-        int   lowPassIndex = 0;             // 0..4, 0 = Off
+        int   highPassIndex = 0;            // 0..7, 0 = Off
+        int   lowPassIndex = 0;             // 0..5, 0 = Off
     };
 
     struct Biquad

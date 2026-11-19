@@ -89,7 +89,7 @@ public:
             expectLessThan (std::abs (measureSineDb (hp, fs, 1000.0)), 0.1f, "and flat in the middle");
             expectLessThan (std::abs (measureSineDb (hp, fs, 8000.0)), 0.1f, "and flat at the top");
 
-            Params lp; lp.mode = Mode::frequencyFilter; lp.lowPassIndex = 3;   // 10 kHz
+            Params lp; lp.mode = Mode::frequencyFilter; lp.lowPassIndex = 4;   // 10 kHz
             expectWithinAbsoluteError (measureSineDb (lp, fs, 10000.0), -3.0f, 0.5f, "a low-pass is 3 dB down at its frequency");
             expectLessThan (measureSineDb (lp, fs, 20000.0), -9.0f, "and well down an octave above");
             expectLessThan (std::abs (measureSineDb (lp, fs, 1000.0)), 0.1f, "and flat in the middle");
