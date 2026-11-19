@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
-## Unreleased
+## 0.5.54
 
 - **New: Songsmith Audio Analyzer**, an app (not a plugin) for checking a finished song. Open a WAV, AIFF or FLAC file, or drop one on its window, and it shows the file's integrated loudness (LUFS), true peak (dBTP), sample rate, bit depth and encoding, and duration, with short, optional advice in plain English. If a reading cannot be made it says so, and your file is only ever read, never changed. It needs no recording software. It is a tick box in both Songsmith Plugins installers, selected by default: on Windows it adds a Start menu shortcut, and on a Mac it goes in Applications. If you do not want it, untick it. It has not yet been tried on a real Mac by a person.
 
