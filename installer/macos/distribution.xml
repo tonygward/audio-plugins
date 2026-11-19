@@ -11,7 +11,7 @@
     VST3 plugin    -> /Library/Audio/Plug-Ins/VST3/<plugin>.vst3
     Audio Unit     -> /Library/Audio/Plug-Ins/Components/<plugin>.component
     Standalone app -> /Applications/<plugin>.app
-  The three packages sit inside the plugin's one choice, so there are no separate format choices.
+  The three packages sit inside the plugin's one choice (the Audio Analyzer is an app only, so its choice holds just the app), so there are no separate format choices.
 
   The choice ids (eq, fet, max) are used by test-installer.sh (choice changes XML) and by anyone scripting an
   install, so keep them stable. The package ids are the per-plugin installers' ids (never change
@@ -43,6 +43,7 @@
         <line choice="opt"/>
         <line choice="peq"/>
         <line choice="bus"/>
+        <line choice="ana"/>
     </choices-outline>
 
     <!-- Songsmith EQ -->
@@ -117,9 +118,16 @@
     <pkg-ref id="com.songsmithstudio.songsmithpassiveeq.vst3" version="@PEQ_VERSION@" onConclusion="none">songsmithpassiveeq-vst3.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithpassiveeq.au"   version="@PEQ_VERSION@" onConclusion="none">songsmithpassiveeq-au.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithpassiveeq.app"  version="@PEQ_VERSION@" onConclusion="none">songsmithpassiveeq-app.pkg</pkg-ref>
+    <!-- Songsmith Audio Analyzer: an application only (no VST3 and no Audio Unit), for checking a finished song -->
+    <choice id="ana" title="Songsmith Audio Analyzer @ANA_VERSION@" start_selected="true"
+            description="Songsmith Audio Analyzer: check the loudness and format of a finished song. Installs one app in Applications. It is not a plugin and needs no recording software.">
+        <pkg-ref id="com.songsmithstudio.songsmithaudioanalyzer.app"/>
+    </choice>
+
     <pkg-ref id="com.songsmithstudio.songsmithbuscompressor.vst3" version="@BUS_VERSION@" onConclusion="none">songsmithbuscompressor-vst3.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithbuscompressor.au"   version="@BUS_VERSION@" onConclusion="none">songsmithbuscompressor-au.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithbuscompressor.app"  version="@BUS_VERSION@" onConclusion="none">songsmithbuscompressor-app.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithaudioanalyzer.app"  version="@ANA_VERSION@" onConclusion="none">songsmithaudioanalyzer-app.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithcompressor.au"   version="@COMP_VERSION@" onConclusion="none">songsmithcompressor-au.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithcompressor.app"  version="@COMP_VERSION@" onConclusion="none">songsmithcompressor-app.pkg</pkg-ref>
 </installer-gui-script>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Songsmith Audio Analyzer - macOS installer layout (productbuild distribution file).
+
+  build-installer.sh fills in @VERSION@ and @MIN_MACOS@ (read from the built app) and passes the one component
+  package and the resources/ folder to productbuild.
+
+  One choice, on by default, shown on the "Customize" page. The Audio Analyzer is an application only, so there is
+  no VST3 and no Audio Unit:
+    app   Application -> /Applications/Songsmith Audio Analyzer.app
+
+  The choice id is used by test-installer.sh and by anyone scripting an install, so keep it stable.
+-->
+<installer-gui-script minSpecVersion="2">
+    <title>Songsmith Audio Analyzer @VERSION@</title>
+    <organization>com.songsmithstudio</organization>
+
+    <welcome    file="welcome.html"    mime-type="text/html"/>
+    <readme     file="readme.html"     mime-type="text/html"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+
+    <!-- Universal build. System-wide install only (admin password), into Applications. -->
+    <options customize="allow" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+
+    <!-- The same minimum as the app's binary itself (its deployment target). -->
+    <allowed-os-versions>
+        <os-version min="@MIN_MACOS@"/>
+    </allowed-os-versions>
+
+    <choices-outline>
+        <line choice="app"/>
+    </choices-outline>
+
+    <choice id="app" title="Songsmith Audio Analyzer" start_selected="true"
+            description="Songsmith Audio Analyzer.app in /Applications. Open a finished WAV, AIFF or FLAC file to see how loud it is and how it was recorded. It needs no recording software.">
+        <pkg-ref id="com.songsmithstudio.songsmithaudioanalyzer.app"/>
+    </choice>
+
+    <pkg-ref id="com.songsmithstudio.songsmithaudioanalyzer.app" version="@VERSION@" onConclusion="none">songsmithaudioanalyzer-app.pkg</pkg-ref>
+</installer-gui-script>

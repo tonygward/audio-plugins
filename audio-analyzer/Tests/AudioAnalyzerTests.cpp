@@ -1,0 +1,552 @@
+// Songsmith Audio Analyzer test runner (REC-02): the standalone window, the readings it shows for real WAV, AIFF and FLAC
+// reference files, errors, repeated and cancelled analyses, text rules and layout, plus the shared REC-01 analysis and
+// advice checks and the shared Songsmith UI checks.
+//
+// Reference signals are generated here, written to a temporary folder as real files and read back through the same code
+// the app uses. Expected loudness comes from the standard itself: a stereo sine with the same level on both channels at
+// about 1 kHz reads the same number of LUFS as its level in dBFS (EBU Tech 3341, level test cases).
+#include <juce_audio_formats/juce_audio_formats.h>
+#include <juce_gui_extra/juce_gui_extra.h>
+#include <cmath>
+#include <functional>
+#include "AnalyzerComponent.h"
+#include "../../shared/Tests/SongsmithFileAdvisorTests.h"
+#include "../../shared/Tests/SongsmithUITests.h"
+#include "SongsmithWording.h"
+
+namespace
+{
+    using namespace Songsmith;
+    using AnalyzerUI = Analyzer::AnalyzerComponent;
+
+    juce::AudioBuffer<float> sine (double fs, double seconds, double freq, double levelDb, int channels = 2, double phase = 0.0)
+    {
+        juce::AudioBuffer<float> b (channels, (int) std::lround (fs * seconds));
+        const double amp = std::pow (10.0, levelDb / 20.0);
+        for (int i = 0; i < b.getNumSamples(); ++i)
+        {
+            const auto v = (float) (amp * std::sin (2.0 * juce::MathConstants<double>::pi * freq * i / fs + phase));
+            for (int c = 0; c < channels; ++c)
+                b.setSample (c, i, v);
+        }
+        return b;
+    }
+
+    // A WAV by hand: integer PCM (16, 24 or 32 bits) or 32-bit floating point.
+    juce::File writeWav (const juce::File& folder, const juce::String& name, double fs, int bits, bool isFloat, const juce::AudioBuffer<float>& data)
+    {
+        const int ch = data.getNumChannels(), n = data.getNumSamples(), bytes = bits / 8;
+        juce::MemoryOutputStream o;
+        o.write ("RIFF", 4); o.writeInt (36 + n * ch * bytes); o.write ("WAVE", 4);
+        o.write ("fmt ", 4); o.writeInt (16); o.writeShort ((short) (isFloat ? 3 : 1)); o.writeShort ((short) ch);
+        o.writeInt ((int) fs); o.writeInt ((int) fs * ch * bytes); o.writeShort ((short) (ch * bytes)); o.writeShort ((short) bits);
+        o.write ("data", 4); o.writeInt (n * ch * bytes);
+        for (int i = 0; i < n; ++i)
+            for (int c = 0; c < ch; ++c)
+            {
+                const float x = data.getSample (c, i);
+                if (isFloat) { o.writeFloat (x); continue; }
+                const double scale = std::pow (2.0, bits - 1);
+                const auto v = (juce::int64) juce::jlimit (-scale, scale - 1.0, std::round ((double) x * scale));
+                for (int k = 0; k < bytes; ++k) o.writeByte ((char) ((v >> (8 * k)) & 0xff));
+            }
+        const auto f = folder.getChildFile (name);
+        f.replaceWithData (o.getData(), o.getDataSize());
+        return f;
+    }
+
+    // AIFF or FLAC, written by JUCE's own writers (the file's extension picks the format).
+    juce::File writeWithJuce (const juce::File& folder, const juce::String& name, double fs, int bits, const juce::AudioBuffer<float>& data)
+    {
+        const auto f = folder.getChildFile (name);
+        f.deleteFile();
+        std::unique_ptr<juce::AudioFormat> format;
+        if (f.hasFileExtension ("flac")) format = std::make_unique<juce::FlacAudioFormat>();
+        else                             format = std::make_unique<juce::AiffAudioFormat>();
+        std::unique_ptr<juce::OutputStream> stream (f.createOutputStream());
+        auto writer = format->createWriterFor (stream, juce::AudioFormatWriterOptions().withSampleRate (fs).withNumChannels (data.getNumChannels()).withBitsPerSample (bits));
+        if (writer != nullptr)
+            writer->writeFromAudioSampleBuffer (data, 0, data.getNumSamples());
+        return f;
+    }
+
+    // Runs the message loop until 'done' or the time runs out, so background analyses can deliver their results.
+    bool waitUntil (const std::function<bool()>& done, int timeoutMs = 30000)
+    {
+        const auto end = juce::Time::getMillisecondCounter() + (juce::uint32) timeoutMs;
+        while (! done() && juce::Time::getMillisecondCounter() < end)
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (20);
+        return done();
+    }
+
+    void settle (int milliseconds = 120) { juce::MessageManager::getInstance()->runDispatchLoopUntil (milliseconds); }
+
+    // Reads one file to its result through the app's own background reader.
+    bool analyseInWindow (AnalyzerUI& ui, const juce::File& f)
+    {
+        ui.analyse (f);
+        return waitUntil ([&] { return ui.getState() == AnalyzerUI::State::showing; });
+    }
+
+    juce::String readingValue (AnalyzerUI& ui, const juce::String& caption)
+    {
+        for (int i = 0; i < ui.getNumTiles(); ++i)
+            if (ui.getTile (i).getReading().caption == caption)
+                return ui.getTile (i).getReading().value;
+        return "(no such reading)";
+    }
+
+    juce::String readingNote (AnalyzerUI& ui, const juce::String& caption)
+    {
+        for (int i = 0; i < ui.getNumTiles(); ++i)
+            if (ui.getTile (i).getReading().caption == caption)
+                return ui.getTile (i).getReading().note;
+        return {};
+    }
+
+    // Something that sounds like a song: a steady low note, brighter notes that come and go, and a little noise.
+    juce::AudioBuffer<float> songLike (double fs, double seconds)
+    {
+        juce::AudioBuffer<float> b (2, (int) std::lround (fs * seconds));
+        juce::Random rng (7);
+        const double pi = juce::MathConstants<double>::pi;
+        for (int i = 0; i < b.getNumSamples(); ++i)
+        {
+            const double t = (double) i / fs;
+            const double bar = std::fmod (t, 2.0) / 2.0;
+            const double env = std::exp (-3.0 * bar);
+            double l = 0.26 * std::sin (2.0 * pi * 55.0 * t) + 0.12 * std::sin (2.0 * pi * 110.0 * t);
+            double r = l;
+            l += env * 0.22 * std::sin (2.0 * pi * 440.0 * t) + 0.04 * (double) (rng.nextFloat() - 0.5f);
+            r += env * 0.22 * std::sin (2.0 * pi * 554.4 * t) + 0.04 * (double) (rng.nextFloat() - 0.5f);
+            b.setSample (0, i, (float) l);
+            b.setSample (1, i, (float) r);
+        }
+        return b;
+    }
+}
+
+//==============================================================================
+class AudioAnalyzerTests final : public juce::UnitTest
+{
+public:
+    AudioAnalyzerTests() : juce::UnitTest ("Songsmith Audio Analyzer (REC-02)", "AudioAnalyzer") {}
+
+    void runTest() override
+    {
+        const auto folder = juce::File::getSpecialLocation (juce::File::tempDirectory).getNonexistentChildFile ("songsmith-rec02", "", false);
+        folder.createDirectory();
+
+        beginTest ("Identity: the product name and bundle ID the installers recognise never change, and the version is the shared one");
+        {
+            expectEquals (juce::String (ANALYZER_PRODUCT_NAME), juce::String ("Songsmith Audio Analyzer"));
+            expectEquals (juce::String (ANALYZER_BUNDLE_ID), juce::String ("com.songsmithstudio.songsmithaudioanalyzer"));
+            auto file = juce::File::getCurrentWorkingDirectory();
+            for (int up = 0; up < 8 && ! file.getChildFile ("VERSION").existsAsFile(); ++up)
+                file = file.getParentDirectory();
+            if (file.getChildFile ("VERSION").existsAsFile())
+                expectEquals (juce::String (ANALYZER_VERSION), file.getChildFile ("VERSION").loadFileAsString().trim());
+        }
+
+        beginTest ("The readings for 16-bit and 24-bit WAV reference files: loudness, true peak, sample rate, bit depth, duration");
+        {
+            AnalyzerUI ui;
+            expect (analyseInWindow (ui, writeWav (folder, "cd.wav", 44100.0, 16, false, sine (44100.0, 10.0, 997.0, -23.0))), "the file is read");
+            expect (ui.getResult().opened, ui.getResult().error);
+            expectEquals (readingValue (ui, "Integrated Loudness"), juce::String ("-23.0 LUFS"));
+            expectEquals (readingValue (ui, "True Peak"), juce::String ("-23.0 dBTP"));
+            expectEquals (readingValue (ui, "Sample Rate"), juce::String ("44.1 kHz"));
+            expectEquals (readingValue (ui, "Bit Depth and Encoding"), juce::String ("16-bit"));
+            expectEquals (readingNote (ui, "Bit Depth and Encoding"), juce::String ("WAV, uncompressed"));
+            expectEquals (readingValue (ui, "Duration"), juce::String ("0:10.0"));
+            expectEquals (readingValue (ui, "Channels"), juce::String ("Stereo"));
+            expect (ui.getAdvice().summary.contains ("CD quality"), ui.getAdvice().summary);
+
+            expect (analyseInWindow (ui, writeWav (folder, "hi.wav", 48000.0, 24, false, sine (48000.0, 65.5, 997.0, -14.0))), "a second, longer file");
+            expectEquals (readingValue (ui, "Integrated Loudness"), juce::String ("-14.0 LUFS"));
+            expectEquals (readingValue (ui, "Sample Rate"), juce::String ("48 kHz"));
+            expectEquals (readingValue (ui, "Bit Depth and Encoding"), juce::String ("24-bit"));
+            expectEquals (readingValue (ui, "Duration"), juce::String ("1:05.5"));
+            expect (ui.getAdvice().summary.contains ("good recording settings"), ui.getAdvice().summary);
+        }
+
+        beginTest ("The readings for AIFF, FLAC, 32-bit floating point and mono files");
+        {
+            AnalyzerUI ui;
+            const auto reference = sine (48000.0, 8.0, 997.0, -20.0);
+            expect (analyseInWindow (ui, writeWithJuce (folder, "ref.aiff", 48000.0, 24, reference)), "AIFF");
+            expect (ui.getResult().opened, ui.getResult().error);
+            expectEquals (readingValue (ui, "Integrated Loudness"), juce::String ("-20.0 LUFS"));
+            expectEquals (readingValue (ui, "Bit Depth and Encoding"), juce::String ("24-bit"));
+            expectEquals (readingNote (ui, "Bit Depth and Encoding"), juce::String ("AIFF, uncompressed"));
+
+            expect (analyseInWindow (ui, writeWithJuce (folder, "ref.flac", 48000.0, 24, reference)), "FLAC");
+            expect (ui.getResult().opened, ui.getResult().error);
+            expectEquals (ui.getResult().formatName, juce::String ("FLAC"));
+            expectWithinAbsoluteError (ui.getResult().integratedLufs, -20.0, 0.1, "FLAC is lossless, so it reads the same");
+            expectEquals (readingNote (ui, "Bit Depth and Encoding"), juce::String ("FLAC, lossless"));
+            expectEquals (readingValue (ui, "Duration"), juce::String ("0:08.0"));
+
+            expect (analyseInWindow (ui, writeWav (folder, "float.wav", 48000.0, 32, true, reference)), "floating point");
+            expectEquals (readingValue (ui, "Bit Depth and Encoding"), juce::String ("32-bit"));
+            expectEquals (readingNote (ui, "Bit Depth and Encoding"), juce::String ("WAV, floating point"));
+
+            // A mono file: 1 kHz sine at -23 dBFS in one channel reads 3.0 lower, as the standard says (one channel counts once).
+            expect (analyseInWindow (ui, writeWav (folder, "mono.wav", 44100.0, 16, false, sine (44100.0, 10.0, 997.0, -20.0, 1))), "mono");
+            expectEquals (readingValue (ui, "Channels"), juce::String ("Mono"));
+            expectWithinAbsoluteError (ui.getResult().integratedLufs, -23.0, 0.15, "a mono file counts its one channel once");
+        }
+
+        beginTest ("True peak is a real measurement: it is above the sample peak when the wave rises between samples, and never relabelled");
+        {
+            AnalyzerUI ui;
+            // A sine at a quarter of the sample rate, phase 45 degrees: every stored sample is 0.707 of the wave's top.
+            expect (analyseInWindow (ui, writeWav (folder, "between.wav", 48000.0, 32, true, sine (48000.0, 5.0, 12000.0, 0.0, 2, juce::MathConstants<double>::pi / 4.0))), "read");
+            expectWithinAbsoluteError (ui.getResult().samplePeakDb, -3.01, 0.05, "the stored samples are about -3 dBFS");
+            expectWithinAbsoluteError (ui.getResult().truePeakDb, 0.0, 0.3, "the wave itself reaches about 0 dBTP");
+            expectEquals (readingValue (ui, "True Peak"), Analyzer::formatPeak (ui.getResult().truePeakDb));
+            expect (readingValue (ui, "True Peak").endsWith ("dBTP") && ! readingValue (ui, "True Peak").contains ("dBFS"), "the unit says true peak");
+            expect (readingNote (ui, "True Peak").startsWith ("Highest stored sample: -3.0 dBFS"), "the sample peak is labelled as a sample peak: " + readingNote (ui, "True Peak"));
+            expectGreaterThan (ui.getResult().truePeakDb, ui.getResult().samplePeakDb + 2.0, "true peak is not the sample peak");
+        }
+
+        beginTest ("A measurement that cannot be made is said to be missing, never invented");
+        {
+            AnalyzerUI ui;
+            juce::AudioBuffer<float> silence (2, 44100 * 3);
+            silence.clear();   // a new buffer holds whatever was in memory: silence has to be asked for
+            expect (analyseInWindow (ui, writeWav (folder, "silence.wav", 44100.0, 16, false, silence)), "silent file");
+            expectEquals (readingValue (ui, "Integrated Loudness"), juce::String ("Not available"));
+            expectEquals (readingNote (ui, "Integrated Loudness"), juce::String ("The file is silent"));
+            expectEquals (readingValue (ui, "True Peak"), juce::String ("Silent"));
+            expect (ui.getAdvice().summary.contains ("silent"), ui.getAdvice().summary);
+
+            expect (analyseInWindow (ui, writeWav (folder, "tiny.wav", 44100.0, 16, false, sine (44100.0, 0.2, 997.0, -20.0))), "a clip shorter than one measuring window");
+            expectEquals (readingValue (ui, "Integrated Loudness"), juce::String ("Not available"));
+            expectEquals (readingNote (ui, "Integrated Loudness"), juce::String ("Too short or too quiet to measure"));
+            expect (readingValue (ui, "True Peak").endsWith ("dBTP"), "the peak is still measured");
+            expectEquals (readingValue (ui, "Duration"), juce::String ("0:00.2"));
+
+            expect (analyseInWindow (ui, writeWav (folder, "quiet.wav", 44100.0, 16, false, sine (44100.0, 5.0, 997.0, -80.0))), "a file far below the measuring gate");
+            expectEquals (readingValue (ui, "Integrated Loudness"), juce::String ("Not available"));
+        }
+
+        beginTest ("Errors are meaningful, the window stays usable, and another file can be analysed straight after");
+        {
+            AnalyzerUI ui;
+            const auto text = folder.getChildFile ("notes.txt");
+            text.replaceWithText ("not audio");
+            const auto damaged = folder.getChildFile ("damaged.wav");
+            damaged.replaceWithText ("RIFF....WAVEfmt this is not a real wave file");
+            const auto empty = folder.getChildFile ("empty.wav");
+            empty.replaceWithData ("", 0);
+            const auto notReallyFlac = folder.getChildFile ("fake.flac");
+            notReallyFlac.replaceWithText ("this is plain text with a flac name");
+
+            const std::pair<juce::File, juce::String> cases[] = {
+                { folder.getChildFile ("missing.wav"), "could not be found" },
+                { text, "Only WAV, AIFF and FLAC" },
+                { folder, "folder" },
+                { damaged, "" },
+                { empty, "" },
+                { notReallyFlac, "" } };
+            for (auto& [file, expected] : cases)
+            {
+                expect (analyseInWindow (ui, file), "the window answers for " + file.getFileName());
+                expect (! ui.getResult().opened, file.getFileName() + " is reported as not analysed");
+                expect (ui.getResult().error.isNotEmpty() || file.isDirectory(), file.getFileName() + " has a reason");
+                expect (ui.getAdvice().summary.isNotEmpty() && ui.getAdvice().summary.contains ("."), file.getFileName() + ": " + ui.getAdvice().summary);
+                if (expected.isNotEmpty())
+                    expect (ui.getAdvice().summary.contains (expected), file.getFileName() + ": " + ui.getAdvice().summary);
+                expect (! ui.getAdvice().steps.empty(), "an error says what to try");
+                for (int i = 0; i < ui.getNumTiles(); ++i)
+                    expect (! ui.getTile (i).isVisible(), "no reading boxes for a file that could not be read");
+                expect (ui.getAnotherButton().isVisible() && ui.getAnotherButton().isEnabled(), "the button to try another file is there");
+                expect (ui.getFileDetailLabel().getText().isNotEmpty(), "the detail line explains");
+                expect (text.existsAsFile() && juce::File (text).loadFileAsString() == "not audio", "the original file is untouched");
+            }
+            // And a good file straight after an error.
+            expect (analyseInWindow (ui, writeWav (folder, "good.wav", 44100.0, 16, false, sine (44100.0, 4.0, 997.0, -23.0))), "a good file after the errors");
+            expect (ui.getResult().opened);
+            expectEquals (readingValue (ui, "Integrated Loudness"), juce::String ("-23.0 LUFS"));
+        }
+
+        beginTest ("The reader runs in the background: the window stays responsive, shows progress, and a long file reads to the end");
+        {
+            // Three minutes of mono 16-bit at 44.1 kHz: a little over 15 MB.
+            const auto longFile = writeWav (folder, "long.wav", 44100.0, 16, false, sine (44100.0, 180.0, 997.0, -18.0, 1));
+            AnalyzerUI ui;
+            ui.analyse (longFile);
+            expect (ui.getState() == AnalyzerUI::State::reading, "reading begins at once and the call returns");
+            expect (ui.getProgressBar().isVisible() && ui.getCancelButton().isVisible(), "progress and Cancel are shown");
+            expect (! ui.getAnotherButton().isVisible(), "no results yet");
+            int turns = 0;
+            const bool done = waitUntil ([&] { ++turns; return ui.getState() == AnalyzerUI::State::showing; });
+            expect (done, "the long file finishes");
+            expectGreaterThan (turns, 1, "the message loop kept running while the file was read");
+            expect (ui.getResult().opened, ui.getResult().error);
+            expectEquals (readingValue (ui, "Duration"), juce::String ("3:00.0"));
+            expectWithinAbsoluteError (ui.getResult().integratedLufs, -21.0, 0.15);
+        }
+
+        beginTest ("Cancelling and repeating: only the newest file's result is shown, and Cancel delivers nothing");
+        {
+            const auto first = writeWav (folder, "first.wav", 44100.0, 16, false, sine (44100.0, 60.0, 997.0, -30.0, 1));
+            const auto second = writeWav (folder, "second.wav", 44100.0, 16, false, sine (44100.0, 6.0, 997.0, -18.0));
+            AnalyzerUI ui;
+            ui.analyse (first);
+            ui.analyse (second);   // while the first is still being read
+            expect (waitUntil ([&] { return ui.getState() == AnalyzerUI::State::showing; }));
+            settle (300);
+            expectEquals (ui.getFile().getFileName(), juce::String ("second.wav"));
+            expectEquals (readingValue (ui, "Integrated Loudness"), juce::String ("-18.0 LUFS"));
+
+            ui.analyse (first);
+            ui.getCancelButton().onClick();
+            expect (ui.getState() == AnalyzerUI::State::waiting, "Cancel goes back to the start");
+            settle (400);
+            expect (ui.getState() == AnalyzerUI::State::waiting, "and nothing arrives later from the cancelled file");
+            expect (ui.getChooseButton().isVisible() && ! ui.getCancelButton().isVisible());
+
+            // Escape does the same while reading.
+            ui.analyse (first);
+            expect (ui.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey)));
+            expect (ui.getState() == AnalyzerUI::State::waiting);
+            expect (! ui.isReading());
+
+            // Another file straight away after a cancel.
+            expect (analyseInWindow (ui, second));
+            expectEquals (readingValue (ui, "Integrated Loudness"), juce::String ("-18.0 LUFS"));
+        }
+
+        beginTest ("The analysis runner delivers only the newest file, on the message thread, and nothing after cancel()");
+        {
+            std::vector<juce::String> delivered;
+            bool onMessageThread = true;
+            Analyzer::AnalysisRunner runner ([&] (const juce::File& f, const FileAnalysis::Result& r)
+                                             {
+                                                 onMessageThread = onMessageThread && juce::MessageManager::getInstance()->isThisTheMessageThread();
+                                                 delivered.push_back (f.getFileName() + (r.opened ? " ok" : " failed"));
+                                             });
+            const auto a = writeWav (folder, "ra.wav", 44100.0, 16, false, sine (44100.0, 90.0, 997.0, -20.0, 1));
+            const auto b = writeWav (folder, "rb.wav", 44100.0, 16, false, sine (44100.0, 3.0, 997.0, -20.0));
+            runner.start (a);
+            runner.start (b);
+            expect (waitUntil ([&] { return ! delivered.empty(); }));
+            settle (300);
+            expectEquals ((int) delivered.size(), 1, "one result for two requests");
+            expectEquals (delivered.front(), juce::String ("rb.wav ok"));
+            expect (onMessageThread, "delivered on the message thread");
+
+            delivered.clear();
+            runner.start (a);
+            runner.cancel();
+            settle (400);
+            expect (delivered.empty(), "a cancelled read delivers nothing");
+            expect (runner.getProgress() <= 1.0f, "progress is never more than all of the file");
+        }
+
+        beginTest ("Dropping files: one file is analysed, extra files are mentioned, and a folder or other file gets a clear message");
+        {
+            AnalyzerUI ui;
+            expect (ui.isInterestedInFileDrag ({ "anything.wav" }));
+            const auto g = writeWav (folder, "dropA.wav", 44100.0, 16, false, sine (44100.0, 3.0, 997.0, -23.0));
+            const auto h = writeWav (folder, "dropB.wav", 44100.0, 16, false, sine (44100.0, 3.0, 997.0, -10.0));
+            ui.filesDropped ({ g.getFullPathName(), h.getFullPathName() }, 10, 10);
+            expect (waitUntil ([&] { return ui.getState() == AnalyzerUI::State::showing; }));
+            expectEquals (ui.getFile().getFileName(), juce::String ("dropA.wav"));
+            expect (ui.getAdvice().summary.isNotEmpty());
+            expect (ui.getResult().opened);
+
+            ui.filesDropped ({ folder.getFullPathName() }, 10, 10);
+            expect (waitUntil ([&] { return ui.getState() == AnalyzerUI::State::showing; }));
+            expect (ui.getAdvice().summary.contains ("folder"), ui.getAdvice().summary);
+
+            ui.filesDropped ({ folder.getChildFile ("notes.txt").getFullPathName() }, 10, 10);
+            expect (waitUntil ([&] { return ui.getState() == AnalyzerUI::State::showing && ! ui.getResult().opened; }));
+            expect (ui.getAdvice().summary.contains ("WAV, AIFF and FLAC"), ui.getAdvice().summary);
+            ui.filesDropped ({}, 0, 0);   // nothing dropped: nothing happens
+        }
+
+        beginTest ("Back to the start: the waiting screen shows the drop area and the choose button, and the file is never touched");
+        {
+            AnalyzerUI ui;
+            expect (ui.getState() == AnalyzerUI::State::waiting);
+            expect (ui.getChooseButton().isVisible() && ui.getChooseButton().getButtonText() == "Choose File...");
+            expect (ui.getDropPanelBounds().contains (ui.getChooseButton().getBounds()), "the button sits inside the drop area, beside what it opens");
+            expect (! ui.getAnotherButton().isVisible() && ! ui.getCancelButton().isVisible() && ! ui.getProgressBar().isVisible());
+            const auto f = writeWav (folder, "keep.wav", 44100.0, 16, false, sine (44100.0, 3.0, 997.0, -23.0));
+            const auto before = f.loadFileAsString();
+            const auto modified = f.getLastModificationTime();
+            expect (analyseInWindow (ui, f));
+            ui.reset();
+            expect (ui.getState() == AnalyzerUI::State::waiting);
+            expect (f.loadFileAsString() == before && f.getLastModificationTime() == modified, "the analysed file is byte for byte the same");
+            expectEquals (folder.findChildFiles (juce::File::findFiles, false, "*.tmp").size(), 0, "no temporary files");
+        }
+
+        beginTest ("Layout: in every state the controls sit inside the window, the reading boxes do not overlap, and the guidance has room");
+        {
+            namespace L = Analyzer::Layout;
+            AnalyzerUI ui;
+            const juce::Rectangle<int> window (0, 0, L::designWidth, L::designHeight);
+            expect (analyseInWindow (ui, writeWav (folder, "layout.wav", 48000.0, 24, false, songLike (48000.0, 12.0))), "a file");
+            expectEquals (ui.getNumTiles(), 6);
+            for (int i = 0; i < ui.getNumTiles(); ++i)
+            {
+                auto& t = ui.getTile (i);
+                expect (t.isVisible() && window.contains (t.getBounds()), "tile " + juce::String (i) + " is inside the window");
+                expect (t.getBottom() <= ui.getGuidanceBounds().getY(), "tile " + juce::String (i) + " is above the guidance");
+                for (int j = i + 1; j < ui.getNumTiles(); ++j)
+                    expect (! t.getBounds().intersects (ui.getTile (j).getBounds()), "tiles " + juce::String (i) + " and " + juce::String (j) + " do not overlap");
+                expect (t.getTooltip().isNotEmpty() && t.getTitle().isNotEmpty(), "tile " + juce::String (i) + " explains itself and has a name for screen readers");
+            }
+            expect (window.contains (ui.getGuidanceBounds()) && window.contains (ui.getAnotherButton().getBounds()));
+            expect (ui.getAnotherButton().getY() >= ui.getGuidanceBounds().getBottom(), "the button is below the guidance");
+            expect (ui.getAnotherButton().getButtonText() == "Analyse Another File");
+            expectGreaterThan (ui.getGuidance().getView().getHeight(), 40, "there is guidance to read");
+            expect (ui.getTitleBounds().getBottom() <= ui.getTile (0).getY(), "the title is above the readings");
+        }
+
+        beginTest ("Plain words and text fit, at the smallest, the default and the largest window, in every screen");
+        {
+            const auto good = writeWav (folder, "words.wav", 48000.0, 24, false, songLike (48000.0, 12.0));
+            const auto clipped = [&]
+            {
+                auto b = sine (44100.0, 4.0, 997.0, 3.0);
+                return writeWav (folder, "clipped.wav", 44100.0, 16, false, b);
+            }();
+            const auto missing = folder.getChildFile ("not-there.wav");
+            for (int width : { Analyzer::Layout::designWidth * 3 / 4, Analyzer::Layout::designWidth, Analyzer::Layout::designWidth * 2 })
+            {
+                const int height = width * Analyzer::Layout::designHeight / Analyzer::Layout::designWidth;
+                Analyzer::AnalyzerRoot root;
+                root.setSize (width, height);
+                auto& ui = root.content;
+                const auto context = "Audio Analyzer at " + juce::String (width) + " px";
+                expectWithinAbsoluteError (ui.getTransform().mat00, (float) width / (float) Analyzer::Layout::designWidth, 0.01f, context + ": scales as a whole");
+
+                struct Screen { juce::String name; std::function<void()> show; };
+                const Screen screens[] = {
+                    { "waiting", [&] { ui.reset(); } },
+                    { "reading", [&] { ui.analyse (writeWav (folder, "slow-words.wav", 44100.0, 16, false, sine (44100.0, 120.0, 997.0, -20.0, 1))); } },
+                    { "a good file", [&] { analyseInWindow (ui, good); } },
+                    { "a clipped file", [&] { analyseInWindow (ui, clipped); } },
+                    { "a missing file", [&] { analyseInWindow (ui, missing); } } };
+                for (auto& s : screens)
+                {
+                    s.show();
+                    settle (60);
+                    const auto where = context + ", " + s.name;
+                    juce::StringArray texts;
+                    Songsmith::UI::Wording::collect (ui, texts);
+                    for (auto& line : ui.getGuidance().getView().getAllText())
+                        texts.add (line);
+                    for (auto& line : ui.getAdvice().measured) texts.add (line);
+                    expectGreaterThan (texts.size(), 8, where + ": found the text");
+                    Songsmith::UI::Wording::expectPlainWords (*this, texts, where);
+                    Songsmith::UI::Wording::expectTextFits (*this, ui, ui.getLookAndFeel(), where);
+                    Songsmith::UI::Testing::checkEditorFonts (*this, ui, where);
+                }
+                ui.reset();
+            }
+        }
+
+        beginTest ("Accessibility: buttons are reachable by keyboard, named, and have a tooltip that explains them");
+        {
+            AnalyzerUI ui;
+            for (auto* b : { &ui.getChooseButton(), &ui.getAnotherButton(), &ui.getCancelButton() })
+            {
+                expect (b->getButtonText().isNotEmpty(), "the button has words on it");
+                expect (b->getWantsKeyboardFocus(), b->getButtonText() + " can be reached from the keyboard");
+                expect (b->getTooltip().isNotEmpty(), b->getButtonText() + " has a tooltip");
+                expect (b->isAccessible(), b->getButtonText() + " is visible to screen readers");
+            }
+            expect (ui.getTitle().isNotEmpty() && ui.getDescription().isNotEmpty(), "the window has a name and a description");
+            analyseInWindow (ui, writeWav (folder, "access.wav", 44100.0, 16, false, sine (44100.0, 3.0, 997.0, -23.0)));
+            for (int i = 0; i < ui.getNumTiles(); ++i)
+                expect (ui.getTile (i).getTitle().isNotEmpty() && ui.getTile (i).getDescription().isNotEmpty(), "tile " + juce::String (i) + " reads out its name and value");
+            expect (ui.getGuidance().getTitle().isNotEmpty(), "the guidance area has a name");
+        }
+
+        folder.deleteRecursively();
+    }
+};
+
+static AudioAnalyzerTests audioAnalyzerTests;
+static SongsmithFileAdvisorTests sharedFileAdvisorTests { "AudioAnalyzer" };   // REC-01: the analysis and advice the app is built on
+static SongsmithUITests sharedUITests { "AudioAnalyzer" };
+
+struct ConsoleRunner final : juce::UnitTestRunner
+{
+    void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); std::fflush (stdout); }
+};
+
+// AudioAnalyzerTests --screenshots <folder> [--scale 2]: renders the three screens (waiting, results, an error) to PNGs.
+static int renderScreenshots (const juce::File& folder, float scale)
+{
+    folder.createDirectory();
+    const auto work = juce::File::getSpecialLocation (juce::File::tempDirectory).getNonexistentChildFile ("songsmith-rec02-shots", "", false);
+    work.createDirectory();
+
+    auto save = [&] (Analyzer::AnalyzerRoot& root, const juce::String& name)
+    {
+        const auto image = root.createComponentSnapshot (root.getLocalBounds(), true, scale);
+        const auto file = folder.getChildFile (name);
+        file.deleteFile();
+        juce::FileOutputStream out (file);
+        if (! out.openedOk() || ! juce::PNGImageFormat().writeImageToStream (image, out))
+            return false;
+        std::printf ("Wrote %s\n", file.getFullPathName().toRawUTF8());
+        return true;
+    };
+
+    bool ok = true;
+    Analyzer::AnalyzerRoot root;
+    ok = save (root, "audio-analyzer-waiting.png") && ok;
+
+    const auto song = writeWav (work, "My Song Master.wav", 48000.0, 24, false, songLike (48000.0, 24.0));
+    root.content.analyse (song);
+    waitUntil ([&] { return root.content.getState() == Analyzer::AnalyzerComponent::State::showing; });
+    settle (80);
+    ok = save (root, "audio-analyzer-results.png") && ok;
+
+    work.getChildFile ("Not A Song.txt").replaceWithText ("This is not audio.");
+    root.content.analyse (work.getChildFile ("Not A Song.txt"));
+    waitUntil ([&] { return root.content.getState() == Analyzer::AnalyzerComponent::State::showing; });
+    settle (80);
+    ok = save (root, "audio-analyzer-error.png") && ok;
+
+    root.content.reset();
+    work.deleteRecursively();
+    return ok ? 0 : 1;
+}
+
+int main (int argc, char* argv[])
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+
+    for (int i = 1; i + 1 < argc; ++i)
+        if (juce::String (argv[i]) == "--screenshots")
+        {
+            float scale = 1.0f;
+            for (int j = 1; j + 1 < argc; ++j)
+                if (juce::String (argv[j]) == "--scale")
+                    scale = juce::jlimit (1.0f, 4.0f, juce::String (argv[j + 1]).getFloatValue());
+            return renderScreenshots (juce::File::getCurrentWorkingDirectory().getChildFile (argv[i + 1]), scale);
+        }
+
+    ConsoleRunner runner;
+    runner.setAssertOnFailure (false);
+    runner.runTestsInCategory ("AudioAnalyzer");
+
+    int failures = 0, passes = 0;
+    for (int i = 0; i < runner.getNumResults(); ++i)
+    {
+        failures += runner.getResult (i)->failures;
+        passes   += runner.getResult (i)->passes;
+    }
+
+    std::printf ("\n==== %d checks passed, %d failed ====\n", passes, failures);
+    return failures == 0 ? 0 : 1;
+}
