@@ -180,7 +180,7 @@ namespace Songsmith::Analyzer
         stopTimer();
         runner.cancel();
         state = State::waiting;
-        file = {};
+        file = juce::File();
         result = {};
         advice = {};
         extraNote = {};
