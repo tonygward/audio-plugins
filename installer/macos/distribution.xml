@@ -11,7 +11,7 @@
     VST3 plugin    -> /Library/Audio/Plug-Ins/VST3/<plugin>.vst3
     Audio Unit     -> /Library/Audio/Plug-Ins/Components/<plugin>.component
     Standalone app -> /Applications/<plugin>.app
-  The three packages sit inside the plugin's one choice (the Audio Analyzer is an app only, so its choice holds just the app), so there are no separate format choices.
+  The three packages sit inside the plugin's one choice (the Audio Analyzer is an app only, so its choice holds just the app, and the Plugin Analyzer is a VST3 only, so its choice holds just the VST3), so there are no separate format choices.
 
   The choice ids (eq, fet, max) are used by test-installer.sh (choice changes XML) and by anyone scripting an
   install, so keep them stable. The package ids are the per-plugin installers' ids (never change
@@ -43,6 +43,7 @@
         <line choice="opt"/>
         <line choice="peq"/>
         <line choice="bus"/>
+        <line choice="pla"/>
         <line choice="ana"/>
     </choices-outline>
 
@@ -118,6 +119,12 @@
     <pkg-ref id="com.songsmithstudio.songsmithpassiveeq.vst3" version="@PEQ_VERSION@" onConclusion="none">songsmithpassiveeq-vst3.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithpassiveeq.au"   version="@PEQ_VERSION@" onConclusion="none">songsmithpassiveeq-au.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithpassiveeq.app"  version="@PEQ_VERSION@" onConclusion="none">songsmithpassiveeq-app.pkg</pkg-ref>
+    <!-- Songsmith Plugin Analyzer: a VST3 plugin only (no Audio Unit and no app), for measuring what another plugin does -->
+    <choice id="pla" title="Songsmith Plugin Analyzer @PLA_VERSION@" start_selected="true"
+            description="Songsmith Plugin Analyzer: measure what another plugin does to the sound at each frequency. Installs the VST3 plugin only: put one copy before the plugin you want to measure and one after it.">
+        <pkg-ref id="com.songsmithstudio.songsmithpluginanalyzer.vst3"/>
+    </choice>
+
     <!-- Songsmith Audio Analyzer: an application only (no VST3 and no Audio Unit), for checking a finished song -->
     <choice id="ana" title="Songsmith Audio Analyzer @ANA_VERSION@" start_selected="true"
             description="Songsmith Audio Analyzer: check the loudness and format of a finished song. Installs one app in Applications. It is not a plugin and needs no recording software.">
@@ -127,6 +134,7 @@
     <pkg-ref id="com.songsmithstudio.songsmithbuscompressor.vst3" version="@BUS_VERSION@" onConclusion="none">songsmithbuscompressor-vst3.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithbuscompressor.au"   version="@BUS_VERSION@" onConclusion="none">songsmithbuscompressor-au.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithbuscompressor.app"  version="@BUS_VERSION@" onConclusion="none">songsmithbuscompressor-app.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithpluginanalyzer.vst3" version="@PLA_VERSION@" onConclusion="none">songsmithpluginanalyzer-vst3.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithaudioanalyzer.app"  version="@ANA_VERSION@" onConclusion="none">songsmithaudioanalyzer-app.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithcompressor.au"   version="@COMP_VERSION@" onConclusion="none">songsmithcompressor-au.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithcompressor.app"  version="@COMP_VERSION@" onConclusion="none">songsmithcompressor-app.pkg</pkg-ref>

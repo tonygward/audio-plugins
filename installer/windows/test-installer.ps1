@@ -6,7 +6,7 @@
 # -EqInstaller is Songsmith EQ's own installer (eq/installer), used to check that the suite
 # replaces a per-plugin install. -OlderInstaller is a suite installer with a lower version, used
 # to check upgrades; if it's missing, it's built from the same plugins with an older version (see $olderVersion).
-# -EqDir, -FetDir, -MaxDir, -CompDir, -OptDir, -PeqDir, -BusDir and -AnaDir (the Audio Analyzer app) are the plugins' Release artefacts, as for build-installer.ps1
+# -EqDir, -FetDir, -MaxDir, -CompDir, -OptDir, -PeqDir, -BusDir, -PlaDir (the Plugin Analyzer, a VST3 only) and -AnaDir (the Audio Analyzer app) are the plugins' Release artefacts, as for build-installer.ps1
 # (CI passes the folders it downloaded; locally the plugins' own build folders are used).
 #
 # Everything happens inside a temporary folder. The installers run per-user (/CURRENTUSER) with
@@ -25,7 +25,8 @@ param(
     [string]$OptDir,
     [string]$PeqDir,
     [string]$BusDir,
-    [string]$AnaDir
+    [string]$AnaDir,
+    [string]$PlaDir
 )
 
 $ErrorActionPreference = "Stop"
@@ -45,6 +46,7 @@ if ($OptDir) { $builds.OptDir = $OptDir }
 if ($PeqDir) { $builds.PeqDir = $PeqDir }
 if ($BusDir) { $builds.BusDir = $BusDir }
 if ($AnaDir) { $builds.AnaDir = $AnaDir }
+if ($PlaDir) { $builds.PlaDir = $PlaDir }
 if (-not $Installer) {
     $Installer = (& (Join-Path $PSScriptRoot "build-installer.ps1") @builds | Select-Object -Last 1)
 }
@@ -70,8 +72,10 @@ $plugins = [ordered]@{
     peq = "Songsmith Passive EQ"
     bus = "Songsmith Bus Compressor"
     ana = "Songsmith Audio Analyzer"   # REC-02: an application only, with no VST3
+    pla = "Songsmith Plugin Analyzer"  # ANALYZER-01: a VST3 only, with no standalone app and no shortcut
 }
 $appOnly = @("ana")
+$pluginOnly = @("pla")
 function Bundle([string]$key) { Join-Path $vst3Dir "$($plugins[$key]).vst3" }
 function Dll([string]$key)    { Join-Path (Bundle $key) "Contents\x86_64-win\$($plugins[$key]).vst3" }
 function Exe([string]$key)    { Join-Path $suiteDir "$($plugins[$key])\$($plugins[$key]).exe" }
@@ -116,11 +120,16 @@ function Expect-Installed([string[]]$keys, [string]$context) {
         if ($appOnly -contains $k) {
             Check (-not (Test-Path (Bundle $k))) "$context`: $($plugins[$k]) has no VST3 (it is an app only)"
             Check ((Test-Path (Exe $k)) -eq $want) "$context`: $($plugins[$k]) app $(if ($want) { 'installed' } else { 'not installed' })"
+        } elseif ($pluginOnly -contains $k) {
+            Check ((Test-Path (Dll $k)) -eq $want) "$context`: $($plugins[$k]) VST3 $(if ($want) { 'installed' } else { 'not installed' })"
+            Check (-not (Test-Path (Exe $k))) "$context`: $($plugins[$k]) has no standalone app (it needs two copies inside a host)"
         } else {
             Check ((Test-Path (Dll $k)) -eq $want) "$context`: $($plugins[$k]) VST3 $(if ($want) { 'installed' } else { 'not installed' })"
             Check ((Test-Path (Exe $k)) -eq $want) "$context`: $($plugins[$k]) standalone app $(if ($want) { 'installed' } else { 'not installed' })"
         }
-        Check ((Test-Path (Shortcut $k)) -eq $want) "$context`: $($plugins[$k]) Start menu shortcut $(if ($want) { 'present' } else { 'absent' })"
+        if ($pluginOnly -notcontains $k) {
+            Check ((Test-Path (Shortcut $k)) -eq $want) "$context`: $($plugins[$k]) Start menu shortcut $(if ($want) { 'present' } else { 'absent' })"
+        }
     }
 }
 
@@ -165,14 +174,14 @@ try {
 
     Write-Host "`n1. Everything ticked"
     Check ((Run-Suite $Installer "1-all.log" "") -eq 0) "installer exits with 0"
-    Expect-Installed @("eq", "fet", "max", "comp", "opt", "peq", "bus", "ana") "everything"
+    Expect-Installed @("eq", "fet", "max", "comp", "opt", "peq", "bus", "ana", "pla") "everything"
     Check ((Shortcut-Target (Shortcut "ana")) -eq (Exe "ana")) "the Audio Analyzer's Start menu shortcut opens its installed app: $(Shortcut-Target (Shortcut 'ana'))"
     Check (Test-Path $suiteUninstaller) "one uninstaller"
     Check ((Split-Path $Installer -Leaf) -like "Songsmith-Plugins-*-win64-setup.exe") "the installer file is named Songsmith-Plugins-<version>-win64-setup.exe"
     Check ((Get-ItemProperty $suiteKey).DisplayName -like "Songsmith Plugins (*") "the Apps entry is called Songsmith Plugins: $((Get-ItemProperty $suiteKey).DisplayName)"
     Check ((Get-ItemProperty $suiteKey).Publisher -eq "Songsmith Studio") "the publisher is still Songsmith Studio"
     $name = (Get-ItemProperty $suiteKey).DisplayName
-    Check ($name -match "EQ \d+\.\d+\.\d+" -and $name -match "Analog Compressor \d+\.\d+\.\d+" -and $name -match "Maximiser \d+\.\d+\.\d+" -and $name -match "Compressor \d+\.\d+\.\d+, Optical Leveller \d+\.\d+\.\d+, Passive EQ \d+\.\d+\.\d+, Bus Compressor \d+\.\d+\.\d+, Audio Analyzer \d+\.\d+\.\d+\)") "the Apps entry lists each plugin's version: $name"
+    Check ($name -match "EQ \d+\.\d+\.\d+" -and $name -match "Analog Compressor \d+\.\d+\.\d+" -and $name -match "Maximiser \d+\.\d+\.\d+" -and $name -match "Compressor \d+\.\d+\.\d+, Optical Leveller \d+\.\d+\.\d+, Passive EQ \d+\.\d+\.\d+, Bus Compressor \d+\.\d+\.\d+, Audio Analyzer \d+\.\d+\.\d+, Plugin Analyzer \d+\.\d+\.\d+\)") "the Apps entry lists each plugin's version: $name"
 
     # The app runs by itself, with no recording software: it opens, stays open and can be closed.
     $app = Start-Process -FilePath (Exe "ana") -PassThru
@@ -264,7 +273,7 @@ try {
     $iss = Get-Content (Join-Path $PSScriptRoot "SongsmithStudio.iss") -Raw
     Check ($iss -notmatch '(?im)^Name:\s*"\w+\\standalone"') "the Components list has no standalone sub-components"
     $componentLines = [regex]::Matches($iss, '(?im)^Name:\s*"(\w+)";\s+Description:.*Types:')
-    Check ($componentLines.Count -eq 8) "exactly eight components: seven plugins and the Audio Analyzer (found $($componentLines.Count))"
+    Check ($componentLines.Count -eq 9) "exactly nine components: eight plugins and the Audio Analyzer (found $($componentLines.Count))"
 
     # The installer must never reach user presets, whatever folder they're in.
     $iss = Get-Content (Join-Path $PSScriptRoot "SongsmithStudio.iss") -Raw

@@ -61,6 +61,8 @@ test('refuses any changed file outside the worker scope', () => {
   assert.equal(inScope('pultec-eq/README.md'), true);
   assert.equal(inScope('bus-compressor/Source/BusEngine.h'), true);
   assert.equal(inScope('bus-compressor/README.md'), true);
+  assert.equal(inScope('plugin-analyzer/Source/AnalysisMath.h'), true);
+  assert.equal(inScope('plugin-analyzer/README.md'), true);
   assert.equal(inScope('audio-analyzer/Source/AnalyzerComponent.cpp'), true);
   assert.equal(inScope('audio-analyzer/README.md'), true);
   assert.equal(inScope('audio-analyzer/installer/macos/build-installer.sh'), false);
@@ -88,6 +90,7 @@ test('branch names map to prompt ids and prompts to the done folder', () => {
   assert.equal(archivePath('optical-leveller/prompts/01-x.md'), 'optical-leveller/prompts/done/01-x.md');
   assert.equal(archivePath('pultec-eq/prompts/01-x.md'), 'pultec-eq/prompts/done/01-x.md');
   assert.equal(archivePath('bus-compressor/prompts/01-x.md'), 'bus-compressor/prompts/done/01-x.md');
+  assert.equal(archivePath('plugin-analyzer/prompts/01-x.md'), 'plugin-analyzer/prompts/done/01-x.md');
   assert.equal(archivePath('eq/prompts/done/41-x.md'), null);
   assert.equal(archivePath('docs/x.md'), null);
 });

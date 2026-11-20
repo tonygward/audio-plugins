@@ -14,6 +14,7 @@ dynamics plugin has no Gain Reduction meter, so a new plugin cannot skip it.
 | Songsmith Passive EQ | no | yes | not applicable | Margin 20 to 16 units, as the others |
 | Songsmith Bus Compressor | yes | yes (new) | yes (new) | Column added (design width 800 to 980) |
 | Songsmith Optical Leveller | yes | yes (new) | yes (new) | Column added (design width 760 to 940) |
+| Songsmith Plugin Analyzer | no (a measuring tool that never changes the level) | yes | not applicable | Built with the column (ANALYZER-01) |
 | Songsmith Analog Compressor | yes | yes (new) | yes (new) | Column added (design width 960 to 1140) |
 
 ## Choices

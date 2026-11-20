@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Songsmith Plugin Analyzer - macOS installer layout (productbuild distribution file).
+
+  build-installer.sh fills in @VERSION@ and @MIN_MACOS@ (read from the built bundle) and passes the one component
+  package and the resources/ folder to productbuild.
+
+  One choice, on by default, shown on the "Customize" page. The Plugin Analyzer is a VST3 plug-in only: it needs two
+  copies inside a recording program, so there is no Audio Unit and no standalone app:
+    vst3  VST3 plug-in -> /Library/Audio/Plug-Ins/VST3/Songsmith Plugin Analyzer.vst3
+
+  The choice id is used by test-installer.sh and by anyone scripting an install, so keep it stable.
+-->
+<installer-gui-script minSpecVersion="2">
+    <title>Songsmith Plugin Analyzer @VERSION@</title>
+    <organization>com.songsmithstudio</organization>
+
+    <welcome    file="welcome.html"    mime-type="text/html"/>
+    <readme     file="readme.html"     mime-type="text/html"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+
+    <!-- Universal build. System-wide install only (admin password), into the folder every host scans. -->
+    <options customize="allow" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+
+    <!-- The same minimum as the plug-in binary itself (its deployment target). -->
+    <allowed-os-versions>
+        <os-version min="@MIN_MACOS@"/>
+    </allowed-os-versions>
+
+    <choices-outline>
+        <line choice="vst3"/>
+    </choices-outline>
+
+    <choice id="vst3" title="VST3 plug-in" start_selected="true"
+            description="Songsmith Plugin Analyzer.vst3 in /Library/Audio/Plug-Ins/VST3. Put one copy before the plugin you want to measure and one after it, in a DAW that supports VST3.">
+        <pkg-ref id="com.songsmithstudio.songsmithpluginanalyzer.vst3"/>
+    </choice>
+
+    <pkg-ref id="com.songsmithstudio.songsmithpluginanalyzer.vst3" version="@VERSION@" onConclusion="none">songsmithpluginanalyzer-vst3.pkg</pkg-ref>
+</installer-gui-script>

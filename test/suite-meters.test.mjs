@@ -9,7 +9,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // Equalisers: Output meter only. Never a made-up Gain Reduction. Everything else is treated as a dynamics plugin.
-const equalisers = new Set(['eq', 'pultec-eq']);
+// The Plugin Analyzer (ANALYZER-01) is a measuring tool that passes the sound through unchanged, so it never has gain reduction.
+const equalisers = new Set(['eq', 'pultec-eq', 'plugin-analyzer']);
 
 const plugins = fs.readdirSync(root, { withFileTypes: true })
   .filter(d => d.isDirectory() && fs.existsSync(path.join(root, d.name, 'CMakeLists.txt')))
@@ -23,8 +24,8 @@ const editorText = dir => ['PluginEditor.h', 'PluginEditor.cpp']
   .join('\n');
 
 test('the plugin list is found (a guard against this test silently checking nothing)', () => {
-  assert.ok(plugins.length >= 7, `found only: ${plugins.join(', ')}`);
-  for (const p of ['eq', 'compressor', 'analog-compressor', 'maximiser', 'optical-leveller', 'pultec-eq', 'bus-compressor'])
+  assert.ok(plugins.length >= 8, `found only: ${plugins.join(', ')}`);
+  for (const p of ['eq', 'compressor', 'analog-compressor', 'maximiser', 'optical-leveller', 'pultec-eq', 'bus-compressor', 'plugin-analyzer'])
     assert.ok(plugins.includes(p), `${p} should be found`);
 });
 

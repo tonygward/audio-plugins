@@ -27,7 +27,8 @@ namespace Songsmith::UI::Wording
     inline bool isAllowedShortForm (const juce::String& word)
     {
         // REC-01: WAV, AIFF and FLAC are file format names and "CD quality" is the established plain phrase.
-        static const juce::StringArray allowed { "Q", "LUFS", "VST3", "AU", "EQ", "WAV", "AIFF", "FLAC", "CD" };
+        // ANALYZER-01: CSV is the name of the table file format the Plugin Analyzer exports.
+        static const juce::StringArray allowed { "Q", "LUFS", "VST3", "AU", "EQ", "WAV", "AIFF", "FLAC", "CD", "CSV" };
         return allowed.contains (word);
     }
 

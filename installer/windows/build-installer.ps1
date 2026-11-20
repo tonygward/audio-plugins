@@ -1,5 +1,5 @@
 # Builds the Songsmith Plugins Windows installer (Inno Setup 6): every plugin in one Setup, each
-# one ticked by default, and the Songsmith Audio Analyzer app. Uses existing Release builds of the seven plugins and the app.
+# one ticked by default, the Songsmith Plugin Analyzer (a VST3 only) and the Songsmith Audio Analyzer app. Uses existing Release builds of the seven plugins and the app.
 #
 #   .\installer\windows\build-installer.ps1                  # -> build\suite-installer\Songsmith-Plugins-<version>-win64-setup.exe
 #   .\installer\windows\build-installer.ps1 -EqDir <folder>  # a plugin's Release artefacts from somewhere else (CI)
@@ -7,7 +7,7 @@
 #
 # Every plugin and the suite share the one version in VERSION at the repository root.
 # Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser, compressor, optical-leveller, pultec-eq, bus-compressor)
-# and the app (audio-analyzer).
+# the Plugin Analyzer (plugin-analyzer, VST3 only) and the app (audio-analyzer).
 # Writes the path of the installer to the output.
 param(
     [string]$EqDir,
@@ -18,6 +18,7 @@ param(
     [string]$PeqDir,
     [string]$BusDir,
     [string]$AnaDir,
+    [string]$PlaDir,
     [string]$SuiteVersion,
     [string]$OutDir,
     [string]$Config = "Release"
@@ -59,6 +60,18 @@ foreach ($p in $plugins) {
     $defines += "/D$($p.Key)Dir=$dir"
     $defines += "/D$($p.Key)Version=$sharedVersion"
 }
+
+# The Songsmith Plugin Analyzer (ANALYZER-01) is a plugin only: it has a VST3 but no Standalone app (it needs two copies inside a host).
+$pluginAnalyzer = @{ Key = "Pla"; Folder = "plugin-analyzer"; Target = "SongsmithPluginAnalyzer"; Name = "Songsmith Plugin Analyzer"; Dir = $PlaDir }
+$plaDir = $pluginAnalyzer.Dir
+if (-not $plaDir) { $plaDir = Join-Path $repo "$($pluginAnalyzer.Folder)\build\$($pluginAnalyzer.Target)_artefacts\$Config" }
+$plaDir = (Resolve-Path $plaDir -ErrorAction SilentlyContinue).Path
+$plaVst3 = "VST3\$($pluginAnalyzer.Name).vst3\Contents\x86_64-win\$($pluginAnalyzer.Name).vst3"
+if (-not $plaDir -or -not (Test-Path (Join-Path $plaDir $plaVst3))) {
+    throw "Missing '$plaVst3' in '$plaDir'. Build first: cmake --build $($pluginAnalyzer.Folder)/build --config $Config"
+}
+$defines += "/DPlaDir=$plaDir"
+$defines += "/DPlaVersion=$sharedVersion"
 
 # The Songsmith Audio Analyzer (REC-02) is an application, not a plugin: there is no VST3 and no Standalone folder, only its exe.
 $analyzer = @{ Key = "Ana"; Folder = "audio-analyzer"; Target = "SongsmithAudioAnalyzer"; Name = "Songsmith Audio Analyzer"; Dir = $AnaDir }
