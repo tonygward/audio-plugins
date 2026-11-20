@@ -83,7 +83,7 @@ cmake --build audio-analyzer/build --config Release
 
 `AudioAnalyzerTests --screenshots <folder> [--scale 2]` renders the three screens (waiting, results, an error).
 
-The tests write real reference files to a temporary folder (WAV 16-, 24- and 32-bit float, AIFF, FLAC, mono and stereo, and MP3 files built by hand from silent frames) and read them back through the same code the app uses:
+The tests write real reference files to a temporary folder (WAV 16-, 24- and 32-bit float, AIFF, FLAC, mono and stereo, and MP3 files built by hand from silent frames, plus the four small real MP3 reference files in `Tests/fixtures`) and read them back through the same code the app uses:
 
 - Known loudness: a 997 Hz sine reads the same number of LUFS as its level in dBFS (EBU Tech 3341), mono reads 3 dB lower, and a gated signal reads as the standard says.
 - True peak: a wave that rises between samples reads about 3 dB above its highest stored sample, and a sample peak is never shown as a true peak.
@@ -99,6 +99,6 @@ The tests write real reference files to a temporary folder (WAV 16-, 24- and 32-
 - The waveform shows the largest sample in each slice (a peak envelope), not loudness over time. A loudness history (momentary or short-term loudness through the song) is not shown.
 
 - The app has not been tried on a real Mac by a person, and the macOS package is built and tested only on the hosted macOS runner. Opening a file from Finder (or by dropping it on the app's icon) is set up in the app's property list and checked there, but has not been tried by hand.
-- **MP3 loudness and true peak are not yet checked against known-good encoded music.** No MP3 encoder was available to make reference files, so the tests cover everything about opening and describing an MP3 using hand-built silent files, and the decoder was run by hand on real MP3 files (readings looked right, and the exact length matched the decoder's frame count), but no MP3 with a known loudness is in the test suite. The decoded sound of a real MP3 is the decoder's output; the app does not remove the encoder's start and end silence.
+- **MP3 loudness and true peak are checked against four real MP3 files of a known signal** (`Tests/fixtures`, a 997 Hz sine at -20 dBFS encoded with LAME at 128, 192 and 320 kilobits per second and as variable bitrate). Each reads what ffmpeg's EBU R128 meter reads for the decoded file, within 0.15 dB (the lower bitrates decode a little under their source: -20.5 LUFS at 128). That is a pure tone, not music, so it checks the decoder and the measurement, not how every kind of music encodes. The app does not remove the encoder's start and end silence.
 - Reference files are generated; no commercially mastered files were used. True peak is checked on constructed signals with a known answer, not against another vendor's meter.
 - Screen reader use is covered by the accessibility names and roles the tests check, not by a session with a screen reader.
