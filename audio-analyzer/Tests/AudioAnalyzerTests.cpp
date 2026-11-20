@@ -262,7 +262,9 @@ public:
                 expectEquals (r.averageBitrateKbps, c.expectedKbps, c.label);
                 expectEquals (r.storedBits, 0, "no bit depth is made up for a compressed file");
                 expectEquals (readingValue (ui, "Bit Depth and Encoding"), juce::String ("Not applicable"));
-                expectEquals (readingNote (ui, "Bit Depth and Encoding"), "MP3, lossy, about " + juce::String (c.expectedKbps) + " kilobits per second");
+                expectEquals (readingNote (ui, "Bit Depth and Encoding"), juce::String ("MP3, lossy"));
+                expect (ui.getFileDetailLabel().getText().contains ("about " + juce::String (c.expectedKbps) + " kilobits per second"),
+                        "the line under the file name gives the average bitrate: " + ui.getFileDetailLabel().getText());
                 expectEquals (readingValue (ui, "Channels"), juce::String (c.channelMode == 3 ? "Mono" : "Stereo"), c.label);
             }
 
@@ -565,6 +567,7 @@ public:
                 return writeWav (folder, "clipped.wav", 44100.0, 16, false, b);
             }();
             const auto missing = folder.getChildFile ("not-there.wav");
+            const auto mp3 = writeSilentMp3 (folder, "words.mp3", 3.0, 0, 0, 14);   // 320 kilobits per second: the longest wording
             for (int width : { Analyzer::Layout::designWidth * 3 / 4, Analyzer::Layout::designWidth, Analyzer::Layout::designWidth * 2 })
             {
                 const int height = width * Analyzer::Layout::designHeight / Analyzer::Layout::designWidth;
@@ -580,6 +583,7 @@ public:
                     { "reading", [&] { ui.analyse (writeWav (folder, "slow-words.wav", 44100.0, 16, false, sine (44100.0, 120.0, 997.0, -20.0, 1))); } },
                     { "a good file", [&] { analyseInWindow (ui, good); } },
                     { "a clipped file", [&] { analyseInWindow (ui, clipped); } },
+                    { "an MP3 file", [&] { analyseInWindow (ui, mp3); } },
                     { "a missing file", [&] { analyseInWindow (ui, missing); } } };
                 for (auto& s : screens)
                 {

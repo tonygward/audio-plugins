@@ -58,11 +58,9 @@ namespace Songsmith::Analyzer
 
     inline juce::String describeEncoding (const FileAnalysis::Result& r)
     {
+        // Short enough for its box. The average bitrate is in the line under the file's name and in the measured facts.
         if (r.lossy)
-        {
-            const auto rate = FileAdvice::describeBitrate (r);
-            return r.formatName + ", lossy" + (rate.isNotEmpty() ? ", " + rate : juce::String());
-        }
+            return r.formatName + ", lossy";
         if (r.floatingPoint)
             return r.formatName == "FLAC" ? "FLAC, floating point" : r.formatName + ", floating point";
         if (r.formatName == "FLAC")
