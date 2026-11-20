@@ -85,6 +85,29 @@ function Shortcut-Target([string]$path) {
     return (New-Object -ComObject WScript.Shell).CreateShortcut($path).TargetPath
 }
 
+# ANA-01: how many icon images are embedded in an exe (Windows shows the logo from these: Start menu, taskbar, Explorer).
+Add-Type @"
+using System; using System.Runtime.InteropServices;
+public static class ExeIcons {
+    [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr LoadLibraryEx(string file, IntPtr h, uint flags);
+    [DllImport("kernel32.dll")] static extern bool FreeLibrary(IntPtr m);
+    delegate bool EnumProc(IntPtr m, IntPtr type, IntPtr name, IntPtr l);
+    [DllImport("kernel32.dll")] static extern bool EnumResourceNames(IntPtr m, IntPtr type, EnumProc p, IntPtr l);
+    public static int Count(string file) {
+        IntPtr m = LoadLibraryEx(file, IntPtr.Zero, 2);   // LOAD_LIBRARY_AS_DATAFILE
+        if (m == IntPtr.Zero) return -1;
+        int n = 0;
+        EnumResourceNames(m, (IntPtr) 3, delegate (IntPtr a, IntPtr b, IntPtr c, IntPtr d) { n++; return true; }, IntPtr.Zero);   // RT_ICON
+        FreeLibrary(m);
+        return n;
+    }
+}
+"@
+function Shortcut-Icon([string]$path) {
+    if (-not (Test-Path $path)) { return $null }
+    return (New-Object -ComObject WScript.Shell).CreateShortcut($path).IconLocation
+}
+
 $suiteKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{9AC9C845-D81C-4667-BBD4-C412BC291211}_is1"
 $eqKey    = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{2F8C1884-56C1-45D8-A78D-CF117EC69B44}_is1"
 $suiteUninstaller = Join-Path $suiteDir "unins000.exe"
@@ -176,6 +199,12 @@ try {
     Check ((Run-Suite $Installer "1-all.log" "") -eq 0) "installer exits with 0"
     Expect-Installed @("eq", "fet", "max", "comp", "opt", "peq", "bus", "ana", "pla") "everything"
     Check ((Shortcut-Target (Shortcut "ana")) -eq (Exe "ana")) "the Audio Analyzer's Start menu shortcut opens its installed app: $(Shortcut-Target (Shortcut 'ana'))"
+    # ANA-01: the logo. The app carries its icon inside the exe, and the shortcut takes it from there (a stored path to a
+    # separate icon file could go missing, and Windows would then show a blank icon).
+    $anaIcons = [ExeIcons]::Count((Exe "ana"))
+    Check ($anaIcons -ge 4) "the installed Audio Analyzer has the Songsmith logo built into its exe at several sizes ($anaIcons icon images)"
+    $anaIconLocation = Shortcut-Icon (Shortcut "ana")
+    Check ([string]::IsNullOrEmpty(($anaIconLocation -replace '^,?\s*0?$', '')) -or $anaIconLocation -like "$(Exe 'ana'),*") "the Start menu shortcut takes its icon from the app itself: '$anaIconLocation'"
     Check (Test-Path $suiteUninstaller) "one uninstaller"
     Check ((Split-Path $Installer -Leaf) -like "Songsmith-Plugins-*-win64-setup.exe") "the installer file is named Songsmith-Plugins-<version>-win64-setup.exe"
     Check ((Get-ItemProperty $suiteKey).DisplayName -like "Songsmith Plugins (*") "the Apps entry is called Songsmith Plugins: $((Get-ItemProperty $suiteKey).DisplayName)"
