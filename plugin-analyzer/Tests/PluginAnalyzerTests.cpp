@@ -1060,7 +1060,7 @@ public:
             setParam (p, bypassId, 1.0f);
             pump (50);
             expect (ed->getBypassButton().getToggleState(), "it follows the parameter");
-            expectEquals (ed->getBypassButton().findColour (juce::TextButton::buttonOnColourId).getARGB(), Songsmith::UI::Colours::bypass.getARGB(), "the suite's bypass red");
+            expect (ed->getBypassButton().findColour (juce::TextButton::buttonOnColourId).getARGB() == Songsmith::UI::Colours::bypass.getARGB(), "the suite's bypass red");
         }
     }
 };
