@@ -2,7 +2,9 @@
 
 A standalone app for checking a **finished song**. Open a WAV, AIFF, FLAC or MP3 file and it shows how loud the file is and how it was recorded, with short, optional advice in plain English. It needs no recording software, and it is not a plugin.
 
-![Songsmith Audio Analyzer showing the readings and advice for a finished file](docs/images/audio-analyzer-results.png)
+![Songsmith Audio Analyzer showing the True Peak chart, the loudness, the waveform and the advice for a finished file](docs/images/audio-analyzer-results.png)
+
+![A loud file whose left channel goes above 0 dBTP: the True Peak chart turns red above the 0 line, and the right channel stays below it](docs/images/audio-analyzer-results-over.png)
 
 ![The waiting screen: drop a file or choose one](docs/images/audio-analyzer-waiting.png)
 
@@ -11,6 +13,15 @@ A standalone app for checking a **finished song**. Open a WAV, AIFF, FLAC or MP3
 *Real screenshots at 100 %, rendered by the test executable (`AudioAnalyzerTests --screenshots <folder>`).*
 
 ## What it shows
+
+The results are a small dashboard, and the **True Peak chart** is the main picture:
+
+- **True Peak chart** (right): one tall bar for each channel (Left and Right, or one bar for Mono) showing the **highest true peak in the whole file** on a scale from -48 to +6 dBTP, with 0 dBTP marked. The bar turns red above 0, and the number under it says exactly how far (for example +0.9). The small ticks beside each bar are the highest **stored sample**, which is a different reading and can be a little lower. It is a result for the whole file, not a live meter, and it says so.
+- **Integrated Loudness** (top left): the large number. It is the average loudness of the whole file. There is no pass or fail and no loudness a song has to reach.
+- **Waveform** (left): how big the sound is from the start to the end of the song. Taller means a bigger sound at that moment, and red marks a moment that goes past the top. It is **not** a loudness chart and does not show true peak. It holds the same number of slices (800) however long the file is, so an hours-long file uses no more memory.
+- **Facts** (below): sample rate, bit depth and encoding, duration and channels.
+
+Hover over any of them for a plain explanation. Each one also has a name and a description for screen readers that include the real numbers.
 
 | Reading | What it tells you |
 |---|---|
@@ -78,10 +89,14 @@ The tests write real reference files to a temporary folder (WAV 16-, 24- and 32-
 - True peak: a wave that rises between samples reads about 3 dB above its highest stored sample, and a sample peak is never shown as a true peak.
 - Missing measurements (silence, too short, too quiet), every error (missing file, wrong kind of file, folder, damaged file, empty file), repeated and cancelled analyses, a three-minute file read in the background with the window responsive, dropping several files.
 - MP3 (ANA-02): valid MP3 files of silent frames at 32, 44.1 and 48 kHz, mono and stereo, at 64 to 320 kilobits per second, with a changing bitrate and with no header, twelve minutes long, cut short, empty and not an MP3 at all. They check the format, sample rate, channels, exact length, average bitrate, "Not applicable" for bit depth, silence reported as silence, and the words used.
+- The charts (ANA-03): each bar of the True Peak chart is its own channel's measured peak, at the height the scale says (for example -6 dBTP and -12 dBTP on the left and right, 0 dBTP at its mark, a level above 0 drawn above the line, levels far above or below sitting on the edges), mono and six channel files, silence, the highest stored sample kept apart from the true peak; and the waveform of a file that is silent for five seconds then loud (the first half empty, the second at its true level), a ten minute file holding the same number of slices, a tiny file, and what each chart says it is. Also that the charts show only with results, do not overlap anything, and that the True Peak chart is the tallest.
 - Plain words and text that fits at the smallest, default and largest window, in every screen; fonts from the embedded Inter typeface; keyboard use and screen reader names.
 - The shared REC-01 analysis and advice tests (`shared/Tests/SongsmithFileAdvisorTests.h`) run here too.
 
 ## What has not been checked
+
+- The charts are checked against measured values and drawn positions, and by looking at real screenshots (above, rendered by the test executable), but not on a real Mac, on a high-density display by eye, or with a screen reader.
+- The waveform shows the largest sample in each slice (a peak envelope), not loudness over time. A loudness history (momentary or short-term loudness through the song) is not shown.
 
 - The app has not been tried on a real Mac by a person, and the macOS package is built and tested only on the hosted macOS runner. Opening a file from Finder (or by dropping it on the app's icon) is set up in the app's property list and checked there, but has not been tried by hand.
 - **MP3 loudness and true peak are not yet checked against known-good encoded music.** No MP3 encoder was available to make reference files, so the tests cover everything about opening and describing an MP3 using hand-built silent files, and the decoder was run by hand on real MP3 files (readings looked right, and the exact length matched the decoder's frame count), but no MP3 with a known loudness is in the test suite. The decoded sound of a real MP3 is the decoder's output; the app does not remove the encoder's start and end silence.

@@ -3,6 +3,7 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "AnalysisRunner.h"
+#include "AnalyzerGraphs.h"
 #include "AnalyzerLookAndFeel.h"
 #include "AnalyzerText.h"
 #include "GuidanceView.h"
@@ -13,15 +14,26 @@
 // REC-02: the Songsmith Audio Analyzer window. One job: open a finished WAV, AIFF, FLAC or MP3 file, show what it
 // measures (integrated loudness, true peak, sample rate, bit depth and encoding, duration), and give short,
 // optional, plain-English guidance. Then analyse another file.
+//
+// ANA-03: the results are a small dashboard. The principal picture is the True Peak chart (the highest peak in the whole
+// file, per channel). Integrated Loudness is the large number, the waveform shows how big the sound is through the song,
+// and the sample rate, encoding, duration and channels sit compactly below. Everything is a whole-file measurement.
 namespace Songsmith::Analyzer
 {
     namespace Layout
     {
         // Design units; the window scales this as a whole (75 % to 200 %).
-        constexpr int designWidth = 760, designHeight = 640;
+        constexpr int designWidth = 760, designHeight = 800;
         constexpr int margin = 24, titleBarHeight = 52;
-        constexpr int tileWidth = 224, tileHeight = 86, tileGap = 20, tileRowGap = 14, tileColumns = 3, tileRows = 2;
         constexpr int buttonHeight = 30;
+
+        // The results dashboard. Left column: Integrated Loudness, then the waveform. Right column: the True Peak reading,
+        // then its chart. Under both: four compact facts. Then the guidance.
+        constexpr int columnGap = 20, rightColumnWidth = 252;
+        constexpr int loudnessHeight = 104, peakTileHeight = 86, peakChartHeight = 226, blockGap = 12, smallGap = 8;
+        constexpr int factsHeight = 78, factsGap = 12, factsColumns = 4, bitDepthFactWidth = 212;
+        // The large Integrated Loudness number. A little over the title size, because it is the figure to read first.
+        constexpr float heroValueHeight = 40.0f;
     }
 
     // A reading box: a caption, the value in large type, and one short note.
@@ -29,6 +41,9 @@ namespace Songsmith::Analyzer
     {
     public:
         ReadingTile();
+        // The large version, for the figure to read first, and the compact one for the facts under the charts.
+        void setProminent (bool shouldBeProminent);
+        void setCompact (bool shouldBeCompact);
         void setReading (const Reading& r);
         void paint (juce::Graphics&) override;
         void resized() override;
@@ -40,6 +55,7 @@ namespace Songsmith::Analyzer
     private:
         Reading reading;
         juce::Label caption, value, note;
+        bool prominent = false, compact = false;
     };
 
     class AnalyzerComponent : public juce::Component, public juce::FileDragAndDropTarget, private juce::Timer
@@ -79,6 +95,8 @@ namespace Songsmith::Analyzer
         ReadingTile& getTile (int index) noexcept { return *tiles[(size_t) index]; }
         int getNumTiles() const noexcept { return (int) tiles.size(); }
         GuidanceViewport& getGuidance() noexcept { return guidance; }
+        TruePeakDisplay& getPeakDisplay() noexcept { return peakDisplay; }
+        WaveformDisplay& getWaveform() noexcept { return waveform; }
         juce::Label& getFileNameLabel() noexcept { return fileNameLabel; }
         juce::Label& getFileDetailLabel() noexcept { return fileDetailLabel; }
         juce::Label& getStatusLabel() noexcept { return statusLabel; }
@@ -112,6 +130,8 @@ namespace Songsmith::Analyzer
         juce::TextButton chooseButton, anotherButton, cancelButton;
         juce::ProgressBar progressBar { progress };
         std::vector<std::unique_ptr<ReadingTile>> tiles;
+        TruePeakDisplay peakDisplay;
+        WaveformDisplay waveform;
         GuidanceViewport guidance;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AnalyzerComponent)
