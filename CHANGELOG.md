@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## 0.5.56
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
 ## 0.5.55
 
 - **New: Songsmith Plugin Analyzer**, a plugin that measures what another plugin does to the sound at each frequency. Put one copy (the Reference) before the plugin you want to measure and one copy (the Result) after it, give both the same Session, start playback and press Start. The Result draws the gain in decibels from 20 Hz to 20 kHz, keeps four named measurements you can lay over each other (for example a hardware-inspired plugin against Songsmith Passive EQ), and saves them as a table with Export CSV. It tells you when it cannot measure honestly: no sound, a very quiet sound, clipping, or processing that changes over time. It measures a fixed equaliser accurately; a compressor or anything that changes with level is shown at the test level only. You do not need to do anything: it is a new, optional tick box in both suite installers (VST3 only, no standalone app), and your other plugins and presets are untouched.
