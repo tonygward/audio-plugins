@@ -55,6 +55,10 @@ Choices that differ from the ticket, and why:
 - **One preset menu list.** The menu still has one "Starting points" list; the earlier presets were never split into instrument groups, so the new ones follow in the same list.
 - **Long name.** "More Attack on a Soft-Sounding Part" is the ticket's name. Names may now be up to 40 characters, and small joining words ("a", "on", "or") stay lower case in the Title Case check.
 
+## How the menu groups them (PEQ-06)
+
+The starting points are grouped by what they are used for, under headings that cannot be chosen: Drums, Bass, Guitar, Vocals, Mix Bus and Mastering, Utility. The grouping is a table of names in `PeqPresets.cpp` (`Presets::categories()`), so it changes only how the menu is laid out: a starting point keeps its index, its name and its menu item number (its index plus one), and so saved sessions, your own presets and the host's program list are unaffected. Each is in exactly one group, even when it could suit two (the telephone sound is under Vocals, the soft-sounding part under Utility). There is no separate "Classic Pultec Punch": **Punchy Kick** already is the classic trick (Low Boost and Low Cut together at 60 Hz), a second copy would be a duplicate, and preset names keep hardware names out of the title. A group with nothing in it is not shown, and your own presets get their own heading after the groups.
+
 ## What the tests check
 
 - Each of the nine PEQ-05 starting points restores its whole sound from any mode (nothing is left from the previous mode), survives a saved and reopened session, and is one Undo step; its response does what its name says (`PEQ-05: ...` tests).
@@ -62,6 +66,7 @@ Choices that differ from the ticket, and why:
 - No Tone Shaper or Mid Shaper starting point lifts or cuts more than 6 dB anywhere between 20 Hz and 20 kHz (same test, using the engine's own response). A Frequency Filter starting point is a filter, so it is checked to leave 400 Hz to 4 kHz alone (within 0.5 dB) instead.
 - Names are short, in Title Case and free of hardware and educator names; each has a listening cue that stands on its own (same test).
 - Every word on screen, including the listening cues, passes the plain-words check with no abbreviations (`Plain words: ...`).
+- The grouped menu (PEQ-06): every starting point is in exactly one group, in the group the task named, no group is empty and an empty one is dropped; the menu lists each heading then its starting points in order, headings have no item number and cannot be chosen, item numbers are unchanged, your presets come after the groups under their own heading; choosing from the menu loads the settings and switches the mode (one from each mode), is one Undo step, comes back when a session is saved and reopened; the arrow keys step through in menu order and skip the headings.
 
 ## Before this is release-ready
 

@@ -105,6 +105,58 @@ namespace Peq
         return presets;
     }
 
+    // PEQ-06: which group each starting point is in, and the order within a group. Written by name so adding or reordering a
+    // starting point can never silently move another one (the test in PassiveEQTests checks every starting point is in
+    // exactly one group). Each is in one group only, even when it could suit two: "Telephone Voice or Guitar" is under
+    // Vocals, and "More Attack on a Soft-Sounding Part" under Utility because it is not tied to one instrument.
+    const std::vector<FactoryCategory>& Presets::categories()
+    {
+        static const std::vector<FactoryCategory> groups = []
+        {
+            struct Named { const char* group; std::vector<const char*> names; };
+            const std::vector<Named> layout {
+                { "Drums",                 { "Punchy Kick", "Kick Drum Weight" } },
+                { "Bass",                  { "Deep, Tight Bass", "Bass Weight", "Bass Definition" } },
+                { "Guitar",                { "Acoustic Guitar Brightness", "Tighter Rhythm Guitar" } },
+                { "Vocals",                { "Clear Lead Vocal", "Lead Vocal Presence", "Lead Vocal Air", "Telephone Voice or Guitar" } },
+                { "Mix Bus and Mastering", { "Mix Bus Air", "Mix Bus Polish" } },
+                { "Utility",               { "Rumble Cleanup", "Clear Low Rumble", "Reduce Boxy Mids", "Soften Harsh Highs",
+                                             "Soften Top Hiss", "More Attack on a Soft-Sounding Part" } },
+            };
+            std::vector<FactoryCategory> result;
+            const auto& all = factory();
+            for (auto& named : layout)
+            {
+                FactoryCategory group { named.group, {} };
+                for (auto* name : named.names)
+                    for (int i = 0; i < (int) all.size(); ++i)
+                        if (juce::String (all[(size_t) i].name) == juce::String (name))
+                            group.presets.push_back (i);
+                result.push_back (std::move (group));
+            }
+            return result;
+        }();
+        return groups;
+    }
+
+    juce::String Presets::categoryOf (int factoryIndex)
+    {
+        for (auto& group : categories())
+            for (int index : group.presets)
+                if (index == factoryIndex)
+                    return group.name;
+        return {};
+    }
+
+    std::vector<FactoryCategory> Presets::withoutEmptyCategories (const std::vector<FactoryCategory>& groups)
+    {
+        std::vector<FactoryCategory> kept;
+        for (auto& group : groups)
+            if (! group.presets.empty())
+                kept.push_back (group);
+        return kept;
+    }
+
     juce::File Presets::getDefaultUserFolder()
     {
         const auto base = folderRootOverride() != juce::File()

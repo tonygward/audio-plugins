@@ -514,10 +514,15 @@ void SongsmithPassiveEQEditor::paintContent (juce::Graphics& g)
 void SongsmithPassiveEQEditor::rebuildPresetMenu()
 {
     presetBox.clear (juce::dontSendNotification);
+    // PEQ-06: the starting points under group headings (Drums, Bass, Guitar, Vocals, Mix Bus and Mastering, Utility). A heading
+    // cannot be chosen and the arrow keys skip it. A starting point's menu item number is still its index plus one, as before.
     const auto& factory = Presets::factory();
-    presetBox.addSectionHeading ("Starting points");
-    for (int i = 0; i < (int) factory.size(); ++i)
-        presetBox.addItem (factory[(size_t) i].name, i + 1);
+    for (auto& group : Presets::withoutEmptyCategories (Presets::categories()))
+    {
+        presetBox.addSectionHeading (group.name);
+        for (int index : group.presets)
+            presetBox.addItem (factory[(size_t) index].name, index + 1);
+    }
 
     userPresetFiles = proc.presets.getUserPresetFiles();
     if (! userPresetFiles.isEmpty())
