@@ -172,6 +172,11 @@ install_pkg "$pkg"; check "installer exits 0" test $? -eq 0
 expect_installed "eq fet max comp opt peq bus pla ana" "everything"
 check "the Audio Analyzer installed no VST3 or Audio Unit" test ! -e "$VST3_DIR/Songsmith Audio Analyzer.vst3" -a ! -e "$AU_DIR/Songsmith Audio Analyzer.component"
 check "the Audio Analyzer app can be launched (a real executable)" test -x "/Applications/Songsmith Audio Analyzer.app/Contents/MacOS/Songsmith Audio Analyzer"
+# ANA-01: the Songsmith logo is the app's icon (Finder, Dock, Launchpad): the plist names an icon file and it is in the bundle.
+ana_app="/Applications/Songsmith Audio Analyzer.app"
+ana_icon=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" "$ana_app/Contents/Info.plist" 2>/dev/null)
+check "the Audio Analyzer's Info.plist names an icon file ('$ana_icon')" test -n "$ana_icon"
+check "the Audio Analyzer's icon file is in the app bundle" bash -c "ls '$ana_app/Contents/Resources/'${ana_icon%.icns}.icns >/dev/null 2>&1"
 killall -9 AudioComponentRegistrar >/dev/null 2>&1 || true
 sleep 2
 for k in "${keys[@]}"; do

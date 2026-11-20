@@ -51,10 +51,16 @@ The MP3 decoder is JUCE's own, built in, so there is nothing extra to install an
 
 It comes in **Songsmith Plugins**, the one installer for each system, as its own tick box (selected by default):
 
-- **Windows:** installs `Songsmith Audio Analyzer.exe` in `Program Files\Songsmith Studio\Songsmith Audio Analyzer` and adds a Start menu shortcut. Untick it on a later run to remove it.
-- **Mac:** installs `Songsmith Audio Analyzer.app` in Applications. Finder can open WAV, AIFF, FLAC and MP3 files with it.
+- **Windows:** installs `Songsmith Audio Analyzer.exe` in `Program Files\Songsmith Studio\Songsmith Audio Analyzer` and adds a Start menu shortcut. Untick it on a later run to remove it. The exe, the shortcut and the taskbar button all show the Songsmith logo. If Windows still shows a plain icon after an update, it is showing a saved picture; sign out and in again, or restart, to refresh it.
+- **Mac:** installs `Songsmith Audio Analyzer.app` in Applications, with the Songsmith logo as its icon. Finder can open WAV, AIFF, FLAC and MP3 files with it.
 
 Like the plugins, the installers are not code-signed, so Windows SmartScreen or macOS Gatekeeper may warn the first time. See the [installation guide](../TECHNICAL.md).
+
+## The icon
+
+The icon is the Songsmith logo mark, cropped square from the official logo on the website (`Resources/songsmith-icon.png`, 1024 by 1024), not redrawn. The build embeds it in the exe at several sizes and makes the Mac icon from it. The installer tests check that the installed exe carries it and that the Start menu shortcut takes it from the app.
+
+<img src="Resources/songsmith-icon.png" alt="The Songsmith logo mark: a gold and violet S with a gold curve and three dots across it" width="128">
 
 ## Build and test
 
