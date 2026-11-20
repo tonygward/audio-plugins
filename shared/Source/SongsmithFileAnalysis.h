@@ -58,6 +58,15 @@ namespace Songsmith::FileAnalysis
         double samplePeakDb = -std::numeric_limits<double>::infinity();
         double truePeakDb   = -std::numeric_limits<double>::infinity();
 
+        // ANA-03: what the Audio Analyzer draws. All of it is measured from the whole file in the same pass.
+        //  - The highest sample and the highest true peak of each channel, in dBFS and dBTP (-infinity for a silent channel).
+        //  - The size of the sound through the file: for each of waveformColumns equal slices of the file, the largest sample
+        //    in it (linear, 1.0 = full scale, over any channel). It is a picture of size over time, never loudness over time,
+        //    and holds a fixed number of values however long the file is. Empty when the file could not be read.
+        std::vector<double> channelSamplePeakDb;
+        std::vector<double> channelTruePeakDb;
+        std::vector<float> waveformPeaks;
+
         // Possible clipping.
         int clippedRuns = 0;            // runs of 3 or more samples at the file's ceiling
         int longestClippedRun = 0;
@@ -66,6 +75,9 @@ namespace Songsmith::FileAnalysis
         bool silent = false;            // every sample is exactly zero
         bool cancelled = false;
     };
+
+    // How many slices the waveform overview holds, whatever the length of the file.
+    constexpr int waveformColumns = 800;
 
     namespace detail
     {
@@ -326,6 +338,9 @@ namespace Songsmith::FileAnalysis
         const double intCeiling = 1.0 - 1.0 / std::pow (2.0, juce::jmax (8, r.storedBits) - 1);
         const double clipLevel = r.floatingPoint ? 1.0 : intCeiling;
         double samplePeak = 0.0;
+        std::vector<double> channelSamplePeak ((size_t) nch, 0.0);
+        const int columns = (int) std::min<juce::int64> (waveformColumns, r.frames);
+        r.waveformPeaks.assign ((size_t) columns, 0.0f);
 
         for (juce::int64 pos = 0; pos < r.frames;)
         {
@@ -350,17 +365,21 @@ namespace Songsmith::FileAnalysis
                         }
                     }
                 }
-            if (! ok) { r.opened = false; r.error = "This file could not be read all the way through. It may be damaged or cut short."; return r; }
+            if (! ok) { r.opened = false; r.error = "This file could not be read all the way through. It may be damaged or cut short."; r.waveformPeaks.clear(); return r; }
 
             for (int i = 0; i < n; ++i)
             {
                 double weighted = 0.0;
+                const int column = (int) (((pos + i) * (juce::int64) columns) / r.frames);
                 for (int c = 0; c < nch; ++c)
                 {
                     const float x = buf.getReadPointer (c)[i];
                     const double ax = std::abs ((double) x);
-                    if (! std::isfinite (ax)) { r.opened = false; r.error = "This file contains values that are not valid audio."; return r; }
+                    if (! std::isfinite (ax)) { r.opened = false; r.error = "This file contains values that are not valid audio."; r.waveformPeaks.clear(); return r; }
                     samplePeak = std::max (samplePeak, ax);
+                    channelSamplePeak[(size_t) c] = std::max (channelSamplePeak[(size_t) c], ax);
+                    auto& slice = r.waveformPeaks[(size_t) column];
+                    slice = std::max (slice, (float) ax);
                     if (r.floatingPoint && ax > 1.0) ++r.samplesAboveFullScale;
                     if (ax >= clipLevel) { if (++run[(size_t) c] == 3) ++r.clippedRuns; r.longestClippedRun = std::max (r.longestClippedRun, run[(size_t) c]); }
                     else run[(size_t) c] = 0;
@@ -377,6 +396,15 @@ namespace Songsmith::FileAnalysis
                 progress->store ((float) ((double) pos / (double) r.frames));
         }
         for (auto& p : peaks) p.flush();
+
+        // Each channel's own peaks (ANA-03). A channel that holds only zeros has no peak.
+        const double negativeInfinity = -std::numeric_limits<double>::infinity();
+        for (int c = 0; c < nch; ++c)
+        {
+            const double sp = channelSamplePeak[(size_t) c];
+            r.channelSamplePeakDb.push_back (sp > 0.0 ? 20.0 * std::log10 (sp) : negativeInfinity);
+            r.channelTruePeakDb.push_back (sp > 0.0 ? 20.0 * std::log10 (std::max ((double) peaks[(size_t) c].peakValue(), sp)) : negativeInfinity);
+        }
 
         r.silent = samplePeak == 0.0;
         if (! r.silent)

@@ -7,3 +7,4 @@ Every task has a stable **ANA-##** reference, distinct from its GitHub PR number
 | Prompt | Status | Issue |
 |---|---|---|
 | [02 MP3 support](02-mp3-support.md) | In review (not yet merged) | [#335](https://github.com/tonygward/audio-plugins/issues/335) |
+| [03 True Peak and whole-song visuals](03-visual-dashboard.md) | In review (not yet merged) | [#336](https://github.com/tonygward/audio-plugins/issues/336) |

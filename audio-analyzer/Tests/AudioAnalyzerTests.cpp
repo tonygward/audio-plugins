@@ -104,6 +104,21 @@ namespace
         return {};
     }
 
+    // ANA-03: a buffer whose channels are sines at different levels, so each channel's peak is known.
+    juce::AudioBuffer<float> sineLevels (double fs, double seconds, double freq, std::initializer_list<double> levelsDb)
+    {
+        juce::AudioBuffer<float> b ((int) levelsDb.size(), (int) std::lround (fs * seconds));
+        int c = 0;
+        for (auto level : levelsDb)
+        {
+            const double amp = std::pow (10.0, level / 20.0);
+            for (int i = 0; i < b.getNumSamples(); ++i)
+                b.setSample (c, i, (float) (amp * std::sin (2.0 * juce::MathConstants<double>::pi * freq * i / fs)));
+            ++c;
+        }
+        return b;
+    }
+
     // ANA-02: a real, valid MP3 made of silent frames (MPEG-1 Layer III, a header and zeroed data). It decodes to digital silence,
     // so it exercises everything about opening and describing an MP3 (format, sample rate, channels, length, bitrate, long files,
     // constant and varying bitrates) without an encoder.
@@ -535,6 +550,185 @@ public:
             expectEquals (folder.findChildFiles (juce::File::findFiles, false, "*.tmp").size(), 0, "no temporary files");
         }
 
+        beginTest ("The True Peak chart (ANA-03) draws each channel's measured peak at the right height, and shows what it is");
+        {
+            AnalyzerUI ui;
+            auto& chart = ui.getPeakDisplay();
+
+            // Left at -6 dBFS and right at -12 dBFS: each bar is its own channel's peak, and the heights follow the numbers.
+            expect (analyseInWindow (ui, writeWav (folder, "lr.wav", 48000.0, 32, true, sineLevels (48000.0, 4.0, 997.0, { -6.0, -12.0 }))), "left and right");
+            expectEquals (chart.getNumBars(), 2);
+            expectEquals (chart.getBarName (0), juce::String ("Left"));
+            expectEquals (chart.getBarName (1), juce::String ("Right"));
+            expectWithinAbsoluteError (chart.getBarTruePeakDb (0), -6.0, 0.1, "the left bar is the left channel's true peak");
+            expectWithinAbsoluteError (chart.getBarTruePeakDb (1), -12.0, 0.1, "the right bar is the right channel's true peak");
+            expectEquals (chart.getBarReadout (0), juce::String ("-6.0"));
+            expectEquals (chart.getBarReadout (1), juce::String ("-12.0"));
+            expectWithinAbsoluteError (ui.getResult().truePeakDb, chart.getBarTruePeakDb (0), 0.001, "the headline true peak is the highest bar");
+            expectGreaterThan (chart.yForDb (chart.getBarTruePeakDb (1)), chart.yForDb (chart.getBarTruePeakDb (0)), "a lower level is drawn lower");
+
+            // The scale: 0 dBTP, the top and the bottom are where the numbers say.
+            const auto scale = chart.getScaleBounds();
+            expectWithinAbsoluteError ((double) chart.yForDb ((double) Analyzer::PeakScale::minDb), (double) scale.getBottom(), 0.01, "the bottom of the scale");
+            expectWithinAbsoluteError ((double) chart.yForDb ((double) Analyzer::PeakScale::maxDb), (double) scale.getY(), 0.01, "the top of the scale");
+            const double zeroFraction = (0.0 - Analyzer::PeakScale::minDb) / (double) (Analyzer::PeakScale::maxDb - Analyzer::PeakScale::minDb);
+            expectWithinAbsoluteError ((double) chart.yForDb (0.0), (double) scale.getBottom() - zeroFraction * (double) scale.getHeight(), 0.01, "0 dBTP is marked at its place");
+            expectWithinAbsoluteError ((double) (chart.yForDb (-6.0) - chart.yForDb (-12.0)), -(double) scale.getHeight() * 6.0 / (double) (Analyzer::PeakScale::maxDb - Analyzer::PeakScale::minDb), 0.01, "the scale is linear in decibels");
+            expectEquals (chart.yForDb (40.0), chart.yForDb ((double) Analyzer::PeakScale::maxDb), "a level far above the top sits on the top edge");
+            expectEquals (chart.yForDb (-90.0), chart.yForDb ((double) Analyzer::PeakScale::minDb), "a level far below the bottom sits on the bottom edge");
+            expect (! chart.isOverFullScale(), "nothing is over 0 dBTP");
+
+            // Above 0 dBTP: drawn above the 0 line, with a plus sign, and flagged. Stored samples reach 1.3 on the left.
+            expect (analyseInWindow (ui, writeWav (folder, "over.wav", 48000.0, 32, true, sineLevels (48000.0, 4.0, 997.0, { 2.0, -3.0 }))), "over");
+            expect (chart.isOverFullScale(), "a true peak above 0 dBTP is flagged");
+            expectGreaterThan (chart.getBarTruePeakDb (0), 1.5, "the left bar is above 0 dBTP");
+            expect (chart.getBarReadout (0).startsWith ("+"), "an over reading has a plus sign: " + chart.getBarReadout (0));
+            expect (chart.yForDb (chart.getBarTruePeakDb (0)) < chart.yForDb (0.0), "a level over 0 dBTP is drawn above the 0 line");
+            expect (! chart.getBarReadout (1).startsWith ("+"), "the right channel is below 0 dBTP");
+            expectGreaterThan (ui.getTile (1).getValue().getText().length(), 0);
+            expect (ui.getTile (1).getValue().findColour (juce::Label::textColourId) == Analyzer::PeakScale::over, "the headline number is red when over 0 dBTP");
+            expect (ui.getTile (1).getValue().getText().contains ("dBTP"), "and says dBTP in words");
+
+            // Sample peak and true peak are two different readings, drawn differently, and never swapped.
+            expect (analyseInWindow (ui, writeWav (folder, "between2.wav", 48000.0, 32, true, sine (48000.0, 5.0, 12000.0, 0.0, 2, juce::MathConstants<double>::pi / 4.0))), "between samples");
+            expectWithinAbsoluteError (chart.getBarSamplePeakDb (0), -3.01, 0.05, "the tick is the highest stored sample");
+            expectGreaterThan (chart.getBarTruePeakDb (0), chart.getBarSamplePeakDb (0) + 2.0, "and it is below the true peak bar");
+            expect (chart.getLegend().getText().contains ("true peak") && chart.getLegend().getText().contains ("stored sample"), chart.getLegend().getText());
+
+            // One bar for mono, one for more than two channels (the highest of all).
+            expect (analyseInWindow (ui, writeWav (folder, "mono-chart.wav", 44100.0, 24, false, sine (44100.0, 3.0, 997.0, -9.0, 1))), "mono");
+            expectEquals (chart.getNumBars(), 1);
+            expectEquals (chart.getBarName (0), juce::String ("Mono"));
+            expectWithinAbsoluteError (chart.getBarTruePeakDb (0), -9.0, 0.1);
+            expect (analyseInWindow (ui, writeWav (folder, "six.wav", 48000.0, 32, true, sineLevels (48000.0, 2.0, 997.0, { -20.0, -18.0, -16.0, -14.0, -9.0, -12.0 }))), "six channels");
+            expectEquals (chart.getNumBars(), 1);
+            expectEquals (chart.getBarName (0), juce::String ("All"));
+            expectWithinAbsoluteError (chart.getBarTruePeakDb (0), -9.0, 0.1, "the highest of all six");
+
+            // Silence draws nothing and says so.
+            expect (analyseInWindow (ui, writeWav (folder, "silent-chart.wav", 44100.0, 16, false, sine (44100.0, 3.0, 997.0, -200.0))), "silent");
+            expect (chart.isSilent());
+            expectEquals (chart.getBarReadout (0), juce::String ("Silent"));
+            expect (chart.getDescription().contains ("silent"), chart.getDescription());
+
+            // It says what it is: a whole-file result, never a live meter. And it is named for screen readers, with the numbers.
+            expect (analyseInWindow (ui, writeWav (folder, "lr2.wav", 48000.0, 32, true, sineLevels (48000.0, 3.0, 997.0, { -6.0, -12.0 }))), "again");
+            expectEquals (chart.getHeading().getText(), juce::String ("Highest peak in the file"));
+            expect (chart.getTooltip().contains ("not a live meter") && chart.getTooltip().contains ("0 dBTP"), chart.getTooltip());
+            expect (chart.getTitle().isNotEmpty() && chart.getDescription().contains ("Left: -6.0 dBTP") && chart.getDescription().contains ("Right: -12.0 dBTP"), chart.getDescription());
+            expect (chart.isAccessible(), "visible to screen readers");
+            expect (chart.isVisible(), "shown with the results");
+        }
+
+        beginTest ("The waveform overview (ANA-03) is mapped to the file, capped in size, and never mistaken for loudness or true peak");
+        {
+            AnalyzerUI ui;
+            auto& wave = ui.getWaveform();
+
+            // Five seconds of silence, then five seconds of a tone at -6 dBFS: the first half is empty, the second is not.
+            juce::AudioBuffer<float> halves (2, 10 * 48000);
+            halves.clear();
+            for (int i = 5 * 48000; i < halves.getNumSamples(); ++i)
+            {
+                const auto v = (float) (0.5 * std::sin (2.0 * juce::MathConstants<double>::pi * 997.0 * i / 48000.0));
+                halves.setSample (0, i, v);
+                halves.setSample (1, i, v);
+            }
+            expect (analyseInWindow (ui, writeWav (folder, "halves.wav", 48000.0, 24, false, halves)), "halves");
+            expectEquals ((int) wave.getPeaks().size(), Songsmith::FileAnalysis::waveformColumns);
+            const auto& peaks = wave.getPeaks();
+            for (size_t i = 0; i < peaks.size(); ++i)
+            {
+                if (i < peaks.size() / 2 - 2)
+                    expectEquals (peaks[i], 0.0f, "the silent half is empty at slice " + juce::String ((int) i));
+                if (i > peaks.size() / 2 + 2)
+                    expectWithinAbsoluteError (peaks[i], 0.5f, 0.01f, "the tone's slice " + juce::String ((int) i) + " is its level");
+            }
+            expectGreaterThan (wave.getLoudestPosition(), 0.5, "the biggest sound is in the second half");
+            expectEquals (wave.getEnd().getText(), juce::String ("0:10.0"));
+            expectEquals (wave.getStart().getText(), juce::String ("0:00"));
+            expectWithinAbsoluteError (wave.getDurationSeconds(), 10.0, 0.01);
+            expectEquals (wave.heightOfSlice (10), 0.0f, "a silent slice has no height");
+            expectWithinAbsoluteError (wave.heightOfSlice ((int) peaks.size() - 10), wave.getPlotBounds().getHeight() * 0.5f * 0.5f, 0.6f, "a slice is as tall as its sample, out of full scale");
+
+            // A long file does not grow the picture.
+            const auto longFile = writeSilentMp3 (folder, "long-wave.mp3", 600.0, 0, 0, 9);
+            expect (analyseInWindow (ui, longFile), "ten minutes");
+            expectEquals ((int) wave.getPeaks().size(), Songsmith::FileAnalysis::waveformColumns, "ten minutes still hold the same number of slices");
+            expect (ui.getResult().waveformPeaks.size() <= (size_t) Songsmith::FileAnalysis::waveformColumns, "a capped amount of memory");
+
+            // A very short file holds one slice per sample, never more slices than it has samples.
+            expect (analyseInWindow (ui, writeWav (folder, "tiny.wav", 44100.0, 16, false, sine (44100.0, 0.005, 997.0, -10.0))), "tiny");
+            expectLessOrEqual ((int) wave.getPeaks().size(), (int) std::lround (44100.0 * 0.005));
+
+            // It says what it is not: no loudness, no true peak. Red only where the sound passes the top.
+            expect (wave.getHeading().getText().contains ("how big the sound is"), wave.getHeading().getText());
+            expect (wave.getNote().getText().contains ("not a loudness chart"), wave.getNote().getText());
+            expect (wave.getTooltip().contains ("not a loudness chart") && wave.getTooltip().contains ("does not show true peak"), wave.getTooltip());
+            expect (wave.getTitle().isNotEmpty() && wave.getDescription().contains ("shows size, not loudness"), wave.getDescription());
+            expect (wave.isAccessible(), "visible to screen readers");
+
+            // A silent file draws nothing and says so.
+            expect (analyseInWindow (ui, writeWav (folder, "silent-wave.wav", 44100.0, 16, false, sine (44100.0, 3.0, 997.0, -200.0))), "silent");
+            expect (wave.isSilent() && wave.getNote().getText().contains ("silent"), wave.getNote().getText());
+        }
+
+        beginTest ("The dashboard (ANA-03): the charts show with the results only, sit inside the window, and the True Peak chart is the principal one");
+        {
+            namespace L = Analyzer::Layout;
+            AnalyzerUI ui;
+            const juce::Rectangle<int> window (0, 0, L::designWidth, L::designHeight);
+            expect (! ui.getPeakDisplay().isVisible() && ! ui.getWaveform().isVisible(), "no charts on the waiting screen");
+
+            ui.analyse (writeWav (folder, "dash-slow.wav", 44100.0, 16, false, sine (44100.0, 90.0, 997.0, -20.0, 1)));
+            expect (ui.isReading());
+            expect (! ui.getPeakDisplay().isVisible() && ! ui.getWaveform().isVisible(), "no charts while reading");
+            ui.reset();
+
+            expect (analyseInWindow (ui, writeWav (folder, "dash.wav", 48000.0, 24, false, songLike (48000.0, 12.0))), "a file");
+            expect (ui.getPeakDisplay().isVisible() && ui.getWaveform().isVisible(), "both charts with the results");
+            juce::Array<juce::Component*> parts { &ui.getPeakDisplay(), &ui.getWaveform() };
+            for (int i = 0; i < ui.getNumTiles(); ++i)
+                parts.add (&ui.getTile (i));
+            for (auto* p : parts)
+            {
+                expect (window.contains (p->getBounds()), p->getTitle() + " is inside the window");
+                expect (p->getBottom() <= ui.getGuidanceBounds().getY(), p->getTitle() + " is above the guidance");
+                expect (p->getY() >= ui.getTitleBounds().getBottom(), p->getTitle() + " is below the title");
+            }
+            for (int i = 0; i < parts.size(); ++i)
+                for (int j = i + 1; j < parts.size(); ++j)
+                    expect (! parts[i]->getBounds().intersects (parts[j]->getBounds()), parts[i]->getTitle() + " and " + parts[j]->getTitle() + " do not overlap");
+
+            // True Peak is the principal picture: the tallest thing on the screen, to the right, and drawn with its own tooltip.
+            const auto chartBounds = ui.getPeakDisplay().getBounds();
+            for (auto* p : parts)
+                if (p != &ui.getPeakDisplay())
+                    expectGreaterOrEqual (chartBounds.getHeight(), p->getHeight(), "the True Peak chart is at least as tall as " + p->getTitle());
+            expectGreaterThan (chartBounds.getX(), ui.getWaveform().getRight() - 1, "the True Peak chart is on the right");
+            expectGreaterThan (chartBounds.getHeight(), 150, "the True Peak chart is large enough to read");
+
+            // Integrated Loudness is the large number but not a second chart: the reading is a plain tile, larger than the others.
+            expectGreaterThan (ui.getTile (0).getValue().getFont().getHeight(), ui.getTile (1).getValue().getFont().getHeight(), "the loudness figure is the larger number");
+            expectGreaterOrEqual (ui.getTile (0).getWidth(), ui.getTile (2).getWidth(), "and its box is the larger one");
+            expect (ui.getTile (0).getReading().caption == "Integrated Loudness" && ui.getTile (0).getTooltip().contains ("There is no single number a track has to reach"), "no loudness pass or fail");
+
+            // The facts are compact, below the charts: sample rate, bit depth and encoding, duration and channels.
+            const juce::StringArray captions { "Sample Rate", "Bit Depth and Encoding", "Duration", "Channels" };
+            for (int i = 0; i < 4; ++i)
+            {
+                expectEquals (ui.getTile (2 + i).getReading().caption, captions[i]);
+                expectGreaterOrEqual (ui.getTile (2 + i).getY(), ui.getPeakDisplay().getBottom(), captions[i] + " is below the charts");
+            }
+
+            // A file that cannot be read has no charts, and the advice starts under the name.
+            expect (analyseInWindow (ui, folder.getChildFile ("not-there.wav")), "missing");
+            expect (! ui.getPeakDisplay().isVisible() && ! ui.getWaveform().isVisible(), "no charts for an error");
+            ui.reset();
+            expect (! ui.getPeakDisplay().isVisible() && ui.getPeakDisplay().getNumBars() == 0, "reset clears the chart");
+            expect (ui.getWaveform().getPeaks().empty(), "and the waveform");
+        }
+
         beginTest ("Layout: in every state the controls sit inside the window, the reading boxes do not overlap, and the guidance has room");
         {
             namespace L = Analyzer::Layout;
@@ -662,6 +856,17 @@ static int renderScreenshots (const juce::File& folder, float scale)
     waitUntil ([&] { return root.content.getState() == Analyzer::AnalyzerComponent::State::showing; });
     settle (80);
     ok = save (root, "audio-analyzer-results.png") && ok;
+
+    // A loud master whose left channel passes 0 dBTP, to show the red above the line.
+    {
+        auto loud = songLike (48000.0, 24.0);
+        loud.applyGain (0, 0, loud.getNumSamples(), 1.95f);   // only the loudest moments of the left channel pass full scale
+        loud.applyGain (1, 0, loud.getNumSamples(), 1.5f);    // the right channel stays below it
+        root.content.analyse (writeWav (work, "Loud Master.wav", 48000.0, 32, true, loud));
+        waitUntil ([&] { return root.content.getState() == Analyzer::AnalyzerComponent::State::showing; });
+        settle (80);
+        ok = save (root, "audio-analyzer-results-over.png") && ok;
+    }
 
     work.getChildFile ("Not A Song.txt").replaceWithText ("This is not audio.");
     root.content.analyse (work.getChildFile ("Not A Song.txt"));

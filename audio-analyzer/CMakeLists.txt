@@ -32,7 +32,8 @@ set(ANALYZER_BUNDLE_ID    com.songsmithstudio.songsmithaudioanalyzer)
 
 set(ANALYZER_SOURCES
     Source/AnalyzerComponent.cpp
-    Source/GuidanceView.cpp)
+    Source/GuidanceView.cpp
+    Source/AnalyzerGraphs.cpp)
 
 set(ANALYZER_DEFINITIONS
     JUCE_WEB_BROWSER=0

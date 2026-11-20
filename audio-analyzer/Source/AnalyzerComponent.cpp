@@ -40,6 +40,19 @@ namespace Songsmith::Analyzer
         value.setColour (juce::Label::textColourId, r.value == "Not available" ? UI::Colours::textDim : UI::Colours::text);
     }
 
+    void ReadingTile::setCompact (bool shouldBeCompact)
+    {
+        compact = shouldBeCompact;
+        resized();
+    }
+
+    void ReadingTile::setProminent (bool shouldBeProminent)
+    {
+        prominent = shouldBeProminent;
+        value.setFont (prominent ? UI::font (Layout::heroValueHeight, UI::Weight::SemiBold) : UI::font (UI::Type::title, UI::Weight::SemiBold));
+        resized();
+    }
+
     void ReadingTile::paint (juce::Graphics& g)
     {
         UI::LookAndFeelBase::drawWell (g, getLocalBounds().toFloat().reduced (0.5f), UI::Colours::recess);
@@ -47,12 +60,12 @@ namespace Songsmith::Analyzer
 
     void ReadingTile::resized()
     {
-        auto r = getLocalBounds().reduced (14, 10);
+        auto r = getLocalBounds().reduced (14, compact ? 8 : 10);
         caption.setBounds (r.removeFromTop (16));
-        r.removeFromTop (4);
-        value.setBounds (r.removeFromTop (28));
+        r.removeFromTop (compact ? 2 : 4);
+        value.setBounds (r.removeFromTop (prominent ? 48 : compact ? 26 : 28));
         r.removeFromTop (2);
-        note.setBounds (r.removeFromTop (18));
+        note.setBounds (r.removeFromTop (compact ? 16 : 18));
     }
 
     //==============================================================================
@@ -92,14 +105,17 @@ namespace Songsmith::Analyzer
         progressBar.setTitle ("Progress");
         progressBar.setPercentageDisplay (true);
 
-        for (int i = 0; i < Layout::tileColumns * Layout::tileRows; ++i)
+        for (int i = 0; i < 6; ++i)
         {
             tiles.push_back (std::make_unique<ReadingTile>());
             addChildComponent (*tiles.back());
         }
+        tiles[0]->setProminent (true);   // Integrated Loudness: the figure to read first
+        for (size_t i = 2; i < tiles.size(); ++i)
+            tiles[i]->setCompact (true);   // the facts under the charts
 
         for (auto* c : std::initializer_list<juce::Component*> { &dropLabel, &orLabel, &privacyLabel, &fileNameLabel, &fileDetailLabel, &statusLabel,
-                                                                 &footerHint, &versionLabel, &chooseButton, &anotherButton, &cancelButton, &progressBar, &guidance })
+                                                                 &footerHint, &versionLabel, &chooseButton, &anotherButton, &cancelButton, &progressBar, &peakDisplay, &waveform, &guidance })
             addChildComponent (*c);
         versionLabel.setVisible (true);
 
@@ -166,6 +182,12 @@ namespace Songsmith::Analyzer
         for (size_t i = 0; i < tiles.size(); ++i)
             if (i < readings.size())
                 tiles[i]->setReading (readings[i]);
+        // A True Peak at or above 0 dBTP is shown in red as well as in words.
+        tiles[1]->getValue().setColour (juce::Label::textColourId,
+                                        r.opened && ! r.silent && PeakScale::isOverFullScale (r.truePeakDb) ? PeakScale::over
+                                                                                                             : (r.silent ? UI::Colours::textDim : UI::Colours::text));
+        peakDisplay.setResult (r);
+        waveform.setResult (r);
         guidance.setAdvice (advice, extraMeasurements (advice));
         footerHint.setText (extraNote.isNotEmpty() ? extraNote : juce::String ("You can also drop another file anywhere on this window."), juce::dontSendNotification);
 
@@ -186,6 +208,8 @@ namespace Songsmith::Analyzer
         extraNote = {};
         footerHint.setText ({}, juce::dontSendNotification);
         guidance.getView().clear();
+        peakDisplay.clear();
+        waveform.clear();
         updateVisibility();
         resized();
         repaint();
@@ -261,6 +285,8 @@ namespace Songsmith::Analyzer
         guidance.setVisible (showing);
         for (size_t i = 0; i < tiles.size(); ++i)
             tiles[i]->setVisible (showing && result.opened && i < readingsFor (result).size());
+        peakDisplay.setVisible (showing && result.opened);
+        waveform.setVisible (showing && result.opened);
     }
 
     void AnalyzerComponent::paint (juce::Graphics& g)
@@ -318,17 +344,29 @@ namespace Songsmith::Analyzer
         progressBar.setBounds (margin, bodyTop + 68, bodyWidth, 22);
         cancelButton.setBounds (margin, bodyTop + 106, 110, buttonHeight);
 
-        // Showing: the name, the six reading boxes, the guidance and the button to go again.
+        // Showing: the name, then the dashboard (loudness and waveform on the left, True Peak on the right), four
+        // compact facts, the guidance and the button to go again.
         fileDetailLabel.setBounds (margin, bodyTop + 26, bodyWidth, 20);
         const int tilesTop = bodyTop + 56;
-        for (size_t i = 0; i < tiles.size(); ++i)
+        const int leftWidth = bodyWidth - columnGap - rightColumnWidth, rightX = margin + leftWidth + columnGap;
+        const int waveformHeight = peakTileHeight + smallGap + peakChartHeight - loudnessHeight - blockGap;
+        tiles[0]->setBounds (margin, tilesTop, leftWidth, loudnessHeight);
+        waveform.setBounds (margin, tilesTop + loudnessHeight + blockGap, leftWidth, waveformHeight);
+        tiles[1]->setBounds (rightX, tilesTop, rightColumnWidth, peakTileHeight);
+        peakDisplay.setBounds (rightX, tilesTop + peakTileHeight + smallGap, rightColumnWidth, peakChartHeight);
+        const int factsTop = tilesTop + peakTileHeight + smallGap + peakChartHeight + blockGap;
+        // Sample Rate, Bit Depth and Encoding (the widest, for its caption and note), Duration, Channels.
+        const int otherFactWidth = (bodyWidth - (factsColumns - 1) * factsGap - bitDepthFactWidth) / (factsColumns - 1);
+        int factX = margin;
+        for (int i = 0; i < factsColumns; ++i)
         {
-            const int col = (int) i % tileColumns, row = (int) i / tileColumns;
-            tiles[i]->setBounds (margin + col * (tileWidth + tileGap), tilesTop + row * (tileHeight + tileRowGap), tileWidth, tileHeight);
+            const int width = i == 1 ? bitDepthFactWidth : otherFactWidth;
+            tiles[(size_t) (2 + i)]->setBounds (factX, factsTop, width, factsHeight);
+            factX += width + factsGap;
         }
-        // A file that could not be read has no reading boxes, so its advice starts straight under the name.
+        // A file that could not be read has no readings, so its advice starts straight under the name.
         const bool unreadable = state == State::showing && ! result.opened;
-        const int guidanceTop = unreadable ? tilesTop : tilesTop + tileRows * tileHeight + (tileRows - 1) * tileRowGap + 16;
+        const int guidanceTop = unreadable ? tilesTop : factsTop + factsHeight + 14;
         const int buttonTop = footerTop - 8 - buttonHeight;
         guidanceArea = { margin, guidanceTop, bodyWidth, buttonTop - 12 - guidanceTop };
         guidance.setBounds (guidanceArea.reduced (14, 10));
