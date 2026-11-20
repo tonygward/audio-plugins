@@ -489,7 +489,7 @@ public:
             const double err = worstError (slot.measurement, *sys, &at);
             expectLessThan (err, 0.5, "block " + juce::String (block) + ": worst difference " + juce::String (err, 3) + " dB at " + juce::String (at, 0) + " Hz");
             expectWithinAbsoluteError (slot.measurement.delaySamples, 480.0, 2.0, "the latency is found");
-            expectEquals (slot.measurement.flags, 0u, "nothing flagged");
+            expectEquals ((int) slot.measurement.flags, 0, "nothing flagged");
             expectEquals (slot.channel, juce::String ("Left"));
             expect (slot.measuredAt.isNotEmpty());
             expect (res.getStatus().status == SongsmithPluginAnalyzerProcessor::Status::finished, res.getStatus().text);
@@ -750,7 +750,7 @@ public:
             expectEquals (restored.getSlot (1).measurement.sampleRate, res.getSlot (1).measurement.sampleRate);
             expectEquals (getParam (restored, roleId), 1.0f, "the role is restored too");
             expectEquals (restored.shownSlot, 1);
-            expectEquals (restored.getSlot (0).measurement.flags, res.getSlot (0).measurement.flags);
+            expectEquals ((int) restored.getSlot (0).measurement.flags, (int) res.getSlot (0).measurement.flags);
 
             res.measureSlot = 1;
             res.resetMeasurement();
