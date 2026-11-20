@@ -50,6 +50,10 @@ Each message says what matters, why, and whether the musician needs to do anythi
 
 The wording test (`Songsmith::UI::Wording::findBanned`) runs on every message. `WAV`, `AIFF`, `FLAC` and `CD` were added to its allowed short forms for this feature; the list in `docs/style-guide.md#wording` needs the same four words added (outside the folders this change could edit). `MP3` needs no entry because the rule allows a word that contains a digit; bitrates are written out as "kilobits per second".
 
+## What the Audio Analyzer draws (ANA-03)
+
+The same pass that measures a file also records, for the Audio Analyzer's charts: each channel's highest sample and highest true peak (`channelSamplePeakDb`, `channelTruePeakDb`) and the largest sample in each of 800 equal slices of the file (`waveformPeaks`, a fixed size however long the file is). The charts only draw those numbers. The waveform is size over time, not loudness over time.
+
 ## Tests
 
 `SongsmithFileAdvisorTests` writes real files to a temporary folder and reads them back: 44.1 kHz 16-bit and 24-bit, 48 kHz 24-bit, AIFF, FLAC, 32-bit floating point, a sine at -23 dBFS reading -23 LUFS (EBU Tech 3341 level case), a true peak between samples, clipping, silence, very short and very quiet files, gating, loudness range, a very loud file, a 24-bit file holding 16-bit values, damaged, cut-short, missing and unsupported files, unchanged original bytes, and cancellation.
