@@ -74,8 +74,11 @@ version_of() { tr -d '[:space:]' < "$here/../../VERSION"; }
 parts_of() { case "$1" in ana) echo "app" ;; pla) echo "vst3" ;; *) echo "vst3 au app" ;; esac; }
 bundles_of() {
     local n; n=$(name_of "$1")
-    case "$1" in ana) ;; pla) echo "$VST3_DIR/$n.vst3" ;; *) echo "$VST3_DIR/$n.vst3"; echo "$AU_DIR/$n.component" ;; esac
-    echo "/Applications/$n.app"
+    case "$1" in
+        ana) echo "/Applications/$n.app" ;;
+        pla) echo "$VST3_DIR/$n.vst3" ;;
+        *) echo "$VST3_DIR/$n.vst3"; echo "$AU_DIR/$n.component"; echo "/Applications/$n.app" ;;
+    esac
 }
 
 failures=0
