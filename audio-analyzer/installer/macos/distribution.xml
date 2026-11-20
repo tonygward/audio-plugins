@@ -33,7 +33,7 @@
     </choices-outline>
 
     <choice id="app" title="Songsmith Audio Analyzer" start_selected="true"
-            description="Songsmith Audio Analyzer.app in /Applications. Open a finished WAV, AIFF or FLAC file to see how loud it is and how it was recorded. It needs no recording software.">
+            description="Songsmith Audio Analyzer.app in /Applications. Open a finished WAV, AIFF, FLAC or MP3 file to see how loud it is and how it was recorded. It needs no recording software.">
         <pkg-ref id="com.songsmithstudio.songsmithaudioanalyzer.app"/>
     </choice>
 

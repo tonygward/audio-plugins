@@ -116,7 +116,7 @@ Name: "comp";           Description: "{#CompName} {#CompVersion}: even out the l
 Name: "opt";            Description: "{#OptName} {#OptVersion}: smooth, simple levelling inspired by a classic optical unit";  Types: full custom; Flags: checkablealone
 Name: "peq";            Description: "{#PeqName} {#PeqVersion}: gentle, broad low and high tone shaping inspired by a classic passive equaliser";  Types: full custom; Flags: checkablealone
 Name: "bus";            Description: "{#BusName} {#BusVersion}: glue a mix or a group of sounds together, inspired by a classic mixing desk bus compressor";  Types: full custom; Flags: checkablealone
-; The Audio Analyzer is an app only (no plugin): it opens finished WAV, AIFF and FLAC files.
+; The Audio Analyzer is an app only (no plugin): it opens finished WAV, AIFF, FLAC and MP3 files.
 Name: "ana";            Description: "{#AnaName} {#AnaVersion}: check the loudness and format of a finished song (an app, not a plugin)";  Types: full custom; Flags: checkablealone
 ; The Plugin Analyzer (ANALYZER-01) is a plugin only (VST3): it needs two copies inside a recording program, so it has no standalone app.
 Name: "pla";            Description: "{#PlaName} {#PlaVersion}: measure what another plugin does to the sound at each frequency (a plugin only)";  Types: full custom; Flags: checkablealone

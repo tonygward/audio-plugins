@@ -2,6 +2,11 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- **Songsmith Audio Analyzer now reads MP3 files.** Open, drop or choose an MP3 just as you would a WAV, AIFF or FLAC file, and it shows the file's integrated loudness (LUFS) and true peak (dBTP), sample rate, channels, length, and that it is a compressed (lossy) file with its average bitrate. An MP3 has no bit depth, so that box says "Not applicable" rather than showing a made-up number. The readings are for the sound as it plays back from the MP3, so they can differ a little from the WAV it was made from. You do not need to do anything. On a Mac, Finder can now open MP3 files with the app too.
+- **Songsmith Audio Analyzer now has the Songsmith logo as its icon.** The Start menu entry, the taskbar button and the file in its folder on Windows, and the app in Applications on a Mac, show the logo instead of a plain placeholder. You do not need to do anything. If Windows still shows the old plain icon after you update, it is showing a saved picture: sign out and in again, or restart your computer, and it will refresh.
+
 ## 0.5.57
 
 Behind-the-scenes improvements and fixes. There is nothing you need to do.

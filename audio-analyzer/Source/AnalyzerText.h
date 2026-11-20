@@ -50,12 +50,17 @@ namespace Songsmith::Analyzer
 
     inline juce::String describeBitDepth (const FileAnalysis::Result& r)
     {
+        if (r.lossy)
+            return "Not applicable";   // a compressed file has no bit depth to show, and none is made up
         const int bits = r.storedBits > 0 ? r.storedBits : (r.floatingPoint ? 32 : 0);
         return bits > 0 ? juce::String (bits) + "-bit" : juce::String ("Unknown");
     }
 
     inline juce::String describeEncoding (const FileAnalysis::Result& r)
     {
+        // Short enough for its box. The average bitrate is in the line under the file's name and in the measured facts.
+        if (r.lossy)
+            return r.formatName + ", lossy";
         if (r.floatingPoint)
             return r.formatName == "FLAC" ? "FLAC, floating point" : r.formatName + ", floating point";
         if (r.formatName == "FLAC")
@@ -91,7 +96,7 @@ namespace Songsmith::Analyzer
                        "The highest level the sound reaches once the stored samples are turned back into a smooth wave. It can be a little above "
                        "the highest stored sample. 0 dBTP is the top of the scale." };
         peak.value = formatPeak (r.truePeakDb);
-        peak.note = r.silent ? "The file is silent" : "Highest stored sample: " + oneDecimal (r.samplePeakDb) + " dBFS";
+        peak.note = r.silent ? "The file is silent" : (r.lossy ? "Highest sample after decoding: " : "Highest stored sample: ") + oneDecimal (r.samplePeakDb) + " dBFS";
         out.push_back (peak);
 
         out.push_back ({ "Sample Rate", FileAdvice::formatKHz (r.sampleRate), {},
@@ -99,7 +104,7 @@ namespace Songsmith::Analyzer
 
         out.push_back ({ "Bit Depth and Encoding", describeBitDepth (r), describeEncoding (r),
                          "How finely each sample is stored, and how the file is stored. It shows how this file is kept, which can differ from how "
-                         "the sound was first recorded." });
+                         "the sound was first recorded. A compressed file such as an MP3 has no bit depth, so none is shown." });
 
         out.push_back ({ "Duration", formatLength (r.durationSeconds), {}, "How long the file plays." });
 

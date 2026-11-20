@@ -212,10 +212,11 @@ public:
             const auto r3 = FileAnalysis::analyseFile (folder.getChildFile ("missing.wav"));
             expect (! r3.opened && r3.error.contains ("could not be found"));
 
-            const auto mp3 = folder.getChildFile ("song.mp3");
-            mp3.replaceWithText ("x");
-            const auto r4 = FileAnalysis::analyseFile (mp3);
-            expect (! r4.opened && r4.error.contains ("WAV, AIFF and FLAC"));
+            // A kind of file the analyser does not read is refused in plain words, naming the kinds it does.
+            const auto ogg = folder.getChildFile ("song.ogg");
+            ogg.replaceWithText ("x");
+            const auto r4 = FileAnalysis::analyseFile (ogg);
+            expect (! r4.opened && r4.error.contains ("WAV, AIFF, FLAC and MP3"));
 
             for (const auto& r : { r1, r3, r4 })
                 checkWording (FileAdvice::adviseOn (r));

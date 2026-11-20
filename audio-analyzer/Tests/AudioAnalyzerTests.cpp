@@ -104,6 +104,45 @@ namespace
         return {};
     }
 
+    // ANA-02: a real, valid MP3 made of silent frames (MPEG-1 Layer III, a header and zeroed data). It decodes to digital silence,
+    // so it exercises everything about opening and describing an MP3 (format, sample rate, channels, length, bitrate, long files,
+    // constant and varying bitrates) without an encoder.
+    //   sampleRateIndex: 0 = 44.1 kHz, 1 = 48 kHz, 2 = 32 kHz.   channelMode: 0 = stereo, 3 = mono.
+    //   bitrateIndexOf (frame): 1 to 14 = 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320 kilobits per second.
+    juce::File writeSilentMp3 (const juce::File& folder, const juce::String& name, int frames, int sampleRateIndex, int channelMode,
+                               const std::function<int (int)>& bitrateIndexOf)
+    {
+        static const int kbps[] = { 0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320 };
+        static const int rates[] = { 44100, 48000, 32000 };
+        juce::MemoryOutputStream o;
+        int carry = 0;   // the padding bit keeps the average frame length exact, as an encoder does
+        for (int i = 0; i < frames; ++i)
+        {
+            const int index = bitrateIndexOf (i);
+            const int numerator = 144000 * kbps[index];
+            const int length = numerator / rates[sampleRateIndex];
+            carry += numerator % rates[sampleRateIndex];
+            const int padding = carry >= rates[sampleRateIndex] ? 1 : 0;
+            if (padding != 0) carry -= rates[sampleRateIndex];
+            o.writeByte ((char) 0xFF);
+            o.writeByte ((char) 0xFB);   // MPEG-1, Layer III, no error check
+            o.writeByte ((char) ((index << 4) | (sampleRateIndex << 2) | (padding << 1)));
+            o.writeByte ((char) (channelMode << 6));
+            for (int k = 4; k < length + padding; ++k)
+                o.writeByte (0);
+        }
+        const auto file = folder.getChildFile (name);
+        file.replaceWithData (o.getData(), o.getDataSize());
+        return file;
+    }
+
+    juce::File writeSilentMp3 (const juce::File& folder, const juce::String& name, double seconds, int sampleRateIndex, int channelMode, int bitrateIndex)
+    {
+        static const double rates[] = { 44100.0, 48000.0, 32000.0 };
+        const int frames = (int) std::lround (seconds * rates[sampleRateIndex] / 1152.0);
+        return writeSilentMp3 (folder, name, frames, sampleRateIndex, channelMode, [bitrateIndex] (int) { return bitrateIndex; });
+    }
+
     // Something that sounds like a song: a steady low note, brighter notes that come and go, and a little noise.
     juce::AudioBuffer<float> songLike (double fs, double seconds)
     {
@@ -197,6 +236,117 @@ public:
             expectWithinAbsoluteError (ui.getResult().integratedLufs, -23.0, 0.15, "a mono file counts its one channel once");
         }
 
+        beginTest ("MP3 files (ANA-02): opened by the app's own reader, described as lossy with no bit depth, and never given invented figures");
+        {
+            AnalyzerUI ui;
+            // The usual bitrates and the usual sample rates, stereo and mono. Each is a valid MP3 of digital silence.
+            struct Case { const char* label; int sampleRateIndex, channelMode, bitrateIndex, expectedKbps, expectedRate; };
+            const Case cases[] = { { "128 kbps 44.1 kHz stereo", 0, 0, 9, 128, 44100 },
+                                   { "192 kbps 44.1 kHz stereo", 0, 0, 11, 192, 44100 },
+                                   { "256 kbps 44.1 kHz stereo", 0, 0, 13, 256, 44100 },
+                                   { "320 kbps 44.1 kHz stereo", 0, 0, 14, 320, 44100 },
+                                   { "128 kbps 48 kHz stereo", 1, 0, 9, 128, 48000 },
+                                   { "64 kbps 32 kHz mono", 2, 3, 5, 64, 32000 },
+                                   { "128 kbps 44.1 kHz mono", 0, 3, 9, 128, 44100 } };
+            for (const auto& c : cases)
+            {
+                const auto mp3 = writeSilentMp3 (folder, "silent.mp3", 3.0, c.sampleRateIndex, c.channelMode, c.bitrateIndex);
+                expect (analyseInWindow (ui, mp3), c.label);
+                const auto& r = ui.getResult();
+                expect (r.opened, juce::String (c.label) + ": " + r.error);
+                expectEquals (r.formatName, juce::String ("MP3"), c.label);
+                expect (r.lossy, c.label);
+                expectEquals ((int) r.sampleRate, c.expectedRate, c.label);
+                expectEquals (r.channels, c.channelMode == 3 ? 1 : 2, c.label);
+                expectWithinAbsoluteError (r.durationSeconds, 3.0, 0.1, c.label);
+                expectEquals (r.averageBitrateKbps, c.expectedKbps, c.label);
+                expectEquals (r.storedBits, 0, "no bit depth is made up for a compressed file");
+                expectEquals (readingValue (ui, "Bit Depth and Encoding"), juce::String ("Not applicable"));
+                expectEquals (readingNote (ui, "Bit Depth and Encoding"), juce::String ("MP3, lossy"));
+                expect (ui.getFileDetailLabel().getText().contains ("about " + juce::String (c.expectedKbps) + " kilobits per second"),
+                        "the line under the file name gives the average bitrate: " + ui.getFileDetailLabel().getText());
+                expectEquals (readingValue (ui, "Channels"), juce::String (c.channelMode == 3 ? "Mono" : "Stereo"), c.label);
+            }
+
+            // Digital silence: no loudness or peak is invented for it.
+            expect (analyseInWindow (ui, writeSilentMp3 (folder, "silent.mp3", 3.0, 0, 0, 9)), "silent MP3");
+            expect (ui.getResult().silent, "a silent MP3 is reported as silent");
+            expectEquals (readingValue (ui, "Integrated Loudness"), juce::String ("Not available"));
+            expectEquals (readingValue (ui, "True Peak"), juce::String ("Silent"));
+            expect (ui.getAdvice().summary.contains ("silent"), ui.getAdvice().summary);
+        }
+
+        beginTest ("MP3 files (ANA-02): a changing bitrate, a long file, and the words used about a compressed file");
+        {
+            AnalyzerUI ui;
+            // A file whose bitrate changes from frame to frame, as a variable-bitrate file does.
+            static const int steps[] = { 5, 9, 13, 9, 7, 11 };   // 64, 128, 256, 128, 96, 192 kilobits per second: the mean is 144
+            const auto vbr = writeSilentMp3 (folder, "vbr.mp3", 2600, 0, 0, [] (int frame) { return steps[frame % 6]; });
+            expect (analyseInWindow (ui, vbr), "variable bitrate");
+            expect (ui.getResult().opened, ui.getResult().error);
+            expectWithinAbsoluteError ((double) ui.getResult().averageBitrateKbps, 144.0, 3.0, "the average bitrate of a changing-rate file is its mean");
+            expectWithinAbsoluteError (ui.getResult().durationSeconds, 2600.0 * 1152.0 / 44100.0, 0.5, "the length is that of the frames");
+
+            // Twelve minutes: read in the background, without the window freezing.
+            const auto longFile = writeSilentMp3 (folder, "long.mp3", 720.0, 0, 0, 9);
+            ui.analyse (longFile);
+            expect (waitUntil ([&] { return ui.getState() == AnalyzerUI::State::showing; }, 120000), "a twelve minute MP3 finishes");
+            expect (ui.getResult().opened, ui.getResult().error);
+            expectWithinAbsoluteError (ui.getResult().durationSeconds, 720.0, 1.0, "long file length");
+            expectEquals (readingValue (ui, "Duration"), juce::String ("12:00.0"));
+
+            // What is said about a compressed file that has sound in it (no encoder is needed: a measured result is made by hand).
+            // No bit depth, no claim about the original recording, plain words, and the loudest-peak guidance still applies.
+            FileAnalysis::Result measured;
+            measured.opened = true; measured.formatName = "MP3"; measured.lossy = true; measured.floatingPoint = true;
+            measured.sampleRate = 44100.0; measured.channels = 2; measured.durationSeconds = 30.0; measured.averageBitrateKbps = 128;
+            measured.hasIntegratedLoudness = true; measured.integratedLufs = -12.0; measured.samplePeakDb = 0.2; measured.truePeakDb = 1.2;
+            measured.samplesAboveFullScale = 4;
+            const auto advice = FileAdvice::adviseOn (measured);
+            expect (advice.summary.contains ("MP3") && advice.summary.contains ("lossy"), advice.summary);
+            juce::String everything = advice.summary;
+            for (auto& s : advice.steps) everything += " " + s.text;
+            for (auto& s : advice.cannotKnow) everything += " " + s;
+            for (auto& s : advice.measured) everything += " " + s;
+            expect (! everything.containsIgnoreCase ("-bit"), "no bit depth is claimed: " + everything);
+            expect (! everything.containsIgnoreCase ("CD quality"), "an MP3 is not called CD quality");
+            expectEquals (Songsmith::UI::Wording::findBanned (everything), juce::String(), "plain words: " + everything);
+            expect (advice.measured.joinIntoString (" ").contains ("Average bitrate: about 128 kilobits per second"), advice.measured.joinIntoString (" | "));
+        }
+
+        beginTest ("MP3 files (ANA-02): damaged, cut short, or not an MP3 at all, each with an actionable message and no false readings");
+        {
+            AnalyzerUI ui;
+            const auto notMp3 = folder.getChildFile ("not-really.mp3");
+            notMp3.replaceWithText ("this is plain text with an mp3 name");
+            expect (analyseInWindow (ui, notMp3), "text named .mp3");
+            expect (! ui.getResult().opened && ui.getResult().error.contains ("could not be opened"), ui.getResult().error);
+            expect (! ui.getResult().hasIntegratedLoudness && ! std::isfinite (ui.getResult().truePeakDb), "no readings are invented");
+
+            const auto empty = folder.getChildFile ("empty.mp3");
+            empty.replaceWithData ("", 0);
+            expect (analyseInWindow (ui, empty), "empty .mp3");
+            expect (! ui.getResult().opened && ui.getResult().error.isNotEmpty());
+
+            // A real MP3 cut short in the middle of a frame: it either reads what is there or says plainly that it cannot,
+            // and never shows a loudness it did not measure.
+            const auto whole = writeSilentMp3 (folder, "whole.mp3", 4.0, 0, 0, 9);
+            juce::MemoryBlock block;
+            whole.loadFileAsData (block);
+            const auto cutShort = folder.getChildFile ("cut.mp3");
+            cutShort.replaceWithData (block.getData(), block.getSize() / 2 + 100);
+            expect (analyseInWindow (ui, cutShort), "cut short");
+            if (ui.getResult().opened)
+                expect (ui.getResult().silent && ! ui.getResult().hasIntegratedLoudness, "what was read is silence, with no invented loudness");
+            else
+                expect (ui.getResult().error.isNotEmpty(), "the reason is given");
+
+            // The file is never changed.
+            juce::MemoryBlock after;
+            whole.loadFileAsData (after);
+            expect (after == block, "the MP3 was only read");
+        }
+
         beginTest ("True peak is a real measurement: it is above the sample peak when the wave rises between samples, and never relabelled");
         {
             AnalyzerUI ui;
@@ -245,7 +395,7 @@ public:
 
             const std::pair<juce::File, juce::String> cases[] = {
                 { folder.getChildFile ("missing.wav"), "could not be found" },
-                { text, "Only WAV, AIFF and FLAC" },
+                { text, "Only WAV, AIFF, FLAC and MP3" },
                 { folder, "folder" },
                 { damaged, "" },
                 { empty, "" },
@@ -364,7 +514,7 @@ public:
 
             ui.filesDropped ({ folder.getChildFile ("notes.txt").getFullPathName() }, 10, 10);
             expect (waitUntil ([&] { return ui.getState() == AnalyzerUI::State::showing && ! ui.getResult().opened; }));
-            expect (ui.getAdvice().summary.contains ("WAV, AIFF and FLAC"), ui.getAdvice().summary);
+            expect (ui.getAdvice().summary.contains ("WAV, AIFF, FLAC and MP3"), ui.getAdvice().summary);
             ui.filesDropped ({}, 0, 0);   // nothing dropped: nothing happens
         }
 
@@ -417,6 +567,7 @@ public:
                 return writeWav (folder, "clipped.wav", 44100.0, 16, false, b);
             }();
             const auto missing = folder.getChildFile ("not-there.wav");
+            const auto mp3 = writeSilentMp3 (folder, "words.mp3", 3.0, 0, 0, 14);   // 320 kilobits per second: the longest wording
             for (int width : { Analyzer::Layout::designWidth * 3 / 4, Analyzer::Layout::designWidth, Analyzer::Layout::designWidth * 2 })
             {
                 const int height = width * Analyzer::Layout::designHeight / Analyzer::Layout::designWidth;
@@ -432,6 +583,7 @@ public:
                     { "reading", [&] { ui.analyse (writeWav (folder, "slow-words.wav", 44100.0, 16, false, sine (44100.0, 120.0, 997.0, -20.0, 1))); } },
                     { "a good file", [&] { analyseInWindow (ui, good); } },
                     { "a clipped file", [&] { analyseInWindow (ui, clipped); } },
+                    { "an MP3 file", [&] { analyseInWindow (ui, mp3); } },
                     { "a missing file", [&] { analyseInWindow (ui, missing); } } };
                 for (auto& s : screens)
                 {
