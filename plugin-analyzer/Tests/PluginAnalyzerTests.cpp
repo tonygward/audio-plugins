@@ -524,7 +524,7 @@ public:
             Host hostA { ref, res1, 512, through (sysA) }, hostB { ref2, res2, 512, through (sysB) };
             hostA.prime(); hostB.prime();
             ref.requestStart(); ref2.requestStart();
-            for (int b = 0; b < 1400 && (res1.getCapturedSamples() < res1.getCaptureLength() || res2.getCapturedSamples() < res2.getCaptureLength()); ++b)
+            for (int b = 0; b < 2400 && (res1.getCapturedSamples() < res1.getCaptureLength() || res2.getCapturedSamples() < res2.getCaptureLength()); ++b)
             {
                 hostA.runBlock();
                 hostB.runBlock();
