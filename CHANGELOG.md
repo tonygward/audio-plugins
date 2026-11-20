@@ -7,7 +7,7 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 - **Songsmith Audio Analyzer now reads MP3 files.** Open, drop or choose an MP3 just as you would a WAV, AIFF or FLAC file, and it shows the file's integrated loudness (LUFS) and true peak (dBTP), sample rate, channels, length, and that it is a compressed (lossy) file with its average bitrate. An MP3 has no bit depth, so that box says "Not applicable" rather than showing a made-up number. The readings are for the sound as it plays back from the MP3, so they can differ a little from the WAV it was made from. You do not need to do anything. On a Mac, Finder can now open MP3 files with the app too.
 - **Songsmith Audio Analyzer now has the Songsmith logo as its icon.** The Start menu entry, the taskbar button and the file in its folder on Windows, and the app in Applications on a Mac, show the logo instead of a plain placeholder. You do not need to do anything. If Windows still shows the old plain icon after you update, it is showing a saved picture: sign out and in again, or restart your computer, and it will refresh.
 
-## 0.5.56
+## 0.5.57
 
 Behind-the-scenes improvements and fixes. There is nothing you need to do.
 
