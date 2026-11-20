@@ -428,9 +428,20 @@ namespace Songsmith::FileAnalysis
         if (! file.existsAsFile()) { r.error = "That file could not be found."; return r; }
         if (! isSupportedExtension (file)) { r.error = "Only WAV, AIFF, FLAC and MP3 files can be analysed."; return r; }
 
-        juce::AudioFormatManager manager;
-        manager.registerBasicFormats();
-        std::unique_ptr<juce::AudioFormatReader> reader (manager.createReaderFor (file));
+        std::unique_ptr<juce::AudioFormatReader> reader;
+        if (file.hasFileExtension ("mp3"))
+        {
+            // JUCE's own decoder, on every system. The format manager would hand an MP3 to the operating system's codec on a
+            // Mac, which reads and describes it differently, so the same file could give different readings on different systems.
+            if (auto stream = file.createInputStream())
+                reader.reset (juce::MP3AudioFormat().createReaderFor (stream.release(), true));
+        }
+        else
+        {
+            juce::AudioFormatManager manager;
+            manager.registerBasicFormats();
+            reader.reset (manager.createReaderFor (file));
+        }
         if (reader == nullptr) { r.error = "This file could not be opened. It may be damaged, or not the kind of file its name suggests."; return r; }
         if (reader->getFormatName().containsIgnoreCase ("mp3"))
         {
