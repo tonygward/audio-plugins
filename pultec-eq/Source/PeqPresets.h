@@ -34,6 +34,16 @@ namespace Peq
         int highPass = 0, lowPass = 0;        // 0 = Off
     };
 
+    // PEQ-06: the factory starting points grouped for the preset menu. A group is a heading you cannot choose, with the
+    // starting points that belong to it under it. 'presets' are indices into Presets::factory(), in the order shown.
+    // Grouping changes only how the menu is laid out: a starting point keeps its index, its name and its menu item number,
+    // so saved sessions, the host's program list and your own presets are unaffected.
+    struct FactoryCategory
+    {
+        const char* name;
+        std::vector<int> presets;
+    };
+
     class Presets
     {
     public:
@@ -41,6 +51,13 @@ namespace Peq
         static constexpr const char* rootTag = "SongsmithPassiveEQPreset";
 
         static const std::vector<FactoryPreset>& factory();
+
+        // The groups in menu order. Every starting point is in exactly one group, and no group is empty.
+        static const std::vector<FactoryCategory>& categories();
+        // The group a starting point is in (its name), or an empty string for an index that is not a starting point.
+        static juce::String categoryOf (int factoryIndex);
+        // The same groups without any that hold nothing, so a menu never shows a heading with nothing under it.
+        static std::vector<FactoryCategory> withoutEmptyCategories (const std::vector<FactoryCategory>& groups);
 
         explicit Presets (juce::AudioProcessorValueTreeState& state) : apvts (state) {}
 

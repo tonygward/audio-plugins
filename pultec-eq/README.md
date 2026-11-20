@@ -60,7 +60,25 @@ It does not model the original's valves or transformers, so it shapes the tone w
 
 ## Presets
 
-Nineteen starting points, each named for what it is used for. Nine are Tone Shaper: **Bass Weight**, **Kick Drum Weight**, **Lead Vocal Air**, **Acoustic Guitar Brightness**, **Mix Bus Polish**, **Soften Harsh Highs**, **Punchy Kick**, **Deep, Tight Bass** and **Mix Bus Air**. Five are Mid Shaper: **Lead Vocal Presence**, **Reduce Boxy Mids**, **Bass Definition**, **Clear Lead Vocal** and **More Attack on a Soft-Sounding Part**. Five are Frequency Filter: **Clear Low Rumble**, **Soften Top Hiss**, **Rumble Cleanup**, **Tighter Rhythm Guitar** and **Telephone Voice or Guitar**. Choosing one also selects its mode. There is no output level control, so every boost also makes the sound louder: compare with the plugin switched in and out at the same listening level. Hover over the preset menu for a listening cue. **Save preset...** keeps your own as `.sspreset` files in `%APPDATA%\Songsmith Studio\Songsmith Passive EQ\Presets` (Windows) or `~/Library/Songsmith Studio/Songsmith Passive EQ/Presets` (macOS), and **Open presets folder** takes you there. Where each starting point comes from: [docs/presets.md](docs/presets.md).
+Nineteen starting points, each named for what it is used for. Nine are Tone Shaper: **Bass Weight**, **Kick Drum Weight**, **Lead Vocal Air**, **Acoustic Guitar Brightness**, **Mix Bus Polish**, **Soften Harsh Highs**, **Punchy Kick**, **Deep, Tight Bass** and **Mix Bus Air**. Five are Mid Shaper: **Lead Vocal Presence**, **Reduce Boxy Mids**, **Bass Definition**, **Clear Lead Vocal** and **More Attack on a Soft-Sounding Part**. Five are Frequency Filter: **Clear Low Rumble**, **Soften Top Hiss**, **Rumble Cleanup**, **Tighter Rhythm Guitar** and **Telephone Voice or Guitar**. Choosing one also selects its mode. In the **Preset** menu they are grouped under headings you cannot choose, so you can find the right one quickly: **Drums**, **Bass**, **Guitar**, **Vocals**, **Mix Bus and Mastering** and **Utility** (see below), then **Your presets** if you have saved any. The arrow keys step from one starting point to the next and skip the headings. There is no output level control, so every boost also makes the sound louder: compare with the plugin switched in and out at the same listening level. Hover over the preset menu for a listening cue. **Save preset...** keeps your own as `.sspreset` files in `%APPDATA%\Songsmith Studio\Songsmith Passive EQ\Presets` (Windows) or `~/Library/Songsmith Studio/Songsmith Passive EQ/Presets` (macOS), and **Open presets folder** takes you there. Where each starting point comes from: [docs/presets.md](docs/presets.md).
+
+The **Preset** menu, as it is laid out (the headings are not choices):
+
+```
+Drums                    Guitar                       Mix Bus and Mastering
+  Punchy Kick              Acoustic Guitar Brightness   Mix Bus Air
+  Kick Drum Weight         Tighter Rhythm Guitar        Mix Bus Polish
+Bass                     Vocals                       Utility
+  Deep, Tight Bass         Clear Lead Vocal             Rumble Cleanup
+  Bass Weight              Lead Vocal Presence          Clear Low Rumble
+  Bass Definition          Lead Vocal Air               Reduce Boxy Mids
+                           Telephone Voice or Guitar    Soften Harsh Highs
+                                                        Soften Top Hiss
+                                                        More Attack on a Soft-Sounding Part
+Your presets (only if you have saved some)
+```
+
+*That is a text outline, not a screenshot: the open menu is a separate pop-up window that the test program's screenshots do not capture.* A starting point sits in one group only, even when it could suit two: **Telephone Voice or Guitar** is under Vocals, and **More Attack on a Soft-Sounding Part** under Utility because it is not tied to one instrument. **Punchy Kick** is the classic low-end trick (a Low Boost and a Low Cut together at 60 Hz); there is no second copy under another name.
 
 ## Good to know
 

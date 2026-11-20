@@ -711,6 +711,249 @@ public:
             expectEquals (getParam (p, Peq::lowFrequencyId), (float) Peq::defaultLowFrequency);
         }
 
+        beginTest ("PEQ-06: every starting point is in exactly one group, in a sensible group, and no group is empty");
+        {
+            const auto& factory = Peq::Presets::factory();
+            const auto& groups = Peq::Presets::categories();
+
+            const juce::StringArray expectedGroups { "Drums", "Bass", "Guitar", "Vocals", "Mix Bus and Mastering", "Utility" };
+            expectEquals ((int) groups.size(), expectedGroups.size());
+            for (int g = 0; g < (int) groups.size(); ++g)
+            {
+                expectEquals (juce::String (groups[(size_t) g].name), expectedGroups[g], "the groups are in this order");
+                expect (! groups[(size_t) g].presets.empty(), juce::String (groups[(size_t) g].name) + " is not empty");
+            }
+
+            // Each of the 19 starting points appears once, so none is lost and none is listed twice under two names.
+            std::vector<int> seen (factory.size(), 0);
+            for (auto& group : groups)
+                for (int index : group.presets)
+                {
+                    expect (index >= 0 && index < (int) factory.size(), "a real starting point");
+                    if (index >= 0 && index < (int) factory.size())
+                        ++seen[(size_t) index];
+                }
+            for (size_t i = 0; i < factory.size(); ++i)
+                expectEquals (seen[i], 1, juce::String (factory[i].name) + " is in exactly one group");
+
+            // The groups the task named. The telephone sound is under Vocals only, and the soft-sounding part under Utility.
+            const std::pair<const char*, const char*> expectedPlacement[] = {
+                { "Punchy Kick", "Drums" }, { "Kick Drum Weight", "Drums" },
+                { "Deep, Tight Bass", "Bass" }, { "Bass Definition", "Bass" }, { "Bass Weight", "Bass" },
+                { "Tighter Rhythm Guitar", "Guitar" }, { "Acoustic Guitar Brightness", "Guitar" },
+                { "Clear Lead Vocal", "Vocals" }, { "Telephone Voice or Guitar", "Vocals" }, { "Lead Vocal Air", "Vocals" }, { "Lead Vocal Presence", "Vocals" },
+                { "Mix Bus Air", "Mix Bus and Mastering" }, { "Mix Bus Polish", "Mix Bus and Mastering" },
+                { "Rumble Cleanup", "Utility" }, { "More Attack on a Soft-Sounding Part", "Utility" } };
+            for (auto& [name, group] : expectedPlacement)
+            {
+                int found = -1;
+                for (int i = 0; i < (int) factory.size(); ++i)
+                    if (juce::String (factory[(size_t) i].name) == name)
+                        found = i;
+                expect (found >= 0, juce::String (name) + " exists");
+                expectEquals (Peq::Presets::categoryOf (found), juce::String (group), name);
+            }
+            expectEquals (Peq::Presets::categoryOf (-1), juce::String());
+            expectEquals (Peq::Presets::categoryOf (1000), juce::String());
+
+            // The classic low-end trick (a boost and a cut together at 60 Hz) is already Punchy Kick; there is no second copy under another name.
+            const auto& punchy = factory[(size_t) groups[0].presets[0]];
+            expectEquals (juce::String (punchy.name), juce::String ("Punchy Kick"));
+            expectEquals (punchy.lowFrequency, 2, "60 Hz");
+            expect (punchy.lowBoost > 0.0f && punchy.lowCut > 0.0f, "a boost and a cut together");
+            int copies = 0;
+            for (auto& p : factory)
+                if (p.lowFrequency == 2 && p.lowBoost > 0.0f && p.lowCut > 0.0f && p.mode == 0 && p.lowBoost >= 9.0f)
+                    ++copies;
+            expectEquals (copies, 1, "only one starting point is the 60 Hz punch");
+
+            // A group with nothing in it is not shown.
+            const std::vector<Peq::FactoryCategory> withEmpty { { "First", { 1, 2 } }, { "Nothing here", {} }, { "Last", { 3 } } };
+            const auto kept = Peq::Presets::withoutEmptyCategories (withEmpty);
+            expectEquals ((int) kept.size(), 2);
+            expectEquals (juce::String (kept[0].name), juce::String ("First"));
+            expectEquals (juce::String (kept[1].name), juce::String ("Last"));
+            expectEquals ((int) Peq::Presets::withoutEmptyCategories ({}).size(), 0);
+        }
+
+        beginTest ("PEQ-06: the preset menu shows the groups as headings you cannot choose, then your presets, Save and the folder");
+        {
+            const auto root = juce::File::getSpecialLocation (juce::File::tempDirectory).getNonexistentChildFile ("songsmith-peq06", "", false);
+            root.createDirectory();
+            Peq::Presets::setDefaultFolderRootForTesting (root);
+            {
+                SongsmithPassiveEQProcessor p;
+                auto ed = make (p, Peq::EditorLayout::defaultWidth);
+                auto& box = ed->getPresetBox();
+                const auto& factory = Peq::Presets::factory();
+                const auto& groups = Peq::Presets::categories();
+
+                struct Entry { bool heading, separator; juce::String text; int id; bool enabled; };
+                auto readMenu = [&] (juce::ComboBox& source)
+                {
+                    std::vector<Entry> entries;
+                    juce::PopupMenu::MenuItemIterator it (*source.getRootMenu());
+                    while (it.next())
+                        entries.push_back ({ it.getItem().isSectionHeader, it.getItem().isSeparator, it.getItem().text, it.getItem().itemID, it.getItem().isEnabled });
+                    return entries;
+                };
+
+                // The menu, in order: each group's heading, then its starting points; with no presets of your own, nothing follows but Save and the folder.
+                auto menu = readMenu (box);
+                size_t at = 0;
+                for (auto& group : groups)
+                {
+                    expect (at < menu.size() && menu[at].heading, juce::String (group.name) + " starts with a heading");
+                    if (at >= menu.size()) break;
+                    expectEquals (menu[at].text, juce::String (group.name));
+                    expectEquals (menu[at].id, 0, "a heading has no item number, so it cannot be chosen");
+                    ++at;
+                    for (int index : group.presets)
+                    {
+                        expect (at < menu.size() && ! menu[at].heading, juce::String (factory[(size_t) index].name) + " is a choice");
+                        if (at >= menu.size()) break;
+                        expectEquals (menu[at].text, juce::String (factory[(size_t) index].name));
+                        expectEquals (menu[at].id, index + 1, "its item number is its index plus one, as before the groups");
+                        expect (menu[at].enabled, "and it can be chosen");
+                        ++at;
+                    }
+                }
+                expect (at < menu.size() && menu[at].separator, "a line, then Save and the folder");
+                expectEquals (menu[at + 1].text, juce::String ("Save preset..."));
+                expectEquals (menu.back().text, juce::String ("Open presets folder"));
+                int headings = 0;
+                for (auto& e : menu) headings += e.heading ? 1 : 0;
+                expectEquals (headings, (int) groups.size(), "only the groups are headings when you have no presets of your own");
+
+                // Your own presets: a heading of their own after the starting points, never mixed into a group.
+                juce::String error;
+                setParam (p, Peq::lowBoostId, 3.0f);
+                expect (p.presets.saveAs ("My Own Sound", error), error);
+                auto reopened = make (p, Peq::EditorLayout::defaultWidth);   // a new editor builds the menu again
+                menu = readMenu (reopened->getPresetBox());
+                int yourHeading = -1, myItem = -1, lastGroupItem = -1;
+                for (int i = 0; i < (int) menu.size(); ++i)
+                {
+                    if (menu[(size_t) i].heading && menu[(size_t) i].text == "Your presets") yourHeading = i;
+                    if (menu[(size_t) i].text == "My Own Sound") myItem = i;
+                    if (menu[(size_t) i].id >= 1 && menu[(size_t) i].id <= (int) factory.size()) lastGroupItem = i;
+                }
+                expect (yourHeading > lastGroupItem && myItem == yourHeading + 1, "your presets come after every group, under their own heading");
+                expect (menu[(size_t) myItem].id >= 100, "and keep their own item numbers");
+            }
+            Peq::Presets::setDefaultFolderRootForTesting ({});
+            root.deleteRecursively();
+        }
+
+        beginTest ("PEQ-06: choosing from the grouped menu loads the starting point, switches the mode, and is one Undo step");
+        {
+            SongsmithPassiveEQProcessor p;
+            auto ed = make (p, Peq::EditorLayout::defaultWidth);
+            auto& box = ed->getPresetBox();
+            const auto& factory = Peq::Presets::factory();
+
+            // One from each mode: a Tone Shaper (Punchy Kick), a Mid Shaper (Clear Lead Vocal), a Frequency Filter (Tighter Rhythm Guitar).
+            const char* names[] = { "Punchy Kick", "Clear Lead Vocal", "Tighter Rhythm Guitar" };
+            for (int expectedMode = 0; expectedMode < 3; ++expectedMode)
+            {
+                int index = -1;
+                for (int i = 0; i < (int) factory.size(); ++i)
+                    if (juce::String (factory[(size_t) i].name) == names[expectedMode])
+                        index = i;
+                expect (index >= 0, names[expectedMode]);
+                box.setSelectedId (index + 1, juce::sendNotificationSync);
+                const auto& f = factory[(size_t) index];
+                expectEquals (f.mode, expectedMode, juce::String (names[expectedMode]) + " is in the mode the test expects");
+                expectEquals (getParam (p, Peq::modeId), (float) expectedMode, "choosing it switches the mode");
+                expectWithinAbsoluteError (getParam (p, Peq::lowBoostId), f.lowBoost, 1.0e-3f, names[expectedMode]);
+                expectWithinAbsoluteError (getParam (p, Peq::midHighBoostId), f.midHighBoost, 1.0e-3f, names[expectedMode]);
+                expectEquals (getParam (p, Peq::highPassFrequencyId), (float) f.highPass, names[expectedMode]);
+                expectEquals (getParam (p, Peq::lowPassFrequencyId), (float) f.lowPass, names[expectedMode]);
+                expectEquals (box.getText(), juce::String (f.name), "the box shows the choice");
+                expectEquals (box.getSelectedId(), index + 1, "and the same item stays chosen");
+            }
+            p.history.undo();   // back from the Frequency Filter
+            expectEquals (getParam (p, Peq::modeId), 1.0f, "one Undo undoes only the last choice, including its mode");
+            p.history.undo();
+            expectEquals (getParam (p, Peq::modeId), 0.0f);
+
+            // Every starting point, chosen from the menu by its item number, loads its own settings.
+            for (int i = 0; i < (int) factory.size(); ++i)
+            {
+                box.setSelectedId (i + 1, juce::sendNotificationSync);
+                expectEquals (p.presets.currentName, juce::String (factory[(size_t) i].name));
+                expectEquals (getParam (p, Peq::modeId), (float) factory[(size_t) i].mode, factory[(size_t) i].name);
+            }
+        }
+
+        beginTest ("PEQ-06: a grouped choice comes back when the session is saved and reopened, and the box shows it");
+        {
+            SongsmithPassiveEQProcessor p;
+            const auto& factory = Peq::Presets::factory();
+            int index = -1;
+            for (int i = 0; i < (int) factory.size(); ++i)
+                if (juce::String (factory[(size_t) i].name) == "Bass Definition")
+                    index = i;
+            {
+                auto ed = make (p, Peq::EditorLayout::defaultWidth);
+                ed->getPresetBox().setSelectedId (index + 1, juce::sendNotificationSync);
+            }
+            juce::MemoryBlock saved;
+            p.getStateInformation (saved);
+
+            SongsmithPassiveEQProcessor q;
+            q.setStateInformation (saved.getData(), (int) saved.getSize());
+            expectEquals (getParam (q, Peq::modeId), 1.0f, "reopened in the Mid Shaper");
+            expectWithinAbsoluteError (getParam (q, Peq::midLowBoostId), factory[(size_t) index].midLowBoost, 1.0e-3f);
+            expectEquals (q.presets.currentName, juce::String ("Bass Definition"));
+            auto ed = make (q, Peq::EditorLayout::defaultWidth);
+            expectEquals (ed->getPresetBox().getText(), juce::String ("Bass Definition"), "the box shows it");
+            expectEquals (ed->getPresetBox().getSelectedId(), index + 1, "under its own item number");
+        }
+
+        beginTest ("PEQ-06: the arrow keys step through the starting points in menu order and skip the headings");
+        {
+            SongsmithPassiveEQProcessor p;
+            auto ed = make (p, Peq::EditorLayout::defaultWidth);
+            auto& box = ed->getPresetBox();
+            const auto& groups = Peq::Presets::categories();
+            std::vector<int> ids;   // the item numbers in the order the menu shows them
+            for (auto& group : groups)
+                for (int index : group.presets)
+                    ids.push_back (index + 1);
+            expectEquals ((int) ids.size(), (int) Peq::Presets::factory().size());
+
+            box.setSelectedId (ids.front(), juce::sendNotificationSync);
+            for (size_t i = 1; i < ids.size(); ++i)
+            {
+                expect (box.keyPressed (juce::KeyPress (juce::KeyPress::downKey)), "Down is handled");
+                expectEquals (box.getSelectedId(), ids[i], "Down goes to the next starting point, over any heading, not onto it");
+            }
+            for (size_t i = ids.size() - 1; i-- > 0;)
+            {
+                expect (box.keyPressed (juce::KeyPress (juce::KeyPress::upKey)), "Up is handled");
+                expectEquals (box.getSelectedId(), ids[i], "Up goes back the same way");
+            }
+        }
+
+        beginTest ("PEQ-06: the preset box keeps its place and words at the smallest, default and largest editor");
+        {
+            for (int width : { Peq::EditorLayout::minWidth, Peq::EditorLayout::defaultWidth, Peq::EditorLayout::maxWidth })
+            {
+                SongsmithPassiveEQProcessor p;
+                auto ed = make (p, width);
+                const auto context = "Passive EQ at " + juce::String (width) + " px";
+                expect (ed->getPresetBox().isVisible() && ed->getPresetBox().getWidth() > 100, context + ": the preset box is there");
+                expect (ed->getTitleBounds().getRight() < ed->getPresetBox().getX(), context + ": the title does not overlap the preset box");
+                juce::StringArray texts;
+                for (auto& group : Peq::Presets::categories())
+                    texts.add (group.name);
+                Songsmith::UI::Wording::expectPlainWords (*this, texts, context + " group names");
+                for (auto& group : Peq::Presets::categories())
+                    expect (juce::String (group.name).length() >= 4 && juce::String (group.name).length() <= 24, juce::String (group.name) + " is a short, clear heading");
+            }
+        }
+
         beginTest ("The output meter reads each channel of the processed sound: silence, a calibrated sine, imbalance, boosts, Bypass, clipping and mono");
         {
             auto sine = [] (int n, float amp, double hz, double fs)
