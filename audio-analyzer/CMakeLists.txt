@@ -82,6 +82,7 @@ if(ANALYZER_BUILD_TESTS)
     target_compile_definitions(AudioAnalyzerTests PRIVATE
         ${ANALYZER_DEFINITIONS}
         JUCE_MODAL_LOOPS_PERMITTED=1   # the tests run the message loop to wait for the background reader
+        "ANALYZER_FIXTURES_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/Tests/fixtures\""   # real MP3 files of a known signal (see Tests/fixtures/README.md)
         "ANALYZER_BUNDLE_ID=\"${ANALYZER_BUNDLE_ID}\"")
 
     target_link_libraries(AudioAnalyzerTests

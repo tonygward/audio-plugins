@@ -329,6 +329,54 @@ public:
             expect (advice.measured.joinIntoString (" ").contains ("Average bitrate: about 128 kilobits per second"), advice.measured.joinIntoString (" | "));
         }
 
+        beginTest ("MP3 files (ANA-02): real encoded files of a known signal read the loudness and true peak of what they decode to");
+        {
+            // A 997 Hz sine at -20 dBFS in both channels, 4 seconds, encoded with LAME (Tests/fixtures/README.md says how). Before
+            // encoding it reads -20.0 LUFS and -20.0 dBTP (EBU Tech 3341 level case). A lossy file is not bit for bit the same, and the
+            // lower bitrates decode a little under the source. So each file has its own reference: what ffmpeg's EBU R128 meter
+            // (an independent decoder and meter) reads for the decoded file, recorded in Tests/fixtures/README.md.
+            const juce::File fixtures (ANALYZER_FIXTURES_DIR);
+            struct Fixture { const char* file; int expectedKbps; double kbpsTolerance; double referenceLufs, referenceTruePeak; };
+            const Fixture fixturesToRead[] = { { "sine-997hz-minus20db-cbr128.mp3", 128, 3.0, -20.5, -20.4 },
+                                               { "sine-997hz-minus20db-cbr192.mp3", 192, 3.0, -20.3, -20.3 },
+                                               { "sine-997hz-minus20db-cbr320.mp3", 320, 3.0, -20.0, -20.0 },
+                                               { "sine-997hz-minus20db-vbr.mp3", 0, 0.0, -20.0, -19.9 } };
+            AnalyzerUI ui;
+            for (const auto& fx : fixturesToRead)
+            {
+                const auto mp3 = fixtures.getChildFile (fx.file);
+                expect (mp3.existsAsFile(), juce::String (fx.file) + " is in the repository");
+                expect (analyseInWindow (ui, mp3), fx.file);
+                const auto& r = ui.getResult();
+                expect (r.opened, juce::String (fx.file) + ": " + r.error);
+                expectEquals (r.formatName, juce::String ("MP3"), fx.file);
+                expect (r.lossy, fx.file);
+                expectEquals ((int) r.sampleRate, 44100, fx.file);
+                expectEquals (r.channels, 2, fx.file);
+                expect (r.hasIntegratedLoudness, fx.file);
+                // The reference figures are rounded to a tenth of a decibel, so within 0.15 is as close as they can be compared.
+                expectWithinAbsoluteError (r.integratedLufs, fx.referenceLufs, 0.15, juce::String (fx.file) + " reads what ffmpeg's EBU R128 meter reads");
+                expectWithinAbsoluteError (r.truePeakDb, fx.referenceTruePeak, 0.15, juce::String (fx.file) + " true peak reads what ffmpeg's meter reads");
+                expectWithinAbsoluteError (r.integratedLufs, -20.0, 0.6, juce::String (fx.file) + " is within 0.6 dB of the -20 LUFS it was made at");
+                expectGreaterOrEqual (r.truePeakDb, r.samplePeakDb - 0.01, "the true peak is never below the sample peak");
+                if (fx.expectedKbps > 0)
+                    expectWithinAbsoluteError ((double) r.averageBitrateKbps, (double) fx.expectedKbps, fx.kbpsTolerance, juce::String (fx.file) + " average bitrate");
+                else
+                    expect (r.averageBitrateKbps > 0 && r.averageBitrateKbps < 200, "a variable bitrate file has an average bitrate: " + juce::String (r.averageBitrateKbps));
+                // Four seconds, give or take the encoder's start and end padding (under a twentieth of a second).
+                expectWithinAbsoluteError (r.durationSeconds, 4.0, 0.12, juce::String (fx.file) + " length");
+                expectEquals (readingValue (ui, "Bit Depth and Encoding"), juce::String ("Not applicable"));
+                expectEquals (readingNote (ui, "Bit Depth and Encoding"), juce::String ("MP3, lossy"));
+                // The charts show the same measurements: two bars at about -20 dBTP, and a waveform of a steady tone.
+                expectEquals (ui.getPeakDisplay().getNumBars(), 2);
+                expectWithinAbsoluteError (ui.getPeakDisplay().getBarTruePeakDb (0), r.truePeakDb, 0.3, "the left bar");
+                expectWithinAbsoluteError (ui.getPeakDisplay().getBarTruePeakDb (1), r.truePeakDb, 0.3, "the right bar");
+                const auto& wave = ui.getWaveform().getPeaks();
+                expectEquals ((int) wave.size(), Songsmith::FileAnalysis::waveformColumns);
+                expectWithinAbsoluteError (wave[wave.size() / 2], 0.1f, 0.01f, "the middle of the tone is its level (-20 dBFS is 0.1)");
+            }
+        }
+
         beginTest ("MP3 files (ANA-02): damaged, cut short, or not an MP3 at all, each with an actionable message and no false readings");
         {
             AnalyzerUI ui;

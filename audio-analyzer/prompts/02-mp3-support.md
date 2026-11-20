@@ -29,5 +29,5 @@ Let people analyse exported MP3 files for integrated loudness and true peak, as 
 ## Limits to keep honest
 
 - Not trimmed: the encoder's start and end silence (usually under 0.05 s). It has almost no effect on loudness.
-- Not in the tests yet: MP3 files of music with a known loudness. No encoder was available; the decoder was run by hand on real files.
+- The reference MP3s in the tests are a pure tone (a 997 Hz sine at -20 dBFS), checked against ffmpeg's EBU R128 meter. Music encoded at other settings is not in the tests.
 - Peaks decoded from an MP3 can exceed 0 dBFS. That is reported as measured.
