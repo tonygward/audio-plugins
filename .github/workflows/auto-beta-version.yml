@@ -16,6 +16,7 @@ on:
       - 'optical-leveller/**'
       - 'pultec-eq/**'
       - 'bus-compressor/**'
+      - 'plugin-analyzer/**'
       - 'audio-analyzer/**'
       - 'shared/**'
       - 'installer/**'

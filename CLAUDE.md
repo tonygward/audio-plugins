@@ -11,6 +11,7 @@ JUCE + CMake audio plugins (VST3, AU on macOS, Standalone) by **Songsmith Studio
 | Songsmith Optical Leveller | `optical-leveller/` | `OpticalLevellerTests` |
 | Songsmith Passive EQ | `pultec-eq/` | `PassiveEQTests` |
 | Songsmith Bus Compressor | `bus-compressor/` | `BusCompressorTests` |
+| Songsmith Plugin Analyzer (a measuring plugin: a VST3 pair, Reference and Result) | `plugin-analyzer/` | `PluginAnalyzerTests` |
 | Songsmith Audio Analyzer (a standalone app, not a plugin) | `audio-analyzer/` | `AudioAnalyzerTests` |
 
 **How work runs:** the [execution policy](docs/songsmith-execution-policy.md) is the one place the development and delivery rules are written; this file only summarises them. In short: cards in **Todo** or **Doing** run (Doing first, Todo one a day) and cards in **Backlog** or **Blocked** wait; one task at a time, no new work at 60% weekly Claude usage; Sonnet by default; after the beta release Matrix comments with the download link, closes the issue and moves the card to Done.
@@ -37,7 +38,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
 - Shared neutral colours. Each plugin has one accent colour.
 - Every editor is vector-drawn, scales as a whole (interface size at least 75–200 %; see the style guide for each plugin's range), and stays crisp on Retina and Windows display scaling.
 - New plugins link the shared UI library; they don't copy fonts or look-and-feel code.
-- **Every plugin has the Output level meter at the far right**, laid out like the Songsmith Compressor, and every plugin that turns the level down also has the Gain Reduction bar beside it. Use `Songsmith::UI::MeterColumn` (SUI-23). Equalisers show Output only. `test/suite-meters.test.mjs` enforces it.
+- **Every plugin has the Output level meter at the far right**, laid out like the Songsmith Compressor, and every plugin that turns the level down also has the Gain Reduction bar beside it. Use `Songsmith::UI::MeterColumn` (SUI-23). Equalisers, and the Plugin Analyzer (a measuring tool that never changes the level), show Output only. `test/suite-meters.test.mjs` enforces it.
 
 ### 4. Controls belong beside what they affect
 - **Place each UI widget near the feature, graph, value, meter, or region it controls.** Spatial proximity should make its effect obvious without requiring the user to search the interface. Do not put controls into a generic toolbar simply because it has spare space.
@@ -83,7 +84,7 @@ Prompts: each plugin keeps its own in `<plugin>/prompts/` (`eq/prompts/` is the 
   cmake --build eq/build --config Release
   .\eq\build\EQTests_artefacts\Release\EQTests.exe
   ```
-  The same goes for `analog-compressor` (`AnalogCompressorTests`), `maximiser` (`MaximiserTests`), `compressor` (`CompressorTests`), `optical-leveller` (`OpticalLevellerTests`), `pultec-eq` (`PassiveEQTests`), `bus-compressor` (`BusCompressorTests`) and `audio-analyzer` (`AudioAnalyzerTests`, the standalone Songsmith Audio Analyzer app). Test executables can render editor screenshots (`--screenshots <folder>` or `--screenshot <file>`, `--scale 2`).
+  The same goes for `analog-compressor` (`AnalogCompressorTests`), `maximiser` (`MaximiserTests`), `compressor` (`CompressorTests`), `optical-leveller` (`OpticalLevellerTests`), `pultec-eq` (`PassiveEQTests`), `bus-compressor` (`BusCompressorTests`), `plugin-analyzer` (`PluginAnalyzerTests`, the Reference and Result measuring pair) and `audio-analyzer` (`AudioAnalyzerTests`, the standalone Songsmith Audio Analyzer app). Test executables can render editor screenshots (`--screenshots <folder>` or `--screenshot <file>`, `--scale 2`).
 - Never run `install.ps1`, installers or system-wide installs on the dev machines. Installer tests run in temp folders on Windows, and on CI only for macOS.
 - PRs cover what changed, choices made differently from the prompt (and why), test results, known limitations, and "Not yet verified in a DAW" when that's true. **Keep useful screenshots**: UI changes include before-and-after screenshots committed to the PR, embedded or linked in the PR description. Retain representative, current screenshots in the appropriate plugin README or user guide, with relative Markdown image links to version-controlled assets. Do **not** delete useful screenshots before merging. Distinguish clearly between concept mockups and real screenshots; refresh screenshots when the interface changes, and avoid redundant or obsolete images.
 - Keep README files up to date with user-facing changes, in the same plain language.

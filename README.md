@@ -14,6 +14,8 @@ Songsmith Plugins, from Songsmith Studio, is a growing family of audio tools for
 - **Songsmith Passive EQ** — gentle, broad low and high tone shaping, inspired by a classic passive equaliser.
 - **Songsmith Bus Compressor** — glue a mix or a group of sounds together, inspired by a classic mixing desk bus compressor.
 
+- **Songsmith Plugin Analyzer** — measure what another plugin does to the sound at each frequency, with a copy before it and a copy after it. A VST3 only, for checking and comparing equaliser curves. See [plugin-analyzer/README.md](plugin-analyzer/README.md).
+
 Also in the installer, as an app rather than a plugin:
 
 - **Songsmith Audio Analyzer** — open a finished WAV, AIFF or FLAC file and see how loud it is, its true peak and how it was recorded, with short, optional advice. It needs no recording software. See [audio-analyzer/README.md](audio-analyzer/README.md).

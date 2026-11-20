@@ -1036,6 +1036,9 @@ public:
         {
             SongsmithPluginAnalyzerProcessor p;
             auto ed = make (p, L::defaultWidth);
+            expectEquals (ed->getRoleBox().getText(), juce::String ("Reference"), "the Role box shows the saved choice, not a blank");
+            expect (ed->getSessionBox().getText().isNotEmpty(), "the Session box shows the saved choice");
+            expect (ed->getChannelBox().getText().isNotEmpty(), "the Channel box shows the saved choice");
             for (auto* c : std::initializer_list<juce::Component*> { &ed->getRoleBox(), &ed->getSessionBox(), &ed->getChannelBox(), &ed->getLevelSlider(), &ed->getStartButton(),
                                                                      &ed->getStopButton(), &ed->getResetButton(), &ed->getExportButton(), &ed->getBypassButton(),
                                                                      &ed->getMeasureIntoBox(), &ed->getShowBox(), &ed->getCompareBox(), &ed->getRangeBox(), &ed->getNameEditor(), &ed->getGraph() })
@@ -1077,15 +1080,17 @@ struct ConsoleRunner final : juce::UnitTestRunner
 // changes can be checked without a host. "curve" (the default) is a Result showing two measurements.
 static int renderScreenshot (const juce::File& file, float scale, const juce::String& state)
 {
-    SongsmithPluginAnalyzerProcessor ref, res, lone;
+    SongsmithPluginAnalyzerProcessor ref, res;
+    std::unique_ptr<SongsmithPluginAnalyzerProcessor> lone;   // only made when needed: a spare Reference would share the first session
     makeResult (res, 0);
     SongsmithPluginAnalyzerProcessor* shown = &res;
     if (state == "reference")
         shown = &ref;
     else if (state == "problem")
     {
-        makeReference (lone, 6);
-        shown = &lone;
+        lone = std::make_unique<SongsmithPluginAnalyzerProcessor>();
+        makeReference (*lone, 6);
+        shown = lone.get();
     }
     else
     {
@@ -1103,9 +1108,7 @@ static int renderScreenshot (const juce::File& file, float scale, const juce::St
         const int count = res.getMeasurementCount();
         res.measureSlot = 1;
         host.between = through (sysB);
-        ref.requestStart();
-        for (int b = 0; b < 4000 && res.getCapturedSamples() < res.getCaptureLength(); ++b)
-            host.runBlock();
+        host.measure();   // (it runs a block before looking, so the first measurement's full capture is not mistaken for this one)
         waitUntil ([&] { res.poll(); return res.getMeasurementCount() > count; });
         res.shownSlot = 1;
         res.comparedSlot = 0;

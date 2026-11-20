@@ -23,9 +23,6 @@ namespace
 //==============================================================================
 SongsmithPluginAnalyzerEditor::SongsmithPluginAnalyzerEditor (SongsmithPluginAnalyzerProcessor& p)
     : juce::AudioProcessorEditor (&p), proc (p),
-      roleAttachment (p.apvts, roleId, roleBox),
-      sessionAttachment (p.apvts, sessionId, sessionBox),
-      channelAttachment (p.apvts, channelId, channelBox),
       levelAttachment (p.apvts, levelId, levelSlider),
       bypassAttachment (p.apvts, bypassId, bypassButton)
 {
@@ -52,6 +49,9 @@ SongsmithPluginAnalyzerEditor::SongsmithPluginAnalyzerEditor (SongsmithPluginAna
     roleBox.addItemList (roleNames(), 1);
     sessionBox.addItemList (sessionNames(), 1);
     channelBox.addItemList (channelNames(), 1);
+    roleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, roleId, roleBox);
+    sessionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, sessionId, sessionBox);
+    channelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, channelId, channelBox);
     rangeBox.addItem ("Up and down 6 dB", 1);
     rangeBox.addItem ("Up and down 12 dB", 2);
     rangeBox.addItem ("Up and down 24 dB", 3);

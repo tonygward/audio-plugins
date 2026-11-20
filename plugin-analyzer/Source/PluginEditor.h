@@ -92,7 +92,8 @@ private:
     juce::ProgressBar progressBar { progress };
     PluginAnalyzer::UI::ResponseGraph graph;
 
-    juce::AudioProcessorValueTreeState::ComboBoxAttachment roleAttachment, sessionAttachment, channelAttachment;
+    // Made after the boxes have their items, or the saved choice would find nothing to select.
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> roleAttachment, sessionAttachment, channelAttachment;
     juce::AudioProcessorValueTreeState::SliderAttachment levelAttachment;
     juce::AudioProcessorValueTreeState::ButtonAttachment bypassAttachment;
 
