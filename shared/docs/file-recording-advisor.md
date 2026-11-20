@@ -14,7 +14,9 @@ Whole-file, analysis-only advice for the standalone Songsmith Loudness Analyser:
 
 ## Supported files
 
-WAV, AIFF and FLAC, read through JUCE's format readers (`registerBasicFormats`). Other files (MP3 and so on) are refused with a plain message, not guessed at. FLAC support depends on JUCE's bundled FLAC reader being enabled in the build, which is the JUCE default.
+WAV, AIFF, FLAC and MP3, read through JUCE's format readers (`registerBasicFormats`). Other files are refused with a plain message, not guessed at. FLAC and MP3 support depend on JUCE's bundled readers being enabled in the build, which is the JUCE default.
+
+**MP3 (ANA-02)** is lossy, so the analysis measures the *decoded* sound and says so: it has no bit depth (`storedBits` stays 0 and the window says "Not applicable"), the file is described as lossy with its average bitrate, and the advice never calls it CD quality or says anything about a bit depth. The frame count and average bitrate come from `scanMp3Frames`, which walks the frame headers (Layer III) because JUCE's own length for a variable bitrate file without an Xing or Info header is a guess. The encoder's start and end silence is not trimmed.
 
 ## What is a real measurement
 
@@ -46,7 +48,7 @@ Six-channel files use the BS.1770 weights (surrounds 1.41, low-frequency channel
 
 Each message says what matters, why, and whether the musician needs to do anything. Next steps are grouped as **No change necessary**, **Try this if you're hearing a problem** and **For your next recording**. There are no scores, pass or fail marks or alarm badges. 44.1 kHz and 16-bit are described as CD quality and fine; 24-bit is described as extra flexibility with levels for the next recording, never as repairing an existing file, and nothing suggests converting 16-bit to 24-bit.
 
-The wording test (`Songsmith::UI::Wording::findBanned`) runs on every message. `WAV`, `AIFF`, `FLAC` and `CD` were added to its allowed short forms for this feature; the list in `docs/style-guide.md#wording` needs the same four words added (outside the folders this change could edit).
+The wording test (`Songsmith::UI::Wording::findBanned`) runs on every message. `WAV`, `AIFF`, `FLAC` and `CD` were added to its allowed short forms for this feature; the list in `docs/style-guide.md#wording` needs the same four words added (outside the folders this change could edit). `MP3` needs no entry because the rule allows a word that contains a digit; bitrates are written out as "kilobits per second".
 
 ## Tests
 

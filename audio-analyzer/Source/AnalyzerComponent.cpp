@@ -63,10 +63,10 @@ namespace Songsmith::Analyzer
         setOpaque (true);
         setWantsKeyboardFocus (true);
         setTitle (ANALYZER_PRODUCT_NAME);
-        setDescription ("Open a finished WAV, AIFF or FLAC file to see how loud it is and how it was recorded.");
+        setDescription ("Open a finished WAV, AIFF, FLAC or MP3 file to see how loud it is and how it was recorded.");
 
         styleLabel (dropLabel, UI::Type::title, UI::Weight::Regular, UI::Colours::text, juce::Justification::centred);
-        dropLabel.setText ("Drop a WAV, AIFF or FLAC file here", juce::dontSendNotification);
+        dropLabel.setText ("Drop a WAV, AIFF, FLAC or MP3 file here", juce::dontSendNotification);
         styleLabel (orLabel, UI::Type::control, UI::Weight::Regular, UI::Colours::textDim, juce::Justification::centred);
         orLabel.setText ("or", juce::dontSendNotification);
         styleLabel (privacyLabel, UI::Type::hint, UI::Weight::Regular, UI::Colours::textDim, juce::Justification::centred);
@@ -80,10 +80,10 @@ namespace Songsmith::Analyzer
         versionLabel.setTitle ("Version");
 
         chooseButton.setButtonText ("Choose File...");
-        chooseButton.setTooltip ("Choose a WAV, AIFF or FLAC file from your computer. Shortcut: Ctrl+O");
+        chooseButton.setTooltip ("Choose a WAV, AIFF, FLAC or MP3 file from your computer. Shortcut: Ctrl+O");
         chooseButton.onClick = [this] { chooseFile(); };
         anotherButton.setButtonText ("Analyse Another File");
-        anotherButton.setTooltip ("Choose another WAV, AIFF or FLAC file. You can also drop one on this window. Shortcut: Ctrl+O");
+        anotherButton.setTooltip ("Choose another WAV, AIFF, FLAC or MP3 file. You can also drop one on this window. Shortcut: Ctrl+O");
         anotherButton.onClick = [this] { chooseFile(); };
         cancelButton.setButtonText ("Cancel");
         cancelButton.setTooltip ("Stop reading this file and go back. Shortcut: Escape");
@@ -127,7 +127,7 @@ namespace Songsmith::Analyzer
         if (f.isDirectory())
         {
             FileAnalysis::Result r;
-            r.error = "That is a folder. Choose a WAV, AIFF or FLAC file.";
+            r.error = "That is a folder. Choose a WAV, AIFF, FLAC or MP3 file.";
             showResult (f, r);
             return;
         }
@@ -202,7 +202,7 @@ namespace Songsmith::Analyzer
         if (chooser != nullptr)
             return;   // the chooser is already open
         const auto start = file.exists() ? file.getParentDirectory() : juce::File::getSpecialLocation (juce::File::userMusicDirectory);
-        chooser = std::make_unique<juce::FileChooser> ("Choose a WAV, AIFF or FLAC file", start, "*.wav;*.aif;*.aiff;*.flac");
+        chooser = std::make_unique<juce::FileChooser> ("Choose a WAV, AIFF, FLAC or MP3 file", start, "*.wav;*.aif;*.aiff;*.flac;*.mp3");
         juce::Component::SafePointer<AnalyzerComponent> safe (this);
         chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                               [safe] (const juce::FileChooser& fc)

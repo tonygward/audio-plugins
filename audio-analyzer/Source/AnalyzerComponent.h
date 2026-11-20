@@ -10,7 +10,7 @@
 #include "../../shared/Source/SongsmithFileAnalysis.h"
 #include "../../shared/Source/SongsmithType.h"
 
-// REC-02: the Songsmith Audio Analyzer window. One job: open a finished WAV, AIFF or FLAC file, show what it
+// REC-02: the Songsmith Audio Analyzer window. One job: open a finished WAV, AIFF, FLAC or MP3 file, show what it
 // measures (integrated loudness, true peak, sample rate, bit depth and encoding, duration), and give short,
 // optional, plain-English guidance. Then analyse another file.
 namespace Songsmith::Analyzer

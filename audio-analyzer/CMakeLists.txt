@@ -46,7 +46,7 @@ juce_add_gui_app(SongsmithAudioAnalyzer
     BUNDLE_ID           ${ANALYZER_BUNDLE_ID}
     VERSION             ${PROJECT_VERSION}
     # macOS: Finder can open these with the app, and a file dropped on its icon arrives as a file to open.
-    DOCUMENT_EXTENSIONS wav aif aiff flac
+    DOCUMENT_EXTENSIONS wav aif aiff flac mp3
     # No microphone, camera or network use: the app only reads the file you choose.
     NEEDS_CURL          FALSE
     NEEDS_WEB_BROWSER   FALSE)

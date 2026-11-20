@@ -20,6 +20,12 @@
 // (3 s windows, relative gate -20 LU), sample peak, and true peak (4x, or 2x from 96 kHz, Kaiser
 // interpolation, a different design from the Maximiser's limiter detector).
 // Not knowable from a file: the bit depth or sample rate it was originally recorded at.
+//
+// ANA-02: MP3 files are decoded by JUCE's own decoder and the decoded sound is measured like any other, so the
+// loudness and true peak are those of what a listener hears, not of the WAV the MP3 was made from. Two limits are
+// kept honest in the Audio Analyzer's wording: the decoder does not remove the short silence an encoder adds at the
+// start and end (about a twentieth of a second, which does not change the loudness reading), and a file's length is
+// the decoder's count of whole frames.
 namespace Songsmith::FileAnalysis
 {
     struct Result
@@ -27,13 +33,17 @@ namespace Songsmith::FileAnalysis
         // File facts.
         bool opened = false;
         juce::String error;             // plain words, set when opened is false or reading failed
-        juce::String formatName;        // "WAV", "AIFF" or "FLAC"
+        juce::String formatName;        // "WAV", "AIFF", "FLAC" or "MP3"
         double sampleRate = 0.0;
         int channels = 0;
         int storedBits = 0;             // bits per sample stored in the file; 0 if unknown
         bool floatingPoint = false;
         juce::int64 frames = 0;
         double durationSeconds = 0.0;
+
+        // ANA-02: a lossy file (MP3) is measured on the sound it decodes to. It has no stored bit depth, so storedBits stays 0.
+        bool lossy = false;
+        int averageBitrateKbps = 0;     // average over the whole file, worked out from its size and length; 0 when unknown
 
         // Where known: the lowest bits are all zero, so the values fit in fewer bits (integer files).
         int bitsInUse = 0;              // 0 when unknown or the file is silent
@@ -146,6 +156,101 @@ namespace Songsmith::FileAnalysis
         }
     }
 
+    // ANA-02: counts the real frames of an MP3 by reading each frame's four-byte header and stepping over its data.
+    //
+    // JUCE's decoder guesses an MP3's length from the file size and its first frame unless the file carries an Xing or Info
+    // header, and for a variable bitrate file without one that guess is wrong (too long, and the end looks like damage).
+    // Counting the frames gives the exact length and the true average bitrate for every kind of MP3. Layer III only (the
+    // MP3 that every music program writes); anything else is left to the decoder's own figures.
+    // Not removed: the short silence an encoder adds at the start and end, which the decoder also plays. It is under about
+    // a twentieth of a second and has almost no effect on loudness.
+    struct Mp3Scan
+    {
+        bool valid = false;
+        juce::int64 frames = 0;             // audio frames (a leading Xing or Info frame holds no sound and is not counted)
+        juce::int64 samplesPerFrame = 1152; // 1152 for MPEG-1, 576 for MPEG-2 and 2.5
+        juce::int64 audioBytes = 0;         // the bytes of the counted frames
+    };
+
+    namespace detail
+    {
+        struct Mp3Header { bool ok = false; int length = 0; int samplesPerFrame = 0; int sampleRate = 0; int channels = 0; int sideInfoBytes = 0; };
+
+        inline Mp3Header parseMp3Header (const unsigned char* h)
+        {
+            Mp3Header out;
+            if (h[0] != 0xFF || (h[1] & 0xE0) != 0xE0) return out;
+            const int version = (h[1] >> 3) & 3, layer = (h[1] >> 1) & 3;   // version: 3 = MPEG-1, 2 = MPEG-2, 0 = MPEG-2.5; layer 1 = III
+            const int bitrateIndex = (h[2] >> 4) & 15, rateIndex = (h[2] >> 2) & 3, padding = (h[2] >> 1) & 1;
+            if (version == 1 || layer != 1 || bitrateIndex == 0 || bitrateIndex == 15 || rateIndex == 3) return out;
+            static const int mpeg1[] = { 0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320 };
+            static const int mpeg2[] = { 0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160 };
+            static const int rates1[] = { 44100, 48000, 32000 }, rates2[] = { 22050, 24000, 16000 }, rates25[] = { 11025, 12000, 8000 };
+            const bool isMpeg1 = version == 3;
+            const int kbps = isMpeg1 ? mpeg1[bitrateIndex] : mpeg2[bitrateIndex];
+            out.sampleRate = isMpeg1 ? rates1[rateIndex] : version == 2 ? rates2[rateIndex] : rates25[rateIndex];
+            out.samplesPerFrame = isMpeg1 ? 1152 : 576;
+            out.length = (isMpeg1 ? 144000 : 72000) * kbps / out.sampleRate + padding;
+            out.channels = ((h[3] >> 6) & 3) == 3 ? 1 : 2;
+            out.sideInfoBytes = isMpeg1 ? (out.channels == 1 ? 17 : 32) : (out.channels == 1 ? 9 : 17);
+            out.ok = out.length >= 4;
+            return out;
+        }
+    }
+
+    inline Mp3Scan scanMp3Frames (const juce::File& file, const std::atomic<bool>* cancel = nullptr)
+    {
+        Mp3Scan scan;
+        juce::FileInputStream raw (file);
+        if (! raw.openedOk()) return scan;
+        juce::BufferedInputStream in (raw, 65536);
+        const juce::int64 total = in.getTotalLength();
+
+        // An ID3v2 tag at the start is stepped over.
+        unsigned char id3[10] {};
+        juce::int64 pos = 0;
+        if (in.read (id3, 10) == 10 && id3[0] == 'I' && id3[1] == 'D' && id3[2] == '3' && ((id3[6] | id3[7] | id3[8] | id3[9]) & 0x80) == 0)
+            pos = 10 + (((juce::int64) id3[6] << 21) | ((juce::int64) id3[7] << 14) | ((juce::int64) id3[8] << 7) | (juce::int64) id3[9]);
+
+        bool first = true;
+        int misses = 0;
+        while (pos + 4 <= total)
+        {
+            if (cancel != nullptr && cancel->load()) return {};
+            unsigned char h[4];
+            if (! in.setPosition (pos) || in.read (h, 4) != 4) break;
+            const auto header = detail::parseMp3Header (h);
+            if (! header.ok || pos + header.length > total)
+            {
+                // Not a frame here: look for the next one, but give up on a long stretch of anything else (a tag at the end, or damage).
+                ++pos;
+                if (++misses > 16384) break;
+                continue;
+            }
+            misses = 0;
+            if (first)
+            {
+                first = false;
+                // A leading frame that carries a Xing, Info or VBRI tag holds no sound.
+                unsigned char tag[4] {};
+                const juce::int64 offsets[] = { 4 + (juce::int64) header.sideInfoBytes, 36 };
+                bool isTag = false;
+                for (auto offset : offsets)
+                    if (offset + 4 <= header.length && in.setPosition (pos + offset) && in.read (tag, 4) == 4
+                        && (std::memcmp (tag, "Xing", 4) == 0 || std::memcmp (tag, "Info", 4) == 0 || std::memcmp (tag, "VBRI", 4) == 0))
+                        isTag = true;
+                if (isTag) { pos += header.length; continue; }
+            }
+            scan.valid = true;
+            scan.samplesPerFrame = header.samplesPerFrame;
+            ++scan.frames;
+            scan.audioBytes += header.length;
+            pos += header.length;
+        }
+        scan.valid = scan.valid && scan.frames > 0;
+        return scan;
+    }
+
     // BS.1770 channel weights: left, right and centre 1.0; the two surround channels of a six-channel
     // file 1.41; the low-frequency channel (fourth of six) is left out. Other layouts: all 1.0.
     inline double channelWeight (int channel, int numChannels)
@@ -157,24 +262,42 @@ namespace Songsmith::FileAnalysis
     inline bool isSupportedExtension (const juce::File& f)
     {
         const auto e = f.getFileExtension().toLowerCase();
-        return e == ".wav" || e == ".aif" || e == ".aiff" || e == ".flac";
+        return e == ".wav" || e == ".aif" || e == ".aiff" || e == ".flac" || e == ".mp3";
     }
 
     // Analyses already-open audio. 'read' supplies the samples; used by analyseFile and by tests.
     // Offline only: call from a background thread. 'cancel' and 'progress' may be null. 'progress' is written with
     // how far through the file the reading is, 0 to 1 (REC-02: the app shows it while a long file is read).
-    inline Result analyseReader (juce::AudioFormatReader& reader, const std::atomic<bool>* cancel = nullptr, std::atomic<float>* progress = nullptr)
+    inline Result analyseReader (juce::AudioFormatReader& reader, const std::atomic<bool>* cancel = nullptr, std::atomic<float>* progress = nullptr,
+                                 const Mp3Scan* mp3 = nullptr)
     {
         Result r;
         r.opened = true;
         r.formatName = reader.getFormatName().containsIgnoreCase ("flac") ? "FLAC"
-                     : reader.getFormatName().containsIgnoreCase ("aiff") ? "AIFF" : "WAV";
+                     : reader.getFormatName().containsIgnoreCase ("aiff") ? "AIFF"
+                     : reader.getFormatName().containsIgnoreCase ("mp3") ? "MP3" : "WAV";
         r.sampleRate = reader.sampleRate;
         r.channels = (int) reader.numChannels;
         r.storedBits = (int) reader.bitsPerSample;
         r.floatingPoint = reader.usesFloatingPointData;
         r.frames = reader.lengthInSamples;
         r.durationSeconds = r.sampleRate > 0.0 ? (double) r.frames / r.sampleRate : 0.0;
+        if (r.formatName == "MP3")
+        {
+            // The decoder hands over floating point samples, but the file itself has no bit depth: say so, never invent one.
+            r.lossy = true;
+            r.storedBits = 0;
+            juce::int64 bytes = reader.input != nullptr ? reader.input->getTotalLength() : (juce::int64) 0;
+            if (mp3 != nullptr && mp3->valid)
+            {
+                // The counted frames are exact; the decoder's own length is a guess for some files.
+                r.frames = mp3->frames * mp3->samplesPerFrame;
+                r.durationSeconds = r.sampleRate > 0.0 ? (double) r.frames / r.sampleRate : 0.0;
+                bytes = mp3->audioBytes;
+            }
+            if (bytes > 0 && r.durationSeconds > 0.0)
+                r.averageBitrateKbps = (int) std::lround ((double) bytes * 8.0 / r.durationSeconds / 1000.0);
+        }
 
         if (r.channels < 1 || r.sampleRate < 8000.0 || r.frames < 1)
         {
@@ -297,18 +420,23 @@ namespace Songsmith::FileAnalysis
         return r;
     }
 
-    // Opens and analyses a WAV, AIFF or FLAC file. Anything else, or anything damaged, comes back
+    // Opens and analyses a WAV, AIFF, FLAC or MP3 file. Anything else, or anything damaged, comes back
     // with opened = false and a plain-words reason.
     inline Result analyseFile (const juce::File& file, const std::atomic<bool>* cancel = nullptr, std::atomic<float>* progress = nullptr)
     {
         Result r;
         if (! file.existsAsFile()) { r.error = "That file could not be found."; return r; }
-        if (! isSupportedExtension (file)) { r.error = "Only WAV, AIFF and FLAC files can be analysed."; return r; }
+        if (! isSupportedExtension (file)) { r.error = "Only WAV, AIFF, FLAC and MP3 files can be analysed."; return r; }
 
         juce::AudioFormatManager manager;
         manager.registerBasicFormats();
         std::unique_ptr<juce::AudioFormatReader> reader (manager.createReaderFor (file));
         if (reader == nullptr) { r.error = "This file could not be opened. It may be damaged, or not the kind of file its name suggests."; return r; }
+        if (reader->getFormatName().containsIgnoreCase ("mp3"))
+        {
+            const auto scan = scanMp3Frames (file, cancel);
+            return analyseReader (*reader, cancel, progress, &scan);
+        }
         return analyseReader (*reader, cancel, progress);
     }
 }

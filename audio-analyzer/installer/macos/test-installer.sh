@@ -105,7 +105,7 @@ check "receipt recorded: $ID" receipt "$ID"
 first=$(snapshot)
 check "installed file list isn't empty" test -n "$first"
 check "the app's Info.plist names the product" bash -c "/usr/libexec/PlistBuddy -c 'Print :CFBundleName' '$APP/Contents/Info.plist' | grep -q 'Songsmith Audio Analyzer'"
-check "the app opens WAV, AIFF and FLAC files" bash -c "plutil -p '$APP/Contents/Info.plist' | grep -qi 'wav' && plutil -p '$APP/Contents/Info.plist' | grep -qi 'flac'"
+check "the app opens WAV, AIFF, FLAC and MP3 files" bash -c "plutil -p '$APP/Contents/Info.plist' | grep -qi 'wav' && plutil -p '$APP/Contents/Info.plist' | grep -qi 'flac' && plutil -p '$APP/Contents/Info.plist' | grep -qi 'mp3'"
 
 # --- 4. Install over itself ------------------------------------------------------------------
 echo
