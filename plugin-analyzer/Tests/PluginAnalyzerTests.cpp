@@ -146,7 +146,9 @@ namespace
 
     void pump (int ms = 60) { juce::MessageManager::getInstance()->runDispatchLoopUntil (ms); }
 
-    bool waitUntil (const std::function<bool()>& done, int timeoutMs = 20000)
+    // Generous on purpose: it returns the moment the work is done, and a busy or slow machine (the hosted macOS runner that builds the
+    // universal packaging build) can take far longer than a developer's computer to finish an analysis on a background thread.
+    bool waitUntil (const std::function<bool()>& done, int timeoutMs = 120000)
     {
         const auto end = juce::Time::getMillisecondCounter() + (juce::uint32) timeoutMs;
         while (! done() && juce::Time::getMillisecondCounter() < end)
@@ -161,7 +163,7 @@ namespace
         const int before = SongsmithPluginAnalyzerProcessor::resultsIn (session);
         setParam (p, sessionId, (float) session);
         setParam (p, roleId, 1.0f);
-        waitUntil ([&] { return SongsmithPluginAnalyzerProcessor::resultsIn (session) >= before + 1; }, 2000);
+        waitUntil ([&] { return SongsmithPluginAnalyzerProcessor::resultsIn (session) >= before + 1; }, 15000);
     }
     void makeReference (SongsmithPluginAnalyzerProcessor& p, int session)
     {
@@ -170,7 +172,7 @@ namespace
         setParam (p, sessionId, (float) session);
         setParam (p, roleId, 0.0f);
         if (session != 0)
-            waitUntil ([&] { return SongsmithPluginAnalyzerProcessor::referencesIn (session) >= before + 1; }, 2000);
+            waitUntil ([&] { return SongsmithPluginAnalyzerProcessor::referencesIn (session) >= before + 1; }, 15000);
     }
 
     // One pass of the host: the Reference, then whatever is between, then the Result.
@@ -216,7 +218,11 @@ namespace
                 if (result.getCapturedSamples() >= result.getCaptureLength())
                     break;
             }
-            return waitUntil ([&] { result.poll(); return result.getMeasurementCount() > 0; });
+            const bool completed = waitUntil ([&] { result.poll(); return result.getMeasurementCount() > 0; });
+            if (! completed)
+                std::printf ("  (measurement did not finish: captured %d of %d samples, status text '%s')\n", result.getCapturedSamples(), result.getCaptureLength(),
+                             result.getStatus().text.toRawUTF8());
+            return completed;
         }
     };
 
@@ -551,7 +557,7 @@ public:
             expectEquals (r.getCapturedSamples(), 0, "with two References nothing is sent");
 
             setParam (b, roleId, 1.0f);
-            waitUntil ([&] { return SongsmithPluginAnalyzerProcessor::referencesIn (3) == 1; }, 2000);
+            waitUntil ([&] { return SongsmithPluginAnalyzerProcessor::referencesIn (3) == 1; }, 15000);
             expectEquals (SongsmithPluginAnalyzerProcessor::referencesIn (3), 1, "changing the role moves the instance between the counts");
             expectEquals (SongsmithPluginAnalyzerProcessor::resultsIn (3), 2);
 
