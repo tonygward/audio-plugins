@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
-## Unreleased
+## 0.5.66
 
 - **Every Songsmith plugin now shows Before and After loudness.** At the bottom of the window, to the right of Processing Load, two readings in LUFS show how loud the sound is going into the plugin and coming out of it, averaged over the last 3 seconds. It says Measuring... for the first 3 seconds after you press play, and a dash when there is no sound. Use it to hear whether a plugin is making things louder or quieter, and trust your ears. It measures that plugin only, not the whole track, and you do not need to do anything.
 
