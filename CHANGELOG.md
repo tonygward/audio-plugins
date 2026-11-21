@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
-## Unreleased
+## 0.5.64
 
 - **Songsmith plugins now tell you when a newer version is available.** If a newer build has been published, a small **Update available** link appears beside the version number at the bottom left of the plugin window. Clicking it opens the download page in your browser. Nothing is installed for you, and you do not need to do anything. It looks at most once a day, in the background, and stays quiet when you are offline or up to date.
 
