@@ -308,13 +308,13 @@ namespace PluginAnalyzer
     {
         juce::StringArray out;
         if (m.flags & flagNoSignal)
-            out.add ("Nothing reached the Result. Check that the Reference is before the plugin, the Result is after it, both use the same Session, and the host is playing.");
+            out.add ("Nothing reached the After Plugin. Check that the Before Plugin is before the plugin you are measuring, the After Plugin is after it, and the host is playing.");
         if (m.flags & flagNotAligned)
             out.add ("The sound that arrived could not be lined up with the test sweep, so no curve is shown. Check that nothing else is playing on this track and that the plugin is not muting the sound.");
         if (m.flags & flagLowSignal)
             out.add ("The test sweep arrived very quietly, so noise may show in the curve. Raise Test Level, or check the plugin's output level.");
         if (m.flags & flagClipped)
-            out.add ("The sound reached the top of the scale at the Result. Lower Test Level, or turn the plugin's output down, and measure again.");
+            out.add ("The sound reached the top of the scale at the After Plugin. Lower Test Level, or turn the plugin's output down, and measure again.");
         if (m.flags & flagTimeVarying)
             out.add ("The two sweeps do not match (they differ by " + juce::String (m.repeatDifferenceDb, 1) + " dB). The plugin changes with time or level, "
                      "so this is not a fixed equaliser curve. Turn off any compressor, saturation or movement and measure again.");

@@ -7,3 +7,4 @@ Every task has a stable **ANALYZER-##** reference, distinct from its GitHub PR n
 | Prompt | Status | Issue |
 |---|---|---|
 | [01 Plugin Analyzer](done/01-plugin-analyzer.md) | Merged in 0.5.55 | [#331](https://github.com/tonygward/audio-plugins/issues/331) |
+| [02 Start-driven capture](02-start-driven-capture.md) | In review (not yet merged) | [songsmithstudio#5](https://github.com/tonygward/songsmithstudio/issues/5) |

@@ -62,6 +62,7 @@ SongsmithPluginAnalyzerProcessor::SongsmithPluginAnalyzerProcessor()
     apvts.addParameterListener (roleId, this);
     apvts.addParameterListener (sessionId, this);
     bindSession();
+    autoPair();   // a new instance finds its other half, or a free pair, without the musician choosing a number
 }
 
 SongsmithPluginAnalyzerProcessor::~SongsmithPluginAnalyzerProcessor()
@@ -124,7 +125,60 @@ void SongsmithPluginAnalyzerProcessor::parameterChanged (const juce::String&, fl
     triggerAsyncUpdate();
 }
 
-void SongsmithPluginAnalyzerProcessor::handleAsyncUpdate() { bindSession(); }
+void SongsmithPluginAnalyzerProcessor::handleAsyncUpdate()
+{
+    // A role changed by hand (or by the host) looks for the other half again. A session that has just been opened was bound at once,
+    // so its role already matches and its saved pairing is left alone.
+    if ((int) getRole() != boundRole)
+        autoPair();
+    bindSession();
+}
+
+std::array<Occupancy, (size_t) numSessions> SongsmithPluginAnalyzerProcessor::getPairOccupancy() const
+{
+    std::array<Occupancy, (size_t) numSessions> all {};
+    for (int s = 0; s < numSessions; ++s)
+    {
+        all[(size_t) s].befores = sessionNumber (s).references.load();
+        all[(size_t) s].afters = sessionNumber (s).results.load();
+    }
+    return all;
+}
+
+void SongsmithPluginAnalyzerProcessor::autoPair()
+{
+    if (! automaticPairing.load())
+    {
+        bindSession();
+        return;
+    }
+    auto others = getPairOccupancy();
+    if (boundSession >= 0 && boundSession < numSessions)   // not counting this instance itself
+        (boundRole == (int) Role::reference ? others[(size_t) boundSession].befores : others[(size_t) boundSession].afters)--;
+    const int chosen = choosePairSession (getRole(), others, getSessionIndex());
+    if (chosen != getSessionIndex())
+        if (auto* p = apvts.getParameter (sessionId))
+            p->setValueNotifyingHost (p->convertTo0to1 ((float) chosen));
+    bindSession();
+}
+
+bool SongsmithPluginAnalyzerProcessor::offersPairing() const
+{
+    auto* s = sessionPtr();
+    if (s == nullptr)
+        return false;
+    if (s->references.load() > 1 || s->results.load() > 1)
+        return true;
+    const bool isAfter = getRole() == Role::result;
+    const bool otherHalfMissing = isAfter ? s->references.load() == 0 : s->results.load() == 0;
+    if (! otherHalfMissing)
+        return false;
+    const auto all = getPairOccupancy();
+    for (int i = 0; i < numSessions; ++i)
+        if (i != getSessionIndex() && (isAfter ? all[(size_t) i].befores : all[(size_t) i].afters) > 0)
+            return true;
+    return false;
+}
 
 //==============================================================================
 bool SongsmithPluginAnalyzerProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -297,33 +351,64 @@ void SongsmithPluginAnalyzerProcessor::requestStop()
     captureState.store (captureIdle);
 }
 
-void SongsmithPluginAnalyzerProcessor::resetMeasurement()
+void SongsmithPluginAnalyzerProcessor::clearCaptures()
 {
     requestStop();
-    getSlot (measureSlot).clear (measureSlot);
+    for (int i = 0; i < numSlots; ++i)
+    {
+        slots[(size_t) i].clear (i);
+        captureVisible[i] = true;
+    }
+    measureSlot = 0;
+    pendingName = {};
+    keptNotice = {};
     justFinished = false;
+}
+
+int SongsmithPluginAnalyzerProcessor::numFilledCaptures() const noexcept
+{
+    int n = 0;
+    for (auto& s : slots)
+        n += s.filled ? 1 : 0;
+    return n;
+}
+
+int SongsmithPluginAnalyzerProcessor::firstEmptyCapture() const noexcept
+{
+    for (int i = 0; i < numSlots; ++i)
+        if (! slots[(size_t) i].filled)
+            return i;
+    return -1;
+}
+
+void SongsmithPluginAnalyzerProcessor::setNextCapture (int slot, const juce::String& name)
+{
+    measureSlot = juce::jlimit (0, numSlots - 1, slot);
+    pendingName = name.trim().substring (0, 40);
+    keptNotice = {};
 }
 
 SongsmithPluginAnalyzerProcessor::StatusInfo SongsmithPluginAnalyzerProcessor::getStatus() const
 {
     StatusInfo info;
     auto* s = sessionPtr();
-    const auto sessionName = juce::String (getSessionIndex() + 1);
     auto problem = [&] (const juce::String& text) { info.status = Status::problem; info.text = text; return info; };
 
     if (s == nullptr)
-        return problem ("This instance is not in a session.");
+        return problem ("This plugin is not paired with another one yet.");
     if (isBypassed())
         return problem ("Bypass is on, so nothing is measured. Turn Bypass off to measure.");
     if (s->references.load() > 1)
-        return problem ("More than one Reference is using Session " + sessionName + ". Give each Reference and Result pair its own session, or change the extra Reference to a Result.");
+        return problem ("More than one Before Plugin is paired here. Use the Pair With box to choose which pair this one belongs to, or change the extra one to an After Plugin.");
+    if (s->results.load() > 1)
+        return problem ("More than one After Plugin is paired here. Use the Pair With box to choose which pair this one belongs to, or change the extra one to a Before Plugin.");
     if (getRole() == Role::result && s->references.load() == 0)
-        return problem ("No Reference found in Session " + sessionName + ". Put a Reference before the plugin you want to measure, and choose the same session. "
+        return problem ("No Before Plugin found. Put a Before Plugin before the plugin you want to measure. "
                         "Some hosts load each plugin in its own process, and then two instances cannot find each other.");
     if (getRole() == Role::reference && s->results.load() == 0)
-        return problem ("No Result found in Session " + sessionName + ". Put a Result after the plugin you want to measure, and choose the same session.");
+        return problem ("No After Plugin found. Put an After Plugin after the plugin you want to measure.");
     if (captureRateMismatch.load())
-        return problem ("The Reference and the Result are running at different sample rates, so they cannot be compared.");
+        return problem ("The Before Plugin and the After Plugin are running at different sample rates, so they cannot be compared.");
 
     if (s->measuring.load())
     {
@@ -331,7 +416,7 @@ SongsmithPluginAnalyzerProcessor::StatusInfo SongsmithPluginAnalyzerProcessor::g
         const auto total = (double) juce::jmax ((std::int64_t) 1, s->programLength.load());
         info.progress = (float) juce::jlimit (0.0, 1.0, (double) s->sentSamples.load() / total);
         info.text = getRole() == Role::reference ? "Sending the test sweeps. The host must be playing."
-                                                 : "The Reference is sending the test sweeps. The host must be playing.";
+                                                 : "The Before Plugin is sending the test sweeps. The host must be playing.";
         return info;
     }
     if (captureState.load() == captureRecording)
@@ -350,10 +435,11 @@ SongsmithPluginAnalyzerProcessor::StatusInfo SongsmithPluginAnalyzerProcessor::g
     if (justFinished)
     {
         info.status = Status::finished;
-        info.text = "Done. The curve is in " + getSlot (shownSlot).name + ".";
+        info.text = "Done. The curve is saved as \"" + getSlot (measureSlot).name + "\".";
         return info;
     }
-    info.text = "Ready. Start the host playing, then press Start.";
+    info.text = getRole() == Role::reference ? "Ready. Press Start on the After Plugin, with the host playing."
+                                             : "Ready. Start the host playing, then press Start.";
     return info;
 }
 
@@ -401,12 +487,27 @@ bool SongsmithPluginAnalyzerProcessor::poll()
         if (have)
         {
             auto& slot = getSlot (measureSlot);
-            slot.measurement = std::move (m);
-            slot.filled = true;
-            slot.channel = channelName;
-            slot.measuredAt = juce::Time::getCurrentTime().toISO8601 (true);
-            shownSlot = measureSlot;
-            justFinished = true;
+            if (m.isValidCurve() || ! slot.filled)
+            {
+                slot.measurement = std::move (m);
+                slot.filled = true;
+                slot.channel = channelName;
+                slot.measuredAt = juce::Time::getCurrentTime().toISO8601 (true);
+                if (pendingName.isNotEmpty())
+                    slot.name = pendingName;
+                captureVisible[measureSlot] = true;   // a new capture is drawn as soon as it is made
+                keptNotice = {};
+                justFinished = true;
+            }
+            else
+            {
+                // A capture you already have is never replaced by a measurement that has no curve.
+                const auto reasons = describeFlags (m);
+                keptNotice = "The new measurement could not be made, so \"" + slot.name + "\" was kept. "
+                             + (reasons.isEmpty() ? juce::String ("No curve could be measured.") : reasons[0]);
+                justFinished = false;
+            }
+            pendingName = {};
             measurementCount.fetch_add (1);
         }
         analysing.store (false);
@@ -418,10 +519,9 @@ bool SongsmithPluginAnalyzerProcessor::poll()
 juce::String SongsmithPluginAnalyzerProcessor::makeCsvText() const
 {
     std::vector<const Slot*> chosen;
-    if (getSlot (shownSlot).filled)
-        chosen.push_back (&getSlot (shownSlot));
-    if (comparedSlot >= 0 && comparedSlot != shownSlot && getSlot (comparedSlot).filled)
-        chosen.push_back (&getSlot (comparedSlot));
+    for (int i = 0; i < numSlots; ++i)
+        if (getSlot (i).filled)
+            chosen.push_back (&getSlot (i));
     if (chosen.empty())
         return {};
     return makeCsv (chosen, JucePlugin_VersionString);
@@ -441,8 +541,8 @@ juce::ValueTree SongsmithPluginAnalyzerProcessor::createState()
     juce::ValueTree ui (uiId);
     ui.setProperty ("editorWidth", editorWidth.load(), nullptr);
     ui.setProperty ("measureSlot", measureSlot, nullptr);
-    ui.setProperty ("shownSlot", shownSlot, nullptr);
-    ui.setProperty ("comparedSlot", comparedSlot, nullptr);
+    for (int i = 0; i < numSlots; ++i)
+        ui.setProperty ("visible" + juce::String (i), captureVisible[i], nullptr);
     for (int i = 0; i < numSlots; ++i)
         ui.appendChild (slotToTree (slots[(size_t) i], i), nullptr);
     state.appendChild (ui, nullptr);
@@ -486,19 +586,51 @@ void SongsmithPluginAnalyzerProcessor::restoreFromValueTree (const juce::ValueTr
 
     const auto ui = saved.getChildWithName (uiId);
     editorWidth.store (EditorLayout::constrainWidth (ui.isValid() ? (int) ui.getProperty ("editorWidth", EditorLayout::defaultWidth) : EditorLayout::defaultWidth));
-    measureSlot = ui.isValid() ? juce::jlimit (0, numSlots - 1, (int) ui.getProperty ("measureSlot", 0)) : 0;
-    shownSlot = ui.isValid() ? juce::jlimit (0, numSlots - 1, (int) ui.getProperty ("shownSlot", 0)) : 0;
-    comparedSlot = ui.isValid() ? juce::jlimit (-1, numSlots - 1, (int) ui.getProperty ("comparedSlot", -1)) : -1;
+    const int savedVersion = (int) saved.getProperty (versionId, 1);
     for (int i = 0; i < numSlots; ++i)
+    {
         slots[(size_t) i].clear (i);
+        captureVisible[i] = true;
+    }
     if (ui.isValid())
-        for (auto slotTree : ui)
-            if (slotTree.hasType ("SLOT"))
+    {
+        if (savedVersion >= 2)
+        {
+            measureSlot = juce::jlimit (0, numSlots - 1, (int) ui.getProperty ("measureSlot", 0));
+            for (int i = 0; i < numSlots; ++i)
+                captureVisible[i] = (bool) ui.getProperty ("visible" + juce::String (i), true);
+            for (auto slotTree : ui)
+                if (slotTree.hasType ("SLOT"))
+                {
+                    const int index = (int) slotTree.getProperty ("index", -1);
+                    if (index >= 0 && index < numSlots)
+                        slotFromTree (slots[(size_t) index], slotTree, index);
+                }
+        }
+        else
+        {
+            // Version 1 had four named slots. The filled ones become the two captures, in order, and both are drawn. A name that was
+            // only the old default ("Measurement 3") becomes the new one for its place ("Capture 2").
+            int next = 0;
+            for (auto slotTree : ui)
             {
                 const int index = (int) slotTree.getProperty ("index", -1);
-                if (index >= 0 && index < numSlots)
-                    slotFromTree (slots[(size_t) index], slotTree, index);
+                if (! slotTree.hasType ("SLOT") || index < 0 || index >= legacySlotCount || next >= numSlots)
+                    continue;
+                Slot candidate;
+                slotFromTree (candidate, slotTree, next);
+                if (! candidate.filled)
+                    continue;
+                if (candidate.name == "Measurement " + juce::String (index + 1))
+                    candidate.name = defaultSlotName (next);
+                slots[(size_t) next] = std::move (candidate);
+                ++next;
             }
+            measureSlot = next < numSlots ? next : 0;
+        }
+    }
+    pendingName = {};
+    keptNotice = {};
     justFinished = false;
     bindSession();
 }

@@ -41,6 +41,31 @@ namespace PluginAnalyzer
         }
     };
 
+    // ANALYZER-02: how many Before Plugins and After Plugins are in a session, not counting the instance that is choosing.
+    struct Occupancy { int befores = 0, afters = 0; };
+
+    // Which session an instance should be in, so that a Before Plugin and an After Plugin find each other without the
+    // musician choosing a number. `others` is what the other instances are doing; `current` is where this one is now.
+    //  1. Stay where it is when it is already one half of a pair.
+    //  2. Otherwise join a session where the other half is waiting alone.
+    //  3. Otherwise take the lowest session nobody is in.
+    //  4. Otherwise stay (more than eight pairs: the musician chooses, in the Pair With box).
+    inline int choosePairSession (Role role, const std::array<Occupancy, (size_t) numSessions>& others, int current)
+    {
+        auto same  = [role] (const Occupancy& o) { return role == Role::reference ? o.befores : o.afters; };
+        auto other = [role] (const Occupancy& o) { return role == Role::reference ? o.afters : o.befores; };
+        const int here = current < 0 ? 0 : (current >= numSessions ? numSessions - 1 : current);
+        if (same (others[(size_t) here]) == 0 && other (others[(size_t) here]) == 1)
+            return here;
+        for (int s = 0; s < numSessions; ++s)
+            if (same (others[(size_t) s]) == 0 && other (others[(size_t) s]) == 1)
+                return s;
+        for (int s = 0; s < numSessions; ++s)
+            if (others[(size_t) s].befores == 0 && others[(size_t) s].afters == 0)
+                return s;
+        return here;
+    }
+
     // The eight sessions. They live for the whole life of the program, so an instance can keep a plain pointer to one.
     inline Session& sessionNumber (int index) noexcept
     {

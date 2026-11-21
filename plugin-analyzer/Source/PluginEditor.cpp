@@ -31,26 +31,22 @@ SongsmithPluginAnalyzerEditor::SongsmithPluginAnalyzerEditor (SongsmithPluginAna
 
     const auto dim = SUI::Colours::textDim;
     styleLabel (roleLabel, "Role", SUI::Type::control, SUI::Weight::Medium, dim);
-    styleLabel (sessionLabel, "Session", SUI::Type::control, SUI::Weight::Medium, dim);
+    styleLabel (pairLabel, "Pair With", SUI::Type::control, SUI::Weight::Medium, dim);
     styleLabel (channelLabel, "Channel", SUI::Type::control, SUI::Weight::Medium, dim);
     styleLabel (levelLabel, "Test Level", SUI::Type::control, SUI::Weight::Medium, dim);
     styleLabel (levelValue, {}, SUI::Type::control, SUI::Weight::Regular, SUI::Colours::text, juce::Justification::centredRight);
-    styleLabel (measureIntoLabel, "Measure Into", SUI::Type::control, SUI::Weight::Medium, dim);
-    styleLabel (showLabel, "Show", SUI::Type::control, SUI::Weight::Medium, dim);
-    styleLabel (compareLabel, "Compare With", SUI::Type::control, SUI::Weight::Medium, dim);
     styleLabel (rangeLabel, "Range", SUI::Type::control, SUI::Weight::Medium, dim);
-    styleLabel (nameLabel, "Name for the Next Measurement", SUI::Type::control, SUI::Weight::Medium, dim);
-    styleLabel (notesTitle, "Notes About This Measurement", SUI::Type::control, SUI::Weight::Medium, dim);
+    styleLabel (notesTitle, "Notes About the Captures", SUI::Type::control, SUI::Weight::Medium, dim);
     styleLabel (statusLabel, {}, SUI::Type::control, SUI::Weight::Regular, SUI::Colours::text, juce::Justification::topLeft);
     styleLabel (notesLabel, {}, SUI::Type::hint, SUI::Weight::Regular, dim, juce::Justification::topLeft);
-    styleLabel (hintLabel, "While measuring, the Reference replaces the sound with the test sweep. At other times both leave the sound untouched.",
+    styleLabel (hintLabel, "While measuring, the Before Plugin replaces the sound with the test sweep. At other times both leave the sound untouched.",
                 SUI::Type::hint, SUI::Weight::Regular, dim);
 
     roleBox.addItemList (roleNames(), 1);
-    sessionBox.addItemList (sessionNames(), 1);
+    pairBox.addItemList (pairNames(), 1);
     channelBox.addItemList (channelNames(), 1);
     roleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, roleId, roleBox);
-    sessionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, sessionId, sessionBox);
+    pairAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, sessionId, pairBox);
     channelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, channelId, channelBox);
     rangeBox.addItem ("Up and down 6 dB", 1);
     rangeBox.addItem ("Up and down 12 dB", 2);
@@ -65,97 +61,90 @@ SongsmithPluginAnalyzerEditor::SongsmithPluginAnalyzerEditor (SongsmithPluginAna
     levelSlider.setTextValueSuffix (" dB");
     levelSlider.setPopupDisplayEnabled (false, false, nullptr);
 
-    roleBox.setTooltip ("Role: put a Reference before the plugin you want to measure, and a Result after it. The Reference sends the test sweep; the Result "
-                        "records what arrives and draws the curve. While measuring, the Reference replaces the sound with the sweep.");
-    sessionBox.setTooltip ("Session: a Reference and a Result with the same session belong together. Use a different session for each pair, so two "
-                           "measurements in one project never mix. This only works when the host loads both in the same program.");
-    channelBox.setTooltip ("Channel: which channel the Result measures. Choose Both Combined to measure the left and right channels added together. "
-                           "Only used by the Result.");
+    roleBox.setTooltip ("Role: put a Before Plugin before the plugin you want to measure, and an After Plugin after it. The two find each other on their own. "
+                        "The Before Plugin sends the test sweep; the After Plugin records what arrives and draws the curve. "
+                        "While measuring, the Before Plugin replaces the sound with the sweep.");
+    pairBox.setTooltip ("Pair With: shown only when the plugins cannot tell which Before Plugin and After Plugin belong together, for example when a "
+                        "project has several pairs. Choose the same pair on both plugins. This only works when the host loads both in the same program.");
+    channelBox.setTooltip ("Channel: which channel the After Plugin measures. Choose Both Combined to measure the left and right channels added together. "
+                           "Only used by the After Plugin.");
     levelSlider.setTooltip ("Test Level: how loud the test sweep is. Quieter is safer for the plugin you are measuring; louder keeps noise out of the curve. "
-                            "Only used by the Reference. Double-click for the default.");
-    startButton.setTooltip ("Start: begin a measurement. The host must be playing. It takes about a quarter of a minute: two sweeps, then the end of each.");
-    stopButton.setTooltip ("Stop: end the measurement early. Nothing is kept.");
-    resetButton.setTooltip ("Reset: stop, and empty the measurement that the next one would go into.");
-    exportButton.setTooltip ("Export CSV: save the curve you are looking at, and the one you are comparing with, as a table you can open in a spreadsheet. "
-                             "Each column is a measurement in decibels, with the frequency in the first column.");
-    measureIntoBox.setTooltip ("Measure Into: which of the four measurement slots the next measurement fills. Choose a different slot to keep the one you have.");
-    showBox.setTooltip ("Show: which measurement is drawn on the graph.");
-    compareBox.setTooltip ("Compare With: draw a second measurement over it, for example a hardware unit against a Songsmith plugin. Choose None to hide it.");
+                            "Set on the Before Plugin, which sends the sweep. Double-click for the default.");
+    startButton.setTooltip ("Start: make a capture. The host must be playing. It takes about a quarter of a minute: two sweeps, then the end of each. "
+                            "If you already have a capture, you choose whether to replace it or add a second one to compare. Press it on the After Plugin.");
+    stopButton.setTooltip ("Stop: end the measurement early. Nothing is kept, and your captures are not changed.");
+    clearButton.setTooltip ("Clear All: remove both captures from this plugin. It asks first.");
+    exportButton.setTooltip ("Export CSV: save the captures as a table you can open in a spreadsheet. "
+                             "Each column is a capture in decibels, with the frequency in the first column.");
     rangeBox.setTooltip ("Range: how many decibels the graph shows above and below 0 dB.");
-    nameEditor.setTooltip ("Name for the next measurement: it appears on the graph and in the CSV file, so you can tell two measurements apart.");
     statusLabel.setTooltip ({});
     graph.setTooltip ("The measured gain of the plugin at each frequency, from 20 Hz to 20 kHz. Above 0 dB the plugin turns that frequency up; below it, down. "
-                      "Move the pointer over the graph to read a value.");
+                      "Move the pointer over the graph to read a value. The first capture is a solid blue line and the second a dashed orange one.");
 
-    nameEditor.setMultiLine (false);
-    nameEditor.setInputRestrictions (40);
-    nameEditor.setFont (SUI::font (SUI::Type::control));
-    nameEditor.setTitle ("Name for the next measurement");
-    nameEditor.onTextChange = [this]
-    {
-        auto name = nameEditor.getText().trim();
-        proc.getSlot (proc.measureSlot).name = name.isEmpty() ? defaultSlotName (proc.measureSlot) : name;
-        rebuildSlotBoxes();
-    };
-    measureIntoBox.onChange = [this]
-    {
-        proc.measureSlot = juce::jlimit (0, numSlots - 1, measureIntoBox.getSelectedId() - 1);
-        nameEditor.setText (proc.getSlot (proc.measureSlot).name, juce::dontSendNotification);
-    };
-    showBox.onChange = [this] { proc.shownSlot = juce::jlimit (0, numSlots - 1, showBox.getSelectedId() - 1); refresh(); };
-    compareBox.onChange = [this] { proc.comparedSlot = compareBox.getSelectedId() - 2; refresh(); };
-
-    startButton.onClick = [this] { proc.requestStart(); refresh(); };
+    startButton.onClick = [this] { pressStart(); };
     stopButton.onClick = [this] { proc.requestStop(); refresh(); };
-    resetButton.onClick = [this] { proc.resetMeasurement(); rebuildSlotBoxes(); refresh(); };
+    clearButton.onClick = [this] { openClearQuestion(); };
     exportButton.onClick = [this] { exportCsv(); };
+
+    const ::juce::Colour colours[] = { PluginAnalyzer::UI::Colours::first, PluginAnalyzer::UI::Colours::second };
+    for (int i = 0; i < numSlots; ++i)
+    {
+        captureRows[(size_t) i] = std::make_unique<PluginAnalyzer::UI::CaptureRow> (i, colours[i], i == 1);
+        captureRows[(size_t) i]->onVisibleChange = [this, i] (bool shown) { proc.captureVisible[i] = shown; refresh(); };
+        captureRows[(size_t) i]->onNameChange = [this, i] (const juce::String& text)
+        {
+            const auto name = text.trim();
+            proc.getSlot (i).name = name.isEmpty() ? defaultSlotName (i) : name;
+            refresh();
+        };
+    }
+    choicePanel.onChoice = [this] (int id, const juce::String& name, bool edited) { applyChoice (id, name, edited); };
 
     bypassButton.setClickingTogglesState (true);
     bypassButton.setTooltip ("Bypass: nothing is measured, and the sound passes through untouched");
     bypassButton.setTitle ("Bypass");
     SUI::styleBypassButton (bypassButton);
 
-    meterColumn.getOutput().setTooltip ("Output level of the left and right channels, after the Analyzer. While the Reference is sending the sweep this shows the sweep; the Result "
+    meterColumn.getOutput().setTooltip ("Output level of the left and right channels, after the Analyzer. While the Before Plugin is sending the sweep this shows the sweep; the After Plugin "
                                         "shows what arrives. The number under the warning is the highest sample level held for 1.5 seconds. This is sample peak, not true peak. "
                                         "If the clip warning lights during a measurement, lower Test Level. Click to clear the held number.");
 
-    for (auto* l : { &roleLabel, &sessionLabel, &channelLabel, &levelLabel, &levelValue, &measureIntoLabel, &showLabel, &compareLabel, &rangeLabel, &nameLabel,
-                     &notesTitle, &statusLabel, &notesLabel, &hintLabel })
+    for (auto* l : { &roleLabel, &pairLabel, &channelLabel, &levelLabel, &levelValue, &rangeLabel, &notesTitle, &statusLabel, &notesLabel, &hintLabel })
         content.addAndMakeVisible (*l);
-    for (auto* b : { &roleBox, &sessionBox, &channelBox, &measureIntoBox, &showBox, &compareBox, &rangeBox })
+    for (auto* b : { &roleBox, &pairBox, &channelBox, &rangeBox })
         content.addAndMakeVisible (*b);
-    for (auto* b : { &startButton, &stopButton, &resetButton, &exportButton, &bypassButton })
+    for (auto* b : { &startButton, &stopButton, &clearButton, &exportButton, &bypassButton })
         content.addAndMakeVisible (*b);
     content.addAndMakeVisible (levelSlider);
-    content.addAndMakeVisible (nameEditor);
     content.addAndMakeVisible (progressBar);
     content.addAndMakeVisible (graph);
+    for (auto& row : captureRows)
+        content.addAndMakeVisible (*row);
     content.addAndMakeVisible (meterColumn);
+    content.addChildComponent (choicePanel);   // last, so it sits over the graph when it is open
     progressBar.setTitle ("Progress");
     progressBar.setPercentageDisplay (false);
 
     roleBox.setTitle ("Role");
-    sessionBox.setTitle ("Session");
+    pairBox.setTitle ("Pair With");
     channelBox.setTitle ("Channel");
     levelSlider.setTitle ("Test Level");
-    measureIntoBox.setTitle ("Measure Into");
-    showBox.setTitle ("Show");
-    compareBox.setTitle ("Compare With");
     rangeBox.setTitle ("Range");
     statusLabel.setTitle ("Status");
-    notesLabel.setTitle ("Notes about this measurement");
+    notesLabel.setTitle ("Notes about the captures");
 
-    // Keyboard order follows the layout: the three settings, the level, the buttons, then the measurement boxes.
+    // Keyboard order follows the layout: the settings, the level, the buttons, then the captures.
     int order = 1;
-    for (auto* c : std::initializer_list<juce::Component*> { &roleBox, &sessionBox, &channelBox, &levelSlider, &startButton, &stopButton, &resetButton,
-                                                             &measureIntoBox, &showBox, &compareBox, &rangeBox, &nameEditor, &exportButton, &bypassButton })
+    for (auto* c : std::initializer_list<juce::Component*> { &roleBox, &pairBox, &channelBox, &levelSlider, &startButton, &stopButton, &clearButton,
+                                                             &captureRows[0]->getVisibleToggle(), &captureRows[0]->getNameEditor(),
+                                                             &captureRows[1]->getVisibleToggle(), &captureRows[1]->getNameEditor(),
+                                                             &rangeBox, &exportButton, &bypassButton })
         c->setExplicitFocusOrder (order++);
 
     diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (proc, proc.loadMeter, JucePlugin_Name);
     content.addAndMakeVisible (*diagnostics);
     content.addAndMakeVisible (titleHint);
 
-    rebuildSlotBoxes();
     layoutContent();
 
     const int savedWidth = proc.editorWidth.load();
@@ -194,39 +183,36 @@ void SongsmithPluginAnalyzerEditor::resized()
 
 void SongsmithPluginAnalyzerEditor::layoutContent()
 {
-    using juce::Rectangle;
     constexpr int left = 24, leftWidth = 268, top = 70;
 
-    roleLabel.setBounds (left, top, leftWidth, 16);        roleBox.setBounds (left, top + 18, leftWidth, 28);
-    sessionLabel.setBounds (left, top + 54, leftWidth, 16); sessionBox.setBounds (left, top + 72, leftWidth, 28);
-    channelLabel.setBounds (left, top + 108, leftWidth, 16); channelBox.setBounds (left, top + 126, leftWidth, 28);
-    levelLabel.setBounds (left, top + 162, 140, 16);        levelValue.setBounds (left + 140, top + 162, leftWidth - 140, 16);
-    levelSlider.setBounds (left, top + 182, leftWidth, 22);
+    roleLabel.setBounds (left, top, leftWidth, 16);          roleBox.setBounds (left, top + 18, leftWidth, 28);
+    channelLabel.setBounds (left, top + 54, leftWidth, 16);  channelBox.setBounds (left, top + 72, leftWidth, 28);
+    levelLabel.setBounds (left, top + 108, 140, 16);         levelValue.setBounds (left + 140, top + 108, leftWidth - 140, 16);
+    levelSlider.setBounds (left, top + 128, leftWidth, 22);
 
-    startButton.setBounds (left, top + 222, 84, 32);
-    stopButton.setBounds (left + 92, top + 222, 84, 32);
-    resetButton.setBounds (left + 184, top + 222, 84, 32);
+    startButton.setBounds (left, top + 166, 84, 32);
+    stopButton.setBounds (left + 92, top + 166, 84, 32);
+    clearButton.setBounds (left + 184, top + 166, 84, 32);
 
-    statusLabel.setBounds (left, top + 268, leftWidth, 62);
-    progressBar.setBounds (left, top + 334, leftWidth, 14);
-    notesTitle.setBounds (left, top + 362, leftWidth, 16);
-    notesLabel.setBounds (left, top + 382, leftWidth, 106);
+    statusLabel.setBounds (left, top + 210, leftWidth, 62);
+    progressBar.setBounds (left, top + 280, leftWidth, 14);                        // shown while measuring...
+    pairLabel.setBounds (left, top + 280, leftWidth, 16);                          // ...and the Pair With box takes its place when it is needed
+    pairBox.setBounds (left, top + 298, leftWidth, 28);
+    notesTitle.setBounds (left, top + 336, leftWidth, 16);
+    notesLabel.setBounds (left, top + 356, leftWidth, 130);
 
-    const int graphLeft = 312, edge = SUI::MeterColumn::contentRightEdge (designWidth, false);
-    graph.setBounds (graphLeft, top, edge - graphLeft, 350);
+    const int graphLeft = 312, edge = SUI::MeterColumn::contentRightEdge (designWidth, false), rightWidth = edge - graphLeft;
+    graph.setBounds (graphLeft, top, rightWidth, 330);
+    choicePanel.setBounds (graph.getBounds());
 
-    const int rowOne = top + 362, rowTwo = rowOne + 58, boxWidth = 146, gap = 12;
-    for (int i = 0; i < 4; ++i)
-    {
-        juce::Label* labels[] = { &measureIntoLabel, &showLabel, &compareLabel, &rangeLabel };
-        juce::ComboBox* boxes[] = { &measureIntoBox, &showBox, &compareBox, &rangeBox };
-        labels[i]->setBounds (graphLeft + i * (boxWidth + gap), rowOne, boxWidth, 16);
-        boxes[i]->setBounds (graphLeft + i * (boxWidth + gap), rowOne + 18, boxWidth, 28);
-    }
-    nameLabel.setBounds (graphLeft, rowTwo, 300, 16);
-    nameEditor.setBounds (graphLeft, rowTwo + 18, 300, 28);
-    exportButton.setBounds (edge - 140, rowTwo + 18, 140, 28);
-    hintLabel.setBounds (graphLeft, rowTwo + 50, edge - graphLeft, 16);
+    const int rowOne = top + 338;
+    captureRows[0]->setBounds (graphLeft, rowOne, rightWidth, 28);
+    captureRows[1]->setBounds (graphLeft, rowOne + 34, rightWidth, 28);
+    const int rowThree = rowOne + 74;
+    rangeLabel.setBounds (graphLeft, rowThree + 6, 56, 16);
+    rangeBox.setBounds (graphLeft + 60, rowThree, 190, 28);
+    exportButton.setBounds (edge - 140, rowThree, 140, 28);
+    hintLabel.setBounds (graphLeft, rowThree + 36, rightWidth, 16);
 
     meterColumn.setBounds (SUI::MeterColumn::boundsFor (designWidth, (int) SUI::titleBarHeight + 8, contentHeight - 12, false));
 
@@ -249,31 +235,99 @@ void SongsmithPluginAnalyzerEditor::paintContent (juce::Graphics& g)
 }
 
 //==============================================================================
-void SongsmithPluginAnalyzerEditor::rebuildSlotBoxes()
+bool SongsmithPluginAnalyzerEditor::startNeedsChoice() const
 {
-    for (int i = 0; i < numSlots; ++i)
-        shownNames[i] = proc.getSlot (i).name + (proc.getSlot (i).filled ? "" : " (empty)");
+    return proc.getRole() == Role::result && proc.numFilledCaptures() > 0;
+}
 
-    auto fill = [this] (juce::ComboBox& box, bool withNone, int selected)
+void SongsmithPluginAnalyzerEditor::pressStart()
+{
+    if (choicePanel.isOpen() || proc.isBypassed())
+        return;
+    if (startNeedsChoice())
     {
-        box.clear (juce::dontSendNotification);
-        if (withNone)
-            box.addItem ("None", 1);
+        openChoice();
+        return;
+    }
+    // Nothing to replace: the first capture, or (when the first is empty) the first empty one.
+    startMeasurementInto (juce::jmax (0, proc.firstEmptyCapture()), {});
+}
+
+void SongsmithPluginAnalyzerEditor::startMeasurementInto (int captureIndex, const juce::String& name)
+{
+    proc.setNextCapture (captureIndex, name);
+    proc.requestStart();
+    refresh();
+}
+
+void SongsmithPluginAnalyzerEditor::openChoice()
+{
+    using Option = PluginAnalyzer::UI::ChoicePanel::Option;
+    const int filled = proc.numFilledCaptures();
+    std::vector<Option> options;
+    if (filled == 1)
+    {
+        int existing = 0;
         for (int i = 0; i < numSlots; ++i)
-            box.addItem (shownNames[i], i + 1 + (withNone ? 1 : 0));
-        box.setSelectedId (selected, juce::dontSendNotification);
-    };
-    fill (measureIntoBox, false, proc.measureSlot + 1);
-    fill (showBox, false, proc.shownSlot + 1);
-    fill (compareBox, true, proc.comparedSlot + 2);
-    if (! nameEditor.hasKeyboardFocus (false))
-        nameEditor.setText (proc.getSlot (proc.measureSlot).name, juce::dontSendNotification);
+            if (proc.getSlot (i).filled)
+                existing = i;
+        pendingAddSlot = proc.firstEmptyCapture();
+        options.push_back ({ "Replace \"" + proc.getSlot (existing).name + "\"", replaceFirstId + existing });
+        options.push_back ({ "Add to Compare", addSecondId });
+        options.push_back ({ "Cancel", PluginAnalyzer::UI::ChoicePanel::cancelId });
+        choicePanel.open ("Start a new measurement",
+                          "You already have a capture. Replace it with the new measurement, or add the new one as a second capture so both are drawn together. "
+                          "Nothing changes until the measurement is finished.",
+                          options, true, defaultSlotName (juce::jmax (0, pendingAddSlot)));
+    }
+    else
+    {
+        pendingAddSlot = -1;
+        for (int i = 0; i < numSlots; ++i)
+            options.push_back ({ "Replace \"" + proc.getSlot (i).name + "\"", replaceFirstId + i });
+        options.push_back ({ "Cancel", PluginAnalyzer::UI::ChoicePanel::cancelId });
+        choicePanel.open ("Start a new measurement",
+                          "You have two captures. Choose the one to replace with the new measurement. The other one is kept. "
+                          "Nothing changes until the measurement is finished.",
+                          options, false, {});
+    }
+}
+
+void SongsmithPluginAnalyzerEditor::openClearQuestion()
+{
+    using Option = PluginAnalyzer::UI::ChoicePanel::Option;
+    choicePanel.open ("Clear all captures?",
+                      "This removes every capture from this plugin, with its name. Export a CSV first if you want to keep them.",
+                      { Option { "Clear All Captures", clearAllId }, Option { "Keep Captures", PluginAnalyzer::UI::ChoicePanel::cancelId } }, false, {});
+}
+
+void SongsmithPluginAnalyzerEditor::applyChoice (int id, const juce::String& typedName, bool nameEdited)
+{
+    if (id == PluginAnalyzer::UI::ChoicePanel::cancelId)
+    {
+        refresh();
+        return;
+    }
+    if (id == clearAllId)
+    {
+        proc.clearCaptures();
+        refresh();
+        return;
+    }
+    if (id == addSecondId)
+    {
+        startMeasurementInto (juce::jmax (0, pendingAddSlot), typedName);
+        return;
+    }
+    if (id == replaceFirstId || id == replaceSecondId)
+        startMeasurementInto (id - replaceFirstId, nameEdited ? typedName : juce::String());   // a replaced capture keeps its name unless you typed one
 }
 
 void SongsmithPluginAnalyzerEditor::refresh()
 {
     const bool changedByProcessor = proc.poll();
-    const bool isResult = proc.getRole() == Role::result;
+    juce::ignoreUnused (changedByProcessor);
+    const bool isAfter = proc.getRole() == Role::result;
 
     // The words and the bar.
     const auto info = proc.getStatus();
@@ -282,63 +336,78 @@ void SongsmithPluginAnalyzerEditor::refresh()
                                                                                                                         : SUI::Colours::text);
     progress = (double) info.progress;
     const bool showProgress = info.status == SongsmithPluginAnalyzerProcessor::Status::sending || info.status == SongsmithPluginAnalyzerProcessor::Status::recording;
-    progressBar.setVisible (showProgress);
+    const bool offersPair = proc.offersPairing();
+    progressBar.setVisible (showProgress && ! offersPair);
+    pairLabel.setVisible (offersPair);
+    pairBox.setVisible (offersPair);
 
     const bool busy = showProgress || info.status == SongsmithPluginAnalyzerProcessor::Status::working;
-    startButton.setEnabled (! busy && ! proc.isBypassed());
+    const bool choiceOpen = choicePanel.isOpen();
+    if (choiceOpen && ! isAfter)
+        choicePanel.close();   // the role changed under it
+    startButton.setVisible (isAfter);
+    clearButton.setVisible (isAfter);
+    startButton.setEnabled (! busy && ! proc.isBypassed() && ! choiceOpen);
     stopButton.setEnabled (busy);
+    clearButton.setEnabled (! busy && ! choiceOpen && proc.numFilledCaptures() > 0);
 
     // What applies to which role.
-    levelSlider.setEnabled (! isResult);
-    levelLabel.setEnabled (! isResult);
-    channelBox.setEnabled (isResult);
-    for (auto* c : std::initializer_list<juce::Component*> { &measureIntoBox, &showBox, &compareBox, &rangeBox, &nameEditor })
-        c->setEnabled (isResult);
-    exportButton.setEnabled (isResult && proc.makeCsvText().isNotEmpty());
+    levelSlider.setEnabled (! isAfter);
+    levelLabel.setEnabled (! isAfter);
+    channelBox.setEnabled (isAfter);
+    for (auto* c : std::initializer_list<juce::Component*> { &rangeLabel, &rangeBox, &exportButton, &notesTitle, &notesLabel })
+        c->setVisible (isAfter);
+    for (auto& row : captureRows)
+        row->setVisible (isAfter);
+    exportButton.setEnabled (isAfter && proc.makeCsvText().isNotEmpty());
     levelValue.setText (juce::String (proc.getTestLevelDb(), 1) + " dB", juce::dontSendNotification);
 
-    // Slot names and fill state may have changed (a measurement finished, Reset, a restored session).
-    bool namesChanged = false;
+    // The two captures: their names, whether each is drawn, and a short line about each.
+    juce::String notes = proc.getKeptNotice();
+    PluginAnalyzer::UI::ResponseGraph::Curve curves[numSlots];
+    const ::juce::Colour colours[] = { PluginAnalyzer::UI::Colours::first, PluginAnalyzer::UI::Colours::second };
+    int filled = 0, drawn = 0;
     for (int i = 0; i < numSlots; ++i)
-        namesChanged = namesChanged || shownNames[i] != proc.getSlot (i).name + (proc.getSlot (i).filled ? "" : " (empty)");
-    if (namesChanged || changedByProcessor)
-        rebuildSlotBoxes();
-    if (showBox.getSelectedId() != proc.shownSlot + 1)
-        showBox.setSelectedId (proc.shownSlot + 1, juce::dontSendNotification);
-    if (compareBox.getSelectedId() != proc.comparedSlot + 2)
-        compareBox.setSelectedId (proc.comparedSlot + 2, juce::dontSendNotification);
+    {
+        const auto& slot = proc.getSlot (i);
+        const auto detail = slot.channel + (slot.measurement.isValidCurve() ? juce::String() : juce::String (", no curve"));
+        captureRows[(size_t) i]->setCapture (slot.filled, slot.name, detail, proc.captureVisible[i]);
+        if (! slot.filled)
+            continue;
+        ++filled;
+        if (proc.captureVisible[i])
+        {
+            curves[i] = { &slot.measurement, slot.name, colours[i], i == 1 };
+            ++drawn;
+        }
+        const auto flagNotes = describeFlags (slot.measurement);
+        juce::String line = "\"" + slot.name + "\": ";
+        if (! flagNotes.isEmpty())
+            line << flagNotes.joinIntoString (" ");
+        else if (slot.measurement.sampleRate > 0.0)
+            line << "Nothing to flag. Delay between the Before Plugin and the After Plugin: "
+                 << juce::String (slot.measurement.delaySamples / slot.measurement.sampleRate * 1000.0, 1) << " ms.";
+        notes << (notes.isEmpty() ? "" : "\n\n") << line;
+    }
 
     // The graph, and the notes under the controls.
-    const auto& shown = proc.getSlot (proc.shownSlot);
-    PluginAnalyzer::UI::ResponseGraph::Curve first, second;
     juce::String message;
-    juce::String notes;
-    if (! isResult)
-    {
-        message = "This is the Reference. It sends the test sweeps. Put a Result after the plugin you want to measure, in the same session, to see its curve there.";
-    }
+    if (! isAfter)
+        message = "This is the Before Plugin. It sends the test sweeps. Put an After Plugin after the plugin you want to measure, and press Start there.";
+    else if (filled == 0)
+        message = "No capture yet. Start the host playing, then press Start.";
+    else if (drawn == 0)
+        message = "Both captures are hidden. Turn on Show under the graph to see one.";
     else
-    {
-        if (shown.filled)
-        {
-            first = { &shown.measurement, shown.name, PluginAnalyzer::UI::Colours::accent };
-            const auto flagNotes = describeFlags (shown.measurement);
-            notes = flagNotes.joinIntoString ("\n\n");
-            if (! shown.measurement.isValidCurve())
+        for (int i = 0; i < numSlots; ++i)
+            if (curves[i].measurement != nullptr && ! curves[i].measurement->isValidCurve() && message.isEmpty() && drawn == 1)
+            {
+                const auto flagNotes = describeFlags (*curves[i].measurement);
                 message = flagNotes.isEmpty() ? juce::String ("No curve could be measured.") : flagNotes[0];
-            else if (notes.isEmpty())
-                notes = "Nothing to flag. Delay between the Reference and the Result: " + juce::String (shown.measurement.delaySamples / shown.measurement.sampleRate * 1000.0, 1) + " ms.";
-        }
-        else
-            message = "No measurement yet. Start the host playing, then press Start.";
-
-        const auto& other = proc.getSlot (juce::jmax (0, proc.comparedSlot));
-        if (proc.comparedSlot >= 0 && proc.comparedSlot != proc.shownSlot && other.filled)
-            second = { &other.measurement, other.name, PluginAnalyzer::UI::Colours::compare };
-    }
-    graph.setCurves (first, second);
+            }
+    graph.setCurves (curves[0], curves[1]);
     graph.setMessage (message);
-    notesLabel.setText (notes.isEmpty() ? (isResult ? juce::String ("None yet.") : juce::String()) : notes, juce::dontSendNotification);
+    notesLabel.setText (notes.isEmpty() ? juce::String ("None yet.") : notes, juce::dontSendNotification);
 
     // The Output meter.
     {
@@ -355,8 +424,12 @@ void SongsmithPluginAnalyzerEditor::exportCsv()
     const auto text = proc.makeCsvText();
     if (text.isEmpty() || chooser != nullptr)
         return;
+    int firstFilled = 0;
+    for (int i = numSlots - 1; i >= 0; --i)
+        if (proc.getSlot (i).filled)
+            firstFilled = i;
     const auto suggested = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                               .getChildFile (juce::File::createLegalFileName (proc.getSlot (proc.shownSlot).name) + ".csv");
+                               .getChildFile (juce::File::createLegalFileName (proc.getSlot (firstFilled).name) + ".csv");
     chooser = std::make_unique<juce::FileChooser> ("Export CSV", suggested, "*.csv");
     juce::Component::SafePointer<SongsmithPluginAnalyzerEditor> safe (this);
     chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting,

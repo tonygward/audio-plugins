@@ -11,8 +11,12 @@ namespace PluginAnalyzer::UI
 {
     namespace Colours
     {
-        inline const juce::Colour accent  { 0xffb5d46a };   // the measurement being looked at
-        inline const juce::Colour compare { 0xffe6a15c };   // a second measurement drawn over it
+        inline const juce::Colour accent  { 0xffb5d46a };   // the plugin's own accent (buttons, the progress bar)
+        // ANALYZER-02: the two captures. Blue and orange are told apart by almost everyone, including people who cannot tell green from
+        // orange, and the second is also drawn dashed, so the graph never depends on colour alone.
+        inline const juce::Colour first   { 0xff6cb4ee };   // the first capture: a solid line
+        inline const juce::Colour second  { 0xffe6a15c };   // the second capture: a dashed line
+        inline const juce::Colour compare = second;         // also the colour of a problem message
     }
 
     class ResponseGraph : public juce::Component, public juce::SettableTooltipClient
@@ -23,6 +27,7 @@ namespace PluginAnalyzer::UI
             const Measurement* measurement = nullptr;   // null: nothing to draw
             juce::String name;
             juce::Colour colour;
+            bool dashed = false;
         };
 
         ResponseGraph() { setTitle ("Frequency response graph"); setInterceptsMouseClicks (true, false); }
@@ -32,6 +37,15 @@ namespace PluginAnalyzer::UI
         float getRangeDb() const noexcept { return rangeDb; }
         void setMessage (const juce::String& text) { message = text; repaint(); }
         const juce::String& getMessage() const noexcept { return message; }
+        // For tests: how many curves are drawn (a capture with no valid curve is not drawn).
+        int getNumCurvesDrawn() const noexcept
+        {
+            int n = 0;
+            for (auto& c : curves)
+                n += (c.measurement != nullptr && c.measurement->isValidCurve()) ? 1 : 0;
+            return n;
+        }
+        const Curve& getCurve (int index) const noexcept { return curves[(size_t) index]; }
 
         // For tests: where a frequency and a gain are on the graph.
         juce::Rectangle<float> getPlotArea() const noexcept { return plot(); }
@@ -87,7 +101,6 @@ namespace PluginAnalyzer::UI
             // The curves. A gap in the measured points breaks the line.
             g.saveState();
             g.reduceClipRegion (p.toNearestInt());
-            int legendRow = 0;
             for (int c = 1; c >= 0; --c)   // the first curve is drawn last, on top
             {
                 const auto& curve = curves[(size_t) c];
@@ -104,23 +117,19 @@ namespace PluginAnalyzer::UI
                     else path.lineTo (x, y);
                 }
                 g.setColour (curve.colour);
-                g.strokePath (path, juce::PathStrokeType (c == 0 ? 2.4f : 2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+                const juce::PathStrokeType stroke (c == 0 ? 2.4f : 2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
+                if (curve.dashed)
+                {
+                    const float dashes[] = { 8.0f, 5.0f };
+                    juce::Path dashed;
+                    stroke.createDashedStroke (dashed, path, dashes, 2);
+                    g.fillPath (dashed);
+                }
+                else
+                    g.strokePath (path, stroke);
             }
             g.restoreState();
-
-            // The legend: a coloured line and the name of each curve drawn.
-            g.setFont (U::font (U::Type::hint, U::Weight::Medium));
-            for (int c = 0; c < 2; ++c)
-            {
-                const auto& curve = curves[(size_t) c];
-                if (curve.measurement == nullptr)
-                    continue;
-                const float y = p.getY() + 10.0f + (float) legendRow++ * 18.0f;
-                g.setColour (curve.colour);
-                g.drawLine (p.getX() + 10.0f, y + 7.0f, p.getX() + 30.0f, y + 7.0f, 2.4f);
-                g.setColour (U::Colours::text);
-                g.drawText (curve.name, juce::Rectangle<float> (p.getX() + 36.0f, y, 260.0f, 14.0f), juce::Justification::centredLeft);
-            }
+            // The legend (which curve is which, and showing or hiding each) is the row of controls under the graph.
 
             // The readout under the pointer.
             if (hoverX >= p.getX() && hoverX <= p.getRight())

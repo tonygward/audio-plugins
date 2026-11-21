@@ -16,8 +16,8 @@ namespace Songsmith::Guidance
     inline juce::String titleTooltipFor (const juce::String& pluginName)
     {
         if (pluginName.containsIgnoreCase ("Plugin Analyzer"))
-            return "Measures what another plugin does to the sound at each frequency. Put a Reference before that plugin and a Result after it, "
-                   "in the same session, then press Start while the host plays.";
+            return "Measures what another plugin does to the sound at each frequency. Put a Before Plugin before that plugin and an After Plugin after it, "
+                   "then press Start on the After Plugin while the host plays.";
         if (pluginName.containsIgnoreCase ("Analog Compressor"))
             return "Evens out louder and quieter parts and can add analogue-style character. "
                    "Listen for lost punch if you compress too hard.";

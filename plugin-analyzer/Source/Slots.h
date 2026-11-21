@@ -132,7 +132,7 @@ namespace PluginAnalyzer
             out << prefix << "test level db: " << juce::String (m.testLevelDb, 1) << "\r\n";
             out << prefix << "sweeps: " << m.sweeps << "\r\n";
             out << prefix << "difference between sweeps db: " << juce::String (m.repeatDifferenceDb, 2) << "\r\n";
-            out << prefix << "delay between the Reference and the Result, samples: " << juce::String (m.delaySamples, 1) << "\r\n";
+            out << prefix << "delay between the Before Plugin and the After Plugin, samples: " << juce::String (m.delaySamples, 1) << "\r\n";
             out << prefix << "measured: " << csvCell (s->measuredAt) << "\r\n";
             const auto notes = describeFlags (m);
             for (auto& note : notes)

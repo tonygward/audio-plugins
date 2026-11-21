@@ -357,7 +357,7 @@ public:
             const auto silence = std::vector<float> ((size_t) captureSamples (spec, fs), 0.0f);
             auto m = analyse (silence, (int) silence.size(), spec, fs, -18.0f);
             expect ((m.flags & flagNoSignal) != 0 && ! m.isValidCurve(), "silence is flagged and shows no curve");
-            expect (describeFlags (m).size() == 1 && describeFlags (m)[0].contains ("Nothing reached the Result"));
+            expect (describeFlags (m).size() == 1 && describeFlags (m)[0].contains ("Nothing reached the After Plugin"));
 
             System quiet; quiet.gain = 0.002;   // -54 dB: the sweep arrives below the low-signal line
             m = analyse (simulate (quiet, spec, -36.0f), captureSamples (spec, fs), spec, fs, -36.0f);
@@ -516,8 +516,8 @@ public:
             expectEquals (other.getCapturedSamples(), 0, "nothing was recorded in the other session");
             expect (! other.getSlot (0).filled);
             const auto status = other.getStatus();
-            expect (status.status == SongsmithPluginAnalyzerProcessor::Status::problem && status.text.contains ("No Reference found in Session 3"), status.text);
-            expect (status.text.contains ("same session"), "it says how to fix it");
+            expect (status.status == SongsmithPluginAnalyzerProcessor::Status::problem && status.text.contains ("No Before Plugin found"), status.text);
+            expect (status.text.contains ("Put a Before Plugin before"), "it says how to fix it");
 
             // Two pairs in two sessions at the same time do not mix.
             SongsmithPluginAnalyzerProcessor ref2, res1, res2;
@@ -546,7 +546,7 @@ public:
             makeReference (a, 3);
             makeReference (b, 3);
             expectEquals (SongsmithPluginAnalyzerProcessor::referencesIn (3), 2);
-            expect (a.getStatus().text.contains ("More than one Reference is using Session 4"), a.getStatus().text);
+            expect (a.getStatus().text.contains ("More than one Before Plugin is paired here"), a.getStatus().text);
             // The two References must not both send a sweep.
             SongsmithPluginAnalyzerProcessor r;
             makeResult (r, 3);
@@ -563,7 +563,7 @@ public:
 
             SongsmithPluginAnalyzerProcessor lonely;
             makeReference (lonely, 5);
-            expect (lonely.getStatus().text.contains ("No Result found in Session 6"), lonely.getStatus().text);
+            expect (lonely.getStatus().text.contains ("No After Plugin found"), lonely.getStatus().text);
 
             setParam (lonely, bypassId, 1.0f);
             expect (lonely.getStatus().text.contains ("Bypass is on"), lonely.getStatus().text);
@@ -707,7 +707,7 @@ public:
             expectLessThan (worstError (res.getSlot (0).measurement, flat), 0.2, "an empty chain reads 0 dB");
         }
 
-        beginTest ("Slots: four named measurements, the next one goes where you say, and Reset empties only that one");
+        beginTest ("Captures: two named captures, the next one goes where it is told, both are kept and drawn, and Clear All empties them");
         {
             SongsmithPluginAnalyzerProcessor ref, res;
             makeResult (res, 0);
@@ -731,18 +731,18 @@ public:
                 if (res.getCapturedSamples() >= res.getCaptureLength()) break;
             }
             waitUntil ([&] { res.poll(); return res.getMeasurementCount() > count; });
-            expect (res.getSlot (0).filled && res.getSlot (1).filled && ! res.getSlot (2).filled, "two slots are filled");
+            expect (res.getSlot (0).filled && res.getSlot (1).filled, "both captures are filled");
             expectEquals (res.getSlot (0).name, juce::String ("Hardware"));
             expectLessThan (worstError (res.getSlot (0).measurement, *sys1), 0.5, "slot one still holds the first measurement");
             expectLessThan (worstError (res.getSlot (1).measurement, *sys2), 0.5, "slot two holds the second");
-            expectEquals (res.shownSlot, 1, "the new measurement is shown");
+            expect (res.captureVisible[0] && res.captureVisible[1], "both captures are drawn, with nothing to choose");
 
             // Saved with the DAW session and restored, whatever came before.
             juce::MemoryBlock block;
             res.getStateInformation (block);
             SongsmithPluginAnalyzerProcessor restored;
             restored.setStateInformation (block.getData(), (int) block.getSize());
-            for (int s = 0; s < 4; ++s)
+            for (int s = 0; s < numSlots; ++s)
             {
                 expect (restored.getSlot (s).filled == res.getSlot (s).filled, "slot " + juce::String (s) + " is filled or empty as it was");
                 expectEquals (restored.getSlot (s).name, res.getSlot (s).name);
@@ -755,12 +755,18 @@ public:
             expectLessThan (worst, 1.0e-6, "the curve comes back exactly");
             expectEquals (restored.getSlot (1).measurement.sampleRate, res.getSlot (1).measurement.sampleRate);
             expectEquals (getParam (restored, roleId), 1.0f, "the role is restored too");
-            expectEquals (restored.shownSlot, 1);
+            expect (restored.captureVisible[0] && restored.captureVisible[1], "both captures are still shown");
             expectEquals ((int) restored.getSlot (0).measurement.flags, (int) res.getSlot (0).measurement.flags);
 
-            res.measureSlot = 1;
-            res.resetMeasurement();
-            expect (! res.getSlot (1).filled && res.getSlot (0).filled, "Reset empties the slot the next measurement fills, and no other");
+            res.captureVisible[1] = false;
+            juce::MemoryBlock hiddenBlock;
+            res.getStateInformation (hiddenBlock);
+            SongsmithPluginAnalyzerProcessor hidden;
+            hidden.setStateInformation (hiddenBlock.getData(), (int) hiddenBlock.getSize());
+            expect (hidden.captureVisible[0] && ! hidden.captureVisible[1], "a hidden capture stays hidden when the session is reopened");
+            expect (hidden.getSlot (1).filled, "and it is not deleted");
+            res.clearCaptures();
+            expect (! res.getSlot (0).filled && ! res.getSlot (1).filled && res.captureVisible[1], "Clear All empties both captures");
         }
 
         beginTest ("Damaged or old saved data never breaks a session: a bad slot is empty, a missing one is empty, a newer version loads");
@@ -776,26 +782,26 @@ public:
                 {
                     ui.removeAllChildren (nullptr);
                     juce::ValueTree bad ("SLOT");
-                    bad.setProperty ("index", 2, nullptr);
+                    bad.setProperty ("index", 1, nullptr);
                     bad.setProperty ("name", "Broken", nullptr);
                     bad.setProperty ("curve", "AAAA!!!not base64", nullptr);
                     ui.appendChild (bad, nullptr);
                     juce::ValueTree wrongSize ("SLOT");
-                    wrongSize.setProperty ("index", 3, nullptr);
+                    wrongSize.setProperty ("index", 0, nullptr);
                     wrongSize.setProperty ("curve", juce::Base64::toBase64 ("short", 5), nullptr);
                     ui.appendChild (wrongSize, nullptr);
                     juce::ValueTree outOfRange ("SLOT");
                     outOfRange.setProperty ("index", 99, nullptr);
                     ui.appendChild (outOfRange, nullptr);
-                    ui.setProperty ("shownSlot", 77, nullptr);
-                    ui.setProperty ("comparedSlot", -50, nullptr);
+                    ui.setProperty ("measureSlot", 77, nullptr);
+                    ui.setProperty ("visible0", "garbage", nullptr);
                     ui.setProperty ("editorWidth", 1, nullptr);
                 }
             tree.setProperty ("stateVersion", 99, nullptr);   // a newer version
             p.restoreFromValueTree (tree);
-            expect (! p.getSlot (2).filled && p.getSlot (2).name == "Broken");
-            expect (! p.getSlot (3).filled && ! p.getSlot (0).filled);
-            expect (p.shownSlot >= 0 && p.shownSlot < 4 && p.comparedSlot >= -1 && p.comparedSlot < 4, "slot choices are clamped");
+            expect (! p.getSlot (1).filled && p.getSlot (1).name == "Broken");
+            expect (! p.getSlot (0).filled);
+            expect (p.measureSlot >= 0 && p.measureSlot < numSlots, "the capture choice is clamped");
             expectGreaterOrEqual (p.editorWidth.load(), EditorLayout::minWidth, "the window width is clamped");
             expectEquals (p.getNumPrograms(), 1);
         }
@@ -845,7 +851,6 @@ public:
             other = res.getSlot (0);
             other.name = "Songsmith";
             other.measurement.valid[300] = 0;
-            res.comparedSlot = 1;
             const auto two = res.makeCsvText();
             expect (two.contains ("# Column 2 name: Songsmith"));
             bool foundEmpty = false;
@@ -853,6 +858,208 @@ public:
                 if (l.startsWith (juce::String (gridFrequency (300), 2) + ",") && l.endsWith (","))
                     foundEmpty = true;
             expect (foundEmpty, "the unmeasured point is an empty cell");
+        }
+
+        beginTest ("A session saved with four slots (before ANALYZER-02) opens with its filled slots as the two captures, in order, both drawn");
+        {
+            auto fakeCapture = [] (double offsetDb)
+            {
+                Measurement m;
+                m.sampleRate = 48000.0;
+                m.sweeps = 2;
+                m.frequencyHz.resize ((size_t) gridPoints);
+                m.magnitudeDb.resize ((size_t) gridPoints);
+                m.valid.assign ((size_t) gridPoints, (unsigned char) 1);
+                for (int i = 0; i < gridPoints; ++i)
+                {
+                    m.frequencyHz[(size_t) i] = (float) gridFrequency (i);
+                    m.magnitudeDb[(size_t) i] = (float) (offsetDb + 0.01 * i);
+                }
+                return m;
+            };
+            SongsmithPluginAnalyzerProcessor source;
+            auto tree = source.createState();
+            tree.setProperty ("stateVersion", 1, nullptr);
+            for (auto ui : tree)
+                if (ui.hasType (SongsmithPluginAnalyzerProcessor::uiId))
+                {
+                    ui.removeAllChildren (nullptr);
+                    ui.removeProperty ("measureSlot", nullptr);
+                    ui.setProperty ("shownSlot", 3, nullptr);
+                    ui.setProperty ("comparedSlot", 1, nullptr);
+                    for (int i = 0; i < legacySlotCount; ++i)
+                    {
+                        Slot s;
+                        s.clear (i);
+                        s.name = i == 1 ? juce::String ("Hardware") : "Measurement " + juce::String (i + 1);
+                        s.filled = i == 1 || i == 3;
+                        if (s.filled)
+                        {
+                            s.measurement = fakeCapture (i == 1 ? 3.0 : -2.0);
+                            s.channel = "Left";
+                        }
+                        ui.appendChild (slotToTree (s, i), nullptr);
+                    }
+                }
+            SongsmithPluginAnalyzerProcessor opened;
+            opened.restoreFromValueTree (tree);
+            expect (opened.getSlot (0).filled && opened.getSlot (1).filled, "the two filled slots are the two captures");
+            expectEquals (opened.getSlot (0).name, juce::String ("Hardware"), "a name you chose is kept");
+            expectEquals (opened.getSlot (1).name, juce::String ("Capture 2"), "an old default name becomes the new one for its place");
+            expectWithinAbsoluteError (opened.getSlot (0).measurement.magnitudeDb[10], 3.1f, 1.0e-4f, "the first capture is the first filled slot's curve");
+            expectWithinAbsoluteError (opened.getSlot (1).measurement.magnitudeDb[10], -1.9f, 1.0e-4f, "and the second is the next one");
+            expect (opened.captureVisible[0] && opened.captureVisible[1], "both are drawn");
+            expect (opened.measureSlot >= 0 && opened.measureSlot < numSlots);
+        }
+
+        beginTest ("A capture you have is never replaced by a measurement that has no curve, and the reason is given");
+        {
+            SongsmithPluginAnalyzerProcessor ref, res;
+            makeResult (res, 0);
+            Host host { ref, res, 512, {} };
+            host.prime();
+            auto sys = std::make_shared<System>();
+            sys->stages = { Biquad::peak (1000.0, 1.0, 6.0) };
+            host.between = through (sys);
+            res.setNextCapture (0, "Hardware");
+            expect (host.measure());
+            expect (res.getSlot (0).filled && res.getSlot (0).measurement.isValidCurve());
+            const auto when = res.getSlot (0).measuredAt;
+            expectEquals (res.getSlot (0).name, juce::String ("Hardware"), "the name given with the choice is used");
+            expect (res.getKeptNotice().isEmpty());
+
+            // Now nothing reaches the After Plugin: the capture stays, and the musician is told.
+            const int count = res.getMeasurementCount();
+            res.setNextCapture (0, "Should not be applied");
+            host.between = [] (juce::AudioBuffer<float>& buffer) { buffer.clear(); };
+            ref.requestStart();
+            for (int b = 0; b < 4000; ++b)
+            {
+                host.runBlock();
+                if (res.getCapturedSamples() >= res.getCaptureLength())
+                    break;
+            }
+            waitUntil ([&] { res.poll(); return res.getMeasurementCount() > count; });
+            expect (res.getSlot (0).filled && res.getSlot (0).measurement.isValidCurve(), "the capture is still there, with its curve");
+            expectEquals (res.getSlot (0).measuredAt, when, "and it is the one that was made before");
+            expectEquals (res.getSlot (0).name, juce::String ("Hardware"), "with its own name");
+            expect (res.getKeptNotice().contains ("was kept") && res.getKeptNotice().contains ("Hardware"), res.getKeptNotice());
+            expect (res.getStatus().status != SongsmithPluginAnalyzerProcessor::Status::finished, "it is not reported as done");
+
+            // An empty capture takes the result even when it has no curve, so the reason can be read next to it.
+            res.setNextCapture (1, "Second");
+            ref.requestStart();
+            const int count2 = res.getMeasurementCount();
+            for (int b = 0; b < 4000; ++b)
+            {
+                host.runBlock();
+                if (res.getCapturedSamples() >= res.getCaptureLength())
+                    break;
+            }
+            waitUntil ([&] { res.poll(); return res.getMeasurementCount() > count2; });
+            expect (res.getSlot (1).filled && ! res.getSlot (1).measurement.isValidCurve(), "an empty capture records what happened");
+        }
+
+        beginTest ("Choosing the next pair: the rule picks the other half waiting alone, then a free pair, and keeps a pair together");
+        {
+            using O = PluginAnalyzer::Occupancy;
+            std::array<O, (size_t) PluginAnalyzer::numSessions> none {};
+            expectEquals (choosePairSession (Role::reference, none, 0), 0, "nobody about: stay");
+            expectEquals (choosePairSession (Role::reference, none, 5), 0, "an empty room: the lowest free pair");
+
+            auto lone = none;
+            lone[3].afters = 1;
+            expectEquals (choosePairSession (Role::reference, lone, 0), 3, "a Before Plugin joins the After Plugin waiting alone");
+            auto lonely = none;
+            lonely[2].befores = 1;
+            lonely[5].befores = 1;
+            expectEquals (choosePairSession (Role::result, lonely, 0), 2, "an After Plugin joins the lowest Before Plugin waiting alone");
+
+            auto complete = none;
+            complete[0] = { 1, 1 };
+            expectEquals (choosePairSession (Role::reference, complete, 0), 1, "a complete pair is left alone: the next one gets the next free pair");
+            auto half = none;
+            half[4].befores = 1;
+            half[0].befores = 1;
+            expectEquals (choosePairSession (Role::result, half, 4), 4, "one half of a pair stays where it is");
+
+            std::array<O, (size_t) PluginAnalyzer::numSessions> full;
+            for (auto& o : full)
+                o = { 1, 1 };
+            expectEquals (choosePairSession (Role::reference, full, 6), 6, "with every pair taken it stays, and the Pair With box appears");
+            auto crowded = none;
+            crowded[2].befores = 2;
+            expectEquals (choosePairSession (Role::result, crowded, 0), 0, "two Before Plugins in one pair is not a lone half to join");
+        }
+
+        beginTest ("Pairing happens by itself: a Before Plugin and an After Plugin find each other, the next pair gets its own, and an opened session keeps its pairing");
+        {
+            SongsmithPluginAnalyzerProcessor::automaticPairing = true;
+            {
+                SongsmithPluginAnalyzerProcessor a;                        // the first Before Plugin
+                expectEquals (SongsmithPluginAnalyzerProcessor::referencesIn (0), 1);
+                SongsmithPluginAnalyzerProcessor b;                        // a second instance next to it: a free pair, as a Before Plugin
+                expectEquals (SongsmithPluginAnalyzerProcessor::referencesIn (1), 1);
+                setParam (b, roleId, 1.0f);                                // made the After Plugin: it joins the Before Plugin that is waiting alone
+                waitUntil ([&] { return SongsmithPluginAnalyzerProcessor::resultsIn (0) == 1; }, 15000);
+                expectEquals (SongsmithPluginAnalyzerProcessor::resultsIn (0), 1, "the After Plugin joined the Before Plugin");
+                expectEquals (SongsmithPluginAnalyzerProcessor::referencesIn (0), 1);
+                expectEquals (SongsmithPluginAnalyzerProcessor::resultsIn (1), 0);
+                expectEquals (SongsmithPluginAnalyzerProcessor::referencesIn (1), 0, "and left the free pair it had");
+                expectEquals (getParam (b, sessionId), 0.0f);
+                expect (! a.offersPairing() && ! b.offersPairing(), "a pair that found each other has nothing to choose");
+                expect (b.getStatus().status != SongsmithPluginAnalyzerProcessor::Status::problem, b.getStatus().text);
+
+                // A second pair, made the same way, gets its own.
+                SongsmithPluginAnalyzerProcessor c, d;
+                expectEquals (SongsmithPluginAnalyzerProcessor::referencesIn (1), 1, "the next Before Plugin takes the next free pair");
+                setParam (d, roleId, 1.0f);
+                waitUntil ([&] { return SongsmithPluginAnalyzerProcessor::resultsIn (1) == 1; }, 15000);
+                expectEquals (SongsmithPluginAnalyzerProcessor::resultsIn (1), 1, "its After Plugin finds it");
+                expectEquals (SongsmithPluginAnalyzerProcessor::referencesIn (1), 1);
+                expectEquals (SongsmithPluginAnalyzerProcessor::resultsIn (0), 1, "and the first pair is untouched");
+                expectEquals (SongsmithPluginAnalyzerProcessor::referencesIn (0), 1);
+                expect (! c.offersPairing() && ! d.offersPairing());
+
+                // A session that is opened keeps the pairing it was saved with, even when that is not what the rule would pick.
+                juce::MemoryBlock saved;
+                d.getStateInformation (saved);
+                SongsmithPluginAnalyzerProcessor e;
+                e.setStateInformation (saved.getData(), (int) saved.getSize());
+                pump (100);
+                expectEquals (e.getSessionIndex(), 1, "an opened session is not moved");
+                expect (e.getRole() == Role::result);
+                expect (e.offersPairing(), "two After Plugins in one pair: the Pair With box is offered");
+                expect (e.getStatus().text.contains ("More than one After Plugin"), e.getStatus().text);
+            }
+            SongsmithPluginAnalyzerProcessor::automaticPairing = false;
+        }
+
+        beginTest ("The Pair With box is offered only when the plugins cannot tell which pair they are in");
+        {
+            {
+                SongsmithPluginAnalyzerProcessor a, b;
+                makeReference (a, 3);
+                makeReference (b, 3);
+                expect (a.offersPairing() && b.offersPairing(), "two Before Plugins in one pair");
+            }
+            {
+                SongsmithPluginAnalyzerProcessor a, b;
+                makeReference (a, 5);
+                makeResult (b, 6);
+                expect (a.offersPairing() && b.offersPairing(), "each half has its other half somewhere else");
+            }
+            {
+                SongsmithPluginAnalyzerProcessor a, b;
+                makeResult (b, 2);
+                makeReference (a, 2);
+                expect (! a.offersPairing() && ! b.offersPairing(), "a pair that agrees has nothing to choose");
+            }
+            {
+                SongsmithPluginAnalyzerProcessor alone;
+                makeReference (alone, 4);
+                expect (! alone.offersPairing(), "a plugin with nothing else about has nothing to choose");
+            }
         }
 
         beginTest ("The audio thread does not grow its buffers: the program and capture are made in prepareToPlay");
@@ -888,9 +1095,9 @@ public:
             SongsmithPluginAnalyzerProcessor p;
             auto ed = make (p, L::defaultWidth);
             const juce::Rectangle<int> design (0, 0, L::designWidth, L::designHeight);
-            std::vector<juce::Component*> parts { &ed->getRoleBox(), &ed->getSessionBox(), &ed->getChannelBox(), &ed->getLevelSlider(), &ed->getStartButton(),
-                                                  &ed->getStopButton(), &ed->getResetButton(), &ed->getExportButton(), &ed->getBypassButton(), &ed->getMeasureIntoBox(),
-                                                  &ed->getShowBox(), &ed->getCompareBox(), &ed->getRangeBox(), &ed->getNameEditor(), &ed->getGraph(), &ed->getMeterColumn() };
+            std::vector<juce::Component*> parts { &ed->getRoleBox(), &ed->getPairBox(), &ed->getChannelBox(), &ed->getLevelSlider(), &ed->getStartButton(),
+                                                  &ed->getStopButton(), &ed->getClearButton(), &ed->getExportButton(), &ed->getBypassButton(), &ed->getRangeBox(),
+                                                  &ed->getCaptureRow (0), &ed->getCaptureRow (1), &ed->getGraph(), &ed->getMeterColumn() };
             for (auto* c : parts)
                 expect (design.contains (c->getBounds()), c->getTitle() + " " + c->getBounds().toString() + " is inside the editor");
             for (size_t i = 0; i < parts.size(); ++i)
@@ -908,7 +1115,9 @@ public:
             expect (ed->getGraph().getRight() < col.getX(), "the graph is left of the meter");
             // The Start button sits with the settings it uses; the slot choices sit under the graph they change; Export sits by them.
             expect (ed->getStartButton().getX() < ed->getGraph().getX() && ed->getStartButton().getY() > ed->getChannelBox().getY(), "Start is under the settings");
-            expect (ed->getMeasureIntoBox().getY() >= ed->getGraph().getBottom() && ed->getShowBox().getY() >= ed->getGraph().getBottom(), "the slot choices are under the graph");
+            expect (ed->getCaptureRow (0).getY() >= ed->getGraph().getBottom() && ed->getCaptureRow (1).getY() >= ed->getGraph().getBottom(), "the captures are listed under the graph they are drawn on");
+            expect (ed->getCaptureRow (0).getY() < ed->getCaptureRow (1).getY(), "the first capture is above the second");
+            expect (ed->getChoicePanel().getBounds() == ed->getGraph().getBounds(), "the question about Start covers the graph, where the captures are drawn");
             expect (ed->getExportButton().getY() > ed->getGraph().getBottom(), "Export CSV is under the graph");
             expect (ed->getDiagnosticsBounds().getY() >= L::contentHeight, "the Processing Load strip is below everything");
         }
@@ -924,19 +1133,27 @@ public:
             expectWithinAbsoluteError (ed->getContentScale(), (float) width / (float) L::designWidth, 0.001f);
         }
 
-        beginTest ("The Reference shows what it is, and the Result shows what to do; a measurement draws a curve");
+        beginTest ("The Before Plugin shows what it is, and the After Plugin shows what to do; a capture draws a curve and can be named");
         {
             SongsmithPluginAnalyzerProcessor ref, res;
             makeResult (res, 0);
             auto edRef = make (ref, L::defaultWidth);
             edRef->refresh();
-            expect (edRef->getGraph().getMessage().contains ("This is the Reference"), edRef->getGraph().getMessage());
-            expect (! edRef->getChannelBox().isEnabled() && edRef->getLevelSlider().isEnabled(), "the Reference uses Test Level, not Channel");
+            expect (edRef->getGraph().getMessage().contains ("This is the Before Plugin"), edRef->getGraph().getMessage());
+            expect (edRef->getGraph().getMessage().contains ("press Start there"), "it says where to press Start");
+            expect (! edRef->getChannelBox().isEnabled() && edRef->getLevelSlider().isEnabled(), "the Before Plugin uses Test Level, not Channel");
+            expect (! edRef->getStartButton().isVisible(), "Start is on the After Plugin");
+            expect (! edRef->getCaptureRow (0).isVisible() && ! edRef->getExportButton().isVisible(), "the Before Plugin has no captures to list");
+            expectEquals (edRef->getRoleBox().getItemText (0), juce::String ("Before Plugin"));
+            expectEquals (edRef->getRoleBox().getItemText (1), juce::String ("After Plugin"));
+
             auto edRes = make (res, L::defaultWidth);
             edRes->refresh();
-            expect (edRes->getGraph().getMessage().contains ("No measurement yet"), edRes->getGraph().getMessage());
-            expect (edRes->getChannelBox().isEnabled() && ! edRes->getLevelSlider().isEnabled(), "the Result uses Channel, not Test Level");
+            expect (edRes->getGraph().getMessage().contains ("No capture yet"), edRes->getGraph().getMessage());
+            expect (edRes->getStartButton().isVisible() && edRes->getChannelBox().isEnabled() && ! edRes->getLevelSlider().isEnabled(), "the After Plugin uses Channel, not Test Level");
             expect (! edRes->getExportButton().isEnabled(), "nothing to export yet");
+            expect (! edRes->getClearButton().isEnabled(), "nothing to clear yet");
+            expect (! edRes->getCaptureRow (0).isFilled() && edRes->getCaptureRow (0).getInfoLabel().getText() == "Not made yet");
             expect (edRes->getStatusLabel().getText().isNotEmpty());
 
             Host host { ref, res, 512, {} };
@@ -948,54 +1165,294 @@ public:
             edRes->refresh();
             expect (edRes->getGraph().getMessage().isEmpty(), "a curve replaces the message");
             expect (edRes->getExportButton().isEnabled(), "there is something to export");
-            expect (edRes->getShowBox().getItemText (0).contains ("Measurement 1"));
+            expect (edRes->getClearButton().isEnabled());
+            expectEquals (edRes->getCaptureRow (0).getNameEditor().getText(), juce::String ("Capture 1"), "a first capture has a sensible name");
+            expect (edRes->getCaptureRow (0).isFilled() && edRes->getCaptureRow (0).getVisibleToggle().getToggleState());
             expect (edRes->getStatusLabel().getText().startsWith ("Done"), edRes->getStatusLabel().getText());
+            expectEquals (edRes->getGraph().getNumCurvesDrawn(), 1, "just the one curve");
             const auto g = edRes->getGraph().getPlotArea();
             expect (edRes->getGraph().yForDb (0.0f) > g.getY() && edRes->getGraph().yForDb (0.0f) < g.getBottom(), "0 dB is inside the graph");
             expect (edRes->getGraph().xForFrequency (1000.0) > edRes->getGraph().xForFrequency (100.0), "frequency runs left to right");
             expectWithinAbsoluteError (edRes->getGraph().frequencyForX (edRes->getGraph().xForFrequency (3000.0)), 3000.0, 1.0);
 
-            // A measurement that was flagged says so, and draws no curve.
-            auto& slot = res.getSlot (1);
-            slot = res.getSlot (0);
-            slot.measurement.flags |= flagTimeVarying;
-            slot.measurement.repeatDifferenceDb = 2.0f;
-            res.shownSlot = 1;
+            // A capture that was flagged says so.
+            auto& second = res.getSlot (1);
+            second = res.getSlot (0);
+            second.name = "Second";
+            second.measurement.flags |= flagTimeVarying;
+            second.measurement.repeatDifferenceDb = 2.0f;
             edRes->refresh();
             expect (edRes->getNotesLabel().getText().contains ("not a fixed equaliser curve"), edRes->getNotesLabel().getText());
-            slot.measurement.flags = flagNoSignal;
+            expect (edRes->getNotesLabel().getText().contains ("Second") && edRes->getNotesLabel().getText().contains ("Capture 1"), "the notes name each capture");
+            // With only a capture that has no signal showing, no curve is drawn and the reason is.
+            second.measurement.flags = flagNoSignal;
+            res.captureVisible[0] = false;
             edRes->refresh();
-            expect (edRes->getGraph().getMessage().contains ("Nothing reached the Result"), "no curve is drawn for a measurement with no signal");
+            expectEquals (edRes->getGraph().getNumCurvesDrawn(), 0);
+            expect (edRes->getGraph().getMessage().contains ("Nothing reached the After Plugin"), "no curve is drawn for a capture with no signal");
+            res.captureVisible[0] = true;
+            second.measurement.flags = 0;
 
-            // Renaming and choosing slots from the window.
-            edRes->getNameEditor().setText ("Songsmith Passive EQ", true);
+            // Names can be changed at any time, and emptying one goes back to the sensible default.
+            edRes->getCaptureRow (1).getNameEditor().setText ("Songsmith Passive EQ", true);
             pump (50);   // the editor reports a text change on the message loop, not at once
-            expectEquals (res.getSlot (res.measureSlot).name, juce::String ("Songsmith Passive EQ"));
-            edRes->getMeasureIntoBox().setSelectedId (3, juce::sendNotificationSync);
-            expectEquals (res.measureSlot, 2);
-            edRes->getCompareBox().setSelectedId (2, juce::sendNotificationSync);
-            expectEquals (res.comparedSlot, 0);
-            edRes->getCompareBox().setSelectedId (1, juce::sendNotificationSync);
-            expectEquals (res.comparedSlot, -1);
+            expectEquals (res.getSlot (1).name, juce::String ("Songsmith Passive EQ"));
+            edRes->refresh();
+            expectEquals (edRes->getCaptureRow (1).getNameEditor().getText(), juce::String ("Songsmith Passive EQ"));
+            edRes->getCaptureRow (1).getNameEditor().setText ("", true);
+            pump (50);
+            expectEquals (res.getSlot (1).name, juce::String ("Capture 2"));
+            edRes->getCaptureRow (1).getNameEditor().setText ("Songsmith Passive EQ", true);
+            pump (50);
+
             edRes->getRangeBox().setSelectedId (1, juce::sendNotificationSync);
             expectEquals (edRes->getGraph().getRangeDb(), 6.0f);
             edRes->getRangeBox().setSelectedId (3, juce::sendNotificationSync);
             expectEquals (edRes->getGraph().getRangeDb(), 24.0f);
         }
 
-        beginTest ("Buttons: Start asks for a measurement, Stop ends it, Reset empties the slot");
+        beginTest ("Both curves are drawn together by default, in two colours and two line styles, and each can be hidden without deleting it");
+        {
+            SongsmithPluginAnalyzerProcessor ref, res;
+            makeResult (res, 0);
+            Host host { ref, res, 512, {} };
+            host.prime();
+            auto sysA = std::make_shared<System>(), sysB = std::make_shared<System>();
+            sysA->stages = { Biquad::peak (1000.0, 1.0, 6.0) };
+            sysB->stages = { Biquad::peak (3000.0, 1.0, -5.0) };
+            host.between = through (sysA);
+            expect (host.measure());
+            auto ed = make (res, L::defaultWidth);
+            ed->refresh();
+            expectEquals (ed->getGraph().getNumCurvesDrawn(), 1);
+
+            // The second capture is made, and both curves appear with no choice to make.
+            const int count = res.getMeasurementCount();
+            res.setNextCapture (1, "");
+            host.between = through (sysB);
+            ref.requestStart();
+            for (int b = 0; b < 4000; ++b)
+            {
+                host.runBlock();
+                if (res.getCapturedSamples() >= res.getCaptureLength())
+                    break;
+            }
+            waitUntil ([&] { res.poll(); return res.getMeasurementCount() > count; });
+            ed->refresh();
+            expectEquals (ed->getGraph().getNumCurvesDrawn(), 2, "both frequency responses are on the graph");
+            expect (ed->getCaptureRow (0).getVisibleToggle().getToggleState() && ed->getCaptureRow (1).getVisibleToggle().getToggleState(), "both are shown");
+            const auto& c0 = ed->getGraph().getCurve (0);
+            const auto& c1 = ed->getGraph().getCurve (1);
+            expect (c0.colour != c1.colour, "two different colours");
+            expect (! c0.dashed && c1.dashed, "and two different line styles, so colour is never the only difference");
+            expect (c0.colour == PluginAnalyzer::UI::Colours::first, "the first capture is drawn in the first colour");
+            expect (c1.colour == PluginAnalyzer::UI::Colours::second, "the second capture is drawn in the second colour");
+            expect (std::abs (c0.colour.getHue() - c1.colour.getHue()) > 0.15f, "the hues are well apart");
+            expect (c0.measurement != c1.measurement && c0.name != c1.name, "each curve is its own capture, with its own name");
+            expectEquals (ed->getCaptureRow (0).getNameEditor().getText(), juce::String ("Capture 1"));
+            expectEquals (ed->getCaptureRow (1).getNameEditor().getText(), juce::String ("Capture 2"), "the second capture has a sensible default name");
+
+            // Each capture shows or hides on its own, and hiding does not delete anything.
+            auto toggle = [&] (int row, bool on)
+            {
+                ed->getCaptureRow (row).getVisibleToggle().setToggleState (on, juce::dontSendNotification);
+                ed->getCaptureRow (row).getVisibleToggle().onClick();
+            };
+            toggle (0, false);
+            expectEquals (ed->getGraph().getNumCurvesDrawn(), 1, "hiding the first leaves the second");
+            expect (ed->getGraph().getCurve (0).measurement == nullptr && ed->getGraph().getCurve (1).measurement != nullptr);
+            expect (res.getSlot (0).filled && res.getSlot (0).measurement.isValidCurve(), "the hidden capture is still there");
+            toggle (1, false);
+            expectEquals (ed->getGraph().getNumCurvesDrawn(), 0);
+            expect (ed->getGraph().getMessage().contains ("Both captures are hidden"), ed->getGraph().getMessage());
+            toggle (0, true);
+            toggle (1, true);
+            expectEquals (ed->getGraph().getNumCurvesDrawn(), 2, "and both come back");
+            expect (ed->getCaptureRow (0).getVisibleToggle().getTooltip().contains ("does not delete"), "the switch says it does not delete");
+        }
+
+        beginTest ("Start is the entry point: the first capture needs no question, later ones ask whether to replace or add, and nothing is replaced silently");
+        {
+            SongsmithPluginAnalyzerProcessor ref, res;
+            makeResult (res, 0);
+            auto ed = make (res, L::defaultWidth);
+            auto& session = PluginAnalyzer::sessionNumber (0);
+            auto& panel = ed->getChoicePanel();
+            expect (! ed->startNeedsChoice(), "with no capture, Start just runs");
+            ed->getStartButton().onClick();
+            expect (session.startRequested.load() && ! panel.isOpen(), "the first Start runs the sweep with no question");
+            expectEquals (res.measureSlot, 0, "into the first capture");
+            session.clear();
+
+            Host host { ref, res, 512, {} };
+            host.prime();
+            auto sysA = std::make_shared<System>(), sysB = std::make_shared<System>();
+            sysA->stages = { Biquad::peak (1000.0, 1.0, 6.0) };
+            sysB->stages = { Biquad::peak (3000.0, 1.0, -5.0) };
+            host.between = through (sysA);
+            expect (host.measure());
+            ed->refresh();
+            session.clear();
+
+            // One capture: replace it or add a second, naming exactly what would be replaced.
+            expect (ed->startNeedsChoice(), "with a capture, Start has to ask");
+            ed->getStartButton().onClick();
+            expect (panel.isOpen(), "the question is open");
+            expect (! session.startRequested.load(), "nothing has started yet");
+            expectEquals ((int) panel.getOptions().size(), 3);
+            expectEquals (panel.getOptions()[0].label, juce::String ("Replace \"Capture 1\""), "it says which capture would be replaced");
+            expectEquals (panel.getOptions()[1].label, juce::String ("Add to Compare"));
+            expectEquals (panel.getOptions()[2].label, juce::String ("Cancel"));
+            expect (panel.getNameEditor().isVisible() && panel.getNameEditor().getText() == "Capture 2", "a name is offered for the new capture, with a sensible default");
+            expect (panel.getTitleLabel().getText().isNotEmpty() && panel.getMessageLabel().getText().contains ("Nothing changes until"), panel.getMessageLabel().getText());
+            expect (! ed->getStartButton().isEnabled() || (ed->refresh(), ! ed->getStartButton().isEnabled()), "Start is off while the question is open");
+            const auto before = res.getSlot (0).measuredAt;
+
+            panel.getButton (2).onClick();   // Cancel
+            expect (! panel.isOpen() && ! session.startRequested.load(), "Cancel changes nothing and starts nothing");
+            expect (res.getSlot (0).filled && res.getSlot (0).measuredAt == before);
+
+            ed->getStartButton().onClick();
+            panel.getButton (1).onClick();   // Add to Compare
+            expect (session.startRequested.load(), "adding starts the sweep");
+            expectEquals (res.measureSlot, 1, "into the second capture");
+            expect (res.getSlot (0).filled && res.getSlot (0).measuredAt == before, "the first capture is untouched");
+            session.clear();
+            const int count = res.getMeasurementCount();
+            host.between = through (sysB);
+            ref.requestStart();
+            for (int b = 0; b < 4000; ++b)
+            {
+                host.runBlock();
+                if (res.getCapturedSamples() >= res.getCaptureLength())
+                    break;
+            }
+            waitUntil ([&] { res.poll(); return res.getMeasurementCount() > count; });
+            ed->refresh();
+            expect (res.getSlot (0).filled && res.getSlot (1).filled, "both captures exist");
+            expectEquals (res.getSlot (1).name, juce::String ("Capture 2"));
+            expectEquals (ed->getGraph().getNumCurvesDrawn(), 2, "and both are on the graph");
+
+            // Two captures: which one to replace. The other is kept, and a replaced capture keeps its name.
+            ed->getStartButton().onClick();
+            expect (panel.isOpen());
+            expectEquals ((int) panel.getOptions().size(), 3);
+            expectEquals (panel.getOptions()[0].label, juce::String ("Replace \"Capture 1\""));
+            expectEquals (panel.getOptions()[1].label, juce::String ("Replace \"Capture 2\""));
+            expect (! panel.getNameEditor().isVisible(), "no new name is asked for when replacing");
+            const auto firstWhen = res.getSlot (0).measuredAt, secondWhen = res.getSlot (1).measuredAt;
+            panel.getButton (1).onClick();   // replace Capture 2
+            expectEquals (res.measureSlot, 1);
+            expect (res.getSlot (1).filled && res.getSlot (1).measuredAt == secondWhen, "the capture is kept until the new measurement is finished");
+            session.clear();
+            const int count2 = res.getMeasurementCount();
+            host.between = through (sysA);
+            ref.requestStart();
+            for (int b = 0; b < 4000; ++b)
+            {
+                host.runBlock();
+                if (res.getCapturedSamples() >= res.getCaptureLength())
+                    break;
+            }
+            waitUntil ([&] { res.poll(); return res.getMeasurementCount() > count2; });
+            expect (res.getSlot (1).measuredAt != secondWhen, "the second capture is now the new measurement");
+            expect (res.getSlot (0).measuredAt == firstWhen, "and the first was never touched");
+            expectEquals (res.getSlot (1).name, juce::String ("Capture 2"), "a replaced capture keeps its name");
+
+            // Escape closes the question.
+            ed->refresh();
+            ed->getStartButton().onClick();
+            expect (panel.isOpen());
+            expect (panel.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey)) && ! panel.isOpen(), "Escape is the same as Cancel");
+        }
+
+        beginTest ("Clear All asks first, keeps everything on Keep, and empties both captures on Clear");
+        {
+            SongsmithPluginAnalyzerProcessor ref, res;
+            makeResult (res, 0);
+            for (int i = 0; i < numSlots; ++i)
+            {
+                res.getSlot (i).filled = true;
+                res.getSlot (i).measurement.frequencyHz.assign ((size_t) gridPoints, 1000.0f);
+                res.getSlot (i).measurement.magnitudeDb.assign ((size_t) gridPoints, 0.0f);
+                res.getSlot (i).measurement.valid.assign ((size_t) gridPoints, (unsigned char) 1);
+            }
+            auto ed = make (res, L::defaultWidth);
+            ed->refresh();
+            auto& panel = ed->getChoicePanel();
+            ed->getClearButton().onClick();
+            expect (panel.isOpen());
+            expectEquals (panel.getOptions()[0].label, juce::String ("Clear All Captures"));
+            expectEquals (panel.getOptions()[1].label, juce::String ("Keep Captures"));
+            panel.getButton (1).onClick();
+            expect (! panel.isOpen() && res.getSlot (0).filled && res.getSlot (1).filled, "Keep leaves both captures");
+            ed->getClearButton().onClick();
+            panel.getButton (0).onClick();
+            expect (! res.getSlot (0).filled && ! res.getSlot (1).filled, "Clear empties both");
+            expectEquals (res.getSlot (0).name, juce::String ("Capture 1"));
+        }
+
+        beginTest ("Roles read Before Plugin and After Plugin everywhere, and the old slot and session controls are gone from the normal window");
+        {
+            SongsmithPluginAnalyzerProcessor ref, res;
+            makeResult (res, 0);
+            for (auto* proc : { &ref, &res })
+            {
+                auto ed = make (*proc, L::defaultWidth);
+                ed->refresh();
+                juce::StringArray texts;
+                Songsmith::UI::Wording::collect (*ed, texts);
+                texts.add (ed->getGraph().getMessage());
+                texts.add (ed->getStatusLabel().getText());
+                texts.add (ed->getRoleBox().getTooltip());
+                texts.add (ed->getStartButton().getTooltip());
+                texts.add (ed->getChannelBox().getTooltip());
+                texts.add (ed->getLevelSlider().getTooltip());
+                texts.add (ed->getGraph().getTooltip());
+                texts.add (ed->getExportButton().getTooltip());
+                texts.add (proc->makeCsvText());
+                for (auto& line : texts)
+                {
+                    expect (! line.containsWholeWord ("Reference") && ! line.containsWholeWord ("Result"), "no old role name: " + line);
+                    expect (! line.contains ("Measure Into") && ! line.contains ("Compare With") && ! line.contains ("Name for the Next Measurement")
+                                && ! line.containsWholeWord ("Session"), "no slot or session control: " + line);
+                }
+                expect (! ed->getPairBox().isVisible() && ! ed->getPairLabel().isVisible(), "no Pair With box when the pair is clear");
+            }
+            expect (Songsmith::Guidance::titleTooltipFor (JucePlugin_Name).contains ("Before Plugin"));
+            expect (! Songsmith::Guidance::titleTooltipFor (JucePlugin_Name).contains ("Reference"));
+        }
+
+        beginTest ("The Pair With box shows only when the pairing is ambiguous, and choosing a pair in it moves the plugin to that pair");
+        {
+            SongsmithPluginAnalyzerProcessor a, b;
+            makeReference (a, 3);
+            makeReference (b, 3);
+            auto ed = make (a, L::defaultWidth);
+            ed->refresh();
+            expect (ed->getPairBox().isVisible() && ed->getPairLabel().isVisible(), "two Before Plugins in one pair: it is offered");
+            expect (ed->getStatusLabel().getText().contains ("Pair With"), ed->getStatusLabel().getText());
+            expect (ed->getPairBox().getTooltip().isNotEmpty() && ed->getPairBox().getTitle() == "Pair With");
+            expectEquals (ed->getPairBox().getText(), juce::String ("Pair 4"), "the pairs are called Pair 1 to Pair 8");
+            ed->getPairBox().setSelectedId (5, juce::sendNotificationSync);
+            pump (50);
+            expectEquals (getParam (a, sessionId), 4.0f, "it follows the choice");
+            makeResult (b, 4);   // the other plugin goes to the same pair
+            ed->refresh();
+            expect (! ed->getPairBox().isVisible(), "and is hidden again when the pair is clear");
+        }
+
+        beginTest ("Buttons: Stop ends it, and Start and Clear All are on the After Plugin only");
         {
             SongsmithPluginAnalyzerProcessor ref, res;
             makeResult (res, 0);
             auto ed = make (ref, L::defaultWidth);
-            ed->getStartButton().onClick();
-            expect (PluginAnalyzer::sessionNumber (0).startRequested.load(), "Start asks the Reference to begin");
             ed->getStopButton().onClick();
             expect (PluginAnalyzer::sessionNumber (0).stopRequested.load(), "Stop asks it to end");
+            expect (! ed->getStartButton().isVisible() && ! ed->getClearButton().isVisible(), "not on the Before Plugin");
             auto edRes = make (res, L::defaultWidth);
-            res.getSlot (0).filled = true;
-            edRes->getResetButton().onClick();
-            expect (! res.getSlot (0).filled, "Reset empties the slot");
+            edRes->refresh();
+            expect (edRes->getStartButton().isVisible() && edRes->getClearButton().isVisible());
             PluginAnalyzer::sessionNumber (0).clear();
         }
 
@@ -1014,7 +1471,7 @@ public:
                 host.measure();
 
                 struct Case { SongsmithPluginAnalyzerProcessor* proc; juce::String name; };
-                for (auto& c : { Case { &ref, "Reference" }, Case { &res, "Result with a curve" }, Case { &lone, "Reference with no Result" } })
+                for (auto& c : { Case { &ref, "Before Plugin" }, Case { &res, "After Plugin with a curve" }, Case { &lone, "Before Plugin with no After Plugin" } })
                 {
                     auto ed = make (*c.proc, width);
                     ed->refresh();
@@ -1032,7 +1489,10 @@ public:
                     Songsmith::UI::Wording::expectPlainWords (*this, texts, context);
                     Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), context);
                     Songsmith::UI::Testing::checkEditorFonts (*this, *ed, context);
-                    for (auto* t : { "Role", "Session", "Channel", "Test Level", "Start", "Stop", "Reset", "Export CSV...", "Bypass", "Measure Into", "Show", "Compare With" })
+                    // The After Plugin shows the whole workflow; the Before Plugin shows what is its own.
+                    const bool isAfter = c.proc == &res;
+                    for (auto* t : isAfter ? std::initializer_list<const char*> { "Role", "Channel", "Test Level", "Start", "Stop", "Clear All", "Export CSV...", "Bypass", "Range", "Show" }
+                                           : std::initializer_list<const char*> { "Role", "Channel", "Test Level", "Stop", "Bypass" })
                         expect (texts.contains (t), context + ": shows \"" + juce::String (t) + "\"");
                 }
             }
@@ -1042,12 +1502,13 @@ public:
         {
             SongsmithPluginAnalyzerProcessor p;
             auto ed = make (p, L::defaultWidth);
-            expectEquals (ed->getRoleBox().getText(), juce::String ("Reference"), "the Role box shows the saved choice, not a blank");
-            expect (ed->getSessionBox().getText().isNotEmpty(), "the Session box shows the saved choice");
+            expectEquals (ed->getRoleBox().getText(), juce::String ("Before Plugin"), "the Role box shows the saved choice, not a blank");
+            expect (ed->getPairBox().getText().isNotEmpty(), "the Pair With box shows the saved choice");
             expect (ed->getChannelBox().getText().isNotEmpty(), "the Channel box shows the saved choice");
-            for (auto* c : std::initializer_list<juce::Component*> { &ed->getRoleBox(), &ed->getSessionBox(), &ed->getChannelBox(), &ed->getLevelSlider(), &ed->getStartButton(),
-                                                                     &ed->getStopButton(), &ed->getResetButton(), &ed->getExportButton(), &ed->getBypassButton(),
-                                                                     &ed->getMeasureIntoBox(), &ed->getShowBox(), &ed->getCompareBox(), &ed->getRangeBox(), &ed->getNameEditor(), &ed->getGraph() })
+            for (auto* c : std::initializer_list<juce::Component*> { &ed->getRoleBox(), &ed->getPairBox(), &ed->getChannelBox(), &ed->getLevelSlider(), &ed->getStartButton(),
+                                                                     &ed->getStopButton(), &ed->getClearButton(), &ed->getExportButton(), &ed->getBypassButton(),
+                                                                     &ed->getRangeBox(), &ed->getCaptureRow (0).getVisibleToggle(), &ed->getCaptureRow (0).getNameEditor(),
+                                                                     &ed->getCaptureRow (1).getVisibleToggle(), &ed->getCaptureRow (1).getNameEditor(), &ed->getGraph() })
             {
                 auto* tip = dynamic_cast<juce::SettableTooltipClient*> (c);
                 expect (tip != nullptr && tip->getTooltip().isNotEmpty(), c->getTitle() + " has a tooltip");
@@ -1055,7 +1516,7 @@ public:
                 // (JUCE reports a disabled control as not wanting focus, and several are disabled in this state, so only enabled ones are checked.)
                 expect (! c->isEnabled() || c->getWantsKeyboardFocus() || dynamic_cast<juce::Slider*> (c) != nullptr || c == &ed->getGraph(), c->getTitle() + " can be reached by keyboard");
             }
-            expect (Songsmith::Guidance::titleTooltipFor (JucePlugin_Name).contains ("Reference"), "the title explains the plugin");
+            expect (Songsmith::Guidance::titleTooltipFor (JucePlugin_Name).contains ("Before Plugin"), "the title explains the plugin");
         }
 
         beginTest ("The Bypass button is the suite's red when on, and follows the parameter");
@@ -1082,12 +1543,13 @@ struct ConsoleRunner final : juce::UnitTestRunner
     void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); std::fflush (stdout); }
 };
 
-// PluginAnalyzerTests --screenshot <file.png> [--scale 2] [--state curve|reference|problem]: renders the editor to a PNG, so UI
-// changes can be checked without a host. "curve" (the default) is a Result showing two measurements.
+// PluginAnalyzerTests --screenshot <file.png> [--scale 2] [--state curve|single|choice|reference|problem|pair]: renders the editor to a PNG, so UI
+// changes can be checked without a host. "curve" (the default) is an After Plugin with two captures drawn together; "single" has one;
+// "choice" shows the question that Start asks when a capture exists; "pair" shows the Pair With box.
 static int renderScreenshot (const juce::File& file, float scale, const juce::String& state)
 {
     SongsmithPluginAnalyzerProcessor ref, res;
-    std::unique_ptr<SongsmithPluginAnalyzerProcessor> lone;   // only made when needed: a spare Reference would share the first session
+    std::unique_ptr<SongsmithPluginAnalyzerProcessor> lone;   // only made when needed: a spare Before Plugin would share the first pair
     makeResult (res, 0);
     SongsmithPluginAnalyzerProcessor* shown = &res;
     if (state == "reference")
@@ -1098,31 +1560,40 @@ static int renderScreenshot (const juce::File& file, float scale, const juce::St
         makeReference (*lone, 6);
         shown = lone.get();
     }
+    else if (state == "pair")
+    {
+        lone = std::make_unique<SongsmithPluginAnalyzerProcessor>();
+        makeReference (*lone, 0);   // a second Before Plugin in the pair: the plugin cannot tell which is its own
+        shown = &ref;
+    }
     else
     {
-        // Two measurements: a bell boost and, over it, a high-pass with a bell cut.
+        // Two captures: a bell boost and, over it, a high-pass with a bell cut.
         Host host { ref, res, 512, {} };
         host.prime();
         auto sysA = std::make_shared<System>(), sysB = std::make_shared<System>();
         sysA->stages = { Biquad::peak (3000.0, 1.0, 5.0), Biquad::lowShelf (100.0, 0.707, 4.0) };
         sysB->stages = { Biquad::highPass (80.0, 0.7071), Biquad::peak (400.0, 1.2, -4.0), Biquad::peak (8000.0, 0.8, 3.0) };
-        res.getSlot (0).name = "Hardware";
-        res.getSlot (1).name = "Songsmith Passive EQ";
-        res.measureSlot = 0;
+        res.setNextCapture (0, "UAD Pultec EQP-1A");
         host.between = through (sysA);
         host.measure();
-        const int count = res.getMeasurementCount();
-        res.measureSlot = 1;
-        host.between = through (sysB);
-        host.measure();   // (it runs a block before looking, so the first measurement's full capture is not mistaken for this one)
-        waitUntil ([&] { res.poll(); return res.getMeasurementCount() > count; });
-        res.shownSlot = 1;
-        res.comparedSlot = 0;
-        res.measureSlot = 2;
+        if (state != "single" && state != "choice")
+        {
+            const int count = res.getMeasurementCount();
+            res.setNextCapture (1, "Songsmith Passive EQ");
+            host.between = through (sysB);
+            host.measure();   // (it runs a block before looking, so the first measurement's full capture is not mistaken for this one)
+            waitUntil ([&] { res.poll(); return res.getMeasurementCount() > count; });
+        }
     }
 
     auto editor = PluginAnalyzerEditorTests::make (*shown, EditorLayout::defaultWidth);
     editor->refresh();
+    if (state == "choice")
+    {
+        editor->pressStart();   // with a capture, Start asks first
+        pump (50);
+    }
     const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, scale);
     file.deleteFile();
     juce::FileOutputStream out (file);
@@ -1134,6 +1605,7 @@ static int renderScreenshot (const juce::File& file, float scale, const juce::St
 
 int main (int argc, char* argv[])
 {
+    SongsmithPluginAnalyzerProcessor::automaticPairing = false;   // the tests place instances by hand; a host pairs them on its own
     juce::ScopedJuceInitialiser_GUI juceInit;
 
     for (int i = 1; i + 1 < argc; ++i)
