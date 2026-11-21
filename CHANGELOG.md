@@ -7,7 +7,6 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 - **The Songsmith Analog Compressor's model dropdown is now four buttons:** **Black**, **Blue**, **Anniversary** and **Lindell**. The one you are using is lit, and hovering over a button tells you what that model is good for. Nothing you saved changes: your projects and presets open on the same model as before, and automation works as it did.
 - **Every Songsmith plugin now shows Before and After loudness.** At the bottom of the window, to the right of Processing Load, two readings in LUFS show how loud the sound is going into the plugin and coming out of it, averaged over the last 3 seconds. It says Measuring... for the first 3 seconds after you press play, and a dash when there is no sound. Use it to hear whether a plugin is making things louder or quieter, and trust your ears. It measures that plugin only, not the whole track, and you do not need to do anything.
 
-
 ## 0.5.65
 
 - **Songsmith Maximiser now has Oversampling.** A new dropdown sits right beside Dither: **Off**, **2×** or **4×**. It runs the limiter at a higher rate inside the plugin, for a cleaner top end and more accurate peaks when you limit hard. It uses more processing power and adds a little delay, which your recording software makes up for. Your existing songs are not changed: it is off unless you turn it on, and the output ceiling holds exactly as before at every setting.
