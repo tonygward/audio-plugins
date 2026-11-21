@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- **The Songsmith Analog Compressor's model dropdown is now four buttons:** **Black**, **Blue**, **Anniversary** and **Lindell**. The one you are using is lit, and hovering over a button tells you what that model is good for. Nothing you saved changes: your projects and presets open on the same model as before, and automation works as it did.
+
 ## 0.5.65
 
 - **Songsmith Maximiser now has Oversampling.** A new dropdown sits right beside Dither: **Off**, **2×** or **4×**. It runs the limiter at a higher rate inside the plugin, for a cleaner top end and more accurate peaks when you limit hard. It uses more processing power and adds a little delay, which your recording software makes up for. Your existing songs are not changed: it is off unless you turn it on, and the output ceiling holds exactly as before at every setting.
