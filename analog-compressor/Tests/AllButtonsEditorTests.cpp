@@ -11,6 +11,7 @@
 #include "../../shared/Tests/SongsmithUITests.h"
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
+#include "../../shared/Tests/SongsmithUpdateTests.h"
 #include "SongsmithWording.h"
 #include "FETPresets.h"
 
@@ -539,3 +540,4 @@ static EditorTests4 editorTests4;
 static SongsmithUITests sharedUITests { "FET" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "FET" };
 static SongsmithGuidanceTests sharedGuidanceTests { "FET" };
+static SongsmithUpdateTests sharedUpdateTests { "FET" };

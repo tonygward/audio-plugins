@@ -14,6 +14,7 @@
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithUITests.h"
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
+#include "../../shared/Tests/SongsmithUpdateTests.h"
 #include "SongsmithWording.h"
 
 using namespace PluginAnalyzer;
@@ -1537,6 +1538,7 @@ static PluginAnalyzerPluginTests pluginTests;
 static PluginAnalyzerEditorTests editorTests;
 static SongsmithUITests sharedUITests { "PluginAnalyzer" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "PluginAnalyzer" };
+static SongsmithUpdateTests sharedUpdateTests { "PluginAnalyzer" };
 
 struct ConsoleRunner final : juce::UnitTestRunner
 {

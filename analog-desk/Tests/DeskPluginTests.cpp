@@ -12,6 +12,7 @@
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "../../shared/Tests/SongsmithMeterColumnTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
+#include "../../shared/Tests/SongsmithUpdateTests.h"
 #include "SongsmithWording.h"
 
 namespace
@@ -609,6 +610,7 @@ static SongsmithUITests sharedUITests { "AnalogDeskPlugin" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "AnalogDeskPlugin" };
 static SongsmithMeterColumnTests<SongsmithAnalogDeskProcessor, SongsmithAnalogDeskEditor> sharedMeterColumnTests { "AnalogDeskPlugin", Desk::EditorLayout::designWidth, Desk::EditorLayout::contentHeight };
 static SongsmithGuidanceTests sharedGuidanceTests { "AnalogDeskPlugin" };
+static SongsmithUpdateTests sharedUpdateTests { "AnalogDeskPlugin" };
 
 struct ConsoleRunner final : juce::UnitTestRunner
 {

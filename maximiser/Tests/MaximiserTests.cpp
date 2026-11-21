@@ -14,6 +14,7 @@
 #include "../../shared/Tests/SongsmithHeaderTests.h"
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
+#include "../../shared/Tests/SongsmithUpdateTests.h"
 #include "SongsmithWording.h"
 #include "MaxParams.h"
 
@@ -2110,6 +2111,7 @@ static LoudnessTests loudnessTests;
 static SongsmithUITests sharedUITests { "Maximiser" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "Maximiser" };
 static SongsmithGuidanceTests sharedGuidanceTests { "Maximiser" };
+static SongsmithUpdateTests sharedUpdateTests { "Maximiser" };
 
 struct ConsoleRunner final : juce::UnitTestRunner
 {

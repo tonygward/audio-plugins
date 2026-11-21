@@ -11,6 +11,7 @@
 #include "../../shared/Tests/SongsmithHeaderTests.h"
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
+#include "../../shared/Tests/SongsmithUpdateTests.h"
 #include "SongsmithWording.h"
 
 namespace
@@ -1084,6 +1085,7 @@ static PassiveEQEditorTests passiveEQEditorTests;
 static SongsmithUITests sharedUITests { "PassiveEQ" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "PassiveEQ" };
 static SongsmithGuidanceTests sharedGuidanceTests { "PassiveEQ" };
+static SongsmithUpdateTests sharedUpdateTests { "PassiveEQ" };
 
 struct ConsoleRunner final : juce::UnitTestRunner
 {
