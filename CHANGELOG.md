@@ -6,6 +6,10 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - **New: Songsmith Analog Desk.** A mixing desk channel strip in one plugin: a high-pass and a low-pass filter, a four-band equaliser, a gate or expander and a compressor, with a little warm Drive at the front. It comes with eight starting points (such as Lead Vocal Presence and Control and Kick Drum Punch) and the same title bar, Undo and Redo, Bypass and meters as the other Songsmith plugins. It is in the Windows and Mac installers with its own tick box, ticked by default: you do not need to do anything, and nothing you already have changes. It has not been tried in a recording program yet, so please tell us what you hear.
 
+## 0.5.62
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
 ## 0.5.61
 
 - **Songsmith Plugin Analyzer is simpler to use.** The two copies are now called **Before Plugin** (it used to be Reference) and **After Plugin** (it used to be Result), and they find each other on their own, so there is no Session to choose: a Pair With box appears only if they cannot tell which pair they belong to. Press **Start** on the After Plugin to make your first capture. Press it again and it asks whether to **Replace** that capture or **Add to Compare**, and it never replaces one without you choosing. Both curves are then drawn together on one graph (the first as a solid blue line, the second as a dashed orange one), and under the graph each capture has a **Show** switch and a name you can change. The Measure Into, Show, Compare With and Name for the Next Measurement boxes are gone. Projects you saved before still open: a project with older measurement slots opens with its first two curves as the two captures. You do not need to do anything.
