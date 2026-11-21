@@ -105,6 +105,9 @@ public:
     // only some models have (for tests).
     juce::ComboBox& getModelBox() noexcept { return modelBox; }
     juce::Label& getModelLabel() noexcept { return modelLabel; }
+    juce::Component& getSetLevelsScrim() noexcept { return levelsScrim; }
+    static constexpr float getSetLevelsPanelFillAlpha() noexcept { return LevelsPanel::fillAlpha; }
+    static constexpr float getSetLevelsScrimDimAlpha() noexcept { return LevelsScrim::dimAlpha; }
     juce::Button& getGentleRatioButton() noexcept { return gentleButton; }
     juce::Button& getSlowAttackButton() noexcept { return slowAttackButton; }
     int getShownModel() const noexcept { return modelShown; }
@@ -152,8 +155,18 @@ private:
 
     // The temporary Set Levels panel. It floats over the faceplate (never rearranging it), sits inside the editor and
     // closes on Escape. After Apply or a notice it shows the result for a few seconds, then goes.
+    // songsmithstudio#13: the panel is a modal dialog in effect. The scrim under it takes every click, so nothing behind it can be turned
+    // while it is open, and it dims what is behind it a little. The panel's own fill is subtly see-through, so the controls
+    // underneath stay faintly visible while its text and buttons stay clear.
+    struct LevelsScrim : juce::Component
+    {
+        LevelsScrim() { setInterceptsMouseClicks (true, false); }
+        void paint (juce::Graphics& g) override { g.fillAll (juce::Colours::black.withAlpha (dimAlpha)); }
+        static constexpr float dimAlpha = 0.22f;
+    };
     struct LevelsPanel : juce::Component
     {
+        static constexpr float fillAlpha = 0.88f;   // 12 % see-through
         void paint (juce::Graphics&) override;
         bool keyPressed (const juce::KeyPress&) override;
         std::function<void()> onEscape;
@@ -161,6 +174,7 @@ private:
     };
     void layoutLevelsPanel();
     void showLevelsNotice (const juce::String& text);
+    LevelsScrim levelsScrim;
     LevelsPanel levelsPanel;
     juce::TextButton setLevelsButton { "Set Levels" }, setLevelsAction { "Finish Listening" }, setLevelsCancel { "Cancel" };
     juce::Label setLevelsMessage;

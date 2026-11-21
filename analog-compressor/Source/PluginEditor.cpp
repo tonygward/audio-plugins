@@ -473,7 +473,9 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     content.addAndMakeVisible (*diagnostics);
 
     content.addAndMakeVisible (titleHint);   // SUI-17: the plugin name explains the plugin
+    content.addChildComponent (levelsScrim);   // songsmithstudio#13: under the panel, over everything else; hidden until Set Levels is pressed
     content.addChildComponent (levelsPanel);   // ACOMP-21: last, so it floats above the faceplate; hidden until Set Levels is pressed
+    levelsPanel.setFocusContainerType (juce::Component::FocusContainerType::keyboardFocusContainer);   // Tab stays inside the panel while it is open
 
     slowAttackAttachment.sendInitialUpdate();
     modelAttachment.sendInitialUpdate();   // after the diagnostics strip exists: it lays the window out
@@ -864,11 +866,17 @@ void SongsmithAnalogCompressorEditor::showLevelsStage (LevelsStage stage)
     if (open && ! levelsPanel.isVisible())
     {
         layoutLevelsPanel();
+        levelsScrim.setBounds (0, 0, FET::designWidth, FET::contentHeight);
+        levelsScrim.setVisible (true);
+        levelsScrim.toFront (false);
         levelsPanel.setVisible (true);
         levelsPanel.toFront (false);
     }
     else if (! open)
+    {
         levelsPanel.setVisible (false);
+        levelsScrim.setVisible (false);
+    }
 }
 
 // Keeps the panel above the entry button, inside the editor, at a fixed size. Nothing else on the faceplate moves.
@@ -894,9 +902,9 @@ void SongsmithAnalogCompressorEditor::layoutLevelsPanel()
 void SongsmithAnalogCompressorEditor::LevelsPanel::paint (juce::Graphics& g)
 {
     const auto r = getLocalBounds().toFloat().reduced (1.0f);
-    g.setColour (juce::Colours::black.withAlpha (0.35f));
+    g.setColour (juce::Colours::black.withAlpha (0.28f));
     g.fillRoundedRectangle (r.translated (0.0f, 2.0f), 8.0f);
-    g.setColour (Colours::panel.brighter (0.12f));
+    g.setColour (Colours::panel.brighter (0.12f).withAlpha (fillAlpha));   // songsmithstudio#13: a subtly see-through dark surface
     g.fillRoundedRectangle (r, 8.0f);
     g.setColour (Colours::accent.withAlpha (0.8f));
     g.drawRoundedRectangle (r, 8.0f, 1.2f);
@@ -926,6 +934,7 @@ void SongsmithAnalogCompressorEditor::closeSetLevelsNotice()
     levelsNoticeTicks = 0;
     setLevelsMessage.setText ({}, juce::dontSendNotification);
     levelsPanel.setVisible (false);
+    levelsScrim.setVisible (false);
 }
 
 bool SongsmithAnalogCompressorEditor::levelsSettingsUnchanged() const
@@ -1009,8 +1018,11 @@ void SongsmithAnalogCompressorEditor::applyProposal()
     const auto result = levelsResult;
     proc.history.runStep ("set levels", [&] { set (ID::input, result.inputDb); set (ID::output, result.outputDb); });
 
-    showLevelsNotice ("Applied: Input " + dbText (result.inputDb) + ", Output " + dbText (result.outputDb)
-                      + ". Both knobs still turn freely, and Undo restores the old settings.");
+    // songsmithstudio#13: Apply is the confirmation. The panel closes at once, with no second message to dismiss; the Input and Output
+    // knobs show the new values, and Undo restores the old ones.
+    levelsResult = {};
+    setLevelsMessage.setText ({}, juce::dontSendNotification);
+    showLevelsStage (LevelsStage::idle);   // no message: the panel closes
     refreshHistoryButtons();
 }
 
