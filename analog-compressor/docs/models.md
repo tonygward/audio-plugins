@@ -13,10 +13,10 @@ One plugin, one **Model** selector (lower right of the window). Each model chang
 
 | Index | Stable ID (in preset files) | Name on screen | Use (shown beside the selector and as a tooltip) |
 |---|---|---|---|
-| 0 | `revD-blackface` | Blackface (Rev D reference) | Start here to tame vocal, bass or guitar peaks while keeping the sound fairly clean. |
-| 1 | `revA-bluestripe` | Blue Stripe (Rev A reference) | Try this for a gritty, upfront vocal or to make room mics sound more aggressive. |
-| 2 | `ae1176-anniversary` | Anniversary Edition (1176AE reference) | Try 2:1 for gentler control, or Slow Attack to let more of the first hit through. |
-| 3 | `lindell-inspired` | Lindell (Lindell-inspired, reference unconfirmed) | Try this on acoustic guitar to even out strong strums while keeping the pick attack. It also has 2:1 for gentler control. |
+| 0 | `revD-blackface` | Blackface (Rev D reference) | Clean and straightforward. A good place to start for taming vocal, bass or guitar peaks while keeping the sound fairly clean. |
+| 1 | `revA-bluestripe` | Blue Stripe (Rev A reference) | Faster and grittier, with more colour. Try it for an upfront vocal, or to make room microphones sound more aggressive. |
+| 2 | `ae1176-anniversary` | Anniversary Edition (1176AE reference) | Gentler and a little cleaner. It adds a 2:1 ratio, and a Slow Attack button that lets more of the first hit through. |
+| 3 | `lindell-inspired` | Lindell (Lindell-inspired, reference unconfirmed) | Smooth and relaxed, with a slower attack that lets the first hit through. Try it on acoustic guitar to even out strong strums. It also has 2:1. |
 
 Index 0 is the original sound and the default: older sessions and presets have no model and load it, bit-exact (tested). Never reorder indexes or change IDs. Rev E is a comparison reference only and has no model. Host choice lists show the name only; the use line is in the window and the tooltip.
 
@@ -69,4 +69,8 @@ The model shows mainly through the faceplate colour, drawn under the same brushe
 | Anniversary Edition | a deeper navy blue with white pinstripes at the top and bottom, so it reads as blue and white and differs from Blue Stripe |
 | Lindell | a lighter neutral grey with fine vertical lines |
 
-These are original designs, not copies of any faceplate. The model is chosen from one Model dropdown in the configuration row under the title bar, outside the textured panel (ACOMP-23; it keeps its full click size, at least 26 design units tall). The display names were shortened: Blackface (was "Blackface · Original Songsmith"), Anniversary Edition (was "1176AE · Anniversary Edition") and Lindell (was "Lindell-inspired"); the saved IDs and indexes are unchanged. The Lindell reference is still unconfirmed, as noted above. Screenshots: `docs/images/acomp-20-*.png`. Tests: `Models` in `ModelTests.h`.
+These are original designs, not copies of any faceplate. The model is chosen from four buttons (Black, Blue, Anniversary, Lindell; songsmithstudio#12) in the configuration row under the title bar, outside the textured panel (ACOMP-23; it keeps its full click size, at least 26 design units tall). The display names were shortened: Blackface (was "Blackface · Original Songsmith"), Anniversary Edition (was "1176AE · Anniversary Edition") and Lindell (was "Lindell-inspired"); the saved IDs and indexes are unchanged. The Lindell reference is still unconfirmed, as noted above. Screenshots: `docs/images/acomp-20-*.png`. Tests: `Models` in `ModelTests.h`.
+
+## Model buttons and their tooltips (songsmithstudio#12)
+
+The tooltip on each button is the "Use" text in the table above. The ticket suggested other wording; it was **not** used where the code does not support it: Lindell has the same colour as Blackface (x1), a slower attack (x1.6) and the softest knee (x1.5), so "colourful, extra analogue attitude" would be wrong (Blue Stripe is the colourful one, x2); the Anniversary Edition is the *cleaner* model (colour x0.6, softer knee), not especially "versatile"; and Blackface is described as clean, not "punchy". The earlier unverified claim that Lindell "keeps the pick attack" was dropped for the measured fact that its attack is slower. Listening checks are still a person's job (see "Still to do by a person").
