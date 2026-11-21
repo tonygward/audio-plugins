@@ -1245,8 +1245,8 @@ public:
             const auto& c1 = ed->getGraph().getCurve (1);
             expect (c0.colour != c1.colour, "two different colours");
             expect (! c0.dashed && c1.dashed, "and two different line styles, so colour is never the only difference");
-            expectEquals (c0.colour.getARGB(), PluginAnalyzer::UI::Colours::first.getARGB());
-            expectEquals (c1.colour.getARGB(), PluginAnalyzer::UI::Colours::second.getARGB());
+            expect (c0.colour == PluginAnalyzer::UI::Colours::first, "the first capture is drawn in the first colour");
+            expect (c1.colour == PluginAnalyzer::UI::Colours::second, "the second capture is drawn in the second colour");
             expect (std::abs (c0.colour.getHue() - c1.colour.getHue()) > 0.15f, "the hues are well apart");
             expect (c0.measurement != c1.measurement && c0.name != c1.name, "each curve is its own capture, with its own name");
             expectEquals (ed->getCaptureRow (0).getNameEditor().getText(), juce::String ("Capture 1"));
