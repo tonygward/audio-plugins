@@ -31,6 +31,7 @@ on:
       - 'bus-compressor/**'
       - 'plugin-analyzer/**'
       - 'audio-analyzer/**'
+      - 'analog-desk/**'
       - 'shared/**'
       - 'installer/**'
       - 'VERSION'
@@ -70,6 +71,7 @@ jobs:
       bus-compressor: ${{ steps.pick.outputs.bus-compressor }}
       plugin-analyzer: ${{ steps.pick.outputs.plugin-analyzer }}
       audio-analyzer: ${{ steps.pick.outputs.audio-analyzer }}
+      analog-desk: ${{ steps.pick.outputs.analog-desk }}
       suite: ${{ steps.pick.outputs.suite }}
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +92,7 @@ jobs:
           BUMP_ENABLED: ${{ vars.AUTO_BETA_VERSION_ENABLED }}
         run: |
           set -euo pipefail
-          eq=false; analog=false; max=false; comp=false; opt=false; peq=false; bus=false; pla=false; ana=false; all=false
+          eq=false; analog=false; max=false; comp=false; opt=false; peq=false; bus=false; pla=false; ana=false; desk=false; all=false
           if [ "$EVENT" = "push" ]; then
             # Two builds per release: this pull request's changed plugins were built when it was reviewed, and the version bump follows the merge.
             # So a plain source merge builds nothing; the bump commit is the one packaging build (everything, plus both installers) the release is made from.
@@ -113,11 +115,12 @@ jobs:
             if echo "$files" | grep -q '^bus-compressor/'; then bus=true; fi
             if echo "$files" | grep -q '^plugin-analyzer/'; then pla=true; fi
             if echo "$files" | grep -q '^audio-analyzer/'; then ana=true; fi
+            if echo "$files" | grep -q '^analog-desk/'; then desk=true; fi
             # Anything unexpected at the top level: build everything rather than guess.
-            if [ -n "$files" ] && echo "$files" | grep -q -v -E '^(eq/|analog-compressor/|maximiser/|compressor/|optical-leveller/|pultec-eq/|bus-compressor/|plugin-analyzer/|audio-analyzer/|shared/|installer/|\.github/|\.gitattributes$|VERSION$)'; then all=true; fi
+            if [ -n "$files" ] && echo "$files" | grep -q -v -E '^(eq/|analog-compressor/|maximiser/|compressor/|optical-leveller/|pultec-eq/|bus-compressor/|plugin-analyzer/|audio-analyzer/|analog-desk/|shared/|installer/|\.github/|\.gitattributes$|VERSION$)'; then all=true; fi
           fi
-          if [ "$all" = true ]; then eq=true; analog=true; max=true; comp=true; opt=true; peq=true; bus=true; pla=true; ana=true; fi
-          { echo "eq=$eq"; echo "analog-compressor=$analog"; echo "maximiser=$max"; echo "compressor=$comp"; echo "optical-leveller=$opt"; echo "passive-eq=$peq"; echo "bus-compressor=$bus"; echo "plugin-analyzer=$pla"; echo "audio-analyzer=$ana"; echo "suite=$all"; } | tee -a "$GITHUB_OUTPUT"
+          if [ "$all" = true ]; then eq=true; analog=true; max=true; comp=true; opt=true; peq=true; bus=true; pla=true; ana=true; desk=true; fi
+          { echo "eq=$eq"; echo "analog-compressor=$analog"; echo "maximiser=$max"; echo "compressor=$comp"; echo "optical-leveller=$opt"; echo "passive-eq=$peq"; echo "bus-compressor=$bus"; echo "plugin-analyzer=$pla"; echo "audio-analyzer=$ana"; echo "analog-desk=$desk"; echo "suite=$all"; } | tee -a "$GITHUB_OUTPUT"
 
   version:
     name: One version number
@@ -909,6 +912,56 @@ jobs:
             pultec-eq/build/SongsmithPassiveEQ_artefacts/Release/VST3/
             pultec-eq/build/SongsmithPassiveEQ_artefacts/Release/AU/
             pultec-eq/build/SongsmithPassiveEQ_artefacts/Release/Standalone/
+
+  # Songsmith Analog Desk (analog-desk/): so far only the engine and its tests. No plugin, installer or release file yet,
+  # so the suite installer jobs do not wait for it.
+  analog-desk:
+    name: Analog Desk - ${{ matrix.name }}
+    needs: changes
+    if: needs.changes.outputs.analog-desk == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (VS, x64)
+            os: windows-latest
+            configure: -A x64
+            tests: analog-desk/build/AnalogDeskTests_artefacts/Release/AnalogDeskTests.exe
+          - name: macOS (Xcode, arm64)
+            os: macos-latest
+            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64"
+            tests: analog-desk/build/AnalogDeskTests_artefacts/Release/AnalogDeskTests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE ${{ env.JUCE_VERSION }}
+        id: juce-cache
+        uses: actions/cache@v4
+        with:
+          path: JUCE
+          key: juce-${{ env.JUCE_VERSION }}-${{ runner.os }}
+
+      - name: Check out JUCE ${{ env.JUCE_VERSION }}
+        if: steps.juce-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: ${{ env.JUCE_VERSION }}
+          path: JUCE
+
+      - name: Configure
+        shell: bash
+        run: cmake -S analog-desk -B analog-desk/build ${{ matrix.configure }} -DJUCE_DIR="${{ github.workspace }}/JUCE"
+
+      - name: Build (Release)
+        shell: bash
+        run: cmake --build analog-desk/build --config Release --parallel 4
+
+      - name: Run AnalogDeskTests
+        shell: bash
+        run: ${{ matrix.tests }}
 
   # Songsmith Bus Compressor (bus-compressor/): its own build and tests, independent of the other jobs. Its macOS package is
   # built and tested here; the Windows installer is the suite's (there is no separate Bus Compressor setup).
