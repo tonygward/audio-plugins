@@ -1326,6 +1326,7 @@ void EQDisplay::endWheelEdit()
         if (processor.edits.isEditing() && processor.edits.getEditBand() == wheelBand)
             processor.edits.endEdit();
         wheelBand = -1;
+        wheelAccum = 0.0f;
         repaint();
     }
 }
@@ -1345,18 +1346,76 @@ void EQDisplay::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWhee
     if (delta == 0.0f)
         return;
 
-    // A burst of wheel events becomes one undo step (closed after 400 ms idle).
+    // songsmithstudio#11: what the wheel changes follows the band's filter type, never one fixed parameter.
+    //   High Pass / Low Pass (Low Cut, High Cut)  the slope, one supported step at a time (6, 12, 18, 24, 36, 48 dB/oct)
+    //   Bell, Low Shelf, High Shelf               the gain, 0.5 dB a step (0.1 dB with Shift), in the displayed gain
+    //   Notch                                     the Q (its only adjustable shape; this is what it always did)
+    // Wheel up makes it steeper or louder; wheel down the opposite. Frequency, Q (except for a Notch), the on/off state and
+    // every other band are never touched.
     if (wheelBand != band)
     {
         endWheelEdit();
         wheelBand = band;
-        processor.edits.beginEdit (band, "Change Q");
+        wheelAccum = 0.0f;
     }
     lastWheelTime = juce::Time::getMillisecondCounter();
 
-    const float speed = e.mods.isShiftDown() ? 0.2f : 1.5f;
-    const float q = processor.getBandValue (band, EQ::Param::Q) * std::exp (delta * speed);
-    processor.edits.setParam (EQ::Param::Q, juce::jlimit (EQ::minQ, EQ::maxQ, q));
+    // A burst of wheel events becomes one undo step (closed after 400 ms idle); it begins with the first real change.
+    auto openEdit = [this, band] (const char* name)
+    {
+        if (! (processor.edits.isEditing() && processor.edits.getEditBand() == band))
+            processor.edits.beginEdit (band, name);
+    };
+
+    const auto type = getType (band);
+    if (EQ::typeHasSlope (type) || EQ::typeHasGain (type))
+    {
+        // One step each time enough wheel has passed: a mouse notch is one step, and a touchpad's many small movements add up
+        // to one. Turning the other way starts again.
+        const bool isSlope = EQ::typeHasSlope (type);
+        const float needed = isSlope ? EQ::wheelDeltaPerSlopeStep : EQ::wheelDeltaPerGainStep;
+        if (wheelAccum * delta < 0.0f)
+            wheelAccum = 0.0f;
+        wheelAccum += delta;
+        if (std::abs (wheelAccum) < needed)
+            return;
+        const int direction = wheelAccum > 0.0f ? 1 : -1;
+        wheelAccum = 0.0f;
+
+        if (isSlope)
+        {
+            const int current = (int) std::lround (processor.getBandValue (band, EQ::Param::Slope));
+            const int next = juce::jlimit (0, EQ::numSlopes - 1, current + direction);
+            if (next != current)
+            {
+                openEdit ("Change Slope");
+                processor.edits.setParam (EQ::Param::Slope, (float) next);
+            }
+        }
+        else
+        {
+            const float step = e.mods.isShiftDown() ? EQ::wheelFineGainStepDb : EQ::wheelGainStepDb;
+            const float stored = processor.getBandValue (band, EQ::Param::Gain), scale = processor.getGainScale();
+            // The step is in the gain you see, which is the stored gain times the Gain Scale, and the control moves in 0.1 dB.
+            const float grid = 0.1f;
+            const float target = std::abs (scale) < 0.01f ? stored + (float) direction * step : stored + (float) direction * step / scale;
+            float next = juce::jlimit (EQ::minGain, EQ::maxGain, std::round (target / grid) * grid);
+            if (std::abs (next - stored) < 1.0e-6f && target != stored)   // a step finer than the control at this Gain Scale: still move one the right way
+                next = juce::jlimit (EQ::minGain, EQ::maxGain, stored + (float) direction * (scale < 0.0f ? -1.0f : 1.0f) * grid);
+            if (std::abs (next - stored) > 1.0e-6f)
+            {
+                openEdit ("Change Gain");
+                processor.edits.setParam (EQ::Param::Gain, next);
+            }
+        }
+    }
+    else
+    {
+        openEdit ("Change Q");
+        const float speed = e.mods.isShiftDown() ? 0.2f : 1.5f;
+        const float q = processor.getBandValue (band, EQ::Param::Q) * std::exp (delta * speed);
+        processor.edits.setParam (EQ::Param::Q, juce::jlimit (EQ::minQ, EQ::maxQ, q));
+    }
     repaint();
 }
 
