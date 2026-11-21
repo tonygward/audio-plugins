@@ -13,9 +13,10 @@
 
 // Songsmith Plugin Analyzer (ANALYZER-01): measures what another plugin does to the frequency response, inside the host.
 //
-// Put one instance as the Reference before the plugin and one as the Result after it, in the same Session. Press Start (on either):
-// the Reference sends two logarithmic sweeps through the plugin, the Result records what arrives, and the curve appears.
-// While measuring, the Reference replaces the sound with the sweep. When it is not measuring, both leave the sound untouched.
+// Put one instance as the Before Plugin (it used to be called the Reference) before the plugin and one as the After Plugin (the Result)
+// after it. They find each other on their own. Press Start on the After Plugin: the Before Plugin sends two logarithmic sweeps through the
+// plugin, the After Plugin records what arrives, and the curve appears as a capture. A second capture is drawn over the first.
+// While measuring, the Before Plugin replaces the sound with the sweep. When it is not measuring, both leave the sound untouched.
 //
 // Real-time rules: processBlock allocates nothing, takes no lock, writes no file and does no analysis. The test program and the
 // capture buffer are made in prepareToPlay. The analysis runs on its own thread when a capture is complete.
@@ -24,8 +25,10 @@ class SongsmithPluginAnalyzerProcessor : public juce::AudioProcessor,
                                          private juce::AudioProcessorValueTreeState::Listener
 {
 public:
-    // Saved-state format. 1 = the settings, the four measurement slots and the editor's width.
-    static constexpr int stateVersion = 1;
+    // Saved-state format. 1 = the settings, four named measurement slots, which were drawn and compared, and the editor's width.
+    // 2 (ANALYZER-02) = the settings, two captures with whether each is shown, and the editor's width. Version 1 opens as version 2:
+    // its filled slots become the two captures, in order.
+    static constexpr int stateVersion = 2;
 
     SongsmithPluginAnalyzerProcessor();
     ~SongsmithPluginAnalyzerProcessor() override;
@@ -68,9 +71,21 @@ public:
     float getTestLevelDb() const noexcept { return levelRaw->load(); }
     bool isBypassed() const noexcept { return bypassParam->get(); }
 
-    void requestStart();     // begin a measurement: the Reference plays its sweeps and the Result records
+    void requestStart();     // begin a measurement: the Before Plugin plays its sweeps and the After Plugin records
     void requestStop();      // stop it early; nothing is kept
-    void resetMeasurement(); // stop, and empty the slot that the next measurement would fill
+    void clearCaptures();    // stop, and empty both captures (the editor asks first)
+
+    // --- Finding the other half of the pair (ANALYZER-02) ------------------------------------------------
+    // Puts this instance in the session where its other half is waiting, or in a free one. Runs when the plugin is made and when its
+    // role is changed by hand, never when a saved session opens (that keeps the pairing the project was saved with).
+    void autoPair();
+    // Switched off by the tests, which place instances by hand; always on in a real host.
+    static inline std::atomic<bool> automaticPairing { true };
+    // True when the musician has to say which pair this belongs to: more than one Before Plugin or After Plugin in the session, or the
+    // other half is somewhere else. The editor shows the Pair With box only then.
+    bool offersPairing() const;
+    // For each of the eight pairs: how many Before Plugins and After Plugins are in it (this instance included).
+    std::array<PluginAnalyzer::Occupancy, (size_t) PluginAnalyzer::numSessions> getPairOccupancy() const;
 
     // --- Status, in words ------------------------------------------------------------------------------
     enum class Status { idle, sending, recording, working, finished, problem };
@@ -80,9 +95,15 @@ public:
     // --- The measurements -------------------------------------------------------------------------------
     PluginAnalyzer::Slot& getSlot (int index) noexcept { return slots[(size_t) juce::jlimit (0, PluginAnalyzer::numSlots - 1, index)]; }
     const PluginAnalyzer::Slot& getSlot (int index) const noexcept { return slots[(size_t) juce::jlimit (0, PluginAnalyzer::numSlots - 1, index)]; }
-    int measureSlot = 0;      // the slot the next measurement goes into
-    int shownSlot = 0;        // the slot drawn on the graph
-    int comparedSlot = -1;    // a second slot drawn over it, or -1 for none
+    int measureSlot = 0;      // the capture the next measurement goes into
+    bool captureVisible[PluginAnalyzer::numSlots] { true, true };   // whether each capture is drawn (hiding one never deletes it)
+    int numFilledCaptures() const noexcept;
+    int firstEmptyCapture() const noexcept;   // -1 when both are in use
+    // Chooses where the next measurement goes, and the name to give it ("" keeps the capture's own name). Nothing is overwritten
+    // until a measurement has finished and has a curve.
+    void setNextCapture (int slot, const juce::String& name);
+    // Set when a new measurement could not be made and an existing capture was kept instead; empty otherwise.
+    juce::String getKeptNotice() const { return keptNotice; }
 
     // Picks up a finished capture (starts the analysis) and a finished analysis (fills the slot). Call it from a timer on the
     // message thread. Returns true when something changed that the editor should redraw.
@@ -98,7 +119,7 @@ public:
     int getCaptureLength() const noexcept { return PluginAnalyzer::captureSamples (spec, currentSampleRate); }
     const PluginAnalyzer::SweepSpec& getSweepSpec() const noexcept { return spec; }
 
-    // The text of the CSV file for the shown slot, and the compared one if there is one.
+    // The text of the CSV file for every capture that has been made.
     juce::String makeCsvText() const;
 
     // Editor state saved with the session (not automatable): window width.
@@ -113,7 +134,7 @@ public:
 
     static inline const juce::Identifier versionId { "stateVersion" }, uiId { "UI" };
 
-    // For tests: how many instances are in this session as a Reference and as a Result.
+    // For tests: how many instances are in this session as a Before Plugin and as an After Plugin.
     static int referencesIn (int session) noexcept { return PluginAnalyzer::sessionNumber (session).references.load(); }
     static int resultsIn (int session) noexcept { return PluginAnalyzer::sessionNumber (session).results.load(); }
 
@@ -165,6 +186,7 @@ private:
     std::atomic<bool> analysing { false };
     std::atomic<int> measurementCount { 0 };
     bool justFinished = false;
+    juce::String pendingName, keptNotice;
 
     // A finished analysis waits here until the editor's timer (poll) moves it into its slot.
     juce::CriticalSection pendingLock;
