@@ -5277,6 +5277,250 @@ static LinearPhaseTooltipTests linearPhaseTooltipTests;
 
 //==============================================================================
 // EQ-37: the floating band panel can be dragged and always stays inside the graph.
+// songsmithstudio#11: the mouse wheel changes the slope of a High Pass or Low Pass, the gain of a Bell or shelf, and never Q (a Notch's Q excepted).
+class MouseWheelTests final : public juce::UnitTest
+{
+public:
+    MouseWheelTests() : juce::UnitTest ("EQ mouse wheel: slope, gain, never Q (songsmithstudio#11)", "EQ") {}
+
+    static juce::MouseEvent mouseAt (juce::Component& c, juce::Point<float> pos, bool shift = false)
+    {
+        const auto now = juce::Time::getCurrentTime();
+        return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), pos,
+                                 shift ? juce::ModifierKeys (juce::ModifierKeys::shiftModifier) : juce::ModifierKeys(),
+                                 juce::MouseInputSource::defaultPressure, 0.0f, 0.0f, 0.0f, 0.0f, &c, &c, now, pos, now, 1, false);
+    }
+
+    struct Rig
+    {
+        SongsmithEQAudioProcessor p;
+        std::unique_ptr<SongsmithEQAudioProcessorEditor> ed;
+        EQDisplay* display = nullptr;
+
+        Rig()
+        {
+            ed.reset (dynamic_cast<SongsmithEQAudioProcessorEditor*> (p.createEditor()));
+            display = &ed->getDisplay();
+        }
+
+        // One mouse-wheel notch (about 0.2) over a band's node; positive is up.
+        void notch (int band, float amount = 0.2f, bool shift = false)
+        {
+            juce::MouseWheelDetails d;
+            d.deltaX = 0.0f;
+            d.deltaY = amount;
+            d.isReversed = false;
+            d.isSmooth = false;
+            d.isInertial = false;
+            display->mouseWheelMove (mouseAt (*display, display->getNodeCentre (band), shift), d);
+        }
+        void settle() { display->endWheelEditForTesting(); }
+        float v (int band, EQ::Param q) { return p.getBandValue (band, q); }
+    };
+
+    void runTest() override
+    {
+        using EQ::FilterType;
+
+        beginTest ("High Pass: the wheel changes only the slope, one supported step a notch, and stops at the ends");
+        for (auto type : { FilterType::LowCut, FilterType::HighCut })
+        {
+            Rig r;
+            const int b = r.p.edits.addBand (type == FilterType::LowCut ? 40.0f : 8000.0f, 0.0f, type);
+            expect (b >= 0);
+            const float q = r.v (b, EQ::Param::Q), freq = r.v (b, EQ::Param::Freq), gain = r.v (b, EQ::Param::Gain), enabled = r.v (b, EQ::Param::Enabled);
+            const int start = (int) std::lround (r.v (b, EQ::Param::Slope));
+            expectEquals (start, EQ::defaultSlope, "a new cut starts at 12 dB/oct");
+
+            std::vector<int> seen { start };
+            for (int i = 0; i < 8; ++i)
+            {
+                r.notch (b, 0.2f);
+                seen.push_back ((int) std::lround (r.v (b, EQ::Param::Slope)));
+            }
+            expectEquals (seen.back(), EQ::numSlopes - 1, "wheel up reaches the steepest slope (48 dB/oct) and stops");
+            for (size_t i = 1; i < seen.size(); ++i)
+                expect (seen[i] == juce::jmin (seen[i - 1] + 1, EQ::numSlopes - 1), "one step a notch, never skipping a supported value");
+            r.settle();
+            for (int i = 0; i < 9; ++i)
+                r.notch (b, -0.2f);
+            expectEquals ((int) std::lround (r.v (b, EQ::Param::Slope)), 0, "wheel down reaches the gentlest slope (6 dB/oct) and stops");
+            expectEquals (r.v (b, EQ::Param::Q), q, "Q is not touched");
+            expectEquals (r.v (b, EQ::Param::Freq), freq, "nor the frequency");
+            expectEquals (r.v (b, EQ::Param::Gain), gain, "nor the gain");
+            expectEquals (r.v (b, EQ::Param::Enabled), enabled, "nor on/off");
+            expectEquals (EQ::getSlopeNames()[(int) std::lround (r.v (b, EQ::Param::Slope))], juce::String ("6 dB/oct"), "shown in dB/oct");
+            r.settle();
+        }
+
+        beginTest ("Bell: the wheel changes only the gain, 0.5 dB a notch (0.1 dB with Shift), within the limits, and never Q");
+        {
+            Rig r;
+            const int b = r.p.edits.addBand (1000.0f, 2.0f, FilterType::Bell);
+            const float q = r.v (b, EQ::Param::Q), freq = r.v (b, EQ::Param::Freq);
+            r.notch (b);
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), 2.5f, 1.0e-4f, "up: +0.5 dB");
+            r.notch (b);
+            r.notch (b);
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), 3.5f, 1.0e-4f, "three notches: +1.5 dB in all");
+            r.notch (b, -0.2f);
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), 3.0f, 1.0e-4f, "down: -0.5 dB");
+            r.notch (b, 0.2f, true);
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), 3.1f, 1.0e-4f, "Shift: 0.1 dB, for fine work");
+            expectEquals (r.v (b, EQ::Param::Q), q, "Q is unchanged");
+            expectEquals (r.v (b, EQ::Param::Freq), freq, "frequency is unchanged");
+            for (int i = 0; i < 80; ++i)
+                r.notch (b, 0.2f);
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), EQ::maxGain, 1.0e-4f, "stops at the top of the gain range");
+            r.settle();
+            for (int i = 0; i < 130; ++i)
+                r.notch (b, -0.2f);
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), EQ::minGain, 1.0e-4f, "and at the bottom");
+            expectEquals (r.v (b, EQ::Param::Q), q, "Q still unchanged");
+            r.settle();
+        }
+
+        beginTest ("Shelves change gain too, a Notch keeps changing its Q (its only shape control), and the type decides, not the band number");
+        {
+            Rig r;
+            const int low = r.p.edits.addBand (120.0f, 1.0f, FilterType::LowShelf);
+            const int high = r.p.edits.addBand (9000.0f, -1.0f, FilterType::HighShelf);
+            const int notch = r.p.edits.addBand (3000.0f, 0.0f, FilterType::Notch);
+            const float lowQ = r.v (low, EQ::Param::Q), highQ = r.v (high, EQ::Param::Q), notchGain = r.v (notch, EQ::Param::Gain);
+            r.notch (low);
+            expectWithinAbsoluteError (r.v (low, EQ::Param::Gain), 1.5f, 1.0e-4f, "Low Shelf gain");
+            r.notch (high, -0.2f);
+            expectWithinAbsoluteError (r.v (high, EQ::Param::Gain), -1.5f, 1.0e-4f, "High Shelf gain");
+            expectEquals (r.v (low, EQ::Param::Q), lowQ);
+            expectEquals (r.v (high, EQ::Param::Q), highQ);
+            const float notchQ = r.v (notch, EQ::Param::Q);
+            r.notch (notch);
+            expect (r.v (notch, EQ::Param::Q) > notchQ, "a Notch's wheel still widens or narrows it (Q)");
+            expectEquals (r.v (notch, EQ::Param::Gain), notchGain, "and never moves a gain it does not have");
+            r.settle();
+
+            // Switching the type switches what the wheel does, on the same band.
+            const int band = r.p.edits.addBand (500.0f, 0.0f, FilterType::Bell);
+            const float q = r.v (band, EQ::Param::Q);
+            r.p.edits.setType (band, FilterType::HighCut);
+            r.notch (band);
+            expectEquals ((int) std::lround (r.v (band, EQ::Param::Slope)), EQ::defaultSlope + 1, "as a Low Pass the wheel moved the slope");
+            r.settle();
+            r.p.edits.setType (band, FilterType::Bell);
+            const float gainBefore = r.v (band, EQ::Param::Gain);
+            r.notch (band);
+            expect (r.v (band, EQ::Param::Gain) > gainBefore, "back as a Bell the wheel moves the gain");
+            expectEquals (r.v (band, EQ::Param::Q), q, "Q never changed");
+            r.settle();
+        }
+
+        beginTest ("Only the band under the wheel changes, and a wheel burst is one Undo step");
+        {
+            Rig r;
+            const int a = r.p.edits.addBand (200.0f, 1.0f, FilterType::Bell);
+            const int b = r.p.edits.addBand (4000.0f, 2.0f, FilterType::Bell);
+            const int c = r.p.edits.addBand (30.0f, 0.0f, FilterType::LowCut);
+            for (int i = 0; i < 4; ++i)
+                r.notch (a);
+            expectWithinAbsoluteError (r.v (a, EQ::Param::Gain), 3.0f, 1.0e-4f);
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), 2.0f, 1.0e-4f, "the other Bell is untouched");
+            expectEquals ((int) std::lround (r.v (c, EQ::Param::Slope)), EQ::defaultSlope, "and the Low Cut");
+            r.settle();
+            expect (r.p.edits.undo(), "the burst can be undone");
+            expectWithinAbsoluteError (r.v (a, EQ::Param::Gain), 1.0f, 1.0e-4f, "in one step, back to where it started");
+            r.p.edits.redo();
+            expectWithinAbsoluteError (r.v (a, EQ::Param::Gain), 3.0f, 1.0e-4f, "and forward again");
+
+            for (int i = 0; i < 3; ++i)
+                r.notch (c);
+            r.settle();
+            expectEquals ((int) std::lround (r.v (c, EQ::Param::Slope)), EQ::defaultSlope + 3, "three notches on the Low Cut");
+            r.p.edits.undo();
+            expectEquals ((int) std::lround (r.v (c, EQ::Param::Slope)), EQ::defaultSlope, "undone in one step");
+        }
+
+        beginTest ("The gain follows the Gain Scale: the step is in the gain you see");
+        {
+            Rig r;
+            const int b = r.p.edits.addBand (1000.0f, 2.0f, FilterType::Bell);
+            auto* scale = r.p.apvts.getParameter (EQ::gainScaleId);
+            scale->setValueNotifyingHost (scale->convertTo0to1 (200.0f));
+            const float shownBefore = r.v (b, EQ::Param::Gain) * r.p.getGainScale();
+            r.notch (b);
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain) * r.p.getGainScale(), shownBefore + 0.5f, 0.11f, "the shown gain moved by about 0.5 dB at 200 % (the control moves in 0.1 dB, so 0.4 to 0.6)");
+            r.settle();
+            scale->setValueNotifyingHost (scale->convertTo0to1 (-100.0f));
+            const float shown = r.v (b, EQ::Param::Gain) * r.p.getGainScale();
+            r.notch (b);
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain) * r.p.getGainScale(), shown + 0.5f, 0.02f, "wheel up still raises the shown gain when the scale is inverted");
+            r.settle();
+        }
+
+        beginTest ("A touchpad's many small movements add up to a step, turning back starts again, and a wheel in empty space does nothing");
+        {
+            Rig r;
+            const int b = r.p.edits.addBand (1000.0f, 0.0f, FilterType::Bell);
+            for (int i = 0; i < 3; ++i)
+                r.notch (b, 0.02f);
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), 0.0f, 1.0e-4f, "three tiny movements are not yet a step");
+            r.notch (b, 0.02f);
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), 0.5f, 1.0e-4f, "four are one step (0.5 dB)");
+            r.notch (b, 0.05f);
+            r.notch (b, -0.05f);
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), 0.5f, 1.0e-4f, "turning back discards what had built up");
+            r.settle();
+
+            const int cut = r.p.edits.addBand (40.0f, 0.0f, FilterType::LowCut);
+            r.notch (cut, 0.1f);
+            expectEquals ((int) std::lround (r.v (cut, EQ::Param::Slope)), EQ::defaultSlope, "half a notch is not a slope step");
+            r.notch (cut, 0.1f);
+            expectEquals ((int) std::lround (r.v (cut, EQ::Param::Slope)), EQ::defaultSlope + 1, "a whole notch is");
+            r.settle();
+
+            // Over the plot, away from every node, with nothing selected: nothing changes.
+            Rig empty;
+            empty.display->setSelectedBand (-1);
+            std::vector<float> before;
+            for (int band = 0; band < EQ::numBands; ++band)
+                for (auto q : { EQ::Param::Freq, EQ::Param::Gain, EQ::Param::Q, EQ::Param::Slope })
+                    before.push_back (empty.v (band, q));
+            juce::MouseWheelDetails d;
+            d.deltaX = 0.0f; d.deltaY = 0.2f; d.isReversed = false; d.isSmooth = false; d.isInertial = false;
+            empty.display->mouseWheelMove (mouseAt (*empty.display, { 5.0f, 5.0f }), d);
+            std::vector<float> after;
+            for (int band = 0; band < EQ::numBands; ++band)
+                for (auto q : { EQ::Param::Freq, EQ::Param::Gain, EQ::Param::Q, EQ::Param::Slope })
+                    after.push_back (empty.v (band, q));
+            expect (before == after, "no band under the wheel and none selected: nothing changes");
+            // A tiny step at a coarse Gain Scale still moves the gain the right way rather than doing nothing.
+            Rig coarse;
+            const int cb = coarse.p.edits.addBand (1000.0f, 1.0f, FilterType::Bell);
+            auto* gs = coarse.p.apvts.getParameter (EQ::gainScaleId);
+            gs->setValueNotifyingHost (gs->convertTo0to1 (200.0f));
+            const float shown0 = coarse.v (cb, EQ::Param::Gain) * coarse.p.getGainScale();
+            coarse.notch (cb, 0.2f, true);   // Shift: 0.1 dB shown, which is 0.05 stored
+            expect (coarse.v (cb, EQ::Param::Gain) * coarse.p.getGainScale() > shown0, "a fine step is never lost to rounding");
+        }
+
+        beginTest ("The same at several window sizes");
+        for (int width : { 1000, 1280, 1920 })
+        {
+            Rig r;
+            r.ed->setSize (width, juce::roundToInt ((double) width * 0.62));
+            const int cut = r.p.edits.addBand (35.0f, 0.0f, FilterType::LowCut);
+            const int bell = r.p.edits.addBand (1500.0f, 0.0f, FilterType::Bell);
+            r.notch (cut);
+            expectEquals ((int) std::lround (r.v (cut, EQ::Param::Slope)), EQ::defaultSlope + 1, "slope at " + juce::String (width) + " px");
+            r.settle();
+            r.notch (bell);
+            expectWithinAbsoluteError (r.v (bell, EQ::Param::Gain), 0.5f, 1.0e-4f, "gain at " + juce::String (width) + " px");
+            expect (r.v (bell, EQ::Param::Q) == EQ::defaultQ || r.v (bell, EQ::Param::Q) > 0.0f, "Q intact");
+            r.settle();
+        }
+    }
+};
+static MouseWheelTests mouseWheelTests;
+
 class BandPanelDragTests final : public juce::UnitTest
 {
 public:

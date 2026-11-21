@@ -84,6 +84,11 @@ namespace EQ
     // default and matches every session saved before slopes existed.
     constexpr int numSlopes = 6;
     constexpr int defaultSlope = 1;
+
+    // songsmithstudio#11: how much mouse wheel makes one step. A mouse notch is about 0.2 (more than either), so one notch is one step;
+    // a touchpad sends many small movements, which add up. A Bell or shelf moves 0.5 dB a step, 0.1 dB with Shift.
+    constexpr float wheelDeltaPerSlopeStep = 0.15f, wheelDeltaPerGainStep = 0.08f;
+    constexpr float wheelGainStepDb = 0.5f, wheelFineGainStepDb = 0.1f;
     constexpr int slopeOrders[numSlopes] = { 1, 2, 3, 4, 6, 8 };   // filter order = dB/oct / 6
 
     inline const juce::StringArray& getSlopeNames()
