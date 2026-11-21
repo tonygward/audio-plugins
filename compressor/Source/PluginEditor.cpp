@@ -172,6 +172,7 @@ SongsmithCompressorAudioProcessorEditor::SongsmithCompressorAudioProcessorEditor
     content.addAndMakeVisible (outputMeter);
 
     diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (proc, proc.loadMeter, JucePlugin_Name);
+    diagnostics->setBeforeAfter (&proc.beforeAfter);   // songsmithstudio#7
     content.addAndMakeVisible (*diagnostics);
     content.addAndMakeVisible (titleHint);   // the plugin name explains the plugin
 

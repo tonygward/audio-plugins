@@ -184,6 +184,7 @@ void SongsmithAnalogCompressorProcessor::updateLatencyNow()
 
 void SongsmithAnalogCompressorProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
 {
+    beforeAfter.prepare (sampleRate);
     baseRate = sampleRate;
     const int numCh = juce::jmax (1, getTotalNumOutputChannels());
 
@@ -245,6 +246,7 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
 {
     const auto loadScope = loadMeter.measure (buffer.getNumSamples(), getSampleRate());
     juce::ScopedNoDenormals noDenormals;
+    const Songsmith::Loudness::BeforeAfterMeter::Scope loudnessScope (beforeAfter, buffer, getTotalNumInputChannels(), getPlayHead());   // Before on entry, After on every way out
 
     const int numCh = juce::jmin (getTotalNumInputChannels(), buffer.getNumChannels(), FET::Engine::maxChannels);
     const int n = buffer.getNumSamples();

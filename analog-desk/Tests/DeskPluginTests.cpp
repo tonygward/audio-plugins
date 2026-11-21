@@ -13,6 +13,7 @@
 #include "../../shared/Tests/SongsmithMeterColumnTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
 #include "../../shared/Tests/SongsmithUpdateTests.h"
+#include "../../shared/Tests/SongsmithBeforeAfterTests.h"
 #include "SongsmithWording.h"
 
 namespace
@@ -611,6 +612,7 @@ static SongsmithDiagnosticsTests sharedDiagnosticsTests { "AnalogDeskPlugin" };
 static SongsmithMeterColumnTests<SongsmithAnalogDeskProcessor, SongsmithAnalogDeskEditor> sharedMeterColumnTests { "AnalogDeskPlugin", Desk::EditorLayout::designWidth, Desk::EditorLayout::contentHeight };
 static SongsmithGuidanceTests sharedGuidanceTests { "AnalogDeskPlugin" };
 static SongsmithUpdateTests sharedUpdateTests { "AnalogDeskPlugin" };
+static SongsmithBeforeAfterTests<SongsmithAnalogDeskProcessor, SongsmithAnalogDeskEditor> sharedBeforeAfterTests { "AnalogDeskPlugin" };
 
 struct ConsoleRunner final : juce::UnitTestRunner
 {
@@ -624,7 +626,6 @@ static int renderScreenshot (const juce::File& file, float scale, int preset)
     SongsmithAnalogDeskProcessor p;
     p.setCurrentProgram (juce::jlimit (0, p.getNumPrograms() - 1, preset));
     prepare (p, 48000.0, 512);
-    std::unique_ptr<SongsmithAnalogDeskEditor> editor (dynamic_cast<SongsmithAnalogDeskEditor*> (p.createEditor()));
     std::vector<float> in (192000);
     for (size_t i = 0; i < in.size(); ++i)
     {
@@ -633,6 +634,8 @@ static int renderScreenshot (const juce::File& file, float scale, int preset)
         in[i] = (float) (swell * std::sin (2.0 * 3.14159265358979 * 220.0 * sec));
     }
     run (p, { in, in }, 512);
+    // The window opens after the sound has played, so its readouts (the meters and Before and After) have something to show.
+    std::unique_ptr<SongsmithAnalogDeskEditor> editor (dynamic_cast<SongsmithAnalogDeskEditor*> (p.createEditor()));
     editor->advanceMeter (0.5f);
 
     const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, scale);
