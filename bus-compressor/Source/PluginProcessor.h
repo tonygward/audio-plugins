@@ -5,6 +5,7 @@
 #include "BusPresets.h"
 #include "BusEngine.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
+#include "../../shared/Source/SongsmithBeforeAfter.h"
 #include "../../shared/Source/SongsmithHeader.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
 
@@ -67,6 +68,9 @@ public:
 
     // Optional timing of processBlock for the editor's Processing Load readout (off unless the editor switches it on).
     Songsmith::Diagnostics::LoadMeter loadMeter;
+
+    // songsmithstudio#7: the Before and After loudness shown in the footer. Fed by one scope at the top of processBlock.
+    Songsmith::Loudness::BeforeAfterMeter beforeAfter;
 
     juce::ValueTree createState();
     void restoreFromValueTree (const juce::ValueTree& saved);

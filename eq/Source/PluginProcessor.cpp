@@ -344,6 +344,7 @@ bool SongsmithEQAudioProcessor::isSidechainConnected() const
 
 void SongsmithEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    beforeAfter.prepare (sampleRate);
     engine.prepare (sampleRate);
     outputMeter.channels.store (juce::jlimit (1, (int) OutputMeter::maxChannels, getMainBusNumOutputChannels()));
     outputMeter.resetLatch (sampleRate);   // a new session or layout starts without a stale warning
@@ -395,6 +396,7 @@ void SongsmithEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 {
     const auto loadScope = loadMeter.measure (buffer.getNumSamples(), getSampleRate());
     juce::ScopedNoDenormals noDenormals;
+    const Songsmith::Loudness::BeforeAfterMeter::Scope loudnessScope (beforeAfter, buffer, getTotalNumInputChannels(), getPlayHead());   // Before on entry, After on every way out
 
     // Main bus only: the sidechain (input bus 1) is analysed, never processed or output.
     const int numIn  = getMainBusNumInputChannels();

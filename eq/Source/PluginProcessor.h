@@ -13,6 +13,7 @@
 #include "EditorSize.h"
 #include "LinearPhase.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
+#include "../../shared/Source/SongsmithBeforeAfter.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
 
 class SongsmithEQAudioProcessor : public juce::AudioProcessor, private juce::Timer
@@ -118,6 +119,9 @@ public:
 
     // Optional timing of processBlock for the editor's Processing Load readout (off unless the editor switches it on).
     Songsmith::Diagnostics::LoadMeter loadMeter;
+
+    // songsmithstudio#7: the Before and After loudness shown in the footer. Fed by one scope at the top of processBlock.
+    Songsmith::Loudness::BeforeAfterMeter beforeAfter;
 
     // UI size (75 % to 200 %, see EditorSize.h). Saved with the session; a new instance starts
     // at the per-machine default, which is the size last chosen on this computer.

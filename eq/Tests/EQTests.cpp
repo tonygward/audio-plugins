@@ -19,6 +19,7 @@
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
 #include "../../shared/Tests/SongsmithUpdateTests.h"
+#include "../../shared/Tests/SongsmithBeforeAfterTests.h"
 #include "../../shared/Tests/SongsmithDropdownTests.h"
 #include "SongsmithWording.h"
 
@@ -6500,6 +6501,7 @@ static SongsmithUITests sharedUITests { "EQ" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "EQ" };
 static SongsmithGuidanceTests sharedGuidanceTests { "EQ" };
 static SongsmithUpdateTests sharedUpdateTests { "EQ" };
+static SongsmithBeforeAfterTests<SongsmithEQAudioProcessor, SongsmithEQAudioProcessorEditor> sharedBeforeAfterTests { "EQ" };
 static SongsmithDropdownTests<SongsmithEQAudioProcessor, SongsmithEQAudioProcessorEditor> sharedDropdownTests { "EQ" };
 static DiagnosticsTests diagnosticsTests;
 static RenameTests renameTests;

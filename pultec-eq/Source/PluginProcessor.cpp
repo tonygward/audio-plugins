@@ -134,6 +134,7 @@ bool SongsmithPassiveEQProcessor::isBusesLayoutSupported (const BusesLayout& lay
 
 void SongsmithPassiveEQProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    beforeAfter.prepare (sampleRate);
     // Larger host blocks are processed in chunks of this size, so nothing is allocated later.
     dryBuffer.setSize (2, juce::jmax (512, samplesPerBlock), false, true, false);
     dryBuffer.clear();
@@ -153,6 +154,7 @@ void SongsmithPassiveEQProcessor::processBlock (juce::AudioBuffer<float>& buffer
 {
     const auto loadScope = loadMeter.measure (buffer.getNumSamples(), getSampleRate());
     juce::ScopedNoDenormals noDenormals;
+    const Songsmith::Loudness::BeforeAfterMeter::Scope loudnessScope (beforeAfter, buffer, getTotalNumInputChannels(), getPlayHead());   // Before on entry, After on every way out
 
     const int numIn  = getTotalNumInputChannels();
     const int numOut = getTotalNumOutputChannels();

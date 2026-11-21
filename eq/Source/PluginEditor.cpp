@@ -253,6 +253,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     content.addAndMakeVisible (hintLabel);
 
     diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (processor, processor.loadMeter, JucePlugin_Name);
+    diagnostics->setBeforeAfter (&processor.beforeAfter);   // songsmithstudio#7
     content.addAndMakeVisible (*diagnostics);
     diagnostics->setTrailingControl (&pianoButton);
 
