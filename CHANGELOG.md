@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
-## Unreleased
+## 0.5.63
 
 - **New: Songsmith Analog Desk.** A mixing desk channel strip in one plugin: a high-pass and a low-pass filter, a four-band equaliser, a gate or expander and a compressor, with a little warm Drive at the front. It comes with eight starting points (such as Lead Vocal Presence and Control and Kick Drum Punch) and the same title bar, Undo and Redo, Bypass and meters as the other Songsmith plugins. It is in the Windows and Mac installers with its own tick box, ticked by default: you do not need to do anything, and nothing you already have changes. It has not been tried in a recording program yet, so please tell us what you hear.
 
