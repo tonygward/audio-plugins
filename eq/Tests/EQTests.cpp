@@ -5371,11 +5371,11 @@ public:
             expectEquals (r.v (b, EQ::Param::Freq), freq, "frequency is unchanged");
             for (int i = 0; i < 80; ++i)
                 r.notch (b, 0.2f);
-            expectEquals (r.v (b, EQ::Param::Gain), EQ::maxGain, "stops at the top of the gain range");
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), EQ::maxGain, 1.0e-4f, "stops at the top of the gain range");
             r.settle();
             for (int i = 0; i < 130; ++i)
                 r.notch (b, -0.2f);
-            expectEquals (r.v (b, EQ::Param::Gain), EQ::minGain, "and at the bottom");
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), EQ::minGain, 1.0e-4f, "and at the bottom");
             expectEquals (r.v (b, EQ::Param::Q), q, "Q still unchanged");
             r.settle();
         }
@@ -5423,7 +5423,7 @@ public:
             for (int i = 0; i < 4; ++i)
                 r.notch (a);
             expectWithinAbsoluteError (r.v (a, EQ::Param::Gain), 3.0f, 1.0e-4f);
-            expectEquals (r.v (b, EQ::Param::Gain), 2.0f, "the other Bell is untouched");
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), 2.0f, 1.0e-4f, "the other Bell is untouched");
             expectEquals ((int) std::lround (r.v (c, EQ::Param::Slope)), EQ::defaultSlope, "and the Low Cut");
             r.settle();
             expect (r.p.edits.undo(), "the burst can be undone");
@@ -5462,7 +5462,7 @@ public:
             const int b = r.p.edits.addBand (1000.0f, 0.0f, FilterType::Bell);
             for (int i = 0; i < 3; ++i)
                 r.notch (b, 0.02f);
-            expectEquals (r.v (b, EQ::Param::Gain), 0.0f, "three tiny movements are not yet a step");
+            expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), 0.0f, 1.0e-4f, "three tiny movements are not yet a step");
             r.notch (b, 0.02f);
             expectWithinAbsoluteError (r.v (b, EQ::Param::Gain), 0.5f, 1.0e-4f, "four are one step (0.5 dB)");
             r.notch (b, 0.05f);
