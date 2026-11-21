@@ -532,9 +532,9 @@ struct EditorTests final : juce::UnitTest
                 expect (os.getY() >= (int) Songsmith::UI::titleBarHeight, "and below the title bar");
                 expectEquals (os.getRight(), ac->getMeterColumn().getRight(), "right-aligned with the meter column");
                 {
-                    auto& mb = ac->getModelBox();
-                    expectEquals (mb.getY(), os.getY(), "level with the Model dropdown");
-                    expect (mb.getRight() < os.getX(), "the Model dropdown is to its left");
+                    const auto mb = ac->getModelButtonsBounds();
+                    expectEquals (mb.getY(), os.getY(), "level with the Model buttons");
+                    expect (mb.getRight() < os.getX(), "the Model buttons are to its left");
                 }
                 expect (! os.getBounds().intersects (meterBounds), "Oversampling does not overlap the meter");
                 expect (! os.getBounds().intersects (ac->getGrOffBounds()), "nor Gain Reduction Off");

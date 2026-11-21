@@ -287,45 +287,119 @@ struct ModelTests final : juce::UnitTest
             }
         }
 
-        beginTest ("ACOMP-20: the four model names are exactly Blackface, Blue Stripe, Anniversary Edition and Lindell");
+        beginTest ("songsmithstudio#12: four model buttons (Black, Blue, Anniversary, Lindell) replace the dropdown, one lit, each with its own tooltip");
         {
+            // The names the host and the preset files use are unchanged; only the words on the buttons are short.
             expectEquals (FET::modelNames().joinIntoString ("/"), juce::String ("Blackface/Blue Stripe/Anniversary Edition/Lindell"));
+            expectEquals (FET::modelButtonLabels().joinIntoString ("/"), juce::String ("Black/Blue/Anniversary/Lindell"));
             SongsmithAnalogCompressorProcessor p;
             std::unique_ptr<juce::AudioProcessorEditor> base (p.createEditor());
             auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (base.get());
             expect (ed != nullptr);
             if (ed == nullptr)
                 return;
-            // ACOMP-23: one Model dropdown (not four buttons) in the configuration row, outside the textured panel.
-            auto& box = ed->getModelBox();
-            expectEquals (box.getNumItems(), 4, "one dropdown lists the four models");
+
+            auto lit = [&ed]
+            {
+                juce::String which;
+                for (int i = 0; i < 4; ++i)
+                    if (ed->getModelButton (i).getToggleState())
+                        which << i;
+                return which;
+            };
+
             for (int i = 0; i < 4; ++i)
-                expectEquals (box.getItemText (i), FET::modelNames()[i]);
-            expect (box.isVisible() && box.getHeight() >= 26, "visible, and an easy click target");
-            expect (box.getTitle() == "Model", "accessible name");
-            expect (ed->getModelLabel().getText() == "Model" && ed->getModelLabel().getRight() <= box.getX(), "captioned Model, to its left");
+            {
+                auto& b = ed->getModelButton (i);
+                expectEquals (b.getButtonText(), FET::modelButtonLabels()[i], "the exact visible label");
+                expect (b.isVisible() && b.getHeight() >= 26, "visible, and an easy click target");
+                expect (b.getTitle().contains (FET::modelButtonLabels()[i]), "accessible name: " + b.getTitle());
+                expect (b.getWantsKeyboardFocus(), "reachable from the keyboard");
+                if (i > 0)
+                    expect (ed->getModelButton (i - 1).getRight() <= b.getX(), "in order, left to right, not overlapping");
+            }
+            expectEquals (lit(), juce::String ("0"), "Black is the default and is the only one lit");
+            expect (ed->getModelLabel().getText() == "Model" && ed->getModelLabel().getRight() <= ed->getModelButton (0).getX(), "captioned Model, to the left");
+
+            // Each button has its own tooltip: its own description, nothing about the other models, and plain words.
             for (int i = 0; i < 4; ++i)
-                expect (box.getTooltip().contains (FET::modelNames()[i] + ": " + FET::modelDescriptions()[i]), "the tooltip describes every model: " + box.getTooltip());
-            expect (Songsmith::UI::Wording::findBanned (box.getTooltip()).isEmpty(), "plain words: " + box.getTooltip());
-            expectEquals (box.getSelectedItemIndex(), 0, "Blackface is the default and shown");
+            {
+                const auto tip = ed->getModelButton (i).getTooltip();
+                expectEquals (tip, FET::modelDescriptions()[i], "its own tooltip");
+                expect (! tip.contains ("\n"), "one short paragraph, not a list of models");
+                for (int j = 0; j < 4; ++j)
+                    if (j != i)
+                        expect (tip != ed->getModelButton (j).getTooltip(), "no two buttons share a tooltip");
+                for (int j = 0; j < 4; ++j)
+                    expect (! tip.containsIgnoreCase (FET::modelButtonLabels()[j]) && ! tip.containsIgnoreCase (FET::modelNames()[j]), "it names no model: " + tip);
+                expect (Songsmith::UI::Wording::findBanned (tip).isEmpty(), "plain words: " + tip);
+                expect (tip.length() <= 160, "short enough to read on hover");
+            }
 
             // The row is directly under the title bar and above the textured panel, with Oversampling level with it on the right.
-            expect (box.getY() >= (int) Songsmith::UI::titleBarHeight, "below the title bar");
-            expect (box.getBottom() < FET::plateTop, "outside the textured panel: the panel starts below the row");
+            const auto group = ed->getModelButtonsBounds();
+            expect (group.getY() >= (int) Songsmith::UI::titleBarHeight, "below the title bar");
+            expect (group.getBottom() < FET::plateTop, "outside the textured panel: the panel starts below the row");
             const auto os = ed->getOversamplingBox().getBounds();
-            expectEquals (os.getY(), box.getY(), "Oversampling is level with it");
-            expect (os.getBottom() < FET::plateTop, "and outside the panel too");
-            expect (box.getRight() < os.getX(), "to its right");
+            expectEquals (os.getY(), group.getY(), "Oversampling is level with the buttons");
+            expect (group.getRight() < os.getX(), "the buttons are to its left");
             expectEquals (os.getRight(), ed->getMeterColumn().getRight(), "right-aligned with the meter column");
-            expect (box.getBottom() <= ed->getMeter().getY(), "nothing of the row is among the controls");
+            expect (group.getBottom() <= ed->getMeter().getY(), "nothing of the row is among the controls");
 
-            box.setSelectedItemIndex (3, juce::sendNotificationSync);
-            expectEquals (ed->getShownModel(), 3, "choosing from the dropdown selects the model");
-            expectEquals (box.getSelectedItemIndex(), 3);
-            expect (p.apvts.getRawParameterValue (ID::model)->load() == 3.0f, "and writes the model parameter");
+            // Choosing: one click selects the model, writes the parameter, and exactly one button stays lit.
+            for (int i : { 3, 1, 2, 0 })
+            {
+                ed->getModelButton (i).onClick();
+                expectEquals (ed->getShownModel(), i, "clicking selects the model");
+                expectEquals (lit(), juce::String (i), "exactly one button is lit");
+                expect (p.apvts.getRawParameterValue (ID::model)->load() == (float) i, "and the model parameter is written");
+            }
+            ed->getModelButton (2).onClick();
+            ed->getModelButton (2).onClick();
+            expectEquals (lit(), juce::String ("2"), "clicking the lit button again keeps it lit");
+
+            // Automation, presets and sessions move the lit button; Undo does too.
             auto* modelParam = p.apvts.getParameter (ID::model);
             modelParam->setValueNotifyingHost (modelParam->convertTo0to1 (1.0f));
-            expectEquals (box.getSelectedItemIndex(), 1, "automation, presets and sessions update the dropdown");
+            expectEquals (lit(), juce::String ("1"), "automation, presets and sessions light the right button");
+            ed->getModelButton (3).onClick();
+            p.history.undo();
+            expectEquals (lit(), juce::String ("1"), "Undo lights the button for the model it goes back to");
+            p.history.redo();
+            expectEquals (lit(), juce::String ("3"), "and Redo the one it goes forward to");
+        }
+
+        beginTest ("songsmithstudio#12: the chosen model is saved with the session, and the buttons fit and do not overlap at every window size");
+        {
+            SongsmithAnalogCompressorProcessor a;
+            a.apvts.getParameter (ID::model)->setValueNotifyingHost (a.apvts.getParameter (ID::model)->convertTo0to1 (2.0f));
+            juce::MemoryBlock saved;
+            a.getStateInformation (saved);
+            SongsmithAnalogCompressorProcessor b;
+            b.setStateInformation (saved.getData(), (int) saved.getSize());
+            std::unique_ptr<juce::AudioProcessorEditor> base (b.createEditor());
+            auto* ed = dynamic_cast<SongsmithAnalogCompressorEditor*> (base.get());
+            expect (ed != nullptr);
+            if (ed == nullptr)
+                return;
+            expect (ed->getModelButton (2).getToggleState() && ! ed->getModelButton (0).getToggleState(), "reopened with Anniversary lit");
+
+            for (double scale : { 0.75, 1.0, 2.0, 3.0 })
+            {
+                const int w = juce::roundToInt ((double) FET::designWidth * scale);
+                ed->setSize (w, juce::roundToInt ((double) FET::designHeight * scale));
+                const auto where = "at " + juce::String (scale * 100.0) + " %: ";
+                for (int i = 0; i < 4; ++i)
+                {
+                    auto& button = ed->getModelButton (i);
+                    expect (button.getHeight() >= 26 && button.getWidth() >= 44, where + button.getButtonText() + " is a comfortable click target");
+                    const auto font = button.getLookAndFeel().getTextButtonFont (button, button.getHeight());
+                    expect (Songsmith::UI::Dropdown::textWidth (button.getButtonText(), font) + 12 <= button.getWidth(), where + button.getButtonText() + " fits with room");
+                    expect (! button.getBounds().intersects (ed->getOversamplingBox().getBounds()), where + "clear of Oversampling");
+                }
+                expect (ed->getModelButtonsBounds().getRight() < ed->getOversamplingBox().getX(), where + "the group ends before Oversampling");
+            }
+            Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), "model buttons");
         }
 
         beginTest ("ACOMP-23: Slow Attack is centred under Attack and Release and clears the lower border");
@@ -429,7 +503,7 @@ struct ModelTests final : juce::UnitTest
             };
             expectGreaterThan (loudRms (true), loudRms (false) * 1.05, "2:1 turns the sound down less than 4:1 on Lindell");
 
-            ed->getModelBox().setSelectedItemIndex (0, juce::sendNotificationSync);   // by hand to Blackface
+            ed->getModelButton (0).onClick();   // by hand to Blackface
             expect (! p.isGentleRatioOn(), "leaving Lindell by hand turns 2:1 off, so no ratio is falsely shown");
             expect (! ed->getGentleRatioButton().isVisible(), "and the button goes");
         }

@@ -103,7 +103,8 @@ public:
 
     // ACOMP-23: the Model dropdown in the configuration row (outside the panel), and the two buttons
     // only some models have (for tests).
-    juce::ComboBox& getModelBox() noexcept { return modelBox; }
+    juce::TextButton& getModelButton (int index) noexcept { return modelButtons[(size_t) index]; }   // 0..3 = Black, Blue, Anniversary, Lindell
+    juce::Rectangle<int> getModelButtonsBounds() const noexcept { return modelButtons[0].getBounds().getUnion (modelButtons[3].getBounds()); }
     juce::Label& getModelLabel() noexcept { return modelLabel; }
     juce::Component& getSetLevelsScrim() noexcept { return levelsScrim; }
     static constexpr float getSetLevelsPanelFillAlpha() noexcept { return LevelsPanel::fillAlpha; }
@@ -216,7 +217,7 @@ private:
     // being mistaken for a choice by the musician); onChange is therefore only the musician choosing a model.
     void refreshModel();
     void modelChosenByUser (int model);
-    juce::ComboBox modelBox;      // Blackface, Blue Stripe, Anniversary Edition, Lindell (ACOMP-23)
+    std::array<juce::TextButton, 4> modelButtons;   // Black, Blue, Anniversary, Lindell (songsmithstudio#12): one lit at a time
     juce::Label modelLabel;       // "Model", its caption in the configuration row
     juce::TextButton gentleButton { "2:1" }, slowAttackButton { "Slow Attack" };
     juce::ParameterAttachment modelAttachment, slowAttackAttachment;
