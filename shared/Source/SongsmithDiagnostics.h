@@ -8,6 +8,7 @@
 #include "SongsmithColours.h"
 #include "SongsmithLookAndFeel.h"
 #include "SongsmithType.h"
+#include "SongsmithUpdateCheck.h"
 
 // The diagnostics every Songsmith plugin shows in a strip along the bottom of its editor:
 //   Latency          the delay this instance reports to the host, in samples and milliseconds.
@@ -243,7 +244,7 @@ namespace Songsmith::Diagnostics
 
     inline juce::String versionLabelText() { return "v" + productVersionString(); }
 
-    class Bar : public juce::Component, private juce::Timer
+    class Bar : public juce::Component, private juce::Timer, private juce::ChangeListener
     {
     public:
         static constexpr int designHeight = 28;
@@ -260,6 +261,21 @@ namespace Songsmith::Diagnostics
             versionLabel.setTooltip ("The Songsmith Plugins version you are running.");
             versionLabel.setInterceptsMouseClicks (true, false);
             addAndMakeVisible (versionLabel);
+
+            // songsmithstudio#8: when a newer build is published, a quiet link beside the version opens the download page.
+            // Nothing is installed by it. It stays hidden, and costs nothing, unless there is something to say.
+            updateLink.setButtonText ("Update available");
+            updateLink.setTitle ("Update available");
+            updateLink.setFont (UI::font (UI::Type::control, UI::Weight::Medium), false, juce::Justification::centredLeft);
+            updateLink.setColour (juce::HyperlinkButton::textColourId, Colours::text);
+            updateLink.setVisible (false);
+            addChildComponent (updateLink);
+            if (Update::Checker::enabled())
+            {
+                checker->changed.addChangeListener (this);
+                checker->check (name, productVersionString());   // at most once a day, on its own thread
+                refreshUpdateLink();
+            }
 
             loadSwitch.setButtonText ("Processing Load");
             loadSwitch.setTitle ("Processing Load");
@@ -284,6 +300,7 @@ namespace Songsmith::Diagnostics
         ~Bar() override
         {
             stopTimer();
+            checker->changed.removeChangeListener (this);
             meter.setEnabled (false);   // nobody is watching: the audio thread stops timing
         }
 
@@ -296,6 +313,15 @@ namespace Songsmith::Diagnostics
         juce::TextButton& getLoadSwitch()   { return loadSwitch; }
         juce::Component& getReadout()       { return readout; }
         juce::Label& getVersionLabel()      { return versionLabel; }
+        juce::HyperlinkButton& getUpdateLink() { return updateLink; }
+
+        void clearUpdateForTesting() { showUpdate ({}); }
+
+        // Shows the link as if a check had found 'version' (the tests; the real check is never run by them).
+        void showUpdateForTesting (const juce::String& version, const juce::String& downloadPage)
+        {
+            showUpdate ({ true, version, downloadPage });
+        }
 
         // Lets the tests check longer versions than today's; the footer lays itself out again.
         void setVersionTextForTesting (const juce::String& text)
@@ -313,6 +339,8 @@ namespace Songsmith::Diagnostics
                 addAndMakeVisible (*c);
             resized();
         }
+
+        void refreshUpdateLink() { showUpdate (checker->offerFor (name, productVersionString())); }
 
         void refresh()
         {
@@ -335,6 +363,12 @@ namespace Songsmith::Diagnostics
             const int versionWidth = getVersionWidth();
             versionLabel.setBounds (r.removeFromLeft (versionWidth));
             r.removeFromLeft (8);
+            if (updateLink.isVisible())
+            {
+                const int linkWidth = getUpdateLinkWidth();
+                updateLink.setBounds (r.removeFromLeft (linkWidth));
+                r.removeFromLeft (8);
+            }
             loadSwitch.setBounds (r.removeFromLeft (130).withSizeKeepingCentre (130, 22));
             r.removeFromLeft (10);
 
@@ -349,6 +383,28 @@ namespace Songsmith::Diagnostics
 
     private:
         void timerCallback() override { refresh(); }
+        void changeListenerCallback (juce::ChangeBroadcaster*) override { refreshUpdateLink(); }
+
+        void showUpdate (const Update::Offer& offer)
+        {
+            if (offer.available == updateLink.isVisible() && updateLink.getURL().toString (true) == offer.downloadPage)
+                return;
+            if (offer.available)
+            {
+                updateLink.setURL (juce::URL (offer.downloadPage));
+                updateLink.setTooltip ("A newer Songsmith Plugins version, " + offer.version + ", is available. Click to open the download page in your browser. "
+                                       "Nothing is installed until you choose to, and you do not need to do anything now.");
+            }
+            updateLink.setVisible (offer.available);
+            resized();
+        }
+
+        int getUpdateLinkWidth() const
+        {
+            juce::GlyphArrangement glyphs;
+            glyphs.addLineOfText (UI::font (UI::Type::control, UI::Weight::Medium), updateLink.getButtonText(), 0.0f, 0.0f);
+            return (int) std::ceil (glyphs.getBoundingBox (0, -1, false).getWidth()) + 10;
+        }
 
         int getVersionWidth() const
         {
@@ -383,6 +439,8 @@ namespace Songsmith::Diagnostics
         juce::String name;
         juce::Label readout;
         juce::Label versionLabel;
+        juce::HyperlinkButton updateLink;
+        juce::SharedResourcePointer<Update::Checker> checker;   // one for every window in this program
         juce::Component* trailing = nullptr;
         juce::TextButton loadSwitch;
     };
