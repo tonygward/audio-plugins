@@ -128,6 +128,7 @@ private:
     juce::Point<float> anchorMouse, anchorNode;
 
     int wheelBand = -1;
+    float wheelAccum = 0.0f;   // wheel movement not yet enough for one step (a touchpad sends many small ones)
     juce::uint32 lastWheelTime = 0;
 
     static constexpr float nodeRadius = 9.0f;   // fits a two-digit band number at 12 px
@@ -148,6 +149,7 @@ public:
     // For tests: the band whose node is under 'pos' (display coordinates), or -1, and where a
     // band's node is drawn.
     int findNodeAt (juce::Point<float> pos) const { return hitTestNode (pos); }
+    void endWheelEditForTesting() { endWheelEdit(); }   // closes a wheel burst now (it closes by itself after 400 ms)
 
     // Adds a band as a double-click on empty graph space does: a Low Cut below
     // EQ::lowCutZoneHz, a High Cut above EQ::highCutZoneHz, else a Bell at the clicked
