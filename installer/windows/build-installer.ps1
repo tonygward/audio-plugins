@@ -6,7 +6,7 @@
 #   .\installer\windows\build-installer.ps1 -SuiteVersion <older version> -OutDir <folder>   # tests: an "older" suite
 #
 # Every plugin and the suite share the one version in VERSION at the repository root.
-# Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser, compressor, optical-leveller, pultec-eq, bus-compressor)
+# Build the plugins first (cmake --build <plugin>/build --config Release for eq, analog-compressor, maximiser, compressor, optical-leveller, pultec-eq, bus-compressor, analog-desk)
 # the Plugin Analyzer (plugin-analyzer, VST3 only) and the app (audio-analyzer).
 # Writes the path of the installer to the output.
 param(
@@ -17,6 +17,7 @@ param(
     [string]$OptDir,
     [string]$PeqDir,
     [string]$BusDir,
+    [string]$DeskDir,
     [string]$AnaDir,
     [string]$PlaDir,
     [string]$SuiteVersion,
@@ -43,7 +44,8 @@ $plugins = @(
     @{ Key = "Comp"; Folder = "compressor";       Target = "SongsmithCompressor";       Name = "Songsmith Compressor";        Dir = $CompDir },
     @{ Key = "Opt";  Folder = "optical-leveller"; Target = "SongsmithOpticalLeveller";   Name = "Songsmith Optical Leveller";  Dir = $OptDir },
     @{ Key = "Peq";  Folder = "pultec-eq";        Target = "SongsmithPassiveEQ";        Name = "Songsmith Passive EQ";        Dir = $PeqDir },
-    @{ Key = "Bus";  Folder = "bus-compressor";   Target = "SongsmithBusCompressor";   Name = "Songsmith Bus Compressor";    Dir = $BusDir }
+    @{ Key = "Bus";  Folder = "bus-compressor";   Target = "SongsmithBusCompressor";   Name = "Songsmith Bus Compressor";    Dir = $BusDir },
+    @{ Key = "Desk"; Folder = "analog-desk";      Target = "SongsmithAnalogDesk";      Name = "Songsmith Analog Desk";       Dir = $DeskDir }
 )
 
 $defines = @("/DSuiteVersion=$SuiteVersion")

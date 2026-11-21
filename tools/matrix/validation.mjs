@@ -40,7 +40,7 @@ export function websiteDispatch(manifest, published, verifiedCopies) {
 }
 
 export function buildPlan(plugin, worktree, juceDirectory) {
-  const names = { eq: 'EQTests', 'analog-compressor': 'AnalogCompressorTests', maximiser: 'MaximiserTests', compressor: 'CompressorTests', 'optical-leveller': 'OpticalLevellerTests', 'pultec-eq': 'PassiveEQTests', 'bus-compressor': 'BusCompressorTests', 'plugin-analyzer': 'PluginAnalyzerTests', 'audio-analyzer': 'AudioAnalyzerTests' };
+  const names = { eq: 'EQTests', 'analog-compressor': 'AnalogCompressorTests', maximiser: 'MaximiserTests', compressor: 'CompressorTests', 'optical-leveller': 'OpticalLevellerTests', 'pultec-eq': 'PassiveEQTests', 'bus-compressor': 'BusCompressorTests', 'analog-desk': 'AnalogDeskTests', 'plugin-analyzer': 'PluginAnalyzerTests', 'audio-analyzer': 'AudioAnalyzerTests' };
   if (!names[plugin]) throw new Error('Unknown plugin');
   const source = path.join(worktree, plugin), build = path.join(source, 'build');
   return [

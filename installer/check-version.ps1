@@ -2,7 +2,7 @@
 #
 #   pwsh installer/check-version.ps1            # the files that must read VERSION, not hold a version
 #   pwsh installer/check-version.ps1 -Built     # also: every built plugin reports the same version
-#   pwsh installer/check-version.ps1 -Built -Plugin eq   # only that plugin's build (eq, analog-compressor, maximiser, compressor, optical-leveller, pultec-eq, bus-compressor, plugin-analyzer, audio-analyzer)
+#   pwsh installer/check-version.ps1 -Built -Plugin eq   # only that plugin's build (eq, analog-compressor, maximiser, compressor, optical-leveller, pultec-eq, bus-compressor, analog-desk, plugin-analyzer, audio-analyzer)
 #
 # Checks:
 #  1. VERSION (repository root) holds exactly one x.y.z line.
@@ -34,6 +34,7 @@ $plugins = @(
     @{ Folder = "optical-leveller";   Target = "SongsmithOpticalLeveller" },
     @{ Folder = "pultec-eq";          Target = "SongsmithPassiveEQ" },
     @{ Folder = "bus-compressor";     Target = "SongsmithBusCompressor" },
+    @{ Folder = "analog-desk";        Target = "SongsmithAnalogDesk" },
     @{ Folder = "plugin-analyzer";    Target = "SongsmithPluginAnalyzer" },
     # REC-02: an application, not a plugin: its build reports the version as ANALYZER_VERSION.
     @{ Folder = "audio-analyzer";     Target = "SongsmithAudioAnalyzer"; Define = "ANALYZER_VERSION" }

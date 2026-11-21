@@ -12,6 +12,7 @@ Songsmith Plugins, from Songsmith Studio, is a growing family of audio tools for
 - **Songsmith Compressor** — even out the level with simple, clear controls and no added character.
 - **Songsmith Optical Leveller** — smooth, simple levelling with two knobs and a switch, inspired by a classic optical unit.
 - **Songsmith Passive EQ** — gentle, broad low and high tone shaping, inspired by a classic passive equaliser.
+- **Songsmith Analog Desk** — a mixing desk channel strip: filters, a four-band equaliser, a gate and a compressor in one plugin.
 - **Songsmith Bus Compressor** — glue a mix or a group of sounds together, inspired by a classic mixing desk bus compressor.
 
 - **Songsmith Plugin Analyzer** — measure what another plugin does to the sound at each frequency, with a copy before it and a copy after it. A VST3 only, for checking and comparing equaliser curves. See [plugin-analyzer/README.md](plugin-analyzer/README.md).

@@ -43,6 +43,7 @@
         <line choice="opt"/>
         <line choice="peq"/>
         <line choice="bus"/>
+        <line choice="desk"/>
         <line choice="pla"/>
         <line choice="ana"/>
     </choices-outline>
@@ -85,6 +86,14 @@
         <pkg-ref id="com.songsmithstudio.songsmithpassiveeq.vst3"/>
         <pkg-ref id="com.songsmithstudio.songsmithpassiveeq.au"/>
         <pkg-ref id="com.songsmithstudio.songsmithpassiveeq.app"/>
+    </choice>
+
+    <!-- Songsmith Analog Desk -->
+    <choice id="desk" title="Songsmith Analog Desk @DESK_VERSION@" start_selected="true"
+            description="Songsmith Analog Desk: a mixing desk channel strip with filters, a four-band equaliser, a gate and a compressor in one plugin. Installs the VST3 plugin, the Audio Unit (for Logic Pro and GarageBand) and a standalone app that runs without recording software.">
+        <pkg-ref id="com.songsmithstudio.songsmithanalogdesk.vst3"/>
+        <pkg-ref id="com.songsmithstudio.songsmithanalogdesk.au"/>
+        <pkg-ref id="com.songsmithstudio.songsmithanalogdesk.app"/>
     </choice>
 
     <!-- Songsmith Bus Compressor -->
@@ -131,6 +140,9 @@
         <pkg-ref id="com.songsmithstudio.songsmithaudioanalyzer.app"/>
     </choice>
 
+    <pkg-ref id="com.songsmithstudio.songsmithanalogdesk.vst3" version="@DESK_VERSION@" onConclusion="none">songsmithanalogdesk-vst3.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithanalogdesk.au"   version="@DESK_VERSION@" onConclusion="none">songsmithanalogdesk-au.pkg</pkg-ref>
+    <pkg-ref id="com.songsmithstudio.songsmithanalogdesk.app"  version="@DESK_VERSION@" onConclusion="none">songsmithanalogdesk-app.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithbuscompressor.vst3" version="@BUS_VERSION@" onConclusion="none">songsmithbuscompressor-vst3.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithbuscompressor.au"   version="@BUS_VERSION@" onConclusion="none">songsmithbuscompressor-au.pkg</pkg-ref>
     <pkg-ref id="com.songsmithstudio.songsmithbuscompressor.app"  version="@BUS_VERSION@" onConclusion="none">songsmithbuscompressor-app.pkg</pkg-ref>

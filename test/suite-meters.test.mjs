@@ -25,7 +25,7 @@ const editorText = dir => ['PluginEditor.h', 'PluginEditor.cpp']
 
 test('the plugin list is found (a guard against this test silently checking nothing)', () => {
   assert.ok(plugins.length >= 8, `found only: ${plugins.join(', ')}`);
-  for (const p of ['eq', 'compressor', 'analog-compressor', 'maximiser', 'optical-leveller', 'pultec-eq', 'bus-compressor', 'plugin-analyzer'])
+  for (const p of ['eq', 'compressor', 'analog-compressor', 'maximiser', 'optical-leveller', 'pultec-eq', 'bus-compressor', 'analog-desk', 'plugin-analyzer'])
     assert.ok(plugins.includes(p), `${p} should be found`);
 });
 
