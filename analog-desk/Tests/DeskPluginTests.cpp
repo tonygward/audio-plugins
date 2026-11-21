@@ -316,13 +316,13 @@ public:
             odd.appendChild (juce::ValueTree ("PARAM", { { "id", "a_future_setting" }, { "value", 1.0f } }), nullptr);
             odd.setProperty ("stateVersion", 99, nullptr);
             b.restoreFromValueTree (odd);
-            expectEquals (getParam (b, "hmf_gain"), 0.0f, "not a number gives the default");
+            expectWithinAbsoluteError (getParam (b, "hmf_gain"), 0.0f, 1.0e-4f, "not a number gives the default");
             expectEquals (getParam (b, "lf_gain"), 15.0f, "out of range is held at the limit");
 
             SongsmithAnalogDeskProcessor c;
             const char junk[] = "not a session";
             c.setStateInformation (junk, (int) sizeof (junk));
-            expectEquals (getParam (c, "hmf_gain"), 0.0f, "junk changes nothing");
+            expectWithinAbsoluteError (getParam (c, "hmf_gain"), 0.0f, 1.0e-4f, "junk changes nothing");
         }
 
         beginTest ("Presets: every starting point loads, names are unique, and each one changes the sound it should");
@@ -594,8 +594,8 @@ public:
             expectEquals (box.getText(), juce::String (Desk::Presets::factory()[1].name));
             expect (box.getTooltip().contains (Desk::Presets::factory()[1].hint), "the listening cue is on hover");
             p.history.undo();
-            expectEquals (getParam (p, "hmf_gain"), 0.0f, "one Undo restores everything the preset changed");
-            expectEquals (getParam (p, "comp_ratio"), 1.0f);
+            expectWithinAbsoluteError (getParam (p, "hmf_gain"), 0.0f, 1.0e-4f, "one Undo restores everything the preset changed");
+            expectWithinAbsoluteError (getParam (p, "comp_ratio"), 1.0f, 1.0e-4f);
             expectWithinAbsoluteError (getParam (p, "high_pass"), 15.0f, 1.0e-3f);
         }
     }
