@@ -913,8 +913,8 @@ jobs:
             pultec-eq/build/SongsmithPassiveEQ_artefacts/Release/AU/
             pultec-eq/build/SongsmithPassiveEQ_artefacts/Release/Standalone/
 
-  # Songsmith Analog Desk (analog-desk/): so far only the engine and its tests. No plugin, installer or release file yet,
-  # so the suite installer jobs do not wait for it.
+  # Songsmith Analog Desk (analog-desk/, DESK-01): a channel strip (filters, four-band equaliser, gate and compressor) with its own build and tests. Its macOS package is
+  # built and tested here; the Windows installer is the suite's (there is no separate Analog Desk setup).
   analog-desk:
     name: Analog Desk - ${{ matrix.name }}
     needs: changes
@@ -928,9 +928,9 @@ jobs:
             os: windows-latest
             configure: -A x64
             tests: analog-desk/build/AnalogDeskTests_artefacts/Release/AnalogDeskTests.exe
-          - name: macOS (Xcode, arm64)
+          - name: macOS (Xcode, ${{ github.event_name == 'pull_request' && 'arm64' || 'universal' }})
             os: macos-latest
-            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64"
+            configure: -G Xcode -DCMAKE_OSX_ARCHITECTURES="${{ github.event_name == 'pull_request' && 'arm64' || 'arm64;x86_64' }}"
             tests: analog-desk/build/AnalogDeskTests_artefacts/Release/AnalogDeskTests
 
     steps:
@@ -959,9 +959,66 @@ jobs:
         shell: bash
         run: cmake --build analog-desk/build --config Release --parallel 4
 
+      - name: Check the build reports the shared version
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./installer/check-version.ps1 -Built -Plugin analog-desk
+
       - name: Run AnalogDeskTests
         shell: bash
         run: ${{ matrix.tests }}
+
+      - name: Render editor screenshots
+        shell: bash
+        run: |
+          mkdir -p screenshots
+          ${{ matrix.tests }} --screenshot screenshots/analog-desk-1x.png
+          ${{ matrix.tests }} --screenshot screenshots/analog-desk-2x.png --scale 2
+
+      - name: Upload editor screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Desk-screenshots-${{ runner.os }}
+          path: screenshots/*.png
+
+      - name: Validate the Audio Unit (auval)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          rm -rf ~/Library/Audio/Plug-Ins/Components/"Songsmith Analog Desk.component"
+          cp -R analog-desk/build/SongsmithAnalogDesk_artefacts/Release/AU/"Songsmith Analog Desk.component" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 2
+          auval -a | grep -i "Tnyw" || true
+          auval -v aufx Desk Tnyw
+
+      # Unsigned .pkg, built and tested end to end on the throwaway runner: installs system-wide,
+      # runs auval on the installed component, reinstalls, deselects the app and uninstalls.
+      - name: Build and test the macOS installer
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          pkg=$(analog-desk/installer/macos/build-installer.sh | tail -n 1)
+          analog-desk/installer/macos/test-installer.sh --pkg "$pkg"
+
+      - name: Upload macOS installer
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Desk-macOS-pkg
+          path: analog-desk/build/installer/*-macOS.pkg
+
+      - name: Upload plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Songsmith-Analog-Desk-${{ runner.os }}
+          if-no-files-found: warn
+          path: |
+            analog-desk/build/SongsmithAnalogDesk_artefacts/Release/VST3/
+            analog-desk/build/SongsmithAnalogDesk_artefacts/Release/AU/
+            analog-desk/build/SongsmithAnalogDesk_artefacts/Release/Standalone/
 
   # Songsmith Bus Compressor (bus-compressor/): its own build and tests, independent of the other jobs. Its macOS package is
   # built and tested here; the Windows installer is the suite's (there is no separate Bus Compressor setup).
@@ -1270,7 +1327,7 @@ jobs:
   # macOS leg too; a job's matrix legs can't be waited for separately.)
   suite-windows:
     name: Songsmith Plugins installer - Windows
-    needs: [changes, eq, analog-compressor, maximiser, compressor, optical-leveller, passive-eq, bus-compressor, plugin-analyzer, audio-analyzer]
+    needs: [changes, eq, analog-compressor, maximiser, compressor, optical-leveller, passive-eq, bus-compressor, analog-desk, plugin-analyzer, audio-analyzer]
     if: needs.changes.outputs.suite == 'true'
     runs-on: windows-latest
     steps:
@@ -1309,6 +1366,12 @@ jobs:
         with:
           name: Songsmith-Passive-EQ-Windows
           path: suite/peq
+      - name: Download Songsmith Analog Desk (Windows build)
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-Analog-Desk-Windows
+          path: suite/desk
+
       - name: Download Songsmith Bus Compressor (Windows build)
         uses: actions/download-artifact@v4
         with:
@@ -1338,7 +1401,7 @@ jobs:
               -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
             choco install innosetup -y --no-progress
           }
-          $builds = @{ EqDir = "suite/eq"; FetDir = "suite/fet"; MaxDir = "suite/max"; CompDir = "suite/comp"; OptDir = "suite/opt"; PeqDir = "suite/peq"; BusDir = "suite/bus"; PlaDir = "suite/pla"; AnaDir = "suite/ana" }
+          $builds = @{ EqDir = "suite/eq"; FetDir = "suite/fet"; MaxDir = "suite/max"; CompDir = "suite/comp"; OptDir = "suite/opt"; PeqDir = "suite/peq"; BusDir = "suite/bus"; DeskDir = "suite/desk"; PlaDir = "suite/pla"; AnaDir = "suite/ana" }
           $setup = installer/windows/build-installer.ps1 @builds | Select-Object -Last 1
           $eqSetup = (Get-ChildItem suite/eq-setup/*-win64-setup.exe | Select-Object -First 1).FullName
           installer/windows/test-installer.ps1 -Installer $setup -EqInstaller $eqSetup @builds
@@ -1356,7 +1419,7 @@ jobs:
   # (needs: waits for the Windows legs too; a job's matrix legs can't be waited for separately.)
   suite-macos:
     name: Songsmith Plugins installer - macOS
-    needs: [changes, eq, analog-compressor, maximiser, compressor, optical-leveller, passive-eq, bus-compressor, plugin-analyzer, audio-analyzer]
+    needs: [changes, eq, analog-compressor, maximiser, compressor, optical-leveller, passive-eq, bus-compressor, analog-desk, plugin-analyzer, audio-analyzer]
     if: needs.changes.outputs.suite == 'true'
     runs-on: macos-latest
     steps:
@@ -1395,6 +1458,12 @@ jobs:
         with:
           name: Songsmith-Passive-EQ-macOS-pkg
           path: suite/peq
+      - name: Download Songsmith Analog Desk's installer
+        uses: actions/download-artifact@v4
+        with:
+          name: Songsmith-Analog-Desk-macOS-pkg
+          path: suite/desk
+
       - name: Download Songsmith Bus Compressor's installer
         uses: actions/download-artifact@v4
         with:
@@ -1421,11 +1490,12 @@ jobs:
           opt_pkg=$(ls suite/opt/*-macOS.pkg | head -n 1)
           peq_pkg=$(ls suite/peq/*-macOS.pkg | head -n 1)
           bus_pkg=$(ls suite/bus/*-macOS.pkg | head -n 1)
+          desk_pkg=$(ls suite/desk/*-macOS.pkg | head -n 1)
           pla_pkg=$(ls suite/pla/*-macOS.pkg | head -n 1)
           ana_pkg=$(ls suite/ana/*-macOS.pkg | head -n 1)
-          pkg=$(installer/macos/build-installer.sh --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" --comp-pkg "$comp_pkg" --opt-pkg "$opt_pkg" --peq-pkg "$peq_pkg" --bus-pkg "$bus_pkg" --pla-pkg "$pla_pkg" --ana-pkg "$ana_pkg" | tail -n 1)
+          pkg=$(installer/macos/build-installer.sh --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" --comp-pkg "$comp_pkg" --opt-pkg "$opt_pkg" --peq-pkg "$peq_pkg" --bus-pkg "$bus_pkg" --desk-pkg "$desk_pkg" --pla-pkg "$pla_pkg" --ana-pkg "$ana_pkg" | tail -n 1)
           installer/macos/test-installer.sh --i-know-this-installs-system-wide \
-              --pkg "$pkg" --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" --comp-pkg "$comp_pkg" --opt-pkg "$opt_pkg" --peq-pkg "$peq_pkg" --bus-pkg "$bus_pkg" --pla-pkg "$pla_pkg" --ana-pkg "$ana_pkg"
+              --pkg "$pkg" --eq-pkg "$eq_pkg" --fet-pkg "$fet_pkg" --max-pkg "$max_pkg" --comp-pkg "$comp_pkg" --opt-pkg "$opt_pkg" --peq-pkg "$peq_pkg" --bus-pkg "$bus_pkg" --desk-pkg "$desk_pkg" --pla-pkg "$pla_pkg" --ana-pkg "$ana_pkg"
 
       - name: Upload the suite installer
         uses: actions/upload-artifact@v4

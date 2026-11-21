@@ -1,8 +1,8 @@
 ; Songsmith Plugins - one Windows installer for every plugin (Inno Setup 6).
 ;
 ; Build it with build-installer.ps1, which reads the one version from VERSION and passes the build folders:
-;   iscc /DSuiteVersion=<VERSION> /DEqVersion=<VERSION> /DFetVersion=<VERSION> /DMaxVersion=<VERSION> /DCompVersion=<VERSION> /DOptVersion=<VERSION> /DPeqVersion=<VERSION> /DBusVersion=<VERSION> /DAnaVersion=<VERSION> /DPlaVersion=<VERSION>
-;        /DEqDir=<...\SongsmithEQ_artefacts\Release> /DFetDir=<...> /DMaxDir=<...> /DCompDir=<...> /DOptDir=<...> /DPeqDir=<...> /DBusDir=<...> /DAnaDir=<...> /DPlaDir=<...> /O<out> SongsmithStudio.iss
+;   iscc /DSuiteVersion=<VERSION> /DEqVersion=<VERSION> /DFetVersion=<VERSION> /DMaxVersion=<VERSION> /DCompVersion=<VERSION> /DOptVersion=<VERSION> /DPeqVersion=<VERSION> /DBusVersion=<VERSION> /DDeskVersion=<VERSION> /DAnaVersion=<VERSION> /DPlaVersion=<VERSION>
+;        /DEqDir=<...\SongsmithEQ_artefacts\Release> /DFetDir=<...> /DMaxDir=<...> /DCompDir=<...> /DOptDir=<...> /DPeqDir=<...> /DBusDir=<...> /DDeskDir=<...> /DAnaDir=<...> /DPlaDir=<...> /O<out> SongsmithStudio.iss
 ;
 ; Each plugin is one component, ticked by default, and brings its standalone app with it.
 ; The Songsmith Audio Analyzer (REC-02) is one more component, ticked by default. It is an application only: it has no
@@ -50,6 +50,7 @@
 #define OptName      "Songsmith Optical Leveller"
 #define PeqName      "Songsmith Passive EQ"
 #define BusName      "Songsmith Bus Compressor"
+#define DeskName      "Songsmith Analog Desk"
 #define AnaName      "Songsmith Audio Analyzer"
 #define PlaName      "Songsmith Plugin Analyzer"
 
@@ -62,12 +63,12 @@ AppPublisher={#AppPublisher}
 AppPublisherURL={#AppURL}
 AppSupportURL={#AppURL}/issues
 AppUpdatesURL={#AppURL}/releases
-AppComments={#EqName} {#EqVersion}, {#FetName} {#FetVersion}, {#MaxName} {#MaxVersion}, {#CompName} {#CompVersion}, {#OptName} {#OptVersion}, {#PeqName} {#PeqVersion}, {#BusName} {#BusVersion}, {#AnaName} {#AnaVersion}, {#PlaName} {#PlaVersion}
+AppComments={#EqName} {#EqVersion}, {#FetName} {#FetVersion}, {#MaxName} {#MaxVersion}, {#CompName} {#CompVersion}, {#OptName} {#OptVersion}, {#PeqName} {#PeqVersion}, {#BusName} {#BusVersion}, {#DeskName} {#DeskVersion}, {#AnaName} {#AnaVersion}, {#PlaName} {#PlaVersion}
 VersionInfoVersion={#SuiteVersion}
 VersionInfoProductName={#AppName}
 VersionInfoCompany={#AppPublisher}
 ; The Settings > Apps entry names every plugin's own version.
-UninstallDisplayName={#AppName} (EQ {#EqVersion}, Analog Compressor {#FetVersion}, Maximiser {#MaxVersion}, Compressor {#CompVersion}, Optical Leveller {#OptVersion}, Passive EQ {#PeqVersion}, Bus Compressor {#BusVersion}, Audio Analyzer {#AnaVersion}, Plugin Analyzer {#PlaVersion})
+UninstallDisplayName={#AppName} (EQ {#EqVersion}, Analog Compressor {#FetVersion}, Maximiser {#MaxVersion}, Compressor {#CompVersion}, Optical Leveller {#OptVersion}, Passive EQ {#PeqVersion}, Bus Compressor {#BusVersion}, Analog Desk {#DeskVersion}, Audio Analyzer {#AnaVersion}, Plugin Analyzer {#PlaVersion})
 
 ; The standalone apps (each in its own folder) and the uninstaller live here.
 DefaultDirName={autopf}\{#AppPublisher}
@@ -99,7 +100,7 @@ SetupLogging=yes
 SetupAppTitle=Songsmith Plugins
 SetupWindowTitle=Songsmith Plugins %1
 WelcomeLabel1=Songsmith Plugins
-WelcomeLabel2=This installs Songsmith Plugins on your computer:%n%n    {#EqName} {#EqVersion}%n    {#FetName} {#FetVersion}%n    {#MaxName} {#MaxVersion}%n    {#CompName} {#CompVersion}%n    {#OptName} {#OptVersion}%n    {#PeqName} {#PeqVersion}%n    {#BusName} {#BusVersion}%n    {#AnaName} {#AnaVersion}%n    {#PlaName} {#PlaVersion}%n%nOn the next page, untick anything you don't want. Each plugin goes into the standard VST3 folder (Common Files\VST3), where every VST3 host looks for it, and comes with a standalone app that runs on its own. The {#AnaName} is an app only: it checks the loudness and format of a finished song, and needs no recording software. The {#PlaName} is a plugin only, with no standalone app: it measures what another plugin does to the sound, so put one copy before that plugin and one after it.%n%nPlease close your recording software before continuing.
+WelcomeLabel2=This installs Songsmith Plugins on your computer:%n%n    {#EqName} {#EqVersion}%n    {#FetName} {#FetVersion}%n    {#MaxName} {#MaxVersion}%n    {#CompName} {#CompVersion}%n    {#OptName} {#OptVersion}%n    {#PeqName} {#PeqVersion}%n    {#BusName} {#BusVersion}%n    {#DeskName} {#DeskVersion}%n    {#AnaName} {#AnaVersion}%n    {#PlaName} {#PlaVersion}%n%nOn the next page, untick anything you don't want. Each plugin goes into the standard VST3 folder (Common Files\VST3), where every VST3 host looks for it, and comes with a standalone app that runs on its own. The {#AnaName} is an app only: it checks the loudness and format of a finished song, and needs no recording software. The {#PlaName} is a plugin only, with no standalone app: it measures what another plugin does to the sound, so put one copy before that plugin and one after it.%n%nPlease close your recording software before continuing.
 SelectComponentsLabel2=Tick what to install. Unticking something that is already installed removes it. Your presets are always kept.
 FinishedLabel=Setup has installed Songsmith Plugins on your computer.%n%nRescan plugins in your recording software (or restart it) to find them under Songsmith Studio.
 
@@ -116,6 +117,7 @@ Name: "comp";           Description: "{#CompName} {#CompVersion}: even out the l
 Name: "opt";            Description: "{#OptName} {#OptVersion}: smooth, simple levelling inspired by a classic optical unit";  Types: full custom; Flags: checkablealone
 Name: "peq";            Description: "{#PeqName} {#PeqVersion}: gentle, broad low and high tone shaping inspired by a classic passive equaliser";  Types: full custom; Flags: checkablealone
 Name: "bus";            Description: "{#BusName} {#BusVersion}: glue a mix or a group of sounds together, inspired by a classic mixing desk bus compressor";  Types: full custom; Flags: checkablealone
+Name: "desk";            Description: "{#DeskName} {#DeskVersion}: a mixing desk channel strip with filters, a four-band equaliser, a gate and a compressor";  Types: full custom; Flags: checkablealone
 ; The Audio Analyzer is an app only (no plugin): it opens finished WAV, AIFF, FLAC and MP3 files.
 Name: "ana";            Description: "{#AnaName} {#AnaVersion}: check the loudness and format of a finished song (an app, not a plugin)";  Types: full custom; Flags: checkablealone
 ; The Plugin Analyzer (ANALYZER-01) is a plugin only (VST3): it needs two copies inside a recording program, so it has no standalone app.
@@ -130,6 +132,7 @@ Type: filesandordirs; Name: "{code:Vst3Dir}\{#CompName}.vst3"; Components: comp
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#OptName}.vst3"; Components: opt
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#PeqName}.vst3"; Components: peq
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#BusName}.vst3"; Components: bus
+Type: filesandordirs; Name: "{code:Vst3Dir}\{#DeskName}.vst3"; Components: desk
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#PlaName}.vst3"; Components: pla
 ; Songsmith EQ's earlier names. Same plugin ID, so they'd show up twice.
 Type: filesandordirs; Name: "{code:Vst3Dir}\TW Pro EQ.vst3";  Components: eq
@@ -144,6 +147,7 @@ Type: filesandordirs; Name: "{code:Vst3Dir}\{#CompName}.vst3";     Components: n
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#OptName}.vst3";      Components: not opt;  Check: SuiteHad ('opt')
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#PeqName}.vst3";      Components: not peq;  Check: SuiteHad ('peq')
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#BusName}.vst3";      Components: not bus;  Check: SuiteHad ('bus')
+Type: filesandordirs; Name: "{code:Vst3Dir}\{#DeskName}.vst3";      Components: not desk;  Check: SuiteHad ('desk')
 Type: filesandordirs; Name: "{code:Vst3Dir}\{#PlaName}.vst3";      Components: not pla;  Check: SuiteHad ('pla')
 ; ...and its standalone app and Start menu shortcut go with it. An earlier suite 1.x install
 ; may have recorded "eq\standalone" as well; the plugin's own entry is the one that decides.
@@ -154,6 +158,7 @@ Type: files;          Name: "{app}\{#CompName}\{#CompName}.exe";    Components: 
 Type: files;          Name: "{app}\{#OptName}\{#OptName}.exe";      Components: not opt;  Check: SuiteHad ('opt')
 Type: files;          Name: "{app}\{#PeqName}\{#PeqName}.exe";      Components: not peq;  Check: SuiteHad ('peq')
 Type: files;          Name: "{app}\{#BusName}\{#BusName}.exe";      Components: not bus;  Check: SuiteHad ('bus')
+Type: files;          Name: "{app}\{#DeskName}\{#DeskName}.exe";      Components: not desk;  Check: SuiteHad ('desk')
 Type: files;          Name: "{app}\{#AnaName}\{#AnaName}.exe";      Components: not ana;  Check: SuiteHad ('ana')
 Type: files;          Name: "{autoprograms}\{#EqName}.lnk";       Components: not eq;  Check: SuiteHad ('eq')
 Type: files;          Name: "{autoprograms}\{#FetName}.lnk";      Components: not fet; Check: SuiteHad ('fet')
@@ -162,6 +167,7 @@ Type: files;          Name: "{autoprograms}\{#CompName}.lnk";      Components: n
 Type: files;          Name: "{autoprograms}\{#OptName}.lnk";       Components: not opt;  Check: SuiteHad ('opt')
 Type: files;          Name: "{autoprograms}\{#PeqName}.lnk";       Components: not peq;  Check: SuiteHad ('peq')
 Type: files;          Name: "{autoprograms}\{#BusName}.lnk";       Components: not bus;  Check: SuiteHad ('bus')
+Type: files;          Name: "{autoprograms}\{#DeskName}.lnk";       Components: not desk;  Check: SuiteHad ('desk')
 Type: files;          Name: "{autoprograms}\{#AnaName}.lnk";       Components: not ana;  Check: SuiteHad ('ana')
 Type: dirifempty;     Name: "{app}\{#EqName}";                    Components: not eq;  Check: SuiteHad ('eq')
 Type: dirifempty;     Name: "{app}\{#FetName}";                   Components: not fet; Check: SuiteHad ('fet')
@@ -170,6 +176,7 @@ Type: dirifempty;     Name: "{app}\{#CompName}";                   Components: n
 Type: dirifempty;     Name: "{app}\{#OptName}";                    Components: not opt;  Check: SuiteHad ('opt')
 Type: dirifempty;     Name: "{app}\{#PeqName}";                    Components: not peq;  Check: SuiteHad ('peq')
 Type: dirifempty;     Name: "{app}\{#BusName}";                    Components: not bus;  Check: SuiteHad ('bus')
+Type: dirifempty;     Name: "{app}\{#DeskName}";                    Components: not desk;  Check: SuiteHad ('desk')
 Type: dirifempty;     Name: "{app}\{#AnaName}";                    Components: not ana;  Check: SuiteHad ('ana')
 
 [Dirs]
@@ -184,6 +191,7 @@ Source: "{#CompDir}\VST3\{#CompName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#CompNam
 Source: "{#OptDir}\VST3\{#OptName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#OptName}.vst3"; Components: opt; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#PeqDir}\VST3\{#PeqName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#PeqName}.vst3"; Components: peq; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#BusDir}\VST3\{#BusName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#BusName}.vst3"; Components: bus; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#DeskDir}\VST3\{#DeskName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#DeskName}.vst3"; Components: desk; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#PlaDir}\VST3\{#PlaName}.vst3\*"; DestDir: "{code:Vst3Dir}\{#PlaName}.vst3"; Components: pla; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#EqDir}\Standalone\{#EqName}.exe";   DestDir: "{app}\{#EqName}";  Components: eq;  Flags: ignoreversion
 Source: "{#FetDir}\Standalone\{#FetName}.exe"; DestDir: "{app}\{#FetName}"; Components: fet; Flags: ignoreversion
@@ -192,6 +200,7 @@ Source: "{#CompDir}\Standalone\{#CompName}.exe"; DestDir: "{app}\{#CompName}"; C
 Source: "{#OptDir}\Standalone\{#OptName}.exe"; DestDir: "{app}\{#OptName}"; Components: opt; Flags: ignoreversion
 Source: "{#PeqDir}\Standalone\{#PeqName}.exe"; DestDir: "{app}\{#PeqName}"; Components: peq; Flags: ignoreversion
 Source: "{#BusDir}\Standalone\{#BusName}.exe"; DestDir: "{app}\{#BusName}"; Components: bus; Flags: ignoreversion
+Source: "{#DeskDir}\Standalone\{#DeskName}.exe"; DestDir: "{app}\{#DeskName}"; Components: desk; Flags: ignoreversion
 ; The Audio Analyzer is an application, so its build has no Standalone folder: the exe sits in the build's own folder.
 Source: "{#AnaDir}\{#AnaName}.exe"; DestDir: "{app}\{#AnaName}"; Components: ana; Flags: ignoreversion
 
@@ -203,6 +212,7 @@ Name: "{autoprograms}\{#CompName}"; Filename: "{app}\{#CompName}\{#CompName}.exe
 Name: "{autoprograms}\{#OptName}"; Filename: "{app}\{#OptName}\{#OptName}.exe"; Components: opt
 Name: "{autoprograms}\{#PeqName}"; Filename: "{app}\{#PeqName}\{#PeqName}.exe"; Components: peq
 Name: "{autoprograms}\{#BusName}"; Filename: "{app}\{#BusName}\{#BusName}.exe"; Components: bus
+Name: "{autoprograms}\{#DeskName}"; Filename: "{app}\{#DeskName}\{#DeskName}.exe"; Components: desk
 Name: "{autoprograms}\{#AnaName}"; Filename: "{app}\{#AnaName}\{#AnaName}.exe"; Components: ana
 
 ; Uninstall removes only what Setup installed (the bundles, the apps, the shortcuts). User
@@ -355,7 +365,7 @@ end;
 
 function NothingSelected(): Boolean;
 begin
-  Result := not (Selected ('eq') or Selected ('fet') or Selected ('max') or Selected ('comp') or Selected ('opt') or Selected ('peq') or Selected ('bus') or Selected ('ana') or Selected ('pla'));
+  Result := not (Selected ('eq') or Selected ('fet') or Selected ('max') or Selected ('comp') or Selected ('opt') or Selected ('peq') or Selected ('bus') or Selected ('desk') or Selected ('ana') or Selected ('pla'));
 end;
 
 function NextButtonClick (CurPageID: Integer): Boolean;
@@ -387,6 +397,7 @@ begin
   if Removing ('opt') then Removed := Removed + Space + '{#OptName}' + NewLine;
   if Removing ('peq') then Removed := Removed + Space + '{#PeqName}' + NewLine;
   if Removing ('bus') then Removed := Removed + Space + '{#BusName}' + NewLine;
+  if Removing ('desk') then Removed := Removed + Space + '{#DeskName}' + NewLine;
   if Removing ('ana') then Removed := Removed + Space + '{#AnaName}' + NewLine;
   if Removing ('pla') then Removed := Removed + Space + '{#PlaName}' + NewLine;
 
@@ -416,6 +427,7 @@ begin
   if Result = '' then Result := InUse ('opt', '{#OptName}');
   if Result = '' then Result := InUse ('peq', '{#PeqName}');
   if Result = '' then Result := InUse ('bus', '{#BusName}');
+  if Result = '' then Result := InUse ('desk', '{#DeskName}');
   if Result = '' then Result := InUse ('ana', '{#AnaName}');
   if Result = '' then Result := InUse ('pla', '{#PlaName}');
   if Result <> '' then

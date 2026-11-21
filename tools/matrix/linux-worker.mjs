@@ -26,7 +26,7 @@ import { parsePrompt } from './backlog.mjs';
 
 export const CI_VALIDATION = 'Hosted Windows and macOS builds and tests decide; this worker ran no local build.';
 const TURN_RUNAWAY_FACTOR = 3;
-const plugins = ['eq', 'analog-compressor', 'maximiser', 'compressor', 'optical-leveller', 'pultec-eq', 'bus-compressor', 'plugin-analyzer', 'audio-analyzer'];
+const plugins = ['eq', 'analog-compressor', 'maximiser', 'compressor', 'optical-leveller', 'pultec-eq', 'bus-compressor', 'analog-desk', 'plugin-analyzer', 'audio-analyzer'];
 const UI_NOTE = 'UI changes require retained before/after screenshots and visual review before marking this draft ready';
 const FORBIDDEN_ENV = /^(RELEASE_PUBLISH_TOKEN|CLOUDFLARE_|R2_|WEBSITE_|NPM_TOKEN|AWS_|GH_TOKEN|GITHUB_TOKEN)/;
 
@@ -192,7 +192,7 @@ export async function runLinuxWorker(config, { trigger = 'timer', run = runProce
     if (handed?.generated && !backlog.prompts.some(p => p.id === handed.taskId)) {
       try {
         const generated = parsePrompt(handed.generated.file, handed.generated.text);
-        if (generated.id === handed.taskId && generated.hash === handed.promptHash && /^(eq|analog-compressor|maximiser|compressor|optical-leveller|pultec-eq|bus-compressor|plugin-analyzer|audio-analyzer|shared)\/prompts\/[A-Za-z0-9._-]+\.md$/.test(generated.file)) backlog.prompts.push({ ...generated, generated: handed.generated });
+        if (generated.id === handed.taskId && generated.hash === handed.promptHash && /^(eq|analog-compressor|maximiser|compressor|optical-leveller|pultec-eq|bus-compressor|analog-desk|plugin-analyzer|audio-analyzer|shared)\/prompts\/[A-Za-z0-9._-]+\.md$/.test(generated.file)) backlog.prompts.push({ ...generated, generated: handed.generated });
       } catch { /* an unreadable generated prompt is simply not adopted */ }
     }
     reconcile(state, backlog.prompts, initial.revision); save();

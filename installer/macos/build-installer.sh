@@ -3,7 +3,7 @@
 # selected by default (Apple's pkgutil and productbuild, installed with Xcode).
 #
 #   installer/macos/build-installer.sh       # build each plugin's own .pkg first, then the suite
-#   installer/macos/build-installer.sh --eq-pkg <pkg> --fet-pkg <pkg> --max-pkg <pkg> --comp-pkg <pkg> --opt-pkg <pkg> --peq-pkg <pkg> --bus-pkg <pkg> --pla-pkg <pkg> --ana-pkg <pkg>   # CI
+#   installer/macos/build-installer.sh --eq-pkg <pkg> --fet-pkg <pkg> --max-pkg <pkg> --comp-pkg <pkg> --opt-pkg <pkg> --peq-pkg <pkg> --bus-pkg <pkg> --desk-pkg <pkg> --pla-pkg <pkg> --ana-pkg <pkg>   # CI
 #   installer/macos/build-installer.sh --suite-version <older version> --out-dir <folder>         # tests
 #
 # The suite is made from the SAME component packages as each plugin's own installer: it expands
@@ -19,7 +19,7 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
-eq_pkg="" fet_pkg="" max_pkg="" comp_pkg="" opt_pkg="" peq_pkg="" bus_pkg="" pla_pkg="" ana_pkg="" suite_version="" out_dir="$repo/build/suite-installer"
+eq_pkg="" fet_pkg="" max_pkg="" comp_pkg="" opt_pkg="" peq_pkg="" bus_pkg="" desk_pkg="" pla_pkg="" ana_pkg="" suite_version="" out_dir="$repo/build/suite-installer"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -30,6 +30,7 @@ while [ $# -gt 0 ]; do
         --opt-pkg)       opt_pkg="$2"; shift 2 ;;
         --peq-pkg)       peq_pkg="$2"; shift 2 ;;
         --bus-pkg)       bus_pkg="$2"; shift 2 ;;
+        --desk-pkg)      desk_pkg="$2"; shift 2 ;;
         --pla-pkg)       pla_pkg="$2"; shift 2 ;;
         --ana-pkg)       ana_pkg="$2"; shift 2 ;;
         --suite-version) suite_version="$2"; shift 2 ;;
@@ -58,6 +59,7 @@ comp_version="$shared_version"
 opt_version="$shared_version"
 peq_version="$shared_version"
 bus_version="$shared_version"
+desk_version="$shared_version"
 pla_version="$shared_version"
 ana_version="$shared_version"
 
@@ -69,6 +71,7 @@ ana_version="$shared_version"
 [ -z "$opt_pkg" ] && opt_pkg=$("$repo/optical-leveller/installer/macos/build-installer.sh" | tail -n 1)
 [ -z "$peq_pkg" ] && peq_pkg=$("$repo/pultec-eq/installer/macos/build-installer.sh" | tail -n 1)
 [ -z "$bus_pkg" ] && bus_pkg=$("$repo/bus-compressor/installer/macos/build-installer.sh" | tail -n 1)
+[ -z "$desk_pkg" ] && desk_pkg=$("$repo/analog-desk/installer/macos/build-installer.sh" | tail -n 1)
 [ -z "$pla_pkg" ] && pla_pkg=$("$repo/plugin-analyzer/installer/macos/build-installer.sh" | tail -n 1)
 [ -z "$ana_pkg" ] && ana_pkg=$("$repo/audio-analyzer/installer/macos/build-installer.sh" | tail -n 1)
 
@@ -112,13 +115,14 @@ take "$comp_pkg" songsmithcompressor
 take "$opt_pkg" songsmithopticalleveller
 take "$peq_pkg" songsmithpassiveeq
 take "$bus_pkg" songsmithbuscompressor
+take "$desk_pkg" songsmithanalogdesk
 take "$pla_pkg" songsmithpluginanalyzer vst3
 take "$ana_pkg" songsmithaudioanalyzer app
 [ -z "$min_macos" ] && min_macos="10.13"
 
 fill() {
     sed -e "s/@SUITE_VERSION@/$suite_version/g" -e "s/@EQ_VERSION@/$eq_version/g" \
-        -e "s/@FET_VERSION@/$fet_version/g" -e "s/@MAX_VERSION@/$max_version/g" -e "s/@COMP_VERSION@/$comp_version/g" -e "s/@OPT_VERSION@/$opt_version/g" -e "s/@PEQ_VERSION@/$peq_version/g" -e "s/@BUS_VERSION@/$bus_version/g" -e "s/@PLA_VERSION@/$pla_version/g" -e "s/@ANA_VERSION@/$ana_version/g" \
+        -e "s/@FET_VERSION@/$fet_version/g" -e "s/@MAX_VERSION@/$max_version/g" -e "s/@COMP_VERSION@/$comp_version/g" -e "s/@OPT_VERSION@/$opt_version/g" -e "s/@PEQ_VERSION@/$peq_version/g" -e "s/@BUS_VERSION@/$bus_version/g" -e "s/@DESK_VERSION@/$desk_version/g" -e "s/@PLA_VERSION@/$pla_version/g" -e "s/@ANA_VERSION@/$ana_version/g" \
         -e "s/@MIN_MACOS@/$min_macos/g" "$1"
 }
 fill "$here/distribution.xml" > "$work/distribution.xml"
@@ -139,7 +143,7 @@ productbuild --distribution "$work/distribution.xml" \
              --resources "$work/resources" \
              "$pkg"
 
-echo "Suite version: $suite_version (Songsmith EQ $eq_version, Songsmith Analog Compressor $fet_version, Songsmith Maximiser $max_version, Songsmith Compressor $comp_version, Songsmith Optical Leveller $opt_version, Songsmith Passive EQ $peq_version, Songsmith Bus Compressor $bus_version, Songsmith Plugin Analyzer $pla_version, Songsmith Audio Analyzer $ana_version)"
+echo "Suite version: $suite_version (Songsmith EQ $eq_version, Songsmith Analog Compressor $fet_version, Songsmith Maximiser $max_version, Songsmith Compressor $comp_version, Songsmith Optical Leveller $opt_version, Songsmith Passive EQ $peq_version, Songsmith Bus Compressor $bus_version, Songsmith Analog Desk $desk_version, Songsmith Plugin Analyzer $pla_version, Songsmith Audio Analyzer $ana_version)"
 echo "Minimum macOS: $min_macos"
 echo "Installer:     $pkg"
 echo "$pkg"

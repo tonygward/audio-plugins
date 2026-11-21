@@ -61,6 +61,9 @@ test('refuses any changed file outside the worker scope', () => {
   assert.equal(inScope('pultec-eq/README.md'), true);
   assert.equal(inScope('bus-compressor/Source/BusEngine.h'), true);
   assert.equal(inScope('bus-compressor/README.md'), true);
+  assert.equal(inScope('analog-desk/Source/DeskEngine.h'), true);
+  assert.equal(inScope('analog-desk/README.md'), true);
+  assert.equal(inScope('analog-desk/installer/macos/build-installer.sh'), false);
   assert.equal(inScope('plugin-analyzer/Source/AnalysisMath.h'), true);
   assert.equal(inScope('plugin-analyzer/README.md'), true);
   assert.equal(inScope('audio-analyzer/Source/AnalyzerComponent.cpp'), true);

@@ -6,7 +6,7 @@
 # -EqInstaller is Songsmith EQ's own installer (eq/installer), used to check that the suite
 # replaces a per-plugin install. -OlderInstaller is a suite installer with a lower version, used
 # to check upgrades; if it's missing, it's built from the same plugins with an older version (see $olderVersion).
-# -EqDir, -FetDir, -MaxDir, -CompDir, -OptDir, -PeqDir, -BusDir, -PlaDir (the Plugin Analyzer, a VST3 only) and -AnaDir (the Audio Analyzer app) are the plugins' Release artefacts, as for build-installer.ps1
+# -EqDir, -FetDir, -MaxDir, -CompDir, -OptDir, -PeqDir, -BusDir, -DeskDir, -PlaDir (the Plugin Analyzer, a VST3 only) and -AnaDir (the Audio Analyzer app) are the plugins' Release artefacts, as for build-installer.ps1
 # (CI passes the folders it downloaded; locally the plugins' own build folders are used).
 #
 # Everything happens inside a temporary folder. The installers run per-user (/CURRENTUSER) with
@@ -25,6 +25,7 @@ param(
     [string]$OptDir,
     [string]$PeqDir,
     [string]$BusDir,
+    [string]$DeskDir,
     [string]$AnaDir,
     [string]$PlaDir
 )
@@ -45,6 +46,7 @@ if ($CompDir) { $builds.CompDir = $CompDir }
 if ($OptDir) { $builds.OptDir = $OptDir }
 if ($PeqDir) { $builds.PeqDir = $PeqDir }
 if ($BusDir) { $builds.BusDir = $BusDir }
+if ($DeskDir) { $builds.DeskDir = $DeskDir }
 if ($AnaDir) { $builds.AnaDir = $AnaDir }
 if ($PlaDir) { $builds.PlaDir = $PlaDir }
 if (-not $Installer) {
@@ -71,6 +73,7 @@ $plugins = [ordered]@{
     opt = "Songsmith Optical Leveller"
     peq = "Songsmith Passive EQ"
     bus = "Songsmith Bus Compressor"
+    desk = "Songsmith Analog Desk"
     ana = "Songsmith Audio Analyzer"   # REC-02: an application only, with no VST3
     pla = "Songsmith Plugin Analyzer"  # ANALYZER-01: a VST3 only, with no standalone app and no shortcut
 }
@@ -197,7 +200,7 @@ try {
 
     Write-Host "`n1. Everything ticked"
     Check ((Run-Suite $Installer "1-all.log" "") -eq 0) "installer exits with 0"
-    Expect-Installed @("eq", "fet", "max", "comp", "opt", "peq", "bus", "ana", "pla") "everything"
+    Expect-Installed @("eq", "fet", "max", "comp", "opt", "peq", "bus", "desk", "ana", "pla") "everything"
     Check ((Shortcut-Target (Shortcut "ana")) -eq (Exe "ana")) "the Audio Analyzer's Start menu shortcut opens its installed app: $(Shortcut-Target (Shortcut 'ana'))"
     # ANA-01: the logo. The app carries its icon inside the exe, and the shortcut takes it from there (a stored path to a
     # separate icon file could go missing, and Windows would then show a blank icon).
@@ -210,7 +213,7 @@ try {
     Check ((Get-ItemProperty $suiteKey).DisplayName -like "Songsmith Plugins (*") "the Apps entry is called Songsmith Plugins: $((Get-ItemProperty $suiteKey).DisplayName)"
     Check ((Get-ItemProperty $suiteKey).Publisher -eq "Songsmith Studio") "the publisher is still Songsmith Studio"
     $name = (Get-ItemProperty $suiteKey).DisplayName
-    Check ($name -match "EQ \d+\.\d+\.\d+" -and $name -match "Analog Compressor \d+\.\d+\.\d+" -and $name -match "Maximiser \d+\.\d+\.\d+" -and $name -match "Compressor \d+\.\d+\.\d+, Optical Leveller \d+\.\d+\.\d+, Passive EQ \d+\.\d+\.\d+, Bus Compressor \d+\.\d+\.\d+, Audio Analyzer \d+\.\d+\.\d+, Plugin Analyzer \d+\.\d+\.\d+\)") "the Apps entry lists each plugin's version: $name"
+    Check ($name -match "EQ \d+\.\d+\.\d+" -and $name -match "Analog Compressor \d+\.\d+\.\d+" -and $name -match "Maximiser \d+\.\d+\.\d+" -and $name -match "Compressor \d+\.\d+\.\d+, Optical Leveller \d+\.\d+\.\d+, Passive EQ \d+\.\d+\.\d+, Bus Compressor \d+\.\d+\.\d+, Analog Desk \d+\.\d+\.\d+, Audio Analyzer \d+\.\d+\.\d+, Plugin Analyzer \d+\.\d+\.\d+\)") "the Apps entry lists each plugin's version: $name"
 
     # The app runs by itself, with no recording software: it opens, stays open and can be closed.
     $app = Start-Process -FilePath (Exe "ana") -PassThru
@@ -302,7 +305,7 @@ try {
     $iss = Get-Content (Join-Path $PSScriptRoot "SongsmithStudio.iss") -Raw
     Check ($iss -notmatch '(?im)^Name:\s*"\w+\\standalone"') "the Components list has no standalone sub-components"
     $componentLines = [regex]::Matches($iss, '(?im)^Name:\s*"(\w+)";\s+Description:.*Types:')
-    Check ($componentLines.Count -eq 9) "exactly nine components: eight plugins and the Audio Analyzer (found $($componentLines.Count))"
+    Check ($componentLines.Count -eq 10) "exactly ten components: nine plugins and the Audio Analyzer (found $($componentLines.Count))"
 
     # The installer must never reach user presets, whatever folder they're in.
     $iss = Get-Content (Join-Path $PSScriptRoot "SongsmithStudio.iss") -Raw

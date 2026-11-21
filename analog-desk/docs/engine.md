@@ -1,6 +1,6 @@
 # Songsmith Analog Desk: engine reference
 
-What the engine does, which parts follow published descriptions of the SSL 4000 E channel strip, which are Songsmith design choices, and the test that checks each. The engine is `Source/DeskEngine.h`; the tests are in `Tests/DeskEngineTests.cpp`. This is the first step of DESK-01 (issue #328): the engine and its tests. The plugin, its editor, presets and installers are not built yet.
+What the engine does, which parts follow published descriptions of the SSL 4000 E channel strip, which are Songsmith design choices, and the test that checks each. The engine is `Source/DeskEngine.h`; the tests are in `Tests/DeskEngineTests.cpp`. This is the first step of DESK-01 (issue #328): the engine and its tests. The plugin (processor, editor, presets) is built on top of it and tested in `Tests/DeskPluginTests.cpp`.
 
 ## Hardware reference, and how far it is verified
 
@@ -65,6 +65,12 @@ The dynamics (a gate or expander, then a compressor) sit either before the EQ (t
 - Damaged input (not a number, infinite) leaves the output finite, and silence in, once the filters have settled, gives silence out, across 40 random combinations of every setting.
 - Mono and stereo: with one channel the second is not touched, and two identical channels stay identical.
 
-## Not done yet (the rest of DESK-01)
+## In the plugin
 
-The plugin itself (processor, parameter IDs and saved state, the editor with the shared title bar, preset menu, Undo and Redo, Bypass and the Output and Gain Reduction meters), factory presets, CI and installer wiring, the version and release checks, Matrix scope, and the README. The engine has not been verified against real SSL hardware or a measurement of it, and it has not been listened to.
+- Filter and equaliser coefficients change at once in the engine, so the plugin smooths those controls over 20 ms and applies them every 32 samples (test: `Moving a filter or equaliser control while playing does not click`). The trims, Drive and make-up are smoothed inside the engine.
+- The High-Pass Filter's lowest setting and the Low-Pass Filter's highest setting mean off.
+- Every setting is a host parameter with a stable ID (`DeskParams.h`); a test pins the full list and defaults.
+
+## Not verified
+
+The engine has not been verified against real SSL hardware or a measurement of it, and it has not been listened to. The plugin has not been tried in a DAW.

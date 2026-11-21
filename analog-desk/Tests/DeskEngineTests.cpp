@@ -538,24 +538,3 @@ public:
 };
 
 static DeskEngineTests deskEngineTests;
-
-struct ConsoleRunner final : juce::UnitTestRunner
-{
-    void logMessage (const juce::String& m) override { std::printf ("%s\n", m.toRawUTF8()); std::fflush (stdout); }
-};
-
-int main()
-{
-    ConsoleRunner runner;
-    runner.setAssertOnFailure (false);
-    runner.runTestsInCategory ("AnalogDesk");
-
-    int failures = 0, passes = 0;
-    for (int i = 0; i < runner.getNumResults(); ++i)
-    {
-        failures += runner.getResult (i)->failures;
-        passes   += runner.getResult (i)->passes;
-    }
-    std::printf ("\n==== %d checks passed, %d failed ====\n", passes, failures);
-    return failures == 0 ? 0 : 1;
-}
