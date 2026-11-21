@@ -13,6 +13,7 @@
 #include "../../shared/Tests/SongsmithMeterColumnTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
 #include "../../shared/Tests/SongsmithUpdateTests.h"
+#include "../../shared/Tests/SongsmithBeforeAfterTests.h"
 #include "SongsmithWording.h"
 
 namespace
@@ -688,6 +689,7 @@ static SongsmithDiagnosticsTests sharedDiagnosticsTests { "OpticalLeveller" };
 static SongsmithMeterColumnTests<SongsmithOpticalLevellerProcessor, SongsmithOpticalLevellerEditor> sharedMeterColumnTests { "OpticalLeveller", Opt::EditorLayout::designWidth, Opt::EditorLayout::contentHeight };
 static SongsmithGuidanceTests sharedGuidanceTests { "OpticalLeveller" };
 static SongsmithUpdateTests sharedUpdateTests { "OpticalLeveller" };
+static SongsmithBeforeAfterTests<SongsmithOpticalLevellerProcessor, SongsmithOpticalLevellerEditor> sharedBeforeAfterTests { "OpticalLeveller" };
 
 struct ConsoleRunner final : juce::UnitTestRunner
 {

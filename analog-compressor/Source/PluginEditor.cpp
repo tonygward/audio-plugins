@@ -469,6 +469,7 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     meter.ballistics.reset (needleFraction (0.0f));
 
     diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (proc, proc.loadMeter, JucePlugin_Name);
+    diagnostics->setBeforeAfter (&proc.beforeAfter);   // songsmithstudio#7
     content.addAndMakeVisible (*diagnostics);
 
     content.addAndMakeVisible (titleHint);   // SUI-17: the plugin name explains the plugin

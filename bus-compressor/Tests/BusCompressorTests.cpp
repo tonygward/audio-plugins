@@ -12,6 +12,7 @@
 #include "../../shared/Tests/SongsmithMeterColumnTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
 #include "../../shared/Tests/SongsmithUpdateTests.h"
+#include "../../shared/Tests/SongsmithBeforeAfterTests.h"
 #include "SongsmithWording.h"
 
 namespace
@@ -660,6 +661,7 @@ static SongsmithDiagnosticsTests sharedDiagnosticsTests { "BusCompressor" };
 static SongsmithMeterColumnTests<SongsmithBusCompressorProcessor, SongsmithBusCompressorEditor> sharedMeterColumnTests { "BusCompressor", BusComp::EditorLayout::designWidth, BusComp::EditorLayout::contentHeight };
 static SongsmithGuidanceTests sharedGuidanceTests { "BusCompressor" };
 static SongsmithUpdateTests sharedUpdateTests { "BusCompressor" };
+static SongsmithBeforeAfterTests<SongsmithBusCompressorProcessor, SongsmithBusCompressorEditor> sharedBeforeAfterTests { "BusCompressor" };
 
 struct ConsoleRunner final : juce::UnitTestRunner
 {
