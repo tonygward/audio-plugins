@@ -2,6 +2,11 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- **Songsmith Maximiser now has Oversampling.** A new dropdown sits right beside Dither: **Off**, **2×** or **4×**. It runs the limiter at a higher rate inside the plugin, for a cleaner top end and more accurate peaks when you limit hard. It uses more processing power and adds a little delay, which your recording software makes up for. Your existing songs are not changed: it is off unless you turn it on, and the output ceiling holds exactly as before at every setting.
+- **The Oversampling dropdowns are tidier.** The Songsmith Analog Compressor's was wider than it needed to be; it is now only as wide as its text, like the Songsmith EQ's and the Maximiser's, and all three say the same thing ("Oversampling: off", "2×", "4×").
+
 ## 0.5.64
 
 - **Songsmith plugins now tell you when a newer version is available.** If a newer build has been published, a small **Update available** link appears beside the version number at the bottom left of the plugin window. Clicking it opens the download page in your browser. Nothing is installed for you, and you do not need to do anything. It looks at most once a day, in the background, and stays quiet when you are offline or up to date.

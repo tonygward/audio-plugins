@@ -70,8 +70,8 @@ public:
                 { "Songsmith Compressor", "compressor" }, { "Songsmith Optical Leveller", "optical-leveller" }, { "Songsmith Passive EQ", "passive-eq" },
                 { "Songsmith Bus Compressor", "bus-compressor" }, { "Songsmith Analog Desk", "analog-desk" },
                 { "Songsmith Plugin Analyzer", "plugin-analyzer" }, { "Songsmith Audio Analyzer", "audio-analyzer" } };
-            for (auto& [name, id] : names)
-                expectEquals (pluginIdFor (name), juce::String (id));
+            for (auto& [product, id] : names)
+                expectEquals (pluginIdFor (product), juce::String (id));
             expectEquals (pluginIdFor ("  Songsmith   Odd  Name!! "), juce::String ("odd-name"));
         }
 

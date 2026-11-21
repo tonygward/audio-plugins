@@ -99,9 +99,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     };
     content.addAndMakeVisible (phaseBox);
 
-    oversamplingBox.addItemList ({ "Oversampling: off",
-                                   "Oversampling: 2" + juce::String::charToString (0x00d7),    // multiplication sign
-                                   "Oversampling: 4" + juce::String::charToString (0x00d7) }, 1);
+    oversamplingBox.addItemList (Songsmith::UI::Dropdown::oversamplingItems(), 1);   // the wording every plugin shares
     oversamplingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         processor.apvts, EQ::oversamplingId, oversamplingBox);
     oversamplingBox.setTooltip ("Oversampling: keeps high-frequency bells and shelves from 'cramping' near Nyquist "
@@ -479,10 +477,7 @@ namespace
     // Wide enough for the longest item, plus the arrow and the label's insets.
     int comboWidth (const juce::ComboBox& box)
     {
-        float w = 0.0f;
-        for (int i = 0; i < box.getNumItems(); ++i)
-            w = juce::jmax (w, textWidth (box.getItemText (i), EQColours::font (EQColours::Type::heading)));
-        return (int) std::ceil (w) + 44;
+        return Songsmith::UI::Dropdown::widthFor (box, EQColours::font (EQColours::Type::heading));   // longest item plus the chevron and padding
     }
 
     int buttonWidth (const juce::StringArray& texts)

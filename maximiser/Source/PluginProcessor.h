@@ -1,6 +1,9 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
+#include <array>
+#include <memory>
 #include "MaxParams.h"
 #include "BrickwallLimiter.h"
 #include "Dither.h"
@@ -15,9 +18,9 @@ class SongsmithMaximiserAudioProcessor : public juce::AudioProcessor
 {
 public:
     // Saved-state format. 1 = threshold, ceiling, release, bypass. 2 = adds peak_mode, auto_release.
-    // 3 = adds dither and the UI child (link, editor width).
+    // 3 = adds dither and the UI child (link, editor width). 4 = adds oversampling (sessions from 1 to 3 load with Off, as they sounded).
     // Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 3;
+    static constexpr int stateVersion = 4;
 
     SongsmithMaximiserAudioProcessor();
     ~SongsmithMaximiserAudioProcessor() override { loudnessTimer.stopTimer(); }
@@ -62,6 +65,13 @@ public:
     bool isTruePeak() const noexcept      { return peakModeParam->getIndex() == 1; }
     bool isAutoRelease() const noexcept   { return autoReleaseParam->get(); }
     Max::Dither::Depth getDitherDepth() const noexcept { return (Max::Dither::Depth) juce::jlimit (0, 2, ditherParam->getIndex()); }
+    int getOversamplingIndex() const noexcept { return juce::jlimit (0, 2, oversamplingParam->getIndex()); }   // 0 off, 1 = 2x, 2 = 4x
+
+    // The delay, in samples at the host's rate, that an oversampling setting adds in all (the limiter's look-ahead plus the
+    // up and down filters). Valid after prepareToPlay. The host is told the one for the setting chosen, ahead of the switch.
+    int getLatencyFor (int oversamplingIndex) const noexcept { return pathLatency[(size_t) juce::jlimit (0, 2, oversamplingIndex)]; }
+    void updateLatencyNow();   // message thread: tells the host the delay of the chosen setting (a timer does this too)
+    int getActiveOversampling() const noexcept { return osActive; }   // the setting the audio is running at now (it follows the control after a short fade)
 
     juce::AudioProcessorValueTreeState apvts;
 
@@ -91,7 +101,7 @@ public:
     Songsmith::UI::OutputMeterState outputMeter;   // SUI-23: per-channel output peaks and the CLIP latch, as in every plugin
     static float readAndReset (std::atomic<float>& meter, float resetTo = 0.0f) noexcept { return meter.exchange (resetTo, std::memory_order_relaxed); }
 
-    const Max::BrickwallLimiter& getLimiter() const noexcept { return limiter; }
+    const Max::BrickwallLimiter& getLimiter() const noexcept { return limiters[(size_t) osActive]; }
 
     // Loudness (LUFS) of the output, measured as it plays. The audio thread feeds 100 ms steps into
     // loudnessMeter's FIFO; the editor (the only consumer) turns them into readings. Not a parameter,
@@ -129,6 +139,7 @@ private:
     juce::AudioParameterChoice* peakModeParam = nullptr;
     juce::AudioParameterBool* autoReleaseParam = nullptr;
     juce::AudioParameterChoice* ditherParam = nullptr;
+    juce::AudioParameterChoice* oversamplingParam = nullptr;
 
     Max::Dither dither;
     bool wasPlaying = false;   // audio thread only
@@ -137,7 +148,7 @@ private:
     struct LoudnessTimer final : juce::Timer
     {
         explicit LoudnessTimer (SongsmithMaximiserAudioProcessor& o) : owner (o) {}
-        void timerCallback() override { owner.updateLoudness(); }
+        void timerCallback() override { owner.updateLoudness(); owner.updateLatencyNow(); }
         SongsmithMaximiserAudioProcessor& owner;
     } loudnessTimer { *this };
 
@@ -145,7 +156,25 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix { 0.0f };   // 1 = fully bypassed
     juce::AudioBuffer<float> dryBuffer;
 
-    Max::BrickwallLimiter limiter;
+    // One limiter for each oversampling setting (off, 2x, 4x), each prepared at its own rate in prepareToPlay, so switching
+    // never allocates. Only the active one runs; the others wait, reset, until they are chosen.
+    std::array<Max::BrickwallLimiter, 3> limiters;
+    std::array<std::unique_ptr<juce::dsp::Oversampling<float>>, 3> oversamplers;   // [0] unused: off means no oversampler
+    std::array<int, 3> pathLatency { 0, 0, 0 };
+
+    // With oversampling on, a last limiter at the host's rate sits behind the down filter, with its threshold at the ceiling so it
+    // does nothing at all unless a peak got through. The filters can nudge a full-band signal a little over the ceiling (a
+    // fraction of a decibel on real material); this keeps the output ceiling exactly as firm as it is with oversampling off.
+    Max::BrickwallLimiter guard;
+    int osActive = 0;   // audio thread (and prepareToPlay)
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> pathFade { 1.0f };   // fades the processed sound out and in around a switch
+    static constexpr double pathFadeSeconds = 0.01;
+    int holdSamples = 0;   // after a switch: silence while the new path fills its delay, then the fade-in
+
+    void switchPath (int index) noexcept;
+    void applyLimiterSettings (Max::BrickwallLimiter&) noexcept;
+    void applyGuardSettings() noexcept;
+    static constexpr float guardReleaseMs = 5.0f;   // short, so a rare overshoot is caught and let go at once
 
     // The dry signal for bypass, delayed by the limiter latency so bypass stays time-aligned.
     juce::AudioBuffer<float> dryDelay;

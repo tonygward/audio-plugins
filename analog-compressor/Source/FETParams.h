@@ -201,8 +201,8 @@ namespace FET
     inline constexpr int levelsPanelWidth = 300, levelsPanelHeight = 136, levelsPanelGap = 6;
 
     // ACOMP-21 (replaces ACOMP-19's lower-right place): Oversampling is on the right of the secondary row.
-    inline constexpr int oversamplingWidth = 200, oversamplingHeight = modeRowHeight, oversamplingY = modeRowY;
-    inline constexpr int oversamplingX = designWidth - configMargin - oversamplingWidth;   // ACOMP-23: right-aligned with the meter column
+    // songsmithstudio#15: the width follows the text (see Songsmith::UI::Dropdown::widthFor), right-aligned with the meter column.
+    inline constexpr int oversamplingHeight = modeRowHeight, oversamplingY = modeRowY;
     inline constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
     inline constexpr int designHeight = contentHeight + footerHeight;
 

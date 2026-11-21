@@ -4,6 +4,7 @@
 #include "PluginProcessor.h"
 #include "MaxLookAndFeel.h"
 #include "Meters.h"
+#include "../../shared/Source/SongsmithDropdown.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 
@@ -31,8 +32,9 @@ public:
     juce::Slider& getCeilingSlider() noexcept   { return ceilingSlider; }
     juce::Slider& getReleaseSlider() noexcept   { return releaseSlider; }
     juce::Button& getLinkButton() noexcept      { return linkButton; }
-    juce::ComboBox& getPeakModeBox() noexcept   { return peakModeBox; }
     juce::ComboBox& getDitherBox() noexcept     { return ditherBox; }
+    juce::ComboBox& getOversamplingBox() noexcept { return oversamplingBox; }
+    juce::ComboBox& getPeakModeBox() noexcept   { return peakModeBox; }
     juce::ComboBox& getStartingPointBox() noexcept { return startingPointBox; }
     VerticalMeter& getReductionMeter() noexcept { return reductionMeter; }
     Songsmith::UI::OutputMeterDisplay& getOutputMeter() noexcept { return outputMeter; }
@@ -87,12 +89,12 @@ private:
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
     juce::Rectangle<int> titleBounds;   // the product name, painted
     void refreshHistoryButtons();
-    juce::ComboBox peakModeBox, ditherBox, startingPointBox;
+    juce::ComboBox peakModeBox, ditherBox, oversamplingBox, startingPointBox;
     juce::Label thresholdLabel, ceilingLabel, releaseLabel, inLabel, grLabel, peakLabel, ditherLabel, gainLabel;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoReleaseAttachment, bypassAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> peakModeAttachment, ditherAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> peakModeAttachment, ditherAttachment, oversamplingAttachment;
 
     // SUI-23: the far-right column is the Songsmith Compressor's: the shared Output meter at the very edge and the
     // Gain Reduction bar (with its number) beside it.

@@ -12,6 +12,7 @@
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
 #include "../../shared/Tests/SongsmithUpdateTests.h"
+#include "../../shared/Tests/SongsmithDropdownTests.h"
 #include "SongsmithWording.h"
 #include "FETPresets.h"
 
@@ -541,3 +542,4 @@ static SongsmithUITests sharedUITests { "FET" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "FET" };
 static SongsmithGuidanceTests sharedGuidanceTests { "FET" };
 static SongsmithUpdateTests sharedUpdateTests { "FET" };
+static SongsmithDropdownTests<SongsmithAnalogCompressorProcessor, SongsmithAnalogCompressorEditor> sharedDropdownTests { "FET" };

@@ -35,6 +35,17 @@ namespace Max
         return names;
     }
 
+    // --- Added in version 4 (songsmithstudio#15) -----------------------------------------
+    // Oversampling of the limiter: 0 off (default, so every earlier session sounds and reports exactly as before), 1 = 2x, 2 = 4x.
+    // The names are the same as in the Songsmith EQ and Analog Compressor.
+    inline constexpr const char* oversamplingId = "oversampling";
+
+    inline const juce::StringArray& getOversamplingNames()
+    {
+        static const juce::StringArray names { "Off", "2x", "4x" };
+        return names;
+    }
+
     // --- Ranges and defaults -------------------------------------------------------------
     // Threshold and Out Ceiling both span 0 to -30 dB, as in the L1 manual. The defaults (0 / 0)
     // give a gain of 0 dB, so a fresh instance passes audio below 0 dBFS through untouched.

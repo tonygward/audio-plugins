@@ -604,7 +604,11 @@ void SongsmithAnalogCompressorEditor::layoutContent()
 
     // ACOMP-21 (replaces ACOMP-19's lower-right place): Oversampling is a processing setting. It sits on the right of
     // the secondary row under the title bar, right-aligned with the meter.
-    oversampling.setBounds (oversamplingX, oversamplingY, oversamplingWidth, oversamplingHeight);
+    {
+        // The width follows the text; the right edge stays level with the meter column.
+        Songsmith::UI::Dropdown::place (oversampling, 0, oversamplingY, oversamplingHeight);
+        oversampling.setTopLeftPosition (FET::designWidth - FET::configMargin - oversampling.getWidth(), oversamplingY);
+    }
 
     diagnostics->setBounds (0, FET::contentHeight, FET::designWidth, FET::footerHeight);
 }
@@ -705,8 +709,7 @@ juce::String SongsmithAnalogCompressorEditor::meterModeName (int mode)
 
 juce::String SongsmithAnalogCompressorEditor::oversamplingText (int index)
 {
-    const auto times = juce::String::charToString (0x00d7);   // multiplication sign
-    return index <= 0 ? juce::String ("Oversampling: off") : "Oversampling: " + juce::String (1 << index) + times;
+    return Songsmith::UI::Dropdown::oversamplingText (index);
 }
 
 // The selected model changed (the musician, a preset, automation or a loaded session): show its use, its buttons and

@@ -4,6 +4,7 @@
 #include "PluginProcessor.h"
 #include "FETLookAndFeel.h"
 #include "NeedleMeter.h"
+#include "../../shared/Source/SongsmithDropdown.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithMeterColumn.h"
 
