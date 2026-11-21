@@ -105,7 +105,7 @@ public:
                 expectWithinAbsoluteError (getParam (p, r.id), r.def, 1.0e-3f, juce::String (r.id) + " default");
             }
             expect (p.apvts.getParameter (Comp::autoMakeupId) != nullptr && p.apvts.getParameter (Comp::bypassId) != nullptr);
-            expectEquals (p.getParameters().size(), 10, "ten parameters");
+            expectEquals (p.getParameters().size(), 11, "eleven parameters (Analog Warmth Model was added in version 3)");
             expect (p.apvts.getParameter (Comp::warmthId) != nullptr, "Analog Warmth exists");
             expectWithinAbsoluteError (getParam (p, Comp::warmthId), 0.0f, 1.0e-6f, "and is off by default");
             expectEquals (p.apvts.getParameter (Comp::warmthId)->getName (100), juce::String ("Analog Warmth"));
@@ -562,6 +562,376 @@ public:
 
 //==============================================================================
 // COMP-02: the graph's data path, the graph, the floating panel and the shared output meter's feed.
+// songsmithstudio#14: Analog Warmth has the Analog Compressor's four models (Black, Blue, Anniversary, Lindell), run by the same shared code.
+class WarmthModelTests final : public juce::UnitTest
+{
+public:
+    WarmthModelTests() : juce::UnitTest ("Analog Warmth models (songsmithstudio#14)", "Compressor") {}
+
+    using Models = Songsmith::AnalogModels::Model;
+
+    // A steady-level signal (samples alternate +a and -a), so the detector sees a constant level and the gain reduction settles.
+    static std::vector<float> steady (int n, float a)
+    {
+        std::vector<float> v ((size_t) n);
+        for (size_t i = 0; i < v.size(); ++i)
+            v[i] = (i & 1) ? -a : a;
+        return v;
+    }
+
+    static std::vector<float> sine (int n, double fs, double freq, double peakDb)
+    {
+        std::vector<float> v ((size_t) n);
+        const double a = std::pow (10.0, peakDb / 20.0);
+        for (int i = 0; i < n; ++i)
+            v[(size_t) i] = (float) (a * std::sin (2.0 * juce::MathConstants<double>::pi * freq * (double) i / fs));
+        return v;
+    }
+
+    static float binDb (const std::vector<float>& x, double fs, double freq, size_t start)
+    {
+        double re = 0.0, im = 0.0;
+        for (size_t i = start; i < x.size(); ++i)
+        {
+            const double w = 2.0 * juce::MathConstants<double>::pi * freq * (double) i / fs;
+            re += (double) x[i] * std::cos (w);
+            im += (double) x[i] * std::sin (w);
+        }
+        return (float) (20.0 * std::log10 (2.0 * std::sqrt (re * re + im * im) / (double) (x.size() - start) + 1.0e-12));
+    }
+
+    static SongsmithComp::Params params (bool warmth, int model)
+    {
+        SongsmithComp::Params p;
+        p.thresholdDb = -24.0f; p.ratio = 4.0f; p.attackMs = 10.0f; p.releaseMs = 100.0f; p.kneeDb = 6.0f;
+        p.makeupDb = 0.0f; p.autoMakeup = false; p.mix = 1.0f;
+        p.warmth = warmth; p.warmthModel = model;
+        return p;
+    }
+
+    // Runs 'in' through an engine; returns the output and the gain reduction at the end.
+    static std::vector<float> through (const SongsmithComp::Params& p, const std::vector<float>& in, double fs, float* endReduction = nullptr)
+    {
+        SongsmithComp::Engine e;
+        e.prepare (fs);
+        e.setParams (p);
+        e.reset();
+        auto out = in;
+        float* ch[] = { out.data() };
+        e.process (ch, 1, (int) out.size());
+        if (endReduction != nullptr)
+            *endReduction = e.getGainReductionDb();
+        return out;
+    }
+
+    void runTest() override
+    {
+        namespace AM = Songsmith::AnalogModels;
+
+        beginTest ("The parameter: ID, version, the four names in order, Black by default; the dropdown's words come from the one shared table");
+        {
+            SongsmithCompressorAudioProcessor p;
+            auto* rp = dynamic_cast<juce::AudioParameterChoice*> (p.apvts.getParameter (Comp::warmthModelId));
+            expect (rp != nullptr);
+            if (rp != nullptr)
+            {
+                expectEquals (rp->choices.joinIntoString ("/"), juce::String ("Blackface/Blue Stripe/Anniversary Edition/Lindell"), "the host's names are the Analog Compressor's");
+                expectEquals (rp->getIndex(), 0, "Black by default");
+                expectEquals (rp->getVersionHint(), 3);
+            }
+            expectEquals (juce::String (Comp::warmthModelId), juce::String ("warmth_model"));
+            expectEquals (SongsmithCompressorAudioProcessor::stateVersion, 3);
+            expect (! p.isWarmthClassic(), "a new instance uses the models");
+            expectEquals (AM::numModels, 4);
+            expectEquals (juce::String (AM::modelLabelTable[0]) + "/" + AM::modelLabelTable[1] + "/" + AM::modelLabelTable[2] + "/" + AM::modelLabelTable[3],
+                          juce::String ("Black/Blue/Anniversary/Lindell"));
+        }
+
+        beginTest ("The same code as the Analog Compressor: with a model on, the output is exactly the shared FET cell and output stage applied to the gain-reduced sound");
+        for (int model = 0; model < AM::numModels; ++model)
+        {
+            const double fs = 48000.0;
+            const auto in = steady (int (fs * 5.0), 0.4f);
+            auto p = params (true, model);
+            float reduction = 0.0f;
+            const auto out = through (p, in, fs, &reduction);
+            expectGreaterThan (reduction, 1.0f, "the compressor is working (model " + juce::String (model) + ")");
+
+            // The reference: the Analog Compressor's own classes, fed the same sound at the same gain reduction.
+            const float r = juce::Decibels::decibelsToGain (-reduction);
+            const float colour = AM::voicingFor (model).colourScale;
+            AM::OutputStage stage;
+            stage.prepare (fs);
+            float worst = 0.0f;
+            for (size_t i = 0; i < in.size(); ++i)
+            {
+                const float y = AM::FetCell::process (in[i] * r, r, colour);
+                const float expected = stage.processSample (0, y);
+                if (i > (size_t) (fs * 4.0))
+                    worst = std::max (worst, std::abs (out[i] - expected));
+            }
+            expectLessThan (worst, 5.0e-4f, "model " + juce::String (model) + " matches the shared stages sample for sample (worst " + juce::String (worst, 6) + ")");
+        }
+
+        beginTest ("Black leaves the compression exactly as set; the other models move it as the Analog Compressor's do, and the colour follows the table");
+        {
+            const double fs = 48000.0;
+            const auto loud = sine (int (fs * 3.0), fs, 1000.0, -6.0);
+            float clean = 0.0f, black = 0.0f;
+            through (params (false, 0), loud, fs, &clean);
+            through (params (true, 0), loud, fs, &black);
+            expectEquals (black, clean, "Black: the gain reduction is bit-identical to the clean compressor's");
+
+            // Attack: Blue 0.7x, Black 1x, Lindell 1.6x, so a short burst is caught in that order.
+            auto burst = std::vector<float> (int (fs * 0.0025), 0.0f);
+            std::vector<float> quietThenLoud = steady (int (fs * 0.5), 0.01f);
+            for (int i = 0; i < (int) burst.size(); ++i)
+                quietThenLoud.push_back ((i & 1) ? -0.9f : 0.9f);
+            float rBlue = 0, rBlack = 0, rLindell = 0;
+            through (params (true, 1), quietThenLoud, fs, &rBlue);
+            through (params (true, 0), quietThenLoud, fs, &rBlack);
+            through (params (true, 3), quietThenLoud, fs, &rLindell);
+            expect (rBlue > rBlack && rBlack > rLindell, "after 2.5 ms of a loud burst the reduction is Blue " + juce::String (rBlue, 2) + " > Black "
+                    + juce::String (rBlack, 2) + " > Lindell " + juce::String (rLindell, 2) + " dB (attack 0.7x, 1x, 1.6x)");
+
+            // Colour: the second harmonic follows the table (Blue 2.0, Black 1.0, Anniversary 0.6) at the same input.
+            auto secondHarmonic = [&] (int model)
+            {
+                const auto out = through (params (true, model), sine (int (fs * 3.0), fs, 1000.0, -6.0), fs);
+                return binDb (out, fs, 2000.0, (size_t) (fs * 2.0)) - binDb (out, fs, 1000.0, (size_t) (fs * 2.0));
+            };
+            const float h2Blue = secondHarmonic (1), h2Black = secondHarmonic (0), h2Anniversary = secondHarmonic (2);
+            expect (h2Blue > h2Black && h2Black > h2Anniversary, "second harmonic: Blue " + juce::String (h2Blue, 1) + " > Black " + juce::String (h2Black, 1)
+                    + " > Anniversary " + juce::String (h2Anniversary, 1) + " dB (colour 2.0, 1.0, 0.6)");
+            expectLessThan (h2Blue, -30.0f, "and it stays a gentle warmth, not distortion");
+        }
+
+        beginTest ("Level matched: at a normal level every model keeps the loudness within half a decibel of the clean compressor");
+        for (int model = 0; model < AM::numModels; ++model)
+        {
+            const double fs = 48000.0;
+            const auto in = sine (int (fs * 3.0), fs, 1000.0, -18.0);
+            auto cleanP = params (false, 0);
+            cleanP.autoMakeup = true;
+            auto warmP = params (true, model);
+            warmP.autoMakeup = true;
+            const float clean = binDb (through (cleanP, in, fs), fs, 1000.0, (size_t) (fs * 2.0));
+            const float warm = binDb (through (warmP, in, fs), fs, 1000.0, (size_t) (fs * 2.0));
+            expectWithinAbsoluteError (warm, clean, 0.5f, "model " + juce::String (model) + ": " + juce::String (warm, 2) + " dB against " + juce::String (clean, 2));
+        }
+
+        beginTest ("Click free: switching Analog Warmth on and off, and changing the model, while playing never steps the sound");
+        {
+            const double fs = 48000.0;
+            const auto in = sine (int (fs * 2.0), fs, 220.0, -6.0);
+            SongsmithComp::Engine e;
+            e.prepare (fs);
+            e.setParams (params (false, 0));
+            e.reset();
+            auto out = in;
+            float biggestStep = 0.0f, previous = 0.0f;
+            const int block = 480;
+            for (int pos = 0; pos < (int) out.size(); pos += block)
+            {
+                const int step = pos / block;
+                // every 12 blocks: warmth on/off, or a different model
+                auto p = params ((step / 12) % 3 != 0, (step / 12) % 4);
+                e.setParams (p);
+                float* ch[] = { out.data() + pos };
+                e.process (ch, 1, juce::jmin (block, (int) out.size() - pos));
+                for (int i = pos; i < pos + block && i < (int) out.size(); ++i)
+                {
+                    if (i > 0)
+                        biggestStep = std::max (biggestStep, std::abs (out[(size_t) i] - previous));
+                    previous = out[(size_t) i];
+                }
+            }
+            const float natural = (float) (2.0 * juce::MathConstants<double>::pi * 220.0 / fs * std::pow (10.0, -6.0 / 20.0));
+            expectLessThan (biggestStep, natural * 1.3f + 0.003f, "the biggest sample-to-sample step is a 220 Hz sine's own (" + juce::String (natural, 4) + "), found " + juce::String (biggestStep, 4));
+        }
+
+        beginTest ("Off is exactly the clean compressor at every model, and the model choice is remembered while it is off");
+        {
+            const double fs = 48000.0;
+            const auto in = noise (48000, 0.4f, 33);
+            const auto clean = through (params (false, 0), in, fs);
+            for (int model = 0; model < AM::numModels; ++model)
+                expect (through (params (false, model), in, fs) == clean, "model " + juce::String (model) + " with Analog Warmth off is bit-identical");
+
+            SongsmithCompressorAudioProcessor p;
+            setParam (p, Comp::warmthModelId, 2.0f);
+            setParam (p, Comp::warmthId, 1.0f);
+            setParam (p, Comp::warmthId, 0.0f);
+            setParam (p, Comp::warmthId, 1.0f);
+            expectEquals (p.getWarmthModelIndex(), 2, "toggling Analog Warmth off and on keeps the model");
+        }
+
+        beginTest ("Older sessions keep their sound: with no model saved, Analog Warmth stays the original curve until a model is chosen");
+        {
+            const double fs = 48000.0;
+            const auto in = noise (24000, 0.5f, 12);
+            // A session saved by version 2: Analog Warmth on, no model in it.
+            SongsmithCompressorAudioProcessor source;
+            setParam (source, Comp::thresholdId, -20.0f);
+            setParam (source, Comp::warmthId, 1.0f);
+            auto old = source.createState();
+            for (int i = old.getNumChildren() - 1; i >= 0; --i)
+                if (old.getChild (i).getProperty ("id").toString() == Comp::warmthModelId)
+                    old.removeChild (i, nullptr);
+            old.setProperty ("stateVersion", 2, nullptr);
+            for (int i = 0; i < old.getNumChildren(); ++i)
+                if (old.getChild (i).getType() == juce::Identifier ("UI"))
+                    old.getChild (i).removeProperty ("warmthClassic", nullptr);
+
+            SongsmithCompressorAudioProcessor p;
+            p.restoreFromValueTree (old);
+            expect (p.isWarmthClassic(), "it opens in the classic Analog Warmth");
+            prepare (p, fs, 512);
+            const auto classic = run (p, { in, in }, 512)[0];
+
+            // What the engine did before the models: the original curve.
+            auto ep = params (true, -1);
+            ep.thresholdDb = -20.0f; ep.ratio = 2.0f; ep.kneeDb = 6.0f; ep.autoMakeup = true;
+            expect (through (ep, in, fs) == classic, "the output is exactly the original Analog Warmth, bit for bit");
+
+            // Choosing a model replaces it, even Black, and the choice sticks across a save and reload.
+            p.chooseWarmthModel (0);
+            expect (! p.isWarmthClassic(), "choosing a model (even Black) ends the classic sound");
+            SongsmithCompressorAudioProcessor q;
+            q.restoreFromValueTree (p.createState());
+            expect (! q.isWarmthClassic(), "and a session saved after that opens with the models");
+            expectEquals (q.getWarmthModelIndex(), 0);
+
+            // A classic session stays classic through a save and reload.
+            SongsmithCompressorAudioProcessor r;
+            r.restoreFromValueTree (old);
+            SongsmithCompressorAudioProcessor s;
+            s.restoreFromValueTree (r.createState());
+            expect (s.isWarmthClassic(), "classic survives a save and reload until a model is chosen");
+
+            // Host automation of the model also ends it; loading a preset does not touch it.
+            SongsmithCompressorAudioProcessor a;
+            a.restoreFromValueTree (old);
+            a.applyPreset (0);
+            expect (a.isWarmthClassic(), "a preset leaves the Analog Warmth choice alone");
+            setParam (a, Comp::warmthModelId, 3.0f);
+            expect (! a.isWarmthClassic(), "the host choosing a model ends it");
+
+            // An empty or damaged session is a new one, with the models.
+            SongsmithCompressorAudioProcessor fresh;
+            expect (! fresh.isWarmthClassic());
+            const char junk[] = "not a session";
+            fresh.setStateInformation (junk, (int) sizeof (junk));
+            expect (! fresh.isWarmthClassic(), "junk changes nothing");
+
+            // Tests the original Analog Warmth with the models in the way: the model sound is different.
+            SongsmithCompressorAudioProcessor m;
+            setParam (m, Comp::thresholdId, -20.0f);
+            setParam (m, Comp::warmthId, 1.0f);
+            prepare (m, fs, 512);
+            expect (run (m, { in, in }, 512)[0] != classic, "the models do not sound like the original curve");
+        }
+
+        beginTest ("Sessions and automation: the model is saved and restored, and a block size does not matter");
+        {
+            SongsmithCompressorAudioProcessor a;
+            setParam (a, Comp::warmthId, 1.0f);
+            setParam (a, Comp::warmthModelId, 3.0f);
+            juce::MemoryBlock block;
+            a.getStateInformation (block);
+            SongsmithCompressorAudioProcessor b;
+            b.setStateInformation (block.getData(), (int) block.getSize());
+            expectEquals (b.getWarmthModelIndex(), 3);
+            expect (b.apvts.getRawParameterValue (Comp::warmthId)->load() > 0.5f);
+            expect (! b.isWarmthClassic());
+
+            const auto in = noise (48000, 0.4f, 4);
+            auto render = [&] (int blockSize)
+            {
+                SongsmithCompressorAudioProcessor p;
+                setParam (p, Comp::thresholdId, -22.0f);
+                setParam (p, Comp::warmthId, 1.0f);
+                setParam (p, Comp::warmthModelId, 1.0f);
+                prepare (p, 48000.0, blockSize);
+                return run (p, { in, in }, blockSize)[0];
+            };
+            const auto x = render (64), y = render (480), z = render (4096);
+            float worst = 0.0f;
+            for (size_t i = 0; i < x.size(); ++i)
+                worst = std::max ({ worst, std::abs (x[i] - y[i]), std::abs (x[i] - z[i]) });
+            expectLessThan (worst, 1.0e-4f, "blocks of 64, 480 and 4,096 sound the same");
+        }
+
+        beginTest ("The dropdown: exactly four items beside the toggle, greyed while Analog Warmth is off, each with its own tooltip, and it follows the session");
+        for (int width : { Comp::EditorLayout::minWidth, Comp::EditorLayout::defaultWidth, Comp::EditorLayout::maxWidth })
+        {
+            SongsmithCompressorAudioProcessor p;
+            p.editorWidth = width;
+            std::unique_ptr<SongsmithCompressorAudioProcessorEditor> ed (dynamic_cast<SongsmithCompressorAudioProcessorEditor*> (p.createEditor()));
+            auto& box = ed->getWarmthModelBox();
+            auto& toggle = ed->getWarmthButton();
+            const auto where = "at " + juce::String (width) + " px: ";
+            expectEquals (box.getNumItems(), 4, where + "exactly four");
+            for (int i = 0; i < 4; ++i)
+                expectEquals (box.getItemText (i), juce::String (AM::modelLabelTable[i]), where + "item " + juce::String (i));
+            expect (box.isVisible() && box.getTitle() == "Analog Warmth model", where + "visible and named");
+            expect (! box.isEnabled(), where + "greyed while Analog Warmth is off");
+            expectEquals (box.getSelectedItemIndex(), 0, where + "Black is shown");
+
+            expect (box.getX() >= toggle.getRight() && box.getY() == toggle.getY() && box.getHeight() == toggle.getHeight(), where + "directly beside the toggle, level with it");
+            expect (box.getHeight() >= 26 && box.getRight() <= toggle.getParentComponent()->getWidth(), where + "a comfortable target, inside the panel");
+            expect (! box.getBounds().intersects (ed->getAutoMakeupButton().getBounds()), where + "clear of Auto Makeup");
+            const int fit = Songsmith::UI::Dropdown::widthFor (box, box.getLookAndFeel().getComboBoxFont (box));
+            expectEquals (box.getWidth(), fit, where + "as wide as its longest item and the chevron need");
+            Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), "Compressor Analog Warmth model " + where);
+
+            toggle.setToggleState (true, juce::sendNotificationSync);
+            expect (box.isEnabled(), where + "usable straight away once Analog Warmth is on");
+            box.setSelectedItemIndex (3, juce::sendNotificationSync);
+            expectEquals (p.getWarmthModelIndex(), 3, where + "choosing sets the model");
+            expectEquals (box.getTooltip(), juce::String (AM::modelTooltipTable[3]), where + "the box's tooltip describes the model shown");
+            setParam (p, Comp::warmthModelId, 1.0f);
+            expectEquals (box.getSelectedItemIndex(), 1, where + "automation moves the dropdown");
+            expectEquals (box.getTooltip(), juce::String (AM::modelTooltipTable[1]), where + "and its tooltip");
+            toggle.setToggleState (false, juce::sendNotificationSync);
+            expect (! box.isEnabled() && box.getSelectedItemIndex() == 1, where + "off greys it and remembers Blue");
+        }
+
+        beginTest ("Each model has its own plain-words description, the same table as the Analog Compressor's, and a classic session reads Classic");
+        {
+            SongsmithCompressorAudioProcessor p;
+            std::unique_ptr<SongsmithCompressorAudioProcessorEditor> ed (dynamic_cast<SongsmithCompressorAudioProcessorEditor*> (p.createEditor()));
+            for (int i = 0; i < 4; ++i)
+            {
+                const juce::String tip (AM::modelTooltipTable[i]);
+                expect (Songsmith::UI::Wording::findBanned (tip).isEmpty(), "plain words: " + tip);
+                expect (tip.length() <= 160 && tip.indexOfChar ('\n') < 0, "short, one paragraph, not a list of models");
+                for (int j = 0; j < i; ++j)
+                    expect (tip != juce::String (AM::modelTooltipTable[j]), "no two models share a description");
+            }
+
+            // A session from before the models shows Classic until one is chosen.
+            SongsmithCompressorAudioProcessor old;
+            auto state = old.createState();
+            for (int i = state.getNumChildren() - 1; i >= 0; --i)
+                if (state.getChild (i).getProperty ("id").toString() == Comp::warmthModelId)
+                    state.removeChild (i, nullptr);
+            SongsmithCompressorAudioProcessor q;
+            q.restoreFromValueTree (state);
+            std::unique_ptr<SongsmithCompressorAudioProcessorEditor> ed2 (dynamic_cast<SongsmithCompressorAudioProcessorEditor*> (q.createEditor()));
+            auto& box2 = ed2->getWarmthModelBox();
+            expectEquals (box2.getSelectedItemIndex(), -1, "nothing in the list is selected");
+            expectEquals (box2.getTextWhenNothingSelected(), juce::String ("Classic"));
+            expect (box2.getTooltip().startsWith ("Classic"), "and the tooltip says what Classic is");
+            expectEquals (box2.getNumItems(), 4, "still exactly four items");
+            box2.setSelectedItemIndex (0, juce::sendNotificationSync);
+            expect (! q.isWarmthClassic(), "choosing Black replaces Classic");
+            expectEquals (box2.getSelectedItemIndex(), 0);
+        }
+    }
+};
+static WarmthModelTests warmthModelTests;
+
 class CompressorDisplayTests final : public juce::UnitTest
 {
 public:
