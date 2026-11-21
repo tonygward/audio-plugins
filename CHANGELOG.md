@@ -2,6 +2,10 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+## Unreleased
+
+- **Songsmith Analog Desk has a new look: a console channel strip.** The controls are now in four modules side by side in the order the sound goes through them (Input and Filters, Dynamics, Equaliser, Output and Meter), on navy-grey metal with steel dividers. The four Equaliser bands are colour coded (low steel, low-mid cyan, high-mid green, high red), and the Gain Reduction and Output meters sit in the Output module. Every control and every setting is still there, and your projects and presets sound exactly as they did.
+
 ## 0.5.67
 
 - **The Songsmith Analog Compressor's model dropdown is now four buttons:** **Black**, **Blue**, **Anniversary** and **Lindell**. The one you are using is lit, and hovering over a button tells you what that model is good for. Nothing you saved changes: your projects and presets open on the same model as before, and automation works as it did.

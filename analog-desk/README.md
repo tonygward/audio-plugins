@@ -2,11 +2,24 @@
 
 A mixing desk channel strip in one plugin, by Songsmith Studio, built with JUCE and CMake: filters, a four-band equaliser, a gate or expander and a compressor, with a little warm Drive at the front. It is inspired by the arrangement of the SSL 4000 E series channel strip. It is an original design, not a copy, and is not affiliated with or endorsed by Solid State Logic.
 
-![Songsmith Analog Desk with the Lead Vocal Presence and Control starting point](docs/images/editor-lead-vocal.png)
+![Songsmith Analog Desk as a console channel strip: Input and Filters, Dynamics, the colour-coded Equaliser, and Output and Meter](docs/images/console-strip-after.png)
 
-*A real screenshot at 100 %, rendered by the test executable (`AnalogDeskTests --screenshot <file> --scale 1 --preset 0`).*
+*A real screenshot at 100 %, rendered by the test executable (`AnalogDeskTests --screenshot <file> --scale 1 --preset 0`). The earlier flat layout is [docs/images/editor-lead-vocal.png](docs/images/editor-lead-vocal.png).*
 
 ![Songsmith Analog Desk with the Snare Crack and Control starting point](docs/images/editor-snare-crack.png)
+
+## The layout (songsmithstudio#9)
+
+A console channel strip: four modules side by side, in the order the sound goes through them, separated by steel dividers on muted navy-grey metal.
+
+| Module | What is in it |
+|---|---|
+| **Input and Filters** | Input Trim, Drive, High-Pass Filter, Low-Pass Filter, in one column of large knobs |
+| **Dynamics** | the **Gate** (Gate On, Expander, Threshold, Range, Attack, Hold, Release) and the **Compressor** (Soft Knee, After Equaliser, Threshold, Ratio, Attack, Release, Make-up Gain) side by side, with **Dynamics On** in the header |
+| **Equaliser** | four bands, a column each, colour coded: **Low** dark steel, **Low-Mid** cyan, **High-Mid** green, **High** red; Gain, Frequency and (for the two middle bands) Q down each, **Bell** on Low and High, **Equaliser On** in the header |
+| **Output and Meter** | Output Trim, then the suite's **Gain Reduction** bar and **Output** meter, unchanged |
+
+Nothing about the sound, the parameters, the starting points or the saved state changed. The shared title bar (preset menu, Undo, Redo, Bypass), the version and Processing Load strip and the Before and After readout are as in every plugin. The design is inspired by the arrangement of a classic console channel strip; it is not a copy of any product's panel, artwork, logo or lettering, and it makes no claim about circuit-level modelling.
 
 ## What it does
 
