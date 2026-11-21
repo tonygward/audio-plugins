@@ -158,14 +158,24 @@ namespace FET
             "Lindell" };
         return names;
     }
+    // songsmithstudio#12: the four models are four buttons, each with its own short tooltip. These say what each model does in
+    // the engine (docs/models.md, "What is published, what is measured"): Blue Stripe is faster with twice the colour; the
+    // Anniversary Edition is gentler and cleaner (softer knee, 0.6 colour) and adds 2:1 and Slow Attack; Lindell has the slowest
+    // attack and the softest knee and also has 2:1. They are use-case suggestions, not claims about any hardware.
     inline const juce::StringArray& modelDescriptions()
     {
         static const juce::StringArray tips {
-            "Start here to tame vocal, bass or guitar peaks while keeping the sound fairly clean.",
-            "Try this for a gritty, upfront vocal or to make room mics sound more aggressive.",
-            "Try 2:1 for gentler control, or Slow Attack to let more of the first hit through.",
-            "Try this on acoustic guitar to even out strong strums while keeping the pick attack. It also has 2:1 for gentler control." };
+            "Clean and straightforward. A good place to start for taming vocal, bass or guitar peaks while keeping the sound fairly clean.",
+            "Faster and grittier, with more colour. Try it for an upfront vocal, or to make room microphones sound more aggressive.",
+            "Gentler and a little cleaner. It adds a 2:1 ratio, and a Slow Attack button that lets more of the first hit through.",
+            "Smooth and relaxed, with a slower attack that lets the first hit through. Try it on acoustic guitar to even out strong strums. It also has 2:1." };
         return tips;
+    }
+    // The words on the four buttons, in Model order. The longer names stay in the preset files, the host's parameter list and the docs.
+    inline const juce::StringArray& modelButtonLabels()
+    {
+        static const juce::StringArray labels { "Black", "Blue", "Anniversary", "Lindell" };
+        return labels;
     }
     // Oversampling for the colour stages and the engine (Off, 2x, 4x). See docs/colour.md.
     inline const juce::StringArray& oversamplingNames()
@@ -189,7 +199,7 @@ namespace FET
     inline constexpr int modeRowY = 58, modeRowHeight = 28, plateTop = modeRowY + modeRowHeight + 6, faceShift = plateTop - 56 + 10;   // 10: clear of the panel's top pinstripes
     inline constexpr int configMargin = 16;
     inline constexpr int modelLabelX = configMargin, modelLabelWidth = 52;
-    inline constexpr int modelBoxX = modelLabelX + modelLabelWidth + 4, modelBoxWidth = 220;
+    inline constexpr int modelButtonsX = modelLabelX + modelLabelWidth + 4, modelButtonGap = 4, modelButtonPadding = 28;   // songsmithstudio#12: each button is as wide as its word plus this
 
     // ACOMP-19: the Ignore Below slider (the detector low cut, ACOMP-07/12/16) sits directly under the Input knob,
     // left-aligned with it and as wide as it.

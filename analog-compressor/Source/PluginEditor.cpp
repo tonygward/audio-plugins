@@ -318,19 +318,19 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     slowAttackButton.onClick = [this] { slowAttackAttachment.setValueAsCompleteGesture (slowAttackOn ? 0.0f : 1.0f); };
     content.addChildComponent (slowAttackButton);
 
-    // ACOMP-23: the four models are one dropdown in the configuration row under the title bar (as Songsmith EQ's
-    // Zero Latency / Linear Phase), outside the textured panel. The tooltip describes all four, so no description is painted
-    // on the faceplate. The box follows modelAttachment (presets, automation, sessions); onChange is only the musician.
+    // songsmithstudio#12 (replaces ACOMP-23's dropdown): the four models are four buttons in the configuration row under the
+    // title bar, outside the textured panel. One is lit, the model in use; each has its own tooltip. The buttons follow
+    // modelAttachment (presets, automation, sessions, Undo); onClick is only the musician.
     for (int i = 0; i < numModels; ++i)
-        modelBox.addItem (modelNames()[i], i + 1);
-    modelBox.setTitle ("Model");
-    modelBox.onChange = [this]
     {
-        const int i = modelBox.getSelectedItemIndex();
-        if (i >= 0 && i != modelShown)
-            modelChosenByUser (i);
-    };
-    content.addAndMakeVisible (modelBox);
+        auto& b = modelButtons[(size_t) i];
+        b.setButtonText (modelButtonLabels()[i]);
+        b.setTitle (modelButtonLabels()[i] + " model");
+        b.setTooltip (modelDescriptions()[i]);
+        b.setClickingTogglesState (false);   // refreshModel lights the one in use
+        b.onClick = [this, i] { if (i != modelShown) modelChosenByUser (i); };
+        content.addAndMakeVisible (b);
+    }
     modelLabel.setText ("Model", juce::dontSendNotification);
     modelLabel.setFont (juce::Font (font (Type::heading, Weight::Medium)));
     modelLabel.setColour (juce::Label::textColourId, Colours::textDim);
@@ -569,7 +569,16 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     slowAttackButton.setBounds (slowAttackArea);
     // ACOMP-23: the configuration row. The Model dropdown from the left; Oversampling (below) at the right.
     modelLabel.setBounds (modelLabelX, modeRowY, modelLabelWidth, modeRowHeight);
-    modelBox.setBounds (modelBoxX, modeRowY, modelBoxWidth, modeRowHeight);
+    {
+        int x = modelButtonsX;
+        for (int i = 0; i < numModels; ++i)
+        {
+            auto& b = modelButtons[(size_t) i];
+            const int w = Songsmith::UI::Dropdown::textWidth (b.getButtonText(), b.getLookAndFeel().getTextButtonFont (b, modeRowHeight)) + modelButtonPadding;
+            b.setBounds (x, modeRowY, w, modeRowHeight);
+            x += w + modelButtonGap;
+        }
+    }
     legacyRatioLabel.setBounds (ratioArea.getX(), ratioArea.getBottom() + 2, ratioArea.getWidth(), 18);   // only shown for a saved 2:1
 
     meter.setBounds (meterArea);
@@ -718,13 +727,10 @@ juce::String SongsmithAnalogCompressorEditor::oversamplingText (int index)
 void SongsmithAnalogCompressorEditor::refreshModel()
 {
     const auto& v = voicingFor (modelShown);
-    // ACOMP-23: the dropdown shows the model in use and its tooltip describes all four; nothing is painted on the faceplate.
-    juce::String tip = "Model: the character of the compressor. Changing it keeps your settings where they make sense.";
+    // songsmithstudio#12: exactly one button is lit, the model in use; each button's own tooltip says what that model is for,
+    // so there is no tooltip describing all four. Nothing is painted on the faceplate.
     for (int i = 0; i < numModels; ++i)
-        tip << "\n" << modelNames()[i] << ": " << modelDescriptions()[i];
-    modelBox.setTooltip (tip);
-    if (modelBox.getSelectedItemIndex() != modelShown)
-        modelBox.setSelectedItemIndex (modelShown, juce::dontSendNotification);
+        modelButtons[(size_t) i].setToggleState (i == modelShown, juce::dontSendNotification);
     gentleButton.setVisible (v.hasGentleRatio);
     slowAttackButton.setVisible (v.hasSlowAttack);
     layoutContent();

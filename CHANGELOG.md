@@ -6,7 +6,9 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - **Songsmith Compressor: Analog Warmth now has four models.** A dropdown beside the Analog Warmth button lets you choose **Black**, **Blue**, **Anniversary** or **Lindell**, the same four as the Songsmith Analog Compressor, and they use the same code. Hover over the dropdown for what the one you chose is good for. It is greyed while Analog Warmth is off, and it remembers your choice. Your existing projects sound exactly as they did: they keep their original Analog Warmth, shown as **Classic**, until you choose a model. With Analog Warmth off nothing changes at all.
 
-## 0.5.66
+## 0.5.67
+
+- **The Songsmith Analog Compressor's model dropdown is now four buttons:** **Black**, **Blue**, **Anniversary** and **Lindell**. The one you are using is lit, and hovering over a button tells you what that model is good for. Nothing you saved changes: your projects and presets open on the same model as before, and automation works as it did.
 
 - **Every Songsmith plugin now shows Before and After loudness.** At the bottom of the window, to the right of Processing Load, two readings in LUFS show how loud the sound is going into the plugin and coming out of it, averaged over the last 3 seconds. It says Measuring... for the first 3 seconds after you press play, and a dash when there is no sound. Use it to hear whether a plugin is making things louder or quieter, and trust your ears. It measures that plugin only, not the whole track, and you do not need to do anything.
 
