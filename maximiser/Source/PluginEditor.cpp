@@ -131,6 +131,15 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     ditherAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, Max::ditherId, ditherBox);
     content.addAndMakeVisible (ditherBox);
 
+    // songsmithstudio#15: the limiter can run at 2 or 4 times the rate. The wording and the width rule are the suite's (SongsmithDropdown.h).
+    oversamplingBox.addItemList (Songsmith::UI::Dropdown::oversamplingItems(), 1);
+    oversamplingBox.setTooltip ("Oversampling: runs the limiter at a higher rate inside the plugin, for a cleaner top end and more accurate peaks "
+                                "when limiting hard. It uses more processing power and adds a little delay, which your recording software makes up for. "
+                                "Off is fine for most work.");
+    oversamplingBox.setTitle ("Oversampling");
+    oversamplingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, Max::oversamplingId, oversamplingBox);
+    content.addAndMakeVisible (oversamplingBox);
+
     // Factory starting points: loading one sets the parameters (Bypass and Link stay as they are).
     for (size_t i = 0; i < Max::getStartingPoints().size(); ++i)
         startingPointBox.addItem (Max::getStartingPoints()[i].name, (int) i + 1);
@@ -313,11 +322,14 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
 
     // Output settings, under Release and the gain readout: Peak Mode decides what the Output Ceiling measures,
     // and Dither is applied to the output (both moved out of the title bar).
-    const int boxX = 556 - shift, boxW = 124, rowY = gainLabel.getBottom() + 12;
+    // songsmithstudio#15: every dropdown is as wide as its longest item plus the chevron and padding, and no wider. The second
+    // line reads Dither | Oversampling from the left, with Dither directly to the left of Oversampling.
+    const int boxX = 556 - shift, rowY = gainLabel.getBottom() + 12;
     peakLabel.setBounds (500 - shift, rowY, boxX - (500 - shift) - 4, 26);
-    peakModeBox.setBounds (boxX, rowY, boxW, 26);
+    Songsmith::UI::Dropdown::place (peakModeBox, boxX, rowY, 26);
     ditherLabel.setBounds (500 - shift, rowY + 32, boxX - (500 - shift) - 4, 26);
-    ditherBox.setBounds (boxX, rowY + 32, boxW, 26);
+    const int ditherRight = Songsmith::UI::Dropdown::place (ditherBox, boxX, rowY + 32, 26);
+    Songsmith::UI::Dropdown::place (oversamplingBox, ditherRight + 8, rowY + 32, 26);
 
     // Integrated LUFS (MAX-09): a column to the right of the Release dial, level with it, never below it.
     // Release spans x 365..515 and the controls end at 570; the column starts at 570 + 12.

@@ -127,7 +127,7 @@ public:
         {
             SongsmithMaximiserAudioProcessor p;
             const std::pair<const char*, int> expected[] = { { "threshold", 1 }, { "ceiling", 1 }, { "release", 1 }, { "bypass", 1 },
-                                                             { "peak_mode", 2 }, { "auto_release", 2 }, { "dither", 3 } };
+                                                             { "peak_mode", 2 }, { "auto_release", 2 }, { "dither", 3 }, { "oversampling", 4 } };
 
             for (auto [id, version] : expected)
             {
@@ -140,7 +140,7 @@ public:
             }
 
             expect (p.getBypassParameter() == p.apvts.getParameter (Max::bypassId), "bypass is the host bypass");
-            expectEquals (p.getParameters().size(), 7, "no unexpected parameters");
+            expectEquals (p.getParameters().size(), 8, "no unexpected parameters");
         }
 
         beginTest ("Ranges and defaults");
@@ -2056,7 +2056,7 @@ public:
             p.updateLoudness();
             p.getStateInformation (after);
             expect (before == after, "readings are not in the session");
-            expectEquals (SongsmithMaximiserAudioProcessor::stateVersion, 3, "state version unchanged");
+            expectEquals (SongsmithMaximiserAudioProcessor::stateVersion, 4, "state version (4 adds oversampling)");
         }
 
         beginTest ("The editor shows the readings, Reset and a click on the number start again");
@@ -2108,6 +2108,323 @@ public:
 static LoudnessTests loudnessTests;
 
 //==============================================================================
+//==============================================================================
+// songsmithstudio#15: Oversampling. Off is exactly what the plugin did before; 2x and 4x run the limiter at a higher rate.
+class OversamplingTests final : public juce::UnitTest
+{
+public:
+    OversamplingTests() : juce::UnitTest ("Oversampling (songsmithstudio#15)", "Maximiser") {}
+
+    static constexpr float truePeakToleranceDb = 0.1f, whiteNoiseToleranceDb = 0.35f;   // the same tolerances as the limiter tests
+
+    static void set (SongsmithMaximiserAudioProcessor& p, const char* id, float plain)
+    {
+        auto* rp = p.apvts.getParameter (id);
+        rp->setValueNotifyingHost (rp->convertTo0to1 (plain));
+    }
+
+    static std::vector<std::vector<float>> stereo (const std::vector<float>& v) { return { v, v }; }
+
+    static SongsmithMaximiserAudioProcessor& hard (SongsmithMaximiserAudioProcessor& p, int oversampling, bool truePeak = true)
+    {
+        set (p, Max::thresholdId, -6.0f);
+        set (p, Max::ceilingId, -1.0f);
+        set (p, Max::peakModeId, truePeak ? 1.0f : 0.0f);
+        set (p, Max::oversamplingId, (float) oversampling);
+        return p;
+    }
+
+    void runTest() override
+    {
+        constexpr double pi = juce::MathConstants<double>::pi;
+
+        beginTest ("The control: three choices named like the other plugins, Off by default, and an older session opens with Off");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            auto* rp = dynamic_cast<juce::AudioParameterChoice*> (p.apvts.getParameter (Max::oversamplingId));
+            expect (rp != nullptr);
+            if (rp != nullptr)
+            {
+                expectEquals (rp->choices.joinIntoString ("|"), juce::String ("Off|2x|4x"));
+                expectEquals (rp->getIndex(), 0, "Off by default");
+            }
+
+            // A session saved by version 3, which has no oversampling in it.
+            auto state = p.createState();
+            for (int i = state.getNumChildren() - 1; i >= 0; --i)
+                if (state.getChild (i).getProperty ("id").toString() == Max::oversamplingId)
+                    state.removeChild (i, nullptr);
+            state.setProperty ("version", 3, nullptr);
+            SongsmithMaximiserAudioProcessor q;
+            set (q, Max::oversamplingId, 2.0f);
+            q.restoreFromValueTree (state);
+            expectEquals (q.getOversamplingIndex(), 0, "an older session keeps the sound it had: Off");
+
+            // A session saved with 4x comes back as 4x, and the audio runs at it after prepareToPlay.
+            SongsmithMaximiserAudioProcessor a;
+            set (a, Max::oversamplingId, 2.0f);
+            juce::MemoryBlock block;
+            a.getStateInformation (block);
+            SongsmithMaximiserAudioProcessor b;
+            b.setStateInformation (block.getData(), (int) block.getSize());
+            expectEquals (b.getOversamplingIndex(), 2);
+            prepare (b, 48000.0, 256);
+            expectEquals (b.getActiveOversampling(), 2, "the audio starts at the saved setting");
+        }
+
+        beginTest ("Off is exactly the limiter as before: the same samples, the same latency");
+        for (double fs : { 44100.0, 48000.0, 96000.0 })
+        {
+            SongsmithMaximiserAudioProcessor p;
+            hard (p, 0);
+            prepare (p, fs, 256);
+            const auto in = noise ((int) fs, 0.9f, 11u);
+            const auto out = run (p, stereo (in), { 256 });
+
+            Max::BrickwallLimiter reference;
+            reference.setThresholdDb (-6.0f);
+            reference.setCeilingDb (-1.0f);
+            reference.setTruePeak (true);
+            reference.setAutoRelease (false);
+            reference.setReleaseMs (Max::defaultReleaseMs);
+            reference.prepare (fs);
+            std::vector<std::vector<float>> expected = stereo (in);
+            float* chans[2] = { expected[0].data(), expected[1].data() };
+            for (size_t pos = 0; pos < in.size(); pos += 256)
+                reference.process (chans, 2, (int) std::min<size_t> (256, in.size() - pos)), chans[0] += 256, chans[1] += 256;
+            expectEquals (maxAbsDiff (out[0], expected[0]), 0.0f, "bit-identical at " + juce::String (fs) + " Hz");
+            expectEquals (p.getLatencySamples(), Max::BrickwallLimiter::latencySamples (fs), "latency unchanged");
+        }
+
+        beginTest ("Latency: each setting reports the delay it adds, the host is told ahead of the switch, and a quiet impulse arrives on time");
+        for (double fs : { 44100.0, 48000.0, 96000.0 })
+        {
+            SongsmithMaximiserAudioProcessor p;
+            prepare (p, fs, 256);
+            expect (p.getLatencyFor (0) > 0 && p.getLatencyFor (1) > 0 && p.getLatencyFor (2) > 0, "latencies are known after prepareToPlay");
+            for (int os : { 0, 1, 2 })
+            {
+                set (p, Max::oversamplingId, (float) os);
+                p.updateLatencyNow();
+                expectEquals (p.getLatencySamples(), p.getLatencyFor (os), "the host hears the delay of the chosen setting (" + juce::String (os) + ") at " + juce::String (fs));
+
+                SongsmithMaximiserAudioProcessor q;
+                set (q, Max::oversamplingId, (float) os);
+                prepare (q, fs, 256);
+                std::vector<float> impulse ((size_t) fs / 4, 0.0f);
+                impulse[2000] = 0.25f;
+                const auto out = run (q, stereo (impulse), { 256 });
+                size_t at = 0;
+                for (size_t i = 0; i < out[0].size(); ++i)
+                    if (std::abs (out[0][i]) > std::abs (out[0][at]))
+                        at = i;
+                const int delay = (int) at - 2000;
+                expect (std::abs (delay - q.getLatencySamples()) <= 1, "impulse arrives at the reported latency (+-1 sample): reported "
+                        + juce::String (q.getLatencySamples()) + ", measured " + juce::String (delay) + " at " + juce::String (fs) + " Hz, setting " + juce::String (os));
+            }
+        }
+
+        beginTest ("True peak: the ceiling holds with oversampling off, 2x and 4x, at three sample rates, on tones, bursts, clicks and noise");
+        {
+            juce::String report;
+            for (double fs : { 44100.0, 48000.0, 96000.0 })
+                for (int os : { 0, 1, 2 })
+                {
+                    std::vector<std::vector<float>> signals;
+                    for (double freq : { 5000.0, 11025.0, 15000.0, 19000.0 })
+                        signals.push_back (sine ((int) fs / 2, fs, freq, Max::dbToGain (-2.0f), pi / 4.0));
+                    auto bursts = std::vector<float> ((size_t) fs, 0.0f);
+                    for (size_t i = 0; i < bursts.size(); ++i)
+                        if ((i / (size_t) (fs / 20.0)) % 4 == 0)
+                            bursts[i] = (float) std::sin (2.0 * pi * 17000.0 * (double) i / fs + 0.7) * (i % 3 == 0 ? 1.0f : 0.8f);
+                    signals.push_back (bursts);
+                    auto clicks = std::vector<float> ((size_t) fs, 0.0f);
+                    for (size_t i = 1000; i + 1 < clicks.size(); i += 3001)
+                        clicks[i] = 1.0f, clicks[i + 1] = -1.0f;
+                    signals.push_back (clicks);
+
+                    float worst = -100.0f;
+                    for (auto& s : signals)
+                    {
+                        SongsmithMaximiserAudioProcessor p;
+                        hard (p, os);
+                        prepare (p, fs, 128);
+                        const auto out = run (p, stereo (s), { 128 });
+                        worst = std::max (worst, truePeakDb (out, 2048) + 1.0f);
+                    }
+                    report << juce::String (fs / 1000.0, 1) << "k/" << os << ": " << juce::String (worst, 3) << " dB  ";
+                    expectLessOrEqual (worst, truePeakToleranceDb, "true-peak overshoot within tolerance at " + juce::String (fs) + " Hz, oversampling " + juce::String (os));
+
+                    SongsmithMaximiserAudioProcessor n;
+                    hard (n, os);
+                    prepare (n, fs, 64);
+                    const auto nz = noise ((int) fs, 1.0f, 81u);
+                    expectLessOrEqual (truePeakDb (run (n, stereo (nz), { 64 }), 2048) + 1.0f, whiteNoiseToleranceDb, "full-band noise within its tolerance, oversampling " + juce::String (os));
+                }
+            logMessage ("    true-peak overshoot above the ceiling (worst of tones, bursts, clicks): " + report);
+        }
+
+        beginTest ("Sample-peak mode and the output ceiling: nothing above the ceiling in either mode, with dither on");
+        for (int os : { 0, 1, 2 })
+            for (bool tp : { true, false })
+            {
+                SongsmithMaximiserAudioProcessor p;
+                hard (p, os, tp);
+                set (p, Max::ditherId, 1.0f);   // 16-bit
+                prepare (p, 48000.0, 200);
+                const auto in = noise (96000, 1.0f, 5u);
+                const auto out = run (p, stereo (in), { 200 });
+                float peak = 0.0f;
+                for (size_t i = 2048; i < out[0].size(); ++i)
+                    peak = std::max (peak, std::abs (out[0][i]));
+                expectLessOrEqual (peak, Max::dbToGain (-1.0f) + 1.0e-4f, "sample peak at or under the ceiling (oversampling " + juce::String (os) + (tp ? ", true peak)" : ", sample peak)"));
+            }
+
+        beginTest ("Dither stays the last stage, at the host's rate: the output is on the 16-bit grid with oversampling on");
+        for (int os : { 0, 1, 2 })
+        {
+            SongsmithMaximiserAudioProcessor p;
+            hard (p, os);
+            set (p, Max::ditherId, 1.0f);
+            prepare (p, 48000.0, 256);
+            const auto out = run (p, stereo (noise (48000, 0.8f, 9u)), { 256 });
+            int off = 0;
+            for (size_t i = 4096; i < out[0].size(); ++i)
+            {
+                const double steps = (double) out[0][i] * 32768.0;
+                if (std::abs (steps - std::round (steps)) > 1.0e-3)
+                    ++off;
+            }
+            expectEquals (off, 0, "every sample is a whole 16-bit step (oversampling " + juce::String (os) + ")");
+        }
+
+        beginTest ("Bypass is the input delayed by the reported latency, bit for bit, at every setting");
+        for (int os : { 0, 1, 2 })
+        {
+            SongsmithMaximiserAudioProcessor p;
+            hard (p, os);
+            set (p, Max::bypassId, 1.0f);
+            prepare (p, 48000.0, 128);
+            const auto in = noise (24000, 0.9f, 3u);
+            const auto out = run (p, stereo (in), { 128 });
+            bool exact = true;
+            for (size_t i = 6000; i < in.size(); ++i)
+                exact = exact && out[0][i] == in[i - (size_t) p.getLatencySamples()];
+            expect (exact, "bit-exact delayed dry at oversampling " + juce::String (os));
+        }
+
+        beginTest ("The meters work at every setting: gain reduction shows, the output meter sees the limited sound");
+        for (int os : { 0, 1, 2 })
+        {
+            SongsmithMaximiserAudioProcessor p;
+            hard (p, os);
+            prepare (p, 48000.0, 256);
+            run (p, stereo (noise (48000, 0.9f, 4u)), { 256 });
+            expectGreaterThan (SongsmithMaximiserAudioProcessor::readAndReset (p.gainReductionDb), 1.0f, "gain reduction is reported (oversampling " + juce::String (os) + ")");
+            expectGreaterThan (SongsmithMaximiserAudioProcessor::readAndReset (p.outputPeak), 0.2f, "the output peak is reported");
+            expectLessOrEqual (SongsmithMaximiserAudioProcessor::readAndReset (p.outputPeak), 0.0f + 1.0e-6f);
+        }
+
+        beginTest ("Switching while playing makes no click, and never lets a peak above the ceiling through");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            hard (p, 0);
+            prepare (p, 48000.0, 256);
+            const auto in = sine (48000 * 4, 48000.0, 1000.0, 0.95);
+            const auto out = run (p, stereo (in), { 256 }, [&p] (int block, int)
+            {
+                if (block == 40) set (p, Max::oversamplingId, 1.0f);
+                if (block == 120) set (p, Max::oversamplingId, 2.0f);
+                if (block == 200) set (p, Max::oversamplingId, 0.0f);
+                if (block == 280) set (p, Max::oversamplingId, 2.0f);
+            });
+            float step = 0.0f, peak = 0.0f;
+            size_t stepAt = 0;
+            bool finite = true;
+            for (size_t i = 1; i < out[0].size(); ++i)
+            {
+                finite = finite && std::isfinite (out[0][i]);
+                if (std::abs (out[0][i] - out[0][i - 1]) > step) { step = std::abs (out[0][i] - out[0][i - 1]); stepAt = i; }
+                peak = std::max (peak, std::abs (out[0][i]));
+            }
+            expect (finite, "finite");
+            expectLessThan (step, 0.25f, "no sample-to-sample jump beyond a 1 kHz sine's own (about 0.13), so no click");
+            expectLessOrEqual (peak, Max::dbToGain (-1.0f) + 1.0e-4f, "the ceiling holds through every switch");
+            expectEquals (p.getActiveOversampling(), 2, "and it ends on the last setting");
+        }
+
+        beginTest ("Mono, odd and large host blocks, and a change of sample rate all work with oversampling on");
+        for (int os : { 1, 2 })
+        {
+            for (int channels : { 1, 2 })
+                for (std::vector<int> blocks : { std::vector<int> { 1 }, { 7 }, { 480 }, { 1024, 3, 511 }, { 4096 } })
+                {
+                    SongsmithMaximiserAudioProcessor p;
+                    hard (p, os);
+                    prepare (p, 44100.0, 4096, channels);
+                    const auto in = noise (30000, 0.9f, 21u);
+                    std::vector<std::vector<float>> signal (channels, in);
+                    const auto out = run (p, signal, blocks);
+                    bool ok = true;
+                    for (float v : out[0])
+                        ok = ok && std::isfinite (v) && std::abs (v) <= Max::dbToGain (-1.0f) + 1.0e-4f;
+                    expect (ok, "finite and under the ceiling, " + juce::String (channels) + " channel(s), oversampling " + juce::String (os));
+                }
+
+            SongsmithMaximiserAudioProcessor p;
+            hard (p, os);
+            for (double fs : { 44100.0, 96000.0, 48000.0 })
+            {
+                prepare (p, fs, 256);
+                expectEquals (p.getActiveOversampling(), os, "the setting survives a new sample rate");
+                const auto out = run (p, stereo (noise (20000, 0.9f, 2u)), { 256 });
+                bool ok = true;
+                for (float v : out[0])
+                    ok = ok && std::isfinite (v);
+                expect (ok, "finite at " + juce::String (fs));
+            }
+        }
+
+        beginTest ("The editor: Dither is directly left of Oversampling, dropdowns are only as wide as their text, and nothing overlaps");
+        for (int width : { Max::EditorLayout::minWidth, Max::EditorLayout::defaultWidth, Max::EditorLayout::maxWidth })
+        {
+            SongsmithMaximiserAudioProcessor p;
+            std::unique_ptr<SongsmithMaximiserAudioProcessorEditor> ed (dynamic_cast<SongsmithMaximiserAudioProcessorEditor*> (p.createEditor()));
+            ed->setSize (width, Max::EditorLayout::heightFor (width));
+            auto& dither = ed->getDitherBox();
+            auto& os = ed->getOversamplingBox();
+            auto& peak = ed->getPeakModeBox();
+            const auto where = "at " + juce::String (width) + " px: ";
+            expectEquals (os.getNumItems(), 3, where + "three choices");
+            expectEquals (os.getItemText (0), juce::String ("Oversampling: off"));
+            expectEquals (os.getItemText (1), "Oversampling: 2" + juce::String::charToString (0x00d7));
+            expectEquals (os.getTitle(), juce::String ("Oversampling"));
+            expect (os.getX() >= dither.getRight() && os.getX() - dither.getRight() <= 12, where + "Oversampling follows Dither directly");
+            expectEquals (os.getY(), dither.getY(), where + "on the same line");
+            expectEquals (os.getHeight(), dither.getHeight());
+            for (auto* box : { &dither, &os, &peak })
+            {
+                const int fit = Songsmith::UI::Dropdown::widthFor (*box, box->getLookAndFeel().getComboBoxFont (*box));
+                expectEquals (box->getWidth(), fit, where + "as wide as its longest item plus the chevron and padding, and no wider");
+                expect (box->getRight() <= Max::EditorLayout::controlsWidth + Max::EditorLayout::loudnessWidth, where + "clear of the meter column");
+            }
+            expect (! os.getBounds().intersects (peak.getBounds()) && ! dither.getBounds().intersects (peak.getBounds()), where + "no overlap with Peak");
+            Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), "Maximiser oversampling at " + juce::String (width));
+        }
+
+        beginTest ("Choosing Oversampling in the window sets the parameter, and automation moves the dropdown");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            std::unique_ptr<SongsmithMaximiserAudioProcessorEditor> ed (dynamic_cast<SongsmithMaximiserAudioProcessorEditor*> (p.createEditor()));
+            ed->getOversamplingBox().setSelectedItemIndex (2, juce::sendNotificationSync);
+            expectEquals (p.getOversamplingIndex(), 2);
+            set (p, Max::oversamplingId, 1.0f);
+            expectEquals (ed->getOversamplingBox().getSelectedItemIndex(), 1, "automation moves the dropdown");
+        }
+    }
+};
+static OversamplingTests oversamplingTests;
+
 static SongsmithUITests sharedUITests { "Maximiser" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "Maximiser" };
 static SongsmithGuidanceTests sharedGuidanceTests { "Maximiser" };

@@ -28,7 +28,8 @@ SongsmithMaximiserAudioProcessor::SongsmithMaximiserAudioProcessor()
     peakModeParam    = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (Max::peakModeId));
     autoReleaseParam = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Max::autoReleaseId));
     ditherParam      = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (Max::ditherId));
-    jassert (peakModeParam != nullptr && autoReleaseParam != nullptr && ditherParam != nullptr);
+    oversamplingParam = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (Max::oversamplingId));
+    jassert (peakModeParam != nullptr && autoReleaseParam != nullptr && ditherParam != nullptr && oversamplingParam != nullptr);
     jassert (thresholdRaw != nullptr && ceilingRaw != nullptr && releaseRaw != nullptr && bypassParam != nullptr);
 
     dryBuffer.setSize (2, 512, false, true);   // resized in prepareToPlay
@@ -67,6 +68,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithMaximiserAudioProce
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { Max::ditherId, 3 }, "Dither", Max::getDitherNames(), 0));
 
+    // Version 4 (songsmithstudio#15): oversampling of the limiter, off by default so earlier sessions keep their sound and latency.
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { Max::oversamplingId, 4 }, "Oversampling", Max::getOversamplingNames(), 0));
+
     return layout;
 }
 
@@ -90,14 +95,35 @@ void SongsmithMaximiserAudioProcessor::prepareToPlay (double sampleRate, int sam
     bypassMix.reset (sampleRate, bypassFadeSeconds);
     bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
-    limiter.setThresholdDb (getThresholdDb());
-    limiter.setCeilingDb (getCeilingDb());
-    limiter.setTruePeak (isTruePeak());
-    limiter.setAutoRelease (isAutoRelease());
-    limiter.setReleaseMs (getReleaseMs());
     dither.setDepth (getDitherDepth());
-    limiter.setCeilingHeadroom (Max::Dither::headroomFor (getDitherDepth()));
-    limiter.prepare (sampleRate);
+
+    // One limiter for each oversampling setting, each at its own rate, and the filters between the rates. Everything is
+    // allocated here, so choosing another setting while playing allocates nothing.
+    using OS = juce::dsp::Oversampling<float>;
+    for (size_t k = 0; k < limiters.size(); ++k)
+    {
+        applyLimiterSettings (limiters[k]);
+        limiters[k].prepare (sampleRate * (double) (1 << k));
+        int latency = limiters[k].getLatencySamples();
+        if (k > 0)
+        {
+            oversamplers[k] = std::make_unique<OS> ((size_t) Max::BrickwallLimiter::maxChannels, k, OS::filterHalfBandFIREquiripple, true, true);
+            oversamplers[k]->initProcessing ((size_t) dryBuffer.getNumSamples());
+            oversamplers[k]->reset();
+            // The filters' delay (at the host's rate) plus the limiter's look-ahead, which is counted at the faster rate.
+            latency = juce::roundToInt (oversamplers[k]->getLatencyInSamples() + (double) limiters[k].getLatencySamples() / (double) (1 << k));
+        }
+        pathLatency[k] = latency;
+    }
+    applyGuardSettings();
+    guard.prepare (sampleRate);
+    guard.setReleaseMs (guardReleaseMs);
+    pathLatency[1] += guard.getLatencySamples();   // the guard's look-ahead is in the path whenever oversampling is on
+    pathLatency[2] += guard.getLatencySamples();
+    osActive = getOversamplingIndex();
+    pathFade.reset (sampleRate, pathFadeSeconds);
+    pathFade.setCurrentAndTargetValue (1.0f);
+    holdSamples = 0;
     dither.reset();
     loudnessMeter.prepare (sampleRate);
     wasPlaying = false;
@@ -105,16 +131,72 @@ void SongsmithMaximiserAudioProcessor::prepareToPlay (double sampleRate, int sam
                                 std::memory_order_relaxed);
     outputMeter.resetLatch (sampleRate);   // a new session or layout starts without a warning
 
-    dryDelay.setSize (2, limiter.getLatencySamples() + 1, false, true, false);
+    dryDelay.setSize (2, juce::jmax (pathLatency[0], pathLatency[1], pathLatency[2]) + 1, false, true, false);
     dryDelay.clear();
     dryDelayPos = 0;
 
-    setLatencySamples (limiter.getLatencySamples());
+    setLatencySamples (pathLatency[(size_t) osActive]);
+}
+
+// What the limiter needs for the current controls: the dither's headroom is taken off the ceiling so the quantised output
+// stays under it.
+void SongsmithMaximiserAudioProcessor::applyLimiterSettings (Max::BrickwallLimiter& l) noexcept
+{
+    l.setThresholdDb (getThresholdDb());
+    l.setCeilingDb (getCeilingDb());
+    l.setTruePeak (isTruePeak());
+    l.setAutoRelease (isAutoRelease());
+    l.setReleaseMs (getReleaseMs());
+    l.setCeilingHeadroom (Max::Dither::headroomFor (getDitherDepth()));
+}
+
+// The host is told the delay of the setting the control shows (not of the one the audio is still fading to), so it
+// compensates by the time the switch happens. Message thread.
+void SongsmithMaximiserAudioProcessor::applyGuardSettings() noexcept
+{
+    // Threshold at the ceiling: no gain below it, a brickwall at it. It follows the peak mode and dither headroom like the main limiter.
+    guard.setThresholdDb (getCeilingDb());
+    guard.setCeilingDb (getCeilingDb());
+    guard.setTruePeak (isTruePeak());
+    guard.setAutoRelease (false);
+    guard.setReleaseMs (guardReleaseMs);
+    guard.setCeilingHeadroom (Max::Dither::headroomFor (getDitherDepth()));
+}
+
+void SongsmithMaximiserAudioProcessor::updateLatencyNow()
+{
+    const int latency = pathLatency[(size_t) getOversamplingIndex()];
+    if (getLatencySamples() != latency)
+        setLatencySamples (latency);
+}
+
+// Runs on the audio thread, only while the processed sound is silent (see processBlock).
+void SongsmithMaximiserAudioProcessor::switchPath (int index) noexcept
+{
+    auto& next = limiters[(size_t) index];
+    applyLimiterSettings (next);
+    next.reset();
+    applyGuardSettings();
+    guard.reset();
+    if (index > 0)
+        oversamplers[(size_t) index]->reset();
+    dryDelay.clear();   // the bypass path's delay changes with the setting, so it starts again
+    dryDelayPos = 0;
+    osActive = index;
+    // The new path's first samples are its own silence (its delay line is empty). Stay silent until they have passed, then
+    // fade in, so the sound never starts part-way through a fade.
+    pathFade.setCurrentAndTargetValue (0.0f);
+    holdSamples = pathLatency[(size_t) index];
 }
 
 void SongsmithMaximiserAudioProcessor::reset()
 {
-    limiter.reset();
+    for (auto& l : limiters)
+        l.reset();
+    guard.reset();
+    for (auto& o : oversamplers)
+        if (o != nullptr)
+            o->reset();
     dither.reset();
     dryDelay.clear();
     dryDelayPos = 0;
@@ -135,23 +217,28 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     const int chunk = juce::jmax (1, dryBuffer.getNumSamples());
 
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
-    limiter.setThresholdDb (getThresholdDb());
-    limiter.setCeilingDb (getCeilingDb());
-    limiter.setTruePeak (isTruePeak());
-    limiter.setAutoRelease (isAutoRelease());
-    limiter.setReleaseMs (getReleaseMs());
 
     // Dither is the last stage before the bypass mix (the dry signal is never dithered). While
     // it is on, the ceiling is lowered by its headroom so the quantised output stays under it.
-    const auto depth = getDitherDepth();
-    dither.setDepth (depth);
-    limiter.setCeilingHeadroom (Max::Dither::headroomFor (depth));
+    dither.setDepth (getDitherDepth());
 
     float inPeak = 0.0f, outPeak = 0.0f;
 
     for (int pos = 0; pos < total; pos += chunk)
     {
         const int num = juce::jmin (chunk, total - pos);
+
+        // Oversampling change: fade the processed sound out, switch while it is silent, fade back in. No clicks, no allocation.
+        const int wantOS = getOversamplingIndex();
+        if (wantOS != osActive)
+        {
+            if (! pathFade.isSmoothing() && pathFade.getCurrentValue() <= 0.0f)
+                switchPath (wantOS);
+            else if (holdSamples == 0)
+                pathFade.setTargetValue (0.0f);
+        }
+        auto& limiter = limiters[(size_t) osActive];
+        applyLimiterSettings (limiter);
 
         float* ch[Max::BrickwallLimiter::maxChannels] = {};
         for (int c = 0; c < numCh; ++c)
@@ -163,7 +250,7 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
         // The dry signal, delayed by the look-ahead so bypass lines up with the processed path.
         // The ring always runs, so it is valid whenever bypass engages.
         const int size = dryDelay.getNumSamples();
-        const int latency = limiter.getLatencySamples();
+        const int latency = pathLatency[(size_t) osActive];
         for (int c = 0; c < numCh; ++c)
         {
             auto* ring = dryDelay.getWritePointer (c);
@@ -178,9 +265,42 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
         }
         dryDelayPos = (dryDelayPos + num) % size;
 
-        // The limiter always runs, even when bypassed, so un-bypassing never glitches.
-        limiter.process (ch, numCh, num);
+        // The limiter always runs, even when bypassed, so un-bypassing never glitches. With oversampling on it runs at 2 or 4
+        // times the rate, between an up filter and a down filter; the dither stays last, at the host's rate.
+        if (osActive == 0)
+        {
+            limiter.process (ch, numCh, num);
+        }
+        else
+        {
+            auto& os = *oversamplers[(size_t) osActive];
+            juce::dsp::AudioBlock<float> block (ch, (size_t) numCh, (size_t) num);
+            auto up = os.processSamplesUp (block);
+            float* upCh[Max::BrickwallLimiter::maxChannels] = {};
+            for (int c = 0; c < numCh; ++c)
+                upCh[c] = up.getChannelPointer ((size_t) c);
+            limiter.process (upCh, numCh, (int) up.getNumSamples());
+            os.processSamplesDown (block);
+            applyGuardSettings();
+            guard.process (ch, numCh, num);
+            guard.readAndResetMaxGainReductionDb();   // too small to show; keeps its own meter from growing
+        }
         dither.process (ch, numCh, num);
+
+        if (holdSamples > 0 || pathFade.isSmoothing() || pathFade.getTargetValue() < 1.0f)
+            for (int i = 0; i < num; ++i)
+            {
+                float g = 0.0f;
+                if (holdSamples > 0)
+                {
+                    if (--holdSamples == 0)
+                        pathFade.setTargetValue (1.0f);   // the delay is full: now fade in
+                }
+                else
+                    g = pathFade.getNextValue();
+                for (int c = 0; c < numCh; ++c)
+                    ch[c][i] *= g;
+            }
 
         if (bypassMix.isSmoothing())
         {
@@ -218,7 +338,7 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     outputMeter.updateClipLatch (outPeak, total);
 
     // Deepest gain reduction since the UI last read it (stored as a positive dB amount).
-    pushPeak (gainReductionDb, -limiter.readAndResetMaxGainReductionDb());
+    pushPeak (gainReductionDb, -limiters[(size_t) osActive].readAndResetMaxGainReductionDb());
 }
 
 

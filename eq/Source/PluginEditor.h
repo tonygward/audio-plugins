@@ -7,6 +7,7 @@
 #include "OutputMeter.h"
 #include "PresetBar.h"
 #include "FrequencyGuide.h"
+#include "../../shared/Source/SongsmithDropdown.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithHeader.h"
 
