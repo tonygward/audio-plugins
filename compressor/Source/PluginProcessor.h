@@ -7,6 +7,7 @@
 #include "DynamicsGraph.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
+#include "../../shared/Source/SongsmithBeforeAfter.h"
 #include "../../shared/Source/SongsmithHeader.h"
 
 class SongsmithCompressorAudioProcessor : public juce::AudioProcessor
@@ -86,6 +87,9 @@ public:
 
     // Optional timing of processBlock for the editor's Processing Load readout.
     Songsmith::Diagnostics::LoadMeter loadMeter;
+
+    // songsmithstudio#7: the Before and After loudness shown in the footer. Fed by one scope at the top of processBlock.
+    Songsmith::Loudness::BeforeAfterMeter beforeAfter;
 
 private:
     std::atomic<float>* thresholdRaw = nullptr;

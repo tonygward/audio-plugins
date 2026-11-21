@@ -11,6 +11,7 @@
 #include "../../shared/Tests/SongsmithDiagnosticsTests.h"
 #include "../../shared/Tests/SongsmithGuidanceTests.h"
 #include "../../shared/Tests/SongsmithUpdateTests.h"
+#include "../../shared/Tests/SongsmithBeforeAfterTests.h"
 #include "SongsmithWording.h"
 
 namespace
@@ -835,6 +836,7 @@ static SongsmithUITests sharedUITests { "Compressor" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "Compressor" };
 static SongsmithGuidanceTests sharedGuidanceTests { "Compressor" };
 static SongsmithUpdateTests sharedUpdateTests { "Compressor" };
+static SongsmithBeforeAfterTests<SongsmithCompressorAudioProcessor, SongsmithCompressorAudioProcessorEditor> sharedBeforeAfterTests { "Compressor" };
 
 struct ConsoleRunner final : juce::UnitTestRunner
 {

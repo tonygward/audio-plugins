@@ -9,6 +9,7 @@
 #include "SongsmithLookAndFeel.h"
 #include "SongsmithType.h"
 #include "SongsmithUpdateCheck.h"
+#include "SongsmithBeforeAfter.h"
 
 // The diagnostics every Songsmith plugin shows in a strip along the bottom of its editor:
 //   Latency          the delay this instance reports to the host, in samples and milliseconds.
@@ -315,6 +316,20 @@ namespace Songsmith::Diagnostics
         juce::Label& getVersionLabel()      { return versionLabel; }
         juce::HyperlinkButton& getUpdateLink() { return updateLink; }
 
+        // songsmithstudio#7: shows this plugin's Before and After loudness in the strip, right of the readout and left of the plugin's
+        // own control. The plugin owns the meter; every plugin gets the same readout from here.
+        void setBeforeAfter (const Loudness::BeforeAfterMeter* meter)
+        {
+            beforeAfter.reset();
+            if (meter != nullptr)
+            {
+                beforeAfter = std::make_unique<Loudness::Display> (*meter);
+                addAndMakeVisible (*beforeAfter);
+            }
+            resized();
+        }
+        Loudness::Display* getBeforeAfter() noexcept { return beforeAfter.get(); }
+
         void clearUpdateForTesting() { showUpdate ({}); }
 
         // Shows the link as if a check had found 'version' (the tests; the real check is never run by them).
@@ -346,6 +361,8 @@ namespace Songsmith::Diagnostics
         {
             const bool show = meter.isEnabled();
             readout.setVisible (show);
+            if (beforeAfter != nullptr)
+                beforeAfter->update();
             setText (readout, show ? readoutText (meter.read(), processor.getLatencySamples(), processor.getSampleRate())
                                    : juce::String());
         }
@@ -376,6 +393,12 @@ namespace Songsmith::Diagnostics
             {
                 const int w = trailing->getWidth() > 0 ? trailing->getWidth() : 80;
                 trailing->setBounds (r.removeFromRight (w).withSizeKeepingCentre (w, 22));
+                r.removeFromRight (10);
+            }
+            if (beforeAfter != nullptr)
+            {
+                const int w = Loudness::Display::preferredWidth();
+                beforeAfter->setBounds (r.removeFromRight (w).withSizeKeepingCentre (w, 22));
                 r.removeFromRight (10);
             }
             readout.setBounds (r);
@@ -441,6 +464,7 @@ namespace Songsmith::Diagnostics
         juce::Label versionLabel;
         juce::HyperlinkButton updateLink;
         juce::SharedResourcePointer<Update::Checker> checker;   // one for every window in this program
+        std::unique_ptr<Loudness::Display> beforeAfter;
         juce::Component* trailing = nullptr;
         juce::TextButton loadSwitch;
     };
