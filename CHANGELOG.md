@@ -5,6 +5,9 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 ## Unreleased
 
 - **Songsmith EQ: the mouse wheel now does what you would expect.** Scrolling over a High Pass or Low Pass changes its slope (6, 12, 18, 24, 36 or 48 dB/oct), and scrolling over a Bell or a shelf changes its gain (0.5 dB a step, 0.1 dB with Shift). It no longer changes Q, which you can still set by its own control (a Notch still uses the wheel for its width). Scrolling up makes the slope steeper or the gain higher. Nothing in your saved projects changes.
+
+## 0.5.66
+
 - **Every Songsmith plugin now shows Before and After loudness.** At the bottom of the window, to the right of Processing Load, two readings in LUFS show how loud the sound is going into the plugin and coming out of it, averaged over the last 3 seconds. It says Measuring... for the first 3 seconds after you press play, and a dash when there is no sound. Use it to hear whether a plugin is making things louder or quieter, and trust your ears. It measures that plugin only, not the whole track, and you do not need to do anything.
 
 ## 0.5.65
