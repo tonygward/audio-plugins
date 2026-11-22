@@ -2,9 +2,20 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
+
 ## Unreleased
 
 - **Songsmith EQ: a new Output panel at the far right.** The level meter, the Output Trim knob and the Auto Gain button now sit together in one box headed **Output**. Output Trim is smaller and sits under the meter, with Auto Gain right beside it. Auto Gain no longer puts its number on the button; hover over it to see how much it is adding right now. Your settings, projects and presets sound exactly as before, and Auto Gain stays off unless you switch it on. This is the first plugin to get the new panel; the others follow.
+
+## 0.5.72
+
+- **Songsmith Analog Desk has a new look: a console channel strip.** The controls are now in four modules side by side in the order the sound goes through them (Input and Filters, Dynamics, Equaliser, Output and Meter), on navy-grey metal with steel dividers. The four Equaliser bands are colour coded (low steel, low-mid cyan, high-mid green, high red), and the Gain Reduction and Output meters sit in the Output module. Every control and every setting is still there, and your projects and presets sound exactly as they did.
+
+- **Songsmith Bus Compressor has a new look.** The controls are now grouped on a graphite console panel at the left (Threshold and Make-up Gain on top, Attack, Release and Ratio below, with blue-capped knobs), and the meters have their own recessed zone at the right. There is also a new **Input** level meter beside the Gain Reduction and Output meters, so you can see the level going in, the gain reduction and the level coming out together. The sound, your settings, your presets and your saved projects are exactly as they were.
+- **Songsmith Analog Compressor: Set Levels is quicker.** Pressing Apply now sets your Input and Output and closes the Set Levels panel straight away, with no second message to click away. While the panel is open it is slightly see-through, so you can still make out the controls behind it, and it is the only thing you can click, so nothing is changed by accident. Undo still puts your old settings back. Cancel and Escape change nothing.
+- **Songsmith EQ: the mouse wheel now does what you would expect.** Scrolling over a High Pass or Low Pass changes its slope (6, 12, 18, 24, 36 or 48 dB/oct), and scrolling over a Bell or a shelf changes its gain (0.5 dB a step, 0.1 dB with Shift). It no longer changes Q, which you can still set by its own control (a Notch still uses the wheel for its width). Scrolling up makes the slope steeper or the gain higher. Nothing in your saved projects changes.
+- **The Songsmith Analog Compressor's model dropdown is now four buttons:** **Black**, **Blue**, **Anniversary** and **Lindell**. The one you are using is lit, and hovering over a button tells you what that model is good for. Nothing you saved changes: your projects and presets open on the same model as before, and automation works as it did.
+- **Every Songsmith plugin now shows Before and After loudness.** At the bottom of the window, to the right of Processing Load, two readings in LUFS show how loud the sound is going into the plugin and coming out of it, averaged over the last 3 seconds. It says Measuring... for the first 3 seconds after you press play, and a dash when there is no sound. Use it to hear whether a plugin is making things louder or quieter, and trust your ears. It measures that plugin only, not the whole track, and you do not need to do anything.
 
 ## 0.5.70
 
@@ -12,13 +23,7 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 ## 0.5.69
 
-- **Songsmith Analog Compressor: Set Levels is quicker.** Pressing Apply now sets your Input and Output and closes the Set Levels panel straight away, with no second message to click away. While the panel is open it is slightly see-through, so you can still make out the controls behind it, and it is the only thing you can click, so nothing is changed by accident. Undo still puts your old settings back. Cancel and Escape change nothing.
-
-- **Songsmith EQ: the mouse wheel now does what you would expect.** Scrolling over a High Pass or Low Pass changes its slope (6, 12, 18, 24, 36 or 48 dB/oct), and scrolling over a Bell or a shelf changes its gain (0.5 dB a step, 0.1 dB with Shift). It no longer changes Q, which you can still set by its own control (a Notch still uses the wheel for its width). Scrolling up makes the slope steeper or the gain higher. Nothing in your saved projects changes.
-
-- **The Songsmith Analog Compressor's model dropdown is now four buttons:** **Black**, **Blue**, **Anniversary** and **Lindell**. The one you are using is lit, and hovering over a button tells you what that model is good for. Nothing you saved changes: your projects and presets open on the same model as before, and automation works as it did.
-
-- **Every Songsmith plugin now shows Before and After loudness.** At the bottom of the window, to the right of Processing Load, two readings in LUFS show how loud the sound is going into the plugin and coming out of it, averaged over the last 3 seconds. It says Measuring... for the first 3 seconds after you press play, and a dash when there is no sound. Use it to hear whether a plugin is making things louder or quieter, and trust your ears. It measures that plugin only, not the whole track, and you do not need to do anything.
+This version was never published as its own release. Its notes (listed under Unreleased until the next release) were missing from the notes of 0.5.70.
 
 ## 0.5.65
 

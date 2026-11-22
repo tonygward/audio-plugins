@@ -436,9 +436,12 @@ public:
                 expect (shown.count (prm->getName (100)) == 1, "a control named \"" + prm->getName (100) + "\"");
             expectEquals ((int) shown.size(), (int) std::size (allParameters), "and no control without a setting");
 
-            // Top to bottom: filters, equaliser, dynamics. Within a row, left to right.
-            auto y = [&ed] (const char* id) { return ed->findKnob (id)->getY(); };
-            expect (y ("high_pass") < y ("lf_frequency") && y ("lf_frequency") < y ("comp_threshold"), "filters, then equaliser, then dynamics");
+            // Left to right, in the order of the signal: filters, dynamics, equaliser, output (songsmithstudio#9).
+            auto x = [&ed] (const char* id) { return ed->findKnob (id)->getX(); };
+            expect (x ("high_pass") < x ("gate_threshold") && x ("gate_threshold") < x ("comp_threshold") && x ("comp_threshold") < x ("lf_frequency")
+                    && x ("hf_frequency") < ed->findKnob ("output_trim")->getX() + 1, "Input and Filters, then Dynamics (Gate then Compressor), then the Equaliser, then Output");
+            for (int m = 0; m < 3; ++m)
+                expect (ed->getModuleBounds (m).getRight() < ed->getModuleBounds (m + 1).getX(), "four separate modules, left to right, with a gap between");
             expect (ed->findKnob ("lf_frequency")->getX() < ed->findKnob ("lmf_frequency")->getX()
                     && ed->findKnob ("lmf_frequency")->getX() < ed->findKnob ("hmf_frequency")->getX()
                     && ed->findKnob ("hmf_frequency")->getX() < ed->findKnob ("hf_frequency")->getX(), "the bands run low to high");
@@ -460,7 +463,7 @@ public:
             {
                 expect (content->getLocalBounds().contains (parts[i]->getBounds()), context + ": inside the editor");
                 expect (parts[i]->getBottom() <= Desk::EditorLayout::contentHeight, context + ": above the footer strip");
-                expect (parts[i]->getRight() <= ed->getMeterColumn().getX(), context + ": clear of the meter column");
+                expect (! parts[i]->getBounds().intersects (ed->getMeterColumn().getBounds()), context + ": clear of the meter column");
                 for (size_t j = i + 1; j < parts.size(); ++j)
                     expect (! parts[i]->getBounds().intersects (parts[j]->getBounds()), context + ": no overlap");
             }

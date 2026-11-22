@@ -32,11 +32,17 @@ namespace BusComp
     // The editor is laid out once at a design size and scaled as a whole, so every size looks the same.
     namespace EditorLayout
     {
-        constexpr int designWidth = 980, contentHeight = 392;   // 800 for the controls plus the right-hand meter column (SUI-23); they sit above the footer strip
+        // songsmithstudio#10: two zones, like a hardware console. The control panel at the left holds the five controls in a grid
+        // (Threshold and Make-up Gain on top, Attack, Release and Ratio below); the recessed metering zone at the right holds the gain
+        // reduction lamps and, at the far edge, the suite's Input, Gain Reduction and Output meters.
+        constexpr int designWidth = 1100, contentHeight = 440;   // above the footer strip
+        constexpr int panelX = 16, panelY = 58, panelWidth = 556, panelHeight = contentHeight - 58 - 10;   // the control panel
+        constexpr int wellX = panelX + panelWidth + 16, wellY = panelY, wellRight = designWidth - 16, wellHeight = panelHeight;   // the metering zone
+        constexpr int inputMeterGap = 14;   // between the Input meter and the Gain Reduction / Output column
         constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
         constexpr int designHeight = contentHeight + footerHeight;
         constexpr int defaultWidth = designWidth;
-        constexpr int minWidth = 735, maxWidth = 2940;           // 75 % to 300 %
+        constexpr int minWidth = 825, maxWidth = 3300;           // 75 % to 300 %
 
         inline int constrainWidth (int width) noexcept { return juce::jlimit (minWidth, maxWidth, width); }
         inline int heightFor (int width) noexcept      { return juce::roundToInt ((double) width * designHeight / designWidth); }

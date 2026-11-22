@@ -67,13 +67,21 @@ namespace Desk
     constexpr float defaultCompAttackMs = 3.0f, defaultCompReleaseSeconds = 0.3f;
 
     // The editor is laid out once at a design size and scaled as a whole, so every size looks the same.
+    // songsmithstudio#9: a vertically segmented console channel strip. Four modules side by side in signal-flow order, separated by steel
+    // dividers: Input and Filters (one column of four knobs), Dynamics (the Gate and the Compressor side by side), the Equaliser (four
+    // colour-coded bands, each a column) and Output and Meter (Output Trim and the suite's Gain Reduction and Output meters).
     namespace EditorLayout
     {
-        constexpr int leftMargin = 24, cellWidth = 100, cellsAcross = 10;
-        constexpr int controlsRight = leftMargin + cellWidth * cellsAcross;
-        constexpr int designWidth = controlsRight + Songsmith::UI::MeterColumn::contentGap
-                                    + Songsmith::UI::MeterColumn::widthFor (true) + Songsmith::UI::MeterColumn::margin;
-        constexpr int contentHeight = 500;                      // the controls; the footer strip sits below
+        constexpr int margin = 8, moduleGap = 8, moduleTop = 56, headerHeight = 26, toggleRowHeight = 28, cellWidth = 104;
+        constexpr int contentHeight = 660;                       // the modules; the footer strip sits below
+        constexpr int moduleBottom = contentHeight - 8;
+        constexpr int inputX = margin, inputWidth = cellWidth + 20;
+        constexpr int dynamicsX = inputX + inputWidth + moduleGap, dynamicsWidth = 2 * cellWidth + 24;
+        constexpr int eqX = dynamicsX + dynamicsWidth + moduleGap, eqWidth = 4 * cellWidth + 24;
+        constexpr int outputX = eqX + eqWidth + moduleGap, outputWidth = Songsmith::UI::MeterColumn::widthFor (true) + 16;
+        constexpr int moduleRight = outputX + outputWidth;       // the Output module's right edge
+        constexpr int designWidth = moduleRight + margin;
+        constexpr int controlsRight = eqX + eqWidth;             // where the controls end (the Output module's meters are beyond)
         constexpr int footerHeight = 28;                         // the latency and Processing Load strip
         constexpr int designHeight = contentHeight + footerHeight;
         constexpr int defaultWidth = designWidth;
