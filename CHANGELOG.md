@@ -2,7 +2,7 @@
 
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
-## Unreleased
+## 0.5.70
 
 - **Songsmith Compressor: Analog Warmth now has four models.** A dropdown beside the Analog Warmth button lets you choose **Black**, **Blue**, **Anniversary** or **Lindell**, the same four as the Songsmith Analog Compressor, and they use the same code. Hover over the dropdown for what the one you chose is good for. It is greyed while Analog Warmth is off, and it remembers your choice. Your existing projects sound exactly as they did: they keep their original Analog Warmth, shown as **Classic**, until you choose a model. With Analog Warmth off nothing changes at all.
 
