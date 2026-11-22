@@ -481,27 +481,41 @@ public:
             expect (ed->getTitleHint().getBounds() == ed->getTitleBounds(), "the hint sits exactly over the title");
         }
 
-        beginTest ("Layout: the meter above the knobs, the knobs in signal order, nothing overlapping");
+        beginTest ("songsmithstudio#10 layout: a control panel at the left holding the five controls in a grid, the metering zone at the right, nothing overlapping");
         for (int width : { BusComp::EditorLayout::minWidth, BusComp::EditorLayout::defaultWidth, BusComp::EditorLayout::maxWidth })
         {
             SongsmithBusCompressorProcessor p;
             auto ed = make (p, width);
             const auto context = "at " + juce::String (width) + " px";
-            std::vector<juce::Component*> parts { &ed->getThresholdKnob(), &ed->getRatioKnob(), &ed->getAttackKnob(), &ed->getReleaseKnob(),
-                                                  &ed->getMakeupKnob(), &ed->getMeter() };
-            auto* content = ed->getMeter().getParentComponent();
+            const auto panel = ed->getControlPanelBounds(), zone = ed->getMeteringZoneBounds();
+            auto* content = ed->getMeterColumn().getParentComponent();
+            expect (panel.getRight() < zone.getX(), context + ": the control panel is left of the metering zone");
+            expect (content->getLocalBounds().contains (panel) && content->getLocalBounds().contains (zone), context + ": both zones are inside the editor");
+            expect (panel.getBottom() <= BusComp::EditorLayout::contentHeight && zone.getBottom() <= BusComp::EditorLayout::contentHeight, context + ": above the footer strip");
+
+            std::vector<juce::Component*> knobs { &ed->getThresholdKnob(), &ed->getMakeupKnob(), &ed->getAttackKnob(), &ed->getReleaseKnob(), &ed->getRatioKnob() };
+            for (auto* k : knobs)
+                expect (panel.contains (k->getBounds()), context + ": every control is in the control panel");
+            // The grid: Threshold and Make-up Gain on top, Attack, Release and Ratio below, each row from left to right.
+            expect (ed->getThresholdKnob().getRight() <= ed->getMakeupKnob().getX() && ed->getThresholdKnob().getY() == ed->getMakeupKnob().getY(), context + ": Threshold then Make-up Gain on the top row");
+            expect (ed->getAttackKnob().getRight() <= ed->getReleaseKnob().getX() && ed->getReleaseKnob().getRight() <= ed->getRatioKnob().getX(), context + ": Attack, Release, Ratio from left to right");
+            expect (ed->getAttackKnob().getY() >= ed->getThresholdKnob().getBottom() && ed->getAttackKnob().getY() == ed->getRatioKnob().getY(), context + ": the second row is below the first");
+            for (size_t i = 0; i < knobs.size(); ++i)
+                for (size_t j = i + 1; j < knobs.size(); ++j)
+                    expect (! knobs[i]->getBounds().intersects (knobs[j]->getBounds()), context + ": no two controls overlap");
+
+            // The suite's meters stay, in the right-hand zone: the lamps, then Input, then the Gain Reduction and Output column at the far edge.
+            expect (zone.contains (ed->getMeter().getBounds()), context + ": the gain reduction lamps are in the metering zone");
+            expect (zone.contains (ed->getInputMeter().getBounds()) && zone.contains (ed->getMeterColumn().getBounds()), context + ": and so are the Input meter and the Gain Reduction and Output column");
+            expect (ed->getMeter().getRight() < ed->getInputMeter().getX() && ed->getInputMeter().getRight() < ed->getMeterColumn().getX(), context + ": lamps, Input, then the Gain Reduction and Output column, left to right");
+            expectEquals (ed->getInputMeter().getY(), ed->getMeterColumn().getY(), context + ": the Input meter is as tall as the column");
+            expectEquals (ed->getInputMeter().getHeight(), ed->getMeterColumn().getHeight());
+            expect (ed->getInputMeter().getTitle() == "Input level" && ed->getInputMeter().getTooltip().isNotEmpty(), context + ": named and described");
+            std::vector<juce::Component*> parts { &ed->getMeter(), &ed->getInputMeter(), &ed->getMeterColumn() };
+            for (auto* k : knobs) parts.push_back (k);
             for (size_t i = 0; i < parts.size(); ++i)
-            {
-                expect (content->getLocalBounds().contains (parts[i]->getBounds()), context + ": inside the editor");
-                expect (parts[i]->getBottom() <= BusComp::EditorLayout::contentHeight, context + ": above the footer strip");
                 for (size_t j = i + 1; j < parts.size(); ++j)
-                    expect (! parts[i]->getBounds().intersects (parts[j]->getBounds()), context + ": no overlap");
-            }
-            const auto meter = ed->getMeter().getBounds();
-            for (size_t i = 0; i < 5; ++i)
-                expect (parts[i]->getY() >= meter.getBottom(), context + ": the knobs are under the meter that shows their effect");
-            for (size_t i = 1; i < 5; ++i)
-                expect (parts[i - 1]->getRight() <= parts[i]->getX(), context + ": Threshold, Ratio, Attack, Release, Make-up Gain from left to right");
+                    expect (! parts[i]->getBounds().intersects (parts[j]->getBounds()), context + ": nothing overlaps");
             expect (ed->getBypassButton().getRight() <= content->getWidth(), context + ": Bypass is inside");
             Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), context);
         }
@@ -625,6 +639,32 @@ public:
             expect (ed->getMeter().ballistics.position() > 2.0f, "the lamps have lit");
             ed->advanceMeter (2.0f);
             expect (ed->getMeter().ballistics.position() < 0.1f, "and go out again when nothing is happening");
+        }
+
+        beginTest ("songsmithstudio#10: the Input meter shows what arrives, before the compressor, per channel, and the editor shows it");
+        {
+            SongsmithBusCompressorProcessor p;
+            prepare (p, 48000.0, 480);
+            setParam (p, BusComp::thresholdId, -12.0f);
+            setParam (p, BusComp::ratioId, 2.0f);
+            auto ed = make (p, BusComp::EditorLayout::defaultWidth);
+            const auto left = noise (48000, 0.6f, 41), right = noise (48000, 0.3f, 42);
+            float peakLeft = 0.0f, peakRight = 0.0f;
+            for (size_t i = 0; i < left.size(); ++i)
+            {
+                peakLeft = std::max (peakLeft, std::abs (left[i]));
+                peakRight = std::max (peakRight, std::abs (right[i]));
+            }
+            run (p, { left, right }, 480);
+            auto& in = p.inputMeter;
+            in.readAndReset();
+            // read what the audio thread published: the peaks since the last read are the input's, not the compressed output's
+            run (p, { left, right }, 480);
+            expectWithinAbsoluteError (in.readAndResetChannel (0), peakLeft, 0.001f, "left arrives at its own peak, before compression");
+            expectWithinAbsoluteError (in.readAndResetChannel (1), peakRight, 0.001f, "right arrives at its own peak");
+            expectEquals (in.channels.load(), 2);
+            expectLessThan (p.outputMeter.readAndResetChannel (0), peakLeft - 0.02f, "while the compressed output is lower");
+            ed->advanceMeter (0.1f);   // the editor reads the same state without error
         }
 
         beginTest ("The preset menu lists the starting points, your presets, Save and the folder, and loading a starting point is one Undo step");

@@ -90,6 +90,8 @@ void SongsmithBusCompressorProcessor::prepareToPlay (double sampleRate, int samp
     gainReductionDb.store (0.0f);
     outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, getMainBusNumOutputChannels()), std::memory_order_relaxed);
     outputMeter.resetLatch (sampleRate);   // a new session or layout starts without a warning
+    inputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, getMainBusNumInputChannels()), std::memory_order_relaxed);
+    inputMeter.resetLatch (sampleRate);
     setLatencySamples (0);
 }
 
@@ -111,7 +113,7 @@ void SongsmithBusCompressorProcessor::processBlock (juce::AudioBuffer<float>& bu
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
     engine.setParams (getEngineParams());
 
-    float reduction = 0.0f, blockPeak = 0.0f;
+    float reduction = 0.0f, blockPeak = 0.0f, inputPeak = 0.0f;
     const bool bypassedNow = bypassParam->get();
 
     for (int pos = 0; pos < total;)
@@ -123,6 +125,9 @@ void SongsmithBusCompressorProcessor::processBlock (juce::AudioBuffer<float>& bu
         {
             ch[c] = buffer.getWritePointer (c, pos);
             juce::FloatVectorOperations::copy (dryBuffer.getWritePointer (c), ch[c], num);   // the dry signal, for bypass
+            const float arriving = buffer.getMagnitude (c, pos, num);
+            inputPeak = juce::jmax (inputPeak, arriving);
+            inputMeter.pushChannel (c, arriving);   // what arrives, before the compressor
         }
 
         // The engine always runs, even when bypassed, so un-bypassing never glitches.
@@ -156,6 +161,9 @@ void SongsmithBusCompressorProcessor::processBlock (juce::AudioBuffer<float>& bu
 
     pushMax (gainReductionDb, bypassedNow ? 0.0f : reduction);
 
+    inputMeter.push (inputPeak);
+    inputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, numIn), std::memory_order_relaxed);
+    inputMeter.updateClipLatch (inputPeak, total);
     outputMeter.push (blockPeak);
     outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, numOut), std::memory_order_relaxed);
     outputMeter.updateClipLatch (blockPeak, total);

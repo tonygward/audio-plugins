@@ -65,6 +65,7 @@ public:
 
     // SUI-23: what leaves the plugin, per channel, for the far-right Output meter (lock-free, read by the editor).
     Songsmith::UI::OutputMeterState outputMeter;
+    Songsmith::UI::OutputMeterState inputMeter;   // songsmithstudio#10: what arrives, per channel, before the compressor
 
     // Optional timing of processBlock for the editor's Processing Load readout (off unless the editor switches it on).
     Songsmith::Diagnostics::LoadMeter loadMeter;

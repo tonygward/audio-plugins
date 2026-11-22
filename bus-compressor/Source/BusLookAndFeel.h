@@ -17,8 +17,12 @@ namespace BusComp::UI
         inline const juce::Colour recess     = Songsmith::UI::Colours::recess;
         inline const juce::Colour text       = Songsmith::UI::Colours::text;
         inline const juce::Colour textDim    = Songsmith::UI::Colours::textDim;
-        // ...the bus compressor's accent (a warm amber), and colours only the meter uses.
-        inline const juce::Colour accent     { 0xffe6a15c };
+        // ...the bus compressor's accent (songsmithstudio#10: a console blue, on the knobs, lamps and title), the graphite console
+        // surfaces, and colours only the meter uses.
+        inline const juce::Colour accent     { 0xff5ea2e8 };
+        inline const juce::Colour consoleTop    { 0xff3a3d42 };   // the control panel, lit from the top
+        inline const juce::Colour consoleBottom { 0xff26282c };
+        inline const juce::Colour well          { 0xff16181b };   // the recessed metering zone
         inline const juce::Colour meterFace  { 0xfff1e6c8 };
         inline const juce::Colour meterInk   { 0xff2a2620 };
         inline const juce::Colour meterRed   { 0xffb8402e };

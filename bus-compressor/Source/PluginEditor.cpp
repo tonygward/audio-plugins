@@ -25,16 +25,17 @@ namespace
         return [names] (float v) { return names[juce::jlimit (0, names.size() - 1, juce::roundToInt (v))]; };
     }
 
-    // Layout, in design units (EditorLayout::designWidth x EditorLayout::designHeight).
-    const juce::Rectangle<int> meterArea { 24, 62, 752, 52 };
-    constexpr int knobTop = 146, knobHeight = 236, knobWidth = 144, knobGap = 8, knobLeft = 24;
-    juce::Rectangle<int> knobArea (int index) { return { knobLeft + index * (knobWidth + knobGap), knobTop, knobWidth, knobHeight }; }
+    // Layout, in design units (EditorLayout::designWidth x EditorLayout::designHeight). songsmithstudio#10: the control panel at the left
+    // (Threshold and Make-up Gain on top, Attack, Release and Ratio below), the metering zone at the right.
+    const juce::Rectangle<int> lampArea { EditorLayout::wellX + 16, EditorLayout::panelY + 18, 240, 250 };   // the gain reduction lamps
+    const juce::Rectangle<int> thresholdArea { 36, 70, 250, 190 }, makeupArea { 302, 70, 250, 190 };
+    const juce::Rectangle<int> attackArea { 36, 270, 172, 150 }, releaseArea { 208, 270, 172, 150 }, ratioArea { 380, 270, 172, 150 };
 
-    // The faceplate's fine brushed-metal grain (shared with the other plugins). Built once; the same grain every time.
+    // The control panel's fine brushed-metal grain (shared with the other plugins). Built once; the same grain every time.
     struct Grain : Songsmith::UI::BrushedGrain
     {
-        Grain() : BrushedGrain (juce::Rectangle<float>::leftTopRightBottom (10.0f, (float) Songsmith::UI::titleBarHeight + 2.0f,
-                                                                         (float) designWidth - 10.0f, (float) contentHeight - 6.0f)) {}
+        Grain() : BrushedGrain (juce::Rectangle<float> ((float) EditorLayout::panelX, (float) EditorLayout::panelY,
+                                                        (float) EditorLayout::panelWidth, (float) EditorLayout::panelHeight)) {}
     };
 
     void drawScrew (juce::Graphics& g, juce::Point<float> c, float slotAngle)
@@ -51,8 +52,8 @@ namespace
 
 //==============================================================================
 BusKnob::BusKnob (juce::AudioProcessorValueTreeState& state, const char* paramId, const juce::String& n,
-                  std::vector<std::pair<float, juce::String>> scaleMarks, Formatter format)
-    : name (n), marks (std::move (scaleMarks)), formatter (std::move (format)),
+                  std::vector<std::pair<float, juce::String>> scaleMarks, Formatter format, float size)
+    : name (n), marks (std::move (scaleMarks)), formatter (std::move (format)), dialSize (size),
       attachment (state, paramId, slider)
 {
     auto* p = state.getParameter (paramId);
@@ -72,7 +73,7 @@ void BusKnob::resized()
     r.removeFromTop (22);
     r.removeFromBottom (24);
     const int side = juce::jmin (r.getWidth(), r.getHeight());
-    const int size = juce::roundToInt ((float) side * 0.58f);   // room for the printed scale
+    const int size = juce::roundToInt ((float) side * dialSize);   // room for the printed scale
     slider.setBounds (juce::Rectangle<int> (size, size).withCentre (r.getCentre()));
 }
 
@@ -108,11 +109,11 @@ void BusKnob::paint (juce::Graphics& g)
 SongsmithBusCompressorEditor::SongsmithBusCompressorEditor (SongsmithBusCompressorProcessor& p)
     : juce::AudioProcessorEditor (&p), proc (p),
       thresholdKnob (p.apvts, thresholdId, "Threshold",
-                     { { -15.0f, "-15" }, { -10.0f, "-10" }, { -5.0f, "-5" }, { 0.0f, "0" }, { 5.0f, "+5" }, { 10.0f, "+10" } }, [] (float v) { return dialText (v); }),
+                     { { -15.0f, "-15" }, { -10.0f, "-10" }, { -5.0f, "-5" }, { 0.0f, "0" }, { 5.0f, "+5" }, { 10.0f, "+10" } }, [] (float v) { return dialText (v); }, 0.62f),
       ratioKnob (p.apvts, ratioId, "Ratio", stepMarks (ratioNames()), stepText (ratioNames())),
       attackKnob (p.apvts, attackId, "Attack", stepMarks (attackNames()), stepText (attackNames())),
       releaseKnob (p.apvts, releaseId, "Release", stepMarks (releaseNames()), stepText (releaseNames())),
-      makeupKnob (p.apvts, makeupId, "Make-up Gain", { { 0.0f, "0" }, { 5.0f, "5" }, { 10.0f, "10" }, { 15.0f, "15" } }, [] (float v) { return dbText (v); }),
+      makeupKnob (p.apvts, makeupId, "Make-up Gain", { { 0.0f, "0" }, { 5.0f, "5" }, { 10.0f, "10" }, { 15.0f, "15" } }, [] (float v) { return dbText (v); }, 0.62f),
       bypassAttachment (p.apvts, bypassId, bypassButton)
 {
     setLookAndFeel (&lnf);
@@ -144,6 +145,11 @@ SongsmithBusCompressorEditor::SongsmithBusCompressorEditor (SongsmithBusCompress
     meterColumn.getOutput().setTooltip ("Output level of the left and right channels, after the compressor, Make-up Gain and Bypass. The number under the warning is the highest sample level held for 1.5 seconds. "
                                         "This is sample peak, not true peak. Nothing to do unless the clip warning lights: then lower Make-up Gain. Click to clear the held number.");
     content.addAndMakeVisible (meterColumn);
+    inputMeterDisplay.setTooltip ("Input level of the left and right channels, before the compressor. The number under the warning is the highest sample level held "
+                                  "for 1.5 seconds. This is sample peak, not true peak. Nothing to do unless the clip warning lights: then lower the level coming in "
+                                  "from the track. Click to clear the held number.");
+    inputMeterDisplay.setTitle ("Input level");
+    content.addAndMakeVisible (inputMeterDisplay);
 
     // The window is resized by dragging the bottom-right corner; the size is saved with the session.
     setWantsKeyboardFocus (true);
@@ -227,13 +233,15 @@ void SongsmithBusCompressorEditor::resized()
 
 void SongsmithBusCompressorEditor::layoutContent()
 {
-    meter.setBounds (meterArea);
+    meter.setBounds (lampArea);
     meterColumn.setBounds (Songsmith::UI::MeterColumn::boundsFor (designWidth, (int) Songsmith::UI::titleBarHeight + 8, contentHeight - 12, true));
-    thresholdKnob.setBounds (knobArea (0));
-    ratioKnob.setBounds (knobArea (1));
-    attackKnob.setBounds (knobArea (2));
-    releaseKnob.setBounds (knobArea (3));
-    makeupKnob.setBounds (knobArea (4));
+    inputMeterDisplay.setBounds (meterColumn.getX() - EditorLayout::inputMeterGap - (int) Songsmith::UI::OutputMeterDisplay::preferredWidth, meterColumn.getY(),
+                                 (int) Songsmith::UI::OutputMeterDisplay::preferredWidth, meterColumn.getHeight());
+    thresholdKnob.setBounds (thresholdArea);
+    makeupKnob.setBounds (makeupArea);
+    attackKnob.setBounds (attackArea);
+    releaseKnob.setBounds (releaseArea);
+    ratioKnob.setBounds (ratioArea);
 
     // Title bar (the same in every plugin): name | preset | Undo | Redo ... Bypass (far right).
     const auto header = Songsmith::UI::Header::layout (
@@ -260,22 +268,48 @@ void SongsmithBusCompressorEditor::paintContent (juce::Graphics& g)
     const auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) designWidth, (float) designHeight);
     Songsmith::UI::LookAndFeelBase::drawPanel (g, r);
 
-    // Faceplate: a fine brushed grain, a lit inner edge and four screws. All vector, so it scales.
+    // songsmithstudio#10: two zones. The control panel (graphite metal, lit from the top, with its grain, a lit edge and four screws) and the
+    // recessed metering zone beside it. All vector, so it scales.
     {
-        static const Grain grain;
-        grain.draw (g);
+        const auto panel = getControlPanelBounds().toFloat();
+        g.setGradientFill (juce::ColourGradient (Colours::consoleTop, panel.getX(), panel.getY(), Colours::consoleBottom, panel.getX(), panel.getBottom(), false));
+        g.fillRoundedRectangle (panel, 10.0f);
+        {
+            juce::Graphics::ScopedSaveState state (g);
+            juce::Path clip;
+            clip.addRoundedRectangle (panel, 10.0f);
+            g.reduceClipRegion (clip);
+            static const Grain grain;
+            grain.draw (g);
+        }
+        g.setColour (juce::Colours::white.withAlpha (0.12f));
+        g.drawRoundedRectangle (panel.reduced (0.5f), 10.0f, 1.0f);
+        g.setColour (juce::Colours::black.withAlpha (0.45f));
+        g.drawRoundedRectangle (panel.translated (0.0f, 1.0f).reduced (0.5f), 10.0f, 1.0f);
+        const float inset = 12.0f;
+        drawScrew (g, { panel.getX() + inset, panel.getY() + inset }, 0.4f);
+        drawScrew (g, { panel.getRight() - inset, panel.getY() + inset }, 1.9f);
+        drawScrew (g, { panel.getX() + inset, panel.getBottom() - inset }, 2.6f);
+        drawScrew (g, { panel.getRight() - inset, panel.getBottom() - inset }, 0.9f);
 
-        const auto plate = juce::Rectangle<float> (6.0f, (float) Songsmith::UI::titleBarHeight + 4.0f, (float) designWidth - 12.0f,
-                                                   (float) contentHeight - (float) Songsmith::UI::titleBarHeight - 10.0f);
-        g.setColour (juce::Colours::white.withAlpha (0.06f));
-        g.drawRoundedRectangle (plate, 8.0f, 1.0f);
-        g.setColour (juce::Colours::black.withAlpha (0.25f));
-        g.drawRoundedRectangle (plate.translated (1.0f, 1.0f), 8.0f, 1.0f);
-        const float inset = 10.0f;
-        drawScrew (g, { plate.getX() + inset, plate.getY() + inset }, 0.4f);
-        drawScrew (g, { plate.getRight() - inset, plate.getY() + inset }, 1.9f);
-        drawScrew (g, { plate.getX() + inset, plate.getBottom() - inset }, 2.6f);
-        drawScrew (g, { plate.getRight() - inset, plate.getBottom() - inset }, 0.9f);
+        // A groove between the two rows of knobs.
+        const float rowY = (float) attackArea.getY() - 4.0f;
+        g.setColour (juce::Colours::black.withAlpha (0.4f));
+        g.drawLine (panel.getX() + 28.0f, rowY, panel.getRight() - 28.0f, rowY, 1.0f);
+        g.setColour (juce::Colours::white.withAlpha (0.07f));
+        g.drawLine (panel.getX() + 28.0f, rowY + 1.0f, panel.getRight() - 28.0f, rowY + 1.0f, 1.0f);
+    }
+    {
+        const auto well = getMeteringZoneBounds().toFloat();
+        g.setGradientFill (juce::ColourGradient (Colours::well.darker (0.3f), well.getX(), well.getY(), Colours::well.brighter (0.05f), well.getX(), well.getBottom(), false));
+        g.fillRoundedRectangle (well, 10.0f);
+        // sunk into the surface: a dark upper edge and a lit lower edge
+        g.setColour (juce::Colours::black.withAlpha (0.7f));
+        g.drawRoundedRectangle (well.reduced (0.5f), 10.0f, 1.2f);
+        g.setColour (juce::Colours::white.withAlpha (0.07f));
+        g.drawLine (well.getX() + 10.0f, well.getBottom() + 0.5f, well.getRight() - 10.0f, well.getBottom() + 0.5f, 1.0f);
+        g.setGradientFill (juce::ColourGradient (juce::Colours::black.withAlpha (0.45f), well.getX(), well.getY(), juce::Colours::transparentBlack, well.getX(), well.getY() + 16.0f, false));
+        g.fillRoundedRectangle (well.withHeight (16.0f), 10.0f);
     }
     Songsmith::UI::LookAndFeelBase::drawTitleBar (g, r.withHeight (Songsmith::UI::titleBarHeight));
     Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, Colours::text, Colours::accent);
@@ -284,12 +318,8 @@ void SongsmithBusCompressorEditor::paintContent (juce::Graphics& g)
     g.setColour (Colours::text);
     g.setFont (numbers (Type::heading, Weight::Medium));
     g.drawText (gainReductionText (grDisplayDb),
-                juce::Rectangle<float> ((float) meterArea.getX(), (float) meterArea.getBottom() + 4.0f, (float) meterArea.getWidth(), 20.0f),
+                juce::Rectangle<float> ((float) lampArea.getX(), (float) lampArea.getBottom() + 6.0f, (float) lampArea.getWidth(), 22.0f),
                 juce::Justification::centred);
-
-    // A rule between the meter and the controls.
-    g.setColour (Colours::panelLight.brighter (0.1f));
-    g.drawLine ((float) meterArea.getX(), 142.0f, (float) meterArea.getRight(), 142.0f, 1.0f);
 }
 
 juce::String SongsmithBusCompressorEditor::gainReductionText (float db)
@@ -312,9 +342,15 @@ void SongsmithBusCompressorEditor::advanceMeter (float seconds)
         meterColumn.update (m.readAndResetChannel (0), m.readAndResetChannel (1), m.channels.load (std::memory_order_relaxed),
                             m.clipLatched.load (std::memory_order_relaxed), gr,
                             juce::Time::getMillisecondCounterHiRes() * 0.001, seconds);
+
+        auto& in = proc.inputMeter;
+        in.readAndReset();
+        in.clipped.store (false, std::memory_order_relaxed);
+        inputMeterDisplay.update (in.readAndResetChannel (0), in.readAndResetChannel (1), in.channels.load (std::memory_order_relaxed),
+                                  in.clipLatched.load (std::memory_order_relaxed), juce::Time::getMillisecondCounterHiRes() * 0.001, seconds);
     }
 
-    content.repaint (meterArea.getX(), meterArea.getY(), meterArea.getWidth(), meterArea.getHeight() + 30);
+    content.repaint (lampArea.getX(), lampArea.getY(), lampArea.getWidth(), lampArea.getHeight() + 70);
 }
 
 //==============================================================================

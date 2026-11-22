@@ -14,8 +14,9 @@ class BusKnob : public juce::Component
 public:
     using Formatter = std::function<juce::String (float)>;
 
+    // 'size' is how much of the room the dial takes (the printed scale needs the rest): the two large controls use more.
     BusKnob (juce::AudioProcessorValueTreeState& state, const char* paramId, const juce::String& name,
-             std::vector<std::pair<float, juce::String>> scaleMarks, Formatter format);
+             std::vector<std::pair<float, juce::String>> scaleMarks, Formatter format, float size = 0.58f);
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -27,6 +28,7 @@ private:
     juce::String name;
     std::vector<std::pair<float, juce::String>> marks;
     Formatter formatter;
+    float dialSize = 0.58f;
     juce::AudioProcessorValueTreeState::SliderAttachment attachment;
 };
 
@@ -52,6 +54,9 @@ public:
     // For tests and screenshots.
     BusComp::UI::LampMeter& getMeter() noexcept { return meter; }
     Songsmith::UI::MeterColumn& getMeterColumn() noexcept { return meterColumn; }
+    Songsmith::UI::OutputMeterDisplay& getInputMeter() noexcept { return inputMeterDisplay; }
+    juce::Rectangle<int> getControlPanelBounds() const noexcept { return { BusComp::EditorLayout::panelX, BusComp::EditorLayout::panelY, BusComp::EditorLayout::panelWidth, BusComp::EditorLayout::panelHeight }; }
+    juce::Rectangle<int> getMeteringZoneBounds() const noexcept { return { BusComp::EditorLayout::wellX, BusComp::EditorLayout::wellY, BusComp::EditorLayout::wellRight - BusComp::EditorLayout::wellX, BusComp::EditorLayout::wellHeight }; }
     BusKnob& getThresholdKnob() noexcept { return thresholdKnob; }
     BusKnob& getRatioKnob() noexcept { return ratioKnob; }
     BusKnob& getAttackKnob() noexcept { return attackKnob; }
@@ -93,6 +98,7 @@ private:
     juce::AudioProcessorValueTreeState::ButtonAttachment bypassAttachment;
 
     BusComp::UI::LampMeter meter;
+    Songsmith::UI::OutputMeterDisplay inputMeterDisplay;   // songsmithstudio#10: the Input level, beside Gain Reduction and Output
     Songsmith::UI::MeterColumn meterColumn { true };   // SUI-23: Gain Reduction and Output at the far right, like the Songsmith Compressor
     float grDisplayDb = 0.0f;
 

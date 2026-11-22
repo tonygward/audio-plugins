@@ -2,11 +2,19 @@
 
 A bus compressor that glues a mix or a group of sounds together, inspired by the SSL 4000 G series bus compressor, by Songsmith Studio, built with JUCE and CMake. It is an original design, not a clone, and isn't affiliated with or endorsed by Solid State Logic. Every Songsmith plugin shares one version number: see the [changelog](../CHANGELOG.md).
 
-![Songsmith Bus Compressor with the Drum Bus Punch starting point](docs/images/editor-drum-bus-punch.png)
+![Songsmith Bus Compressor with the Drum Bus Punch starting point: a control panel at the left, the metering zone at the right](docs/images/console-ui-after.png)
 
 *A real screenshot at 200 %, rendered by the test executable (`BusCompressorTests --screenshot <file> --scale 2 --preset 2`).*
 
 ![Songsmith Bus Compressor with the Mix Bus Glue starting point](docs/images/editor-mix-bus-glue.png)
+
+## The layout (songsmithstudio#10)
+
+Two zones, like a console. The **control panel** at the left holds the five controls in a grid: **Threshold** and **Make-up Gain** on top, **Attack**, **Release** and **Ratio** below, with blue-capped knobs on a graphite panel. The **metering zone** at the right is recessed: the **Gain Reduction** lamps (one for each decibel), then the suite's **Input** level meter, then the **Gain Reduction** bar and the **Output** meter at the far edge. Nothing about the sound, the controls' values, the presets or the saved state changed.
+
+- **Input meter (new):** the level arriving, per channel, before the compressor, with the same clip warning and held peak as the Output meter, so you can see level in, gain reduction and level out together.
+- **Not added:** this plugin has no sidechain high-pass filter or Mix control, so there are none on the panel; the redesign did not change what the compressor does.
+- It is inspired by the layout and feel of a console bus compressor, not a copy of any product's panel, artwork, logo or wording. The earlier layout is in [docs/images/editor-drum-bus-punch.png](docs/images/editor-drum-bus-punch.png).
 
 ## What it does
 
