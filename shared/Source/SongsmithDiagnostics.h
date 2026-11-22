@@ -355,6 +355,16 @@ namespace Songsmith::Diagnostics
             resized();
         }
 
+        // songsmithstudio#17: a plugin's own control centred in the strip (the EQ's Piano button), with the Before and After loudness
+        // keeping the far right as in every other plugin. Centred on the strip, then moved left only if it would touch the loudness readout.
+        void setCentreControl (juce::Component* c)
+        {
+            centre = c;
+            if (c != nullptr)
+                addAndMakeVisible (*c);
+            resized();
+        }
+
         void refreshUpdateLink() { showUpdate (checker->offerFor (name, productVersionString())); }
 
         void refresh()
@@ -400,6 +410,16 @@ namespace Songsmith::Diagnostics
                 const int w = Loudness::Display::preferredWidth();
                 beforeAfter->setBounds (r.removeFromRight (w).withSizeKeepingCentre (w, 22));
                 r.removeFromRight (10);
+            }
+            if (centre != nullptr)
+            {
+                const int w = centre->getWidth() > 0 ? centre->getWidth() : 80;
+                int x = (getWidth() - w) / 2;
+                if (beforeAfter != nullptr)
+                    x = juce::jmin (x, beforeAfter->getX() - 10 - w);
+                centre->setBounds (x, (getHeight() - 22) / 2, w, 22);
+                if (x - 10 > r.getX())
+                    r.setRight (juce::jmin (r.getRight(), x - 10));   // the readout stops short of it
             }
             readout.setBounds (r);
         }
@@ -466,6 +486,7 @@ namespace Songsmith::Diagnostics
         juce::SharedResourcePointer<Update::Checker> checker;   // one for every window in this program
         std::unique_ptr<Loudness::Display> beforeAfter;
         juce::Component* trailing = nullptr;
+        juce::Component* centre = nullptr;
         juce::TextButton loadSwitch;
     };
 }

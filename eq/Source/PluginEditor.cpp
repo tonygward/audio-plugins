@@ -36,7 +36,8 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
 
     for (int i = 0; i < 3; ++i)
         rangeBox.addItem (juce::String::charToString (0x00b1) + juce::String ((int) ranges[i]) + " dB", i + 1);
-    rangeBox.setTooltip ("Visible gain range");
+    rangeBox.setTitle ("Graph Range");
+    rangeBox.setTooltip ("Graph Range: how many dB the graph shows above and below zero. It changes only what you see, never the sound or any band's gain.");
     rangeBox.onChange = [this]
     {
         const int i = rangeBox.getSelectedItemIndex();
@@ -161,24 +162,6 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     Songsmith::UI::styleBypassButton (bypassButton);   // the suite's Bypass red
     content.addAndMakeVisible (bypassButton);
 
-    // Scale the whole curve (double-click: 100 %).
-    scaleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
-        processor.apvts, EQ::gainScaleId, scaleSlider);
-    scaleSlider.textFromValueFunction = [] (double pct) { return "Gain Scale " + juce::String (juce::roundToInt (pct)) + "%"; };
-    scaleSlider.valueFromTextFunction = [] (const juce::String& t)
-    {
-        return t.retainCharacters ("-0123456789.").getDoubleValue();
-    };
-    scaleSlider.setDoubleClickReturnValue (true, 100.0);
-    scaleSlider.setTextBoxIsEditable (true);
-    scaleSlider.setColour (juce::Slider::trackColourId, EQColours::band (3));
-    scaleSlider.setColour (juce::Slider::textBoxTextColourId, EQColours::text);
-    scaleSlider.setTooltip ("Turns every band's boosts and cuts up or down together. 100% uses the values you set, "
-                            "0% flattens them, and negative values turn boosts into cuts. Low Cut, High Cut and Notch "
-                            "bands are not affected. Double-click to return to 100%.");
-    scaleSlider.updateText();
-    content.addAndMakeVisible (scaleSlider);
-
     autoGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         processor.apvts, EQ::autoGainId, autoGainButton);
     autoGainButton.setColour (juce::TextButton::buttonOnColourId, EQColours::totalCurve.withAlpha (0.85f));
@@ -249,7 +232,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (processor, processor.loadMeter, JucePlugin_Name);
     diagnostics->setBeforeAfter (&processor.beforeAfter);   // songsmithstudio#7
     content.addAndMakeVisible (*diagnostics);
-    diagnostics->setTrailingControl (&pianoButton);
+    diagnostics->setCentreControl (&pianoButton);   // songsmithstudio#17: centred, so the loudness readout keeps the far right like every other plugin
 
     content.addAndMakeVisible (titleHint);   // SUI-17: the plugin name explains the plugin
 
@@ -535,14 +518,11 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         auto row = area.removeFromTop (rowHeight).reduced (margin, 3);
         phaseBox.setBounds (row.removeFromLeft (comboWidth (phaseBox)));
         row.removeFromLeft (gap);
-        oversamplingBox.setBounds (row.removeFromLeft (comboWidth (oversamplingBox)));
-        row.removeFromLeft (gap);
-        accurateHighsButton.setBounds (row.removeFromLeft (buttonWidth ({ accurateHighsButton.getButtonText() })));
-        row.removeFromLeft (gap);
-
-        // The Scale control (gain scale, a real sound parameter) now lives in the toolbox beside the other
-        // gain controls, and the band count sits next to it when there is room (both moved out of the header).
-        scaleSlider.setBounds (row.removeFromRight (barWidth ({ "Gain Scale -100%", "Gain Scale 200%" })));
+        // The Gain Scale control was removed from the window (songsmithstudio#17); its parameter stays, so a session that saved a
+        // scale keeps the sound. The band count sits next to Accurate Highs when there is room.
+        oversamplingBox.setBounds (row.removeFromRight (comboWidth (oversamplingBox)));   // songsmithstudio#17: the rightmost control of its row
+        row.removeFromRight (gap);
+        accurateHighsButton.setBounds (row.removeFromRight (buttonWidth ({ accurateHighsButton.getButtonText() })));   // right beside Oversampling, the setting it is the alternative to
         row.removeFromRight (gap);
         const int countWidth = (int) std::ceil (textWidth ("24 / 24 bands", EQColours::numbers (EQColours::Type::control))) + 8;
         const bool countFits = row.getWidth() >= countWidth + gap * 2;
@@ -553,8 +533,6 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
 
     {
         auto row = area.removeFromTop (rowHeight).reduced (margin, 3).withTrimmedBottom (2);
-        rangeBox.setBounds (row.removeFromLeft (comboWidth (rangeBox)));
-        row.removeFromLeft (gap);
         analyserBox.setBounds (row.removeFromLeft (comboWidth (analyserBox)));
         row.removeFromLeft (4);
         analyserSettingsButton.setBounds (row.removeFromLeft (34));
@@ -569,6 +547,12 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         row.removeFromLeft (gap);
         const int hintWidth = (int) std::ceil (juce::GlyphArrangement::getStringWidth (hintLabel.getFont(), hintLabel.getText()))
                               + hintLabel.getBorderSize().getLeftAndRight() + 2;
+        // songsmithstudio#17: the display-range selector sits directly above the dB scale (the right end of the graph), as its Graph Range.
+        {
+            const int w = comboWidth (rangeBox);
+            rangeBox.setBounds (area.getRight() - margin - w - Songsmith::UI::OutputPanel::widthFor (false) - 6, row.getY(), w, row.getHeight());
+            row.setRight (juce::jmin (row.getRight(), rangeBox.getX() - gap));
+        }
         hintLabel.setVisible (row.getWidth() >= hintWidth);
         hintLabel.setBounds (row.withLeft (juce::jmax (row.getX(), row.getRight() - hintWidth)));
     }

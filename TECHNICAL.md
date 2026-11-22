@@ -14,7 +14,7 @@ Every plugin shares one look: the same typeface, type sizes and title, from the 
 
 ### Latency and Processing Load
 
-Every editor has a strip along the bottom, the same in every plugin: the **Processing Load** switch at the far left and, only while it is on, one readout beside it such as `CPU 0.35%, Latency 0.0ms (0 samples)`. In Songsmith EQ the **Piano** toggle sits at the far right of the same strip, beside the piano-note strip it controls (see the [style guide](docs/style-guide.md#latency-and-processing-load-strip)):
+Every editor has a strip along the bottom, the same in every plugin: the **Processing Load** switch at the far left and, only while it is on, one readout beside it such as `CPU 0.35%, Latency 0.0ms (0 samples)`. In Songsmith EQ the **Piano** toggle sits in the middle of the same strip, under the piano-note strip it controls, and the Before and After loudness keeps the far right (see the [style guide](docs/style-guide.md#latency-and-processing-load-strip)):
 
 - **Latency:** the delay the plugin reports to your recording software, in milliseconds at the current sample rate and in samples, for example "1.8ms (84 samples)". It updates when you change a mode that adds delay (linear phase, oversampling) or when the sample rate changes.
 - **Processing Load:** off until you switch it on. It shows how much of the time available for each block of audio this plugin uses, for example "3.2%". It describes this plugin only, and varies with the computer, the settings and the buffer size. It says "CPU Unavailable" while no audio is being processed.
