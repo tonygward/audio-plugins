@@ -112,8 +112,9 @@ public:
                 { "gain", 0.0f, 40.0f, 1.0f, "Gain" },
                 { "mode", 0.0f, 1.0f, 0.0f, "Mode" },
                 { "bypass", 0.0f, 1.0f, 0.0f, "Bypass" },
+                { "oversampling", 0.0f, 2.0f, 0.0f, "Oversampling" },
             };
-            expectEquals (p.getParameters().size(), (int) std::size (rows), "four parameters, no more");
+            expectEquals (p.getParameters().size(), (int) std::size (rows), "five parameters, no more");
             for (const auto& r : rows)
             {
                 auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p.apvts.getParameter (r.id));
@@ -249,6 +250,57 @@ public:
             auto xml = a.createState().createXml();
             expect (xml->getChildByName ("UI") != nullptr, "the editor settings are saved");
             expectEquals (a.createState().getProperty ("stateVersion", 0).operator int(), SongsmithOpticalLevellerProcessor::stateVersion);
+        }
+
+        beginTest ("Oversampling is real processing, reports its latency, and is Off by default (songsmithstudio#19)");
+        {
+            const double fs = 48000.0;
+            const int n = 48000;
+            std::vector<float> sine ((size_t) n);
+            for (int i = 0; i < n; ++i)
+                sine[(size_t) i] = 0.5f * std::sin (juce::MathConstants<float>::twoPi * 1000.0f * (float) i / (float) fs);
+
+            SongsmithOpticalLevellerProcessor off;
+            expectEquals (off.getOversamplingIndex(), 0, "Off by default");
+            setParam (off, Opt::peakReductionId, 80.0f);
+            prepare (off, fs, 512);
+            expectEquals (off.getLatencySamples(), 0, "Off adds no delay");
+            const auto outOff = run (off, { sine, sine }, 512);
+
+            for (int mode : { 1, 2 })
+            {
+                SongsmithOpticalLevellerProcessor on;
+                setParam (on, Opt::peakReductionId, 80.0f);
+                setParam (on, Opt::oversamplingId, (float) mode);
+                prepare (on, fs, 512);
+                const int latency = on.getOversamplingLatency (mode);
+                expectGreaterThan (latency, 0, "a real filter has some delay");
+                expectEquals (on.getLatencySamples(), latency, "the host is told the delay");
+                const auto out = run (on, { sine, sine }, 512);
+                expect (out[0] != outOff[0], "it is not the same processing as Off");
+                const float ratioDb = juce::Decibels::gainToDecibels (rms (out[0], 24000) / rms (outOff[0], 24000));
+                expectLessThan (std::abs (ratioDb), 1.0f, "the levelling is the same to within 1 dB (" + juce::String (mode) + ")");
+                expect (std::all_of (out[0].begin(), out[0].end(), [] (float v) { return std::isfinite (v) && std::abs (v) < 4.0f; }), "clean");
+
+                // Bypassed, the dry sound comes back exactly, delayed by the same amount.
+                setParam (on, Opt::bypassId, 1.0f);
+                const auto settle = run (on, { sine, sine }, 512);
+                const auto dry = run (on, { sine, sine }, 512);
+                bool aligned = true;
+                for (int i = latency; i < n; ++i)
+                    aligned = aligned && std::abs (dry[0][(size_t) i] - sine[(size_t) (i - latency)]) < 1.0e-6f;
+                expect (aligned, "bypassed: the dry signal, delayed to line up (" + juce::String (mode) + ")");
+                (void) settle;
+            }
+
+            // A session saved before Oversampling existed (no such parameter) loads with Off.
+            SongsmithOpticalLevellerProcessor p;
+            setParam (p, Opt::oversamplingId, 2.0f);
+            juce::ValueTree old (p.apvts.state.getType());
+            old.appendChild (juce::ValueTree ("PARAM", { { "id", Opt::gainId }, { "value", 5.0f } }), nullptr);
+            p.restoreFromValueTree (old);
+            expectEquals (p.getOversamplingIndex(), 0, "an older session loads with Oversampling off");
+            expectWithinAbsoluteError (getParam (p, Opt::gainId), 5.0f, 1.0e-4f);
         }
 
         beginTest ("Older, partial, damaged and out-of-range saved state loads safely");
@@ -555,15 +607,160 @@ public:
             SongsmithOpticalLevellerProcessor p;
             auto ed = make (p, Opt::EditorLayout::defaultWidth);
             expectEquals (ed->getGainKnob().getValueText(), juce::String ("+1.0 dB"));
-            expectEquals (ed->getPeakReductionKnob().getValueText(), juce::String ("40"));
+            expectEquals (ed->getPeakReductionKnob().getValueText(), juce::String ("40.0"));
             ed->getPeakReductionKnob().slider.setValue (75.0, juce::sendNotificationSync);
             ed->getGainKnob().slider.setValue (12.0, juce::sendNotificationSync);
             expectWithinAbsoluteError (getParam (p, Opt::peakReductionId), 75.0f, 1.0e-3f);
             expectWithinAbsoluteError (getParam (p, Opt::gainId), 12.0f, 1.0e-3f);
-            expectEquals (ed->getPeakReductionKnob().getValueText(), juce::String ("75"));
+            expectEquals (ed->getPeakReductionKnob().getValueText(), juce::String ("75.0"));
             expectEquals (ed->getGainKnob().getValueText(), juce::String ("+12.0 dB"));
             setParam (p, Opt::gainId, 0.0f);
             expectEquals (ed->getGainKnob().getValueText(), juce::String ("0.0 dB"));
+        }
+
+        beginTest ("Typing a value into the field sets the same parameter as the knob (songsmithstudio#19)");
+        {
+            SongsmithOpticalLevellerProcessor p;
+            auto ed = make (p, Opt::EditorLayout::defaultWidth);
+            auto& gain = ed->getGainKnob();
+            auto& peak = ed->getPeakReductionKnob();
+            expect (gain.valueLabel.isEditable() && peak.valueLabel.isEditable(), "both fields can be typed into");
+            expect (gain.applyTypedText ("+7.5 dB"), "a signed decimal with the unit is accepted");
+            expectWithinAbsoluteError (getParam (p, Opt::gainId), 7.5f, 1.0e-3f);
+            expectEquals (gain.valueLabel.getText(), juce::String ("+7.5 dB"));
+            expect (peak.applyTypedText ("62.5"), "a decimal is accepted");
+            expectWithinAbsoluteError (getParam (p, Opt::peakReductionId), 62.5f, 1.0e-3f);
+            expectEquals (peak.valueLabel.getText(), juce::String ("62.5"));
+            expect (peak.applyTypedText ("250"), "an out-of-range number is clamped, not refused");
+            expectWithinAbsoluteError (getParam (p, Opt::peakReductionId), 100.0f, 1.0e-3f);
+            const float before = getParam (p, Opt::gainId);
+            expect (! gain.applyTypedText ("loud"), "text with no digits is refused");
+            expectWithinAbsoluteError (getParam (p, Opt::gainId), before, 1.0e-6f);
+            setParam (p, Opt::gainId, 6.0f);   // host automation moves the field too
+            expectEquals (gain.valueLabel.getText(), juce::String ("+6.0 dB"));
+        }
+
+        beginTest ("Set Levels: the suggested Peak Reduction gives the target gain reduction (songsmithstudio#19)");
+        {
+            const double fs = 48000.0;
+            const int n = (int) (6.0 * fs);
+            // A programme with some movement: noise whose level swells and falls, at a realistic level.
+            auto programme = [&] (float amp, unsigned seed)
+            {
+                auto v = noise (n, amp, seed);
+                for (int i = 0; i < n; ++i)
+                    v[(size_t) i] *= 0.55f + 0.45f * std::sin (juce::MathConstants<float>::twoPi * 0.5f * (float) i / (float) fs);
+                return v;
+            };
+            const auto sig = programme (0.5f, 1);
+            const float* in[2] = { sig.data(), sig.data() };
+            Opt::Calibration::Settings s;
+
+            float previous = -1.0f;
+            for (float target : { 1.0f, 3.0f, 6.0f })
+            {
+                const auto r = Opt::Calibration::analyse (in, 2, n, fs, s, target);
+                expect (r.status == Opt::Calibration::Status::good, "reachable: " + juce::String (target));
+                expectWithinAbsoluteError (r.reductionDb, target, 0.6f, "measured reduction is near " + juce::String (target));
+                const float check = Opt::Calibration::averageReductionDb (in, 2, n, fs, s.limit, r.peakReduction);
+                expectWithinAbsoluteError (check, r.reductionDb, 1.0e-3f, "the figure is the engine's own at that Peak Reduction");
+                expectGreaterThan (r.peakReduction, previous, "a bigger target needs more Peak Reduction");
+                previous = r.peakReduction;
+            }
+
+            const auto silent = std::vector<float> ((size_t) n, 0.0f);
+            const float* sIn[2] = { silent.data(), silent.data() };
+            expect (Opt::Calibration::analyse (sIn, 2, n, fs, s, 3.0f).status == Opt::Calibration::Status::silent, "silence is reported");
+            expect (Opt::Calibration::analyse (in, 2, (int) fs, fs, s, 3.0f).status == Opt::Calibration::Status::tooShort, "one second is too short");
+            const auto faint = programme (0.002f, 2);
+            const float* fIn[2] = { faint.data(), faint.data() };
+            expect (Opt::Calibration::analyse (fIn, 2, n, fs, s, 3.0f).status == Opt::Calibration::Status::tooQuiet, "very quiet sound cannot reach the target");
+            std::vector<float> loud ((size_t) n);
+            for (int i = 0; i < n; ++i)
+                loud[(size_t) i] = 0.99f * std::sin (juce::MathConstants<float>::twoPi * 220.0f * (float) i / (float) fs);
+            const float* lIn[2] = { loud.data(), loud.data() };
+            expect (Opt::Calibration::analyse (lIn, 2, n, fs, s, 0.0f).status == Opt::Calibration::Status::tooLoud, "asking for no reduction on very loud sound");
+        }
+
+        beginTest ("Set Levels: typing the target, and the sign convention");
+        {
+            double v = 0.0;
+            expect (Opt::Calibration::parseTarget ("-2", v) && v == 2.0, "-2 means 2 dB of reduction");
+            expect (Opt::Calibration::parseTarget ("-2.5 dB", v) && v == 2.5, "with the unit and a decimal");
+            expect (Opt::Calibration::parseTarget ("4", v) && v == 4.0, "a bare number is also a reduction");
+            expect (Opt::Calibration::parseTarget ("-99", v) && v == Opt::Calibration::maxTargetDb, "too much is limited, not refused");
+            expect (! Opt::Calibration::parseTarget ("loud", v), "no digits");
+            expect (! Opt::Calibration::parseTarget ("1.2.3", v), "two decimal points");
+            expectEquals (Opt::Calibration::targetText (3.0), juce::String ("-3.0 dB"));
+            expectEquals (Opt::Calibration::targetText (0.0), juce::String ("0.0 dB"));
+        }
+
+        beginTest ("Set Levels: listening, the ear, Apply, Cancel and Undo");
+        {
+            using Stage = Songsmith::UI::SetLevelsDialog::Stage;
+            using Ear = Songsmith::UI::ListeningEar::State;
+            const double fs = 48000.0;
+            SongsmithOpticalLevellerProcessor p;
+            prepare (p, fs, 512);
+            auto ed = make (p, Opt::EditorLayout::defaultWidth);
+            auto& dlg = ed->getSetLevelsDialog();
+            expect (! dlg.isOpen() && dlg.getStage() == Stage::idle, "closed at first");
+            expect (dlg.getEar().getState() == Ear::hidden, "the ear is hidden when idle");
+
+            const float peakBefore = getParam (p, Opt::peakReductionId);
+            ed->getSetLevelsButton().onClick();
+            expect (dlg.isOpen() && dlg.getStage() == Stage::listening, "opens, listening");
+            expect (dlg.getEar().getState() == Ear::waitingForAudio, "waiting for audio before any sound arrives");
+            expect (dlg.getEar().statusText().containsIgnoreCase ("waiting"), "and it says so in words");
+
+            // Silence does not light the ear.
+            run (p, { std::vector<float> (4800, 0.0f), std::vector<float> (4800, 0.0f) }, 512);
+            dlg.updateListening (p.levelCapture.hasHeardSound(), "x");
+            expect (dlg.getEar().getState() == Ear::waitingForAudio, "silence is not listening");
+
+            // Cancel changes nothing and hides the ear.
+            ed->getSetLevelsDialog().getCancelButton().onClick();
+            expect (! dlg.isOpen() && dlg.getEar().getState() == Ear::hidden, "Cancel closes and hides the ear");
+            expectWithinAbsoluteError (getParam (p, Opt::peakReductionId), peakBefore, 1.0e-6f, "Cancel changed nothing");
+
+            // A real listening run.
+            ed->getSetLevelsButton().onClick();
+            auto programmeBlock = noise ((int) (5.0 * fs), 0.5f, 9);
+            run (p, { programmeBlock, programmeBlock }, 512);
+            dlg.updateListening (p.levelCapture.hasHeardSound(), "x");
+            expect (dlg.getEar().getState() == Ear::listening, "sound arrived: the ear is lit");
+            expect (dlg.getEar().statusText().containsIgnoreCase ("listening"), "and says Listening");
+
+            ed->finishListening();
+            expect (dlg.getStage() == Stage::proposal && dlg.isOpen(), "a proposal is showing");
+            expect (dlg.getEar().getState() == Ear::hidden, "the ear is hidden once listening ends");
+            expect (ed->getLevelsResult().usable(), "and it is usable");
+            expectWithinAbsoluteError (getParam (p, Opt::peakReductionId), peakBefore, 1.0e-6f, "nothing changed until Apply");
+            expect (dlg.getMessage().getText().containsIgnoreCase ("average"), "the message says the target is an average");
+
+            // Editing the target re-measures the same listening.
+            const float firstSuggestion = ed->getLevelsResult().peakReduction;
+            expect (dlg.commitTargetText ("-6"), "typing a target");
+            expectGreaterThan (ed->getLevelsResult().peakReduction, firstSuggestion, "a bigger target suggests more Peak Reduction");
+            expect (! dlg.commitTargetText ("nonsense"), "an invalid target is refused");
+            expectEquals (dlg.getTargetField().getText(), Opt::Calibration::targetText (6.0), "and the old target stays");
+
+            const float suggestion = ed->getLevelsResult().peakReduction;
+            dlg.getActionButton().onClick();   // Apply
+            expect (! dlg.isOpen(), "Apply closes the panel at once, with no second confirmation");
+            expectWithinAbsoluteError (getParam (p, Opt::peakReductionId), suggestion, 0.06f, "Apply set the real Peak Reduction");
+            p.history.undo();
+            expectWithinAbsoluteError (getParam (p, Opt::peakReductionId), peakBefore, 1.0e-3f, "Undo restores the old Peak Reduction");
+
+            // A change made while listening means the result would not fit.
+            ed->getSetLevelsButton().onClick();
+            run (p, { programmeBlock, programmeBlock }, 512);
+            setParam (p, Opt::peakReductionId, 10.0f);
+            ed->finishListening();
+            expect (dlg.isOpen() && dlg.getStage() == Stage::idle, "a notice is showing, not a proposal");
+            expectWithinAbsoluteError (getParam (p, Opt::peakReductionId), 10.0f, 1.0e-6f, "and nothing was written");
+            dlg.getCancelButton().onClick();   // Close
+            expect (! dlg.isOpen(), "Close dismisses it");
         }
 
         beginTest ("Plain words: every text, parameter name and preset, and every label fits at two sizes");
@@ -698,7 +895,7 @@ struct ConsoleRunner final : juce::UnitTestRunner
 
 // OpticalLevellerTests --screenshot <file.png> [--scale 2]: renders the editor with some levelling on the meter
 // to a PNG, so UI changes can be checked without a host.
-static int renderScreenshot (const juce::File& file, float scale, bool limit)
+static int renderScreenshot (const juce::File& file, float scale, bool limit, int setLevelsStage)
 {
     SongsmithOpticalLevellerProcessor p;
     p.setCurrentProgram (limit ? 3 : 0);
@@ -714,6 +911,14 @@ static int renderScreenshot (const juce::File& file, float scale, bool limit)
     }
     run (p, { in, in }, 512);
     editor->advanceMeter (0.5f);
+    if (setLevelsStage > 0)   // --set-levels listening|proposal: the Set Levels panel open, for the PR screenshots
+    {
+        editor->beginListening();
+        run (p, { in, in }, 512);
+        editor->advanceMeter (0.5f);
+        if (setLevelsStage > 1)
+            editor->finishListening();
+    }
 
     const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, scale);
     file.deleteFile();
@@ -733,14 +938,17 @@ int main (int argc, char* argv[])
         {
             float scale = 1.0f;
             bool limit = false;
+            int setLevelsStage = 0;
             for (int j = 1; j < argc; ++j)
             {
+                if (juce::String (argv[j]) == "--set-levels" && j + 1 < argc)
+                    setLevelsStage = juce::String (argv[j + 1]) == "proposal" ? 2 : 1;
                 if (juce::String (argv[j]) == "--scale" && j + 1 < argc)
                     scale = juce::jlimit (1.0f, 4.0f, juce::String (argv[j + 1]).getFloatValue());
                 if (juce::String (argv[j]) == "--limit")
                     limit = true;
             }
-            return renderScreenshot (juce::File::getCurrentWorkingDirectory().getChildFile (argv[i + 1]), scale, limit);
+            return renderScreenshot (juce::File::getCurrentWorkingDirectory().getChildFile (argv[i + 1]), scale, limit, setLevelsStage);
         }
 
     ConsoleRunner runner;

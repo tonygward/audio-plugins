@@ -1,25 +1,35 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
+#include <array>
+#include <memory>
 #include "OptParams.h"
 #include "OptPresets.h"
 #include "OpticalEngine.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
 #include "../../shared/Source/SongsmithBeforeAfter.h"
 #include "../../shared/Source/SongsmithHeader.h"
+#include "../../shared/Source/SongsmithLevelCapture.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
 
-class SongsmithOpticalLevellerProcessor : public juce::AudioProcessor
+class SongsmithOpticalLevellerProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
     // Saved-state format. 1 = Peak Reduction, Gain, Compress or Limit, Bypass, and the editor's width, meter and preset name.
+    // 2 = adds Oversampling (a session saved as 1 loads with Off, as it always sounded).
     // Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 1;
+    static constexpr int stateVersion = 2;
 
     SongsmithOpticalLevellerProcessor();
+    ~SongsmithOpticalLevellerProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
+    // Latency of an Oversampling setting (0 = Off, 1 = 2x, 2 = 4x), in samples, valid after prepareToPlay.
+    int getOversamplingLatency (int index) const noexcept { return osLatency[(size_t) juce::jlimit (0, 2, index)]; }
+    int getActiveOversamplingIndex() const noexcept { return osActive; }
+    int getOversamplingIndex() const noexcept { return juce::jlimit (0, 2, (int) oversamplingRaw->load()); }   // the setting
     void reset() override { engine.reset(); }
     bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
@@ -78,6 +88,9 @@ public:
     // songsmithstudio#7: the Before and After loudness shown in the footer. Fed by one scope at the top of processBlock.
     Songsmith::Loudness::BeforeAfterMeter beforeAfter;
 
+    // Set Levels: the audio thread only copies the incoming sound into this; the editor analyses it afterwards.
+    Songsmith::LevelCapture levelCapture;
+
     juce::ValueTree createState();
     void restoreFromValueTree (const juce::ValueTree& saved);
 
@@ -89,13 +102,27 @@ private:
     std::atomic<float>* peakReductionRaw = nullptr;
     std::atomic<float>* gainRaw = nullptr;
     std::atomic<float>* modeRaw = nullptr;
+    std::atomic<float>* oversamplingRaw = nullptr;
+
+    // Oversampling: the engine runs at 2x or 4x the host rate. Half-band polyphase IIR stages, with whole-sample latency.
+    void switchPath (int index) noexcept;
+    void updateLatencyNow();
+    void timerCallback() override { updateLatencyNow(); }
+    std::array<std::unique_ptr<juce::dsp::Oversampling<float>>, 3> oversamplers;   // [1] = 2x, [2] = 4x
+    std::array<int, 3> osLatency { 0, 0, 0 };
+    int osActive = 0;
+    double baseRate = 44100.0;
+    juce::AudioBuffer<float> dryRing;   // the dry signal delayed by the latency, for Bypass
+    int dryRingPos = 0;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> pathFade { 1.0f };   // fades out and back in around a switch
+    static constexpr double pathFadeSeconds = 0.01;
 
     SongsmithOptical::Engine engine;
     int currentProgram = 0;
 
     std::atomic<float> gainReductionDb { 0.0f }, outputMs { 0.0f };
 
-    // Bypass: a short linear cross-fade between the processed and the dry signal. No latency, so the dry signal needs no delay.
+    // Bypass: a short linear cross-fade between the processed and the dry signal (delayed by the Oversampling latency).
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix { 0.0f };   // 1 = fully bypassed
     juce::AudioBuffer<float> dryBuffer;
 

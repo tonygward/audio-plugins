@@ -20,11 +20,13 @@ namespace
     }
 
     // Layout, in design units (EditorLayout::designWidth x EditorLayout::designHeight).
-    const juce::Rectangle<int> gainArea           { 24, 64, 210, 262 };
+    const juce::Rectangle<int> gainArea           { 24, 86, 210, 240 };   // below the Oversampling dropdown's row (songsmithstudio#19)
     const juce::Rectangle<int> meterArea          { 254, 64, 252, 160 };
     const juce::Rectangle<int> meterModes         { 254, 232, 252, 28 };
     const juce::Rectangle<int> modeArea           { 254, 296, 252, 36 };
-    const juce::Rectangle<int> peakReductionArea  { 526, 64, 210, 262 };
+    const juce::Rectangle<int> peakReductionArea  { 526, 86, 210, 240 };
+    constexpr int setLevelsX = 576, setLevelsY = 334, setLevelsWidth = 110, setLevelsHeight = 24;   // under Peak Reduction, the knob it sets
+    constexpr int oversamplingRight = 526 + 210, oversamplingTop = 60, oversamplingHeight = 22;   // top-right of the controls, left of the Output panel
 
     const char* const compressTip = "Compress: gentle, smooth levelling. A good starting point for most vocals, bass and guitars.";
     const char* const limitTip = "Limit: much firmer control that flattens the loudest sound harder than Compress. It is a stronger setting of the same smooth action, not a hard ceiling. Useful for drums and very uneven playing; "
@@ -97,15 +99,44 @@ OptKnob::OptKnob (juce::AudioProcessorValueTreeState& state, const char* paramId
     slider.setMouseDragSensitivity (220);
     slider.setTitle (name);
     slider.getProperties().set (Songsmith::UI::LookAndFeelBase::valueArcProperty, false);   // the printed scale shows the value
-    slider.onValueChange = [this] { repaint(); };
+    slider.onValueChange = [this] { valueLabel.setText (getValueText(), juce::dontSendNotification); repaint(); };
     addAndMakeVisible (slider);
+
+    valueLabel.setText (getValueText(), juce::dontSendNotification);
+    valueLabel.setFont (juce::Font (numbers (Type::control)));
+    valueLabel.setJustificationType (juce::Justification::centred);
+    valueLabel.setColour (juce::Label::textColourId, Colours::text);
+    valueLabel.setColour (juce::Label::backgroundColourId, Colours::recess.withAlpha (0.9f));   // a recessed well: it can be typed into
+    valueLabel.setColour (juce::Label::backgroundWhenEditingColourId, Colours::recess);
+    valueLabel.setColour (juce::Label::textWhenEditingColourId, Colours::text);
+    valueLabel.setColour (juce::Label::outlineWhenEditingColourId, Songsmith::UI::Colours::edge);
+    valueLabel.setEditable (false, true, false);   // a click or double-click types a value; Enter applies it and Escape cancels
+    valueLabel.setTitle (name + " value");
+    valueLabel.setTooltip (name + ": click the number to type an exact value, then press Enter. Escape keeps the old value.");
+    valueLabel.onTextChange = [this]
+    {
+        if (! applyTypedText (valueLabel.getText()))
+            valueLabel.setText (getValueText(), juce::dontSendNotification);   // not a number: keep the old value
+    };
+    addAndMakeVisible (valueLabel);
+}
+
+bool OptKnob::applyTypedText (const juce::String& text)
+{
+    const auto digits = text.retainCharacters ("0123456789.-+");
+    if (! digits.containsAnyOf ("0123456789"))
+        return false;
+    const auto range = slider.getRange();
+    slider.setValue (juce::jlimit (range.getStart(), range.getEnd(), digits.getDoubleValue()), juce::sendNotificationSync);
+    valueLabel.setText (getValueText(), juce::dontSendNotification);   // shows the snapped, clamped value
+    return true;
 }
 
 void OptKnob::resized()
 {
     auto r = getLocalBounds();
     r.removeFromTop (22);
-    r.removeFromBottom (24);
+    valueLabel.setBounds (r.removeFromBottom (24).withSizeKeepingCentre (96, 22));
     const int side = juce::jmin (r.getWidth(), r.getHeight());
     const int size = side - juce::roundToInt ((float) side * 0.32f);   // room for the printed scale
     slider.setBounds (juce::Rectangle<int> (size, size).withCentre (r.getCentre()));
@@ -114,12 +145,9 @@ void OptKnob::resized()
 void OptKnob::paint (juce::Graphics& g)
 {
     auto r = getLocalBounds().toFloat();
-    g.setColour (Colours::text);
+    g.setColour (Colours::plateInk);
     g.setFont (font (Type::heading, Weight::SemiBold));
     g.drawText (name, r.removeFromTop (20.0f), juce::Justification::centred);
-
-    g.setFont (numbers (Type::control));
-    g.drawText (getValueText(), r.removeFromBottom (20.0f), juce::Justification::centred);
 
     // Printed scale around the knob.
     const auto sb = slider.getBounds().toFloat();
@@ -132,7 +160,7 @@ void OptKnob::paint (juce::Graphics& g)
     {
         const float pos = (float) range.convertTo0to1 (value);
         const float angle = params.startAngleRadians + pos * (params.endAngleRadians - params.startAngleRadians);
-        g.setColour (Colours::textDim);
+        g.setColour (Colours::plateInkDim);
         g.drawLine ({ c.getPointOnCircumference (radius + 2.0f, angle), c.getPointOnCircumference (radius + 6.0f, angle) }, 1.2f);
         const auto t = c.getPointOnCircumference (radius + 18.0f, angle);
         g.drawText (label, juce::Rectangle<float> (24.0f, 14.0f).withCentre (t), juce::Justification::centred);
@@ -144,7 +172,7 @@ SongsmithOpticalLevellerEditor::SongsmithOpticalLevellerEditor (SongsmithOptical
     : juce::AudioProcessorEditor (&p), proc (p),
       gainKnob (p.apvts, gainId, "Gain", marks ({ 0, 10, 20, 30, 40 }), [] (float v) { return dbText (v); }),
       peakReductionKnob (p.apvts, peakReductionId, "Peak Reduction", marks ({ 0, 25, 50, 75, 100 }),
-                         [] (float v) { return juce::String (juce::roundToInt (v)); }),
+                         [] (float v) { return juce::String (v, 1); }),
       modeAttachment (*p.apvts.getParameter (modeId), [this] (float v) { modeIndex = juce::roundToInt (v); refreshButtons(); }),
       bypassAttachment (p.apvts, bypassId, bypassButton)
 {
@@ -166,6 +194,33 @@ SongsmithOpticalLevellerEditor::SongsmithOpticalLevellerEditor (SongsmithOptical
         modeButtons[(size_t) i].onClick = [this, i] { modeAttachment.setValueAsCompleteGesture ((float) i); };
         content.addAndMakeVisible (modeButtons[(size_t) i]);
     }
+
+    for (int i = 0; i < Opt::oversamplingNames().size(); ++i)
+        oversamplingBox.addItem (Songsmith::UI::Dropdown::oversamplingText (i), i + 1);
+    oversamplingBox.setTitle ("Oversampling");
+    oversamplingBox.setTooltip ("Oversampling: runs the leveller at two or four times the sample rate inside the plugin, so fast level changes are followed more precisely. "
+                                "Off is how earlier versions sounded. It uses more processing power and adds a little delay, which the plugin tells your recording program about. Nothing to do unless you want it.");
+    oversamplingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, oversamplingId, oversamplingBox);
+    content.addAndMakeVisible (oversamplingBox);
+
+    setLevelsButton.setTitle ("Set Levels");
+    setLevelsButton.setTooltip ("Set Levels: play a typical part of your song, choose how much gain reduction you want on average, and the plugin suggests a Peak Reduction setting. "
+                                "Nothing changes until you press Apply, and Undo restores the old setting.");
+    setLevelsButton.onClick = [this] { beginListening(); };
+    content.addAndMakeVisible (setLevelsButton);
+    levelsDialog.setAccent (Colours::accent);
+    levelsDialog.applyTooltip = "Apply: set Peak Reduction to the suggestion. Undo restores the old setting.";
+    levelsDialog.finishTooltip = "Finish Listening: stop listening and see the suggested Peak Reduction. Nothing changes until you press Apply.";
+    levelsDialog.enableTarget ("Target Gain Reduction",
+                               "Target Gain Reduction: how much the leveller should turn the level down on average, in dB. -3.0 dB means 3 dB of reduction. "
+                               "It is a goal for the sound you play, not a fixed amount at every moment. It is not a change of volume: Gain is separate. Click the number to type a value.",
+                               -(double) Opt::Calibration::defaultTargetDb,
+                               [] (double v) { return Opt::Calibration::targetText (-v); },
+                               [] (const juce::String& t, double& v) { if (! Opt::Calibration::parseTarget (t, v)) return false; v = -v; return true; });
+    levelsDialog.onFinish = [this] { finishListening(); };
+    levelsDialog.onApply = [this] { applyProposal(); };
+    levelsDialog.onCancel = [this] { cancelLevels(); };
+    levelsDialog.onTargetEdited = [this] (double) { updateLevelsProposal(); };
 
     bypassButton.setClickingTogglesState (true);
     bypassButton.setTooltip ("Bypass: the sound passes through untouched");
@@ -215,6 +270,7 @@ SongsmithOpticalLevellerEditor::SongsmithOpticalLevellerEditor (SongsmithOptical
     content.addAndMakeVisible (*diagnostics);
 
     content.addAndMakeVisible (titleHint);   // the plugin name explains the plugin
+    content.addChildComponent (levelsDialog);   // last: it floats over everything else while Set Levels is open
 
     layoutContent();
 
@@ -297,6 +353,14 @@ void SongsmithOpticalLevellerEditor::layoutContent()
     undoButton.setBounds (header.undo);
     redoButton.setBounds (header.redo);
     bypassButton.setBounds (header.bypass);
+    {   // Oversampling: the suite-standard dropdown at the top-right of the controls, beside the Output meters.
+        const int right = Songsmith::UI::Dropdown::place (oversamplingBox, 0, oversamplingTop, oversamplingHeight);
+        oversamplingBox.setTopLeftPosition (oversamplingRight - right, oversamplingTop);
+    }
+
+    setLevelsButton.setBounds (setLevelsX, setLevelsY, setLevelsWidth, setLevelsHeight);
+    levelsDialog.setBounds (0, 0, designWidth, contentHeight);
+    levelsDialog.setPanelAnchor ({ setLevelsX, setLevelsY, setLevelsWidth, setLevelsHeight });
 
     diagnostics->setBounds (0, contentHeight, designWidth, footerHeight);
 }
@@ -333,13 +397,19 @@ void SongsmithOpticalLevellerEditor::paintContent (juce::Graphics& g)
     Songsmith::UI::LookAndFeelBase::drawTitleBar (g, r.withHeight (Songsmith::UI::titleBarHeight));
     Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, Colours::text, Colours::accent);
 
+    // The right-hand meters sit on their own dark panel, so their light labels stay readable on the lighter plate.
+    g.setColour (Colours::panel.withAlpha (0.92f));
+    g.fillRoundedRectangle (meterColumn.getBounds().expanded (8, 6).toFloat(), 6.0f);
+    g.setColour (Songsmith::UI::Colours::edge);
+    g.drawRoundedRectangle (meterColumn.getBounds().expanded (8, 6).toFloat().reduced (0.5f), 6.0f, 1.0f);
+
     // Section rules between the knobs and the meter.
-    g.setColour (Colours::panelLight.brighter (0.1f));
+    g.setColour (juce::Colours::black.withAlpha (0.28f));
     for (float x : { 244.0f, 516.0f })
         g.drawLine (x, 70.0f, x, 336.0f, 1.0f);
 
     // Numeric gain reduction under the needle (the needle has VU ballistics; this shows the value).
-    g.setColour (Colours::text);
+    g.setColour (Colours::plateInk);
     g.setFont (numbers (Type::heading, Weight::Medium));
     g.drawText (gainReductionText (grDisplayDb),
                 juce::Rectangle<float> ((float) meterArea.getX(), (float) meterModes.getBottom() + 6.0f, (float) meterArea.getWidth(), 20.0f),
@@ -369,6 +439,18 @@ void SongsmithOpticalLevellerEditor::setMeterMode (int mode)
 
 void SongsmithOpticalLevellerEditor::advanceMeter (float seconds)
 {
+    levelsDialog.tick();
+    if (levelsDialog.getStage() == Songsmith::UI::SetLevelsDialog::Stage::listening)
+    {
+        auto& cap = proc.levelCapture;
+        if (! cap.isActive() && cap.getSamples() > 0)
+            finishListening();   // the buffer filled up: that is enough
+        else
+            levelsDialog.updateListening (cap.hasHeardSound(),
+                                          cap.hasHeardSound() ? "Listening: " + juce::String (cap.getSeconds(), 1) + " seconds. Play a typical part, then press Finish Listening."
+                                                              : juce::String ("Waiting for audio. Start playing your song, then press Finish Listening."));
+    }
+
     const float gr = proc.takeGainReductionDb();
     const float outDb = proc.takeOutputRmsDb();
     meter.setReading (meterReadingVu (proc.meterMode.load(), gr, outDb), seconds);
@@ -386,6 +468,83 @@ void SongsmithOpticalLevellerEditor::advanceMeter (float seconds)
     }
 
     content.repaint (meterArea.getX(), meterArea.getY(), meterArea.getWidth(), meterModes.getBottom() + 40 - meterArea.getY());
+}
+
+//==============================================================================
+// Set Levels (songsmithstudio#19). Listening only copies sound; the analysis runs here, on the message thread, once the
+// musician presses Finish Listening. Peak Reduction is written only by Apply, as one Undo step.
+bool SongsmithOpticalLevellerEditor::levelsSettingsUnchanged() const
+{
+    const bool limit = juce::roundToInt (proc.apvts.getRawParameterValue (modeId)->load()) == 1;
+    return limit == levelsSettings.limit
+           && std::abs (proc.apvts.getRawParameterValue (peakReductionId)->load() - levelsSettings.peakReduction) < 0.005f;
+}
+
+void SongsmithOpticalLevellerEditor::beginListening()
+{
+    levelsSettings.limit = juce::roundToInt (proc.apvts.getRawParameterValue (modeId)->load()) == 1;
+    levelsSettings.peakReduction = proc.apvts.getRawParameterValue (peakReductionId)->load();
+    levelsSettings.gainDb = proc.apvts.getRawParameterValue (gainId)->load();
+    levelsResult = {};
+    proc.levelCapture.start();
+    levelsDialog.beginListening ("Waiting for audio. Start playing your song, then press Finish Listening.");
+}
+
+void SongsmithOpticalLevellerEditor::updateLevelsProposal()
+{
+    if (levelsDialog.getStage() != Songsmith::UI::SetLevelsDialog::Stage::proposal)
+        return;
+    auto& cap = proc.levelCapture;
+    const float* in[2] = { cap.channel (0), cap.channel (1) };
+    levelsResult = Opt::Calibration::analyse (in, 2, cap.getSamples(), cap.getSampleRate(), levelsSettings,
+                                              (float) -levelsDialog.getTargetValue());
+    levelsDialog.showProposal (Opt::Calibration::messageFor (levelsResult), levelsResult.usable());
+}
+
+void SongsmithOpticalLevellerEditor::finishListening()
+{
+    if (levelsDialog.getStage() != Songsmith::UI::SetLevelsDialog::Stage::listening)
+        return;
+    proc.levelCapture.stop();
+    if (! levelsSettingsUnchanged())
+    {
+        levelsResult = {};
+        levelsDialog.showNotice ("Peak Reduction or the mode changed while listening, so the result would not fit. Press Set Levels to try again.");
+        return;
+    }
+    levelsDialog.showProposal ({}, false);   // switches to the proposal stage; the analysis fills the message
+    updateLevelsProposal();
+    if (! levelsResult.usable())
+        levelsDialog.showNotice (Opt::Calibration::messageFor (levelsResult));   // silence or too short: nothing to apply
+}
+
+void SongsmithOpticalLevellerEditor::applyProposal()
+{
+    if (levelsDialog.getStage() != Songsmith::UI::SetLevelsDialog::Stage::proposal || ! levelsResult.usable())
+        return;
+    if (! levelsSettingsUnchanged())   // never write over a change the musician or host automation made meanwhile
+    {
+        levelsDialog.showNotice ("Peak Reduction or the mode changed since listening, so nothing was applied. Press Set Levels to try again.");
+        return;
+    }
+    const auto result = levelsResult;
+    proc.history.runStep ("set levels", [&]
+    {
+        auto* p = proc.apvts.getParameter (peakReductionId);
+        p->beginChangeGesture();
+        p->setValueNotifyingHost (p->convertTo0to1 (result.peakReduction));
+        p->endChangeGesture();
+    });
+    levelsResult = {};
+    levelsDialog.closeNow();   // Apply is the confirmation: the panel closes at once, and the knob shows the new value
+    refreshHistoryButtons();
+}
+
+void SongsmithOpticalLevellerEditor::cancelLevels()
+{
+    proc.levelCapture.stop();
+    levelsResult = {};
+    levelsDialog.closeNow();   // Cancel changes nothing
 }
 
 //==============================================================================
