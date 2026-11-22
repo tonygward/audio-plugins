@@ -6,7 +6,9 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - **Songsmith Compressor: Analog Warmth now has four models.** A dropdown beside the Analog Warmth button lets you choose **Black**, **Blue**, **Anniversary** or **Lindell**, the same four as the Songsmith Analog Compressor, and they use the same code. Hover over the dropdown for what the one you chose is good for. It is greyed while Analog Warmth is off, and it remembers your choice. Your existing projects sound exactly as they did: they keep their original Analog Warmth, shown as **Classic**, until you choose a model. With Analog Warmth off nothing changes at all.
 
-## 0.5.68
+## 0.5.69
+
+- **Songsmith Analog Compressor: Set Levels is quicker.** Pressing Apply now sets your Input and Output and closes the Set Levels panel straight away, with no second message to click away. While the panel is open it is slightly see-through, so you can still make out the controls behind it, and it is the only thing you can click, so nothing is changed by accident. Undo still puts your old settings back. Cancel and Escape change nothing.
 
 - **Songsmith EQ: the mouse wheel now does what you would expect.** Scrolling over a High Pass or Low Pass changes its slope (6, 12, 18, 24, 36 or 48 dB/oct), and scrolling over a Bell or a shelf changes its gain (0.5 dB a step, 0.1 dB with Shift). It no longer changes Q, which you can still set by its own control (a Notch still uses the wheel for its width). Scrolling up makes the slope steeper or the gain higher. Nothing in your saved projects changes.
 
