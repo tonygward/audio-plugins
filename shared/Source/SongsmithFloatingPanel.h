@@ -5,6 +5,7 @@
 #include <memory>
 #include "SongsmithColours.h"
 #include "SongsmithGrain.h"
+#include "SongsmithModelTheme.h"
 
 // A floating control panel the musician can drag, the same look and behaviour as the Songsmith EQ's band panel
 // (EQ-37): a rounded, softly lit panel with a grip of dots at the top edge, moved by dragging its background, and
@@ -20,6 +21,12 @@ namespace Songsmith::UI
         std::function<void()> onUserMoved;
 
         void setAccent (juce::Colour c) { accent = c; repaint(); }
+
+        // songsmithstudio#23: the panel takes the colours of an Analog Compressor model: its accent for the outline, and its tint and stripes
+        // for the surface (see SongsmithModelTheme.h). Repaints at once.
+        void setTheme (const ModelTheme::Theme& t) { theme = t; accent = t.accent; repaint(); }
+        const ModelTheme::Theme& getTheme() const noexcept { return theme; }
+        juce::Colour getAccent() const noexcept { return accent; }
 
         // COMP-03: draws the faceplates' brushed-metal grain on the panel's background, under the controls. Off is the
         // plain panel. Changing it repaints at once; setting what it already is does nothing.
@@ -95,6 +102,7 @@ namespace Songsmith::UI
             g.setGradientFill (juce::ColourGradient (Colours::panelLight.withAlpha (0.97f), 0.0f, r.getY(),
                                                      Colours::panel.withAlpha (0.97f), 0.0f, r.getBottom(), false));
             g.fillRoundedRectangle (r, 9.0f);
+            ModelTheme::paintSurface (g, r, theme, 9.0f);
             g.setColour (accent.withAlpha (0.7f));
             g.drawRoundedRectangle (r, 9.0f, 1.2f);
 
@@ -129,6 +137,7 @@ namespace Songsmith::UI
 
         juce::Rectangle<int> limits;
         juce::Colour accent = Colours::edge;
+        ModelTheme::Theme theme;
         bool textured = false;
         std::unique_ptr<BrushedGrain> grain;
         juce::Rectangle<int> grainSize;

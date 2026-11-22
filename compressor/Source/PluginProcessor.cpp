@@ -313,6 +313,27 @@ void SongsmithCompressorAudioProcessor::restoreFromValueTree (const juce::ValueT
                                                                         : Comp::EditorLayout::defaultWidth));
 }
 
+void SongsmithCompressorAudioProcessor::chooseLook (int look)
+{
+    look = juce::jlimit (0, Songsmith::AnalogModels::numModels, look);
+    history.runStep ("model", [this, look]
+    {
+        auto setWarmth = [this] (bool on)
+        {
+            warmthParam->beginChangeGesture();
+            warmthParam->setValueNotifyingHost (on ? 1.0f : 0.0f);
+            warmthParam->endChangeGesture();
+        };
+        if (look == 0)
+        {
+            setWarmth (false);   // Clean: the model the musician had stays chosen, so switching back brings it back
+            return;
+        }
+        chooseWarmthModel (look - 1);
+        setWarmth (true);
+    });
+}
+
 void SongsmithCompressorAudioProcessor::chooseWarmthModel (int index)
 {
     index = juce::jlimit (0, Songsmith::AnalogModels::numModels - 1, index);

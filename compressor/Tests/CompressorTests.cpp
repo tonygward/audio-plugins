@@ -390,7 +390,7 @@ public:
             // Every control is inside the panel, none overlap, and Auto Makeup is by the knob it switches off.
             std::vector<juce::Component*> parts { &ed->getThresholdSlider(), &ed->getRatioSlider(), &ed->getAttackSlider(),
                                                   &ed->getReleaseSlider(), &ed->getKneeSlider(), &ed->getMakeupSlider(),
-                                                  &ed->getMixSlider(), &ed->getAutoMakeupButton(), &ed->getWarmthButton() };
+                                                  &ed->getMixSlider(), &ed->getAutoMakeupButton(), &ed->getModelBox() };
             for (size_t i = 0; i < parts.size(); ++i)
             {
                 expect (parts[i]->getParentComponent() == &panel, context + ": in the panel");
@@ -492,7 +492,7 @@ public:
             }
             expectGreaterThan (texts.size(), 25, context + ": found the text");
             Songsmith::UI::Wording::expectPlainWords (*this, texts, context);
-            for (auto* t : { "Threshold", "Ratio", "Attack", "Release", "Knee", "Makeup Gain", "Mix", "Auto Makeup", "Analog Warmth", "Pause", "Gain Reduction" })
+            for (auto* t : { "Threshold", "Ratio", "Attack", "Release", "Knee", "Makeup Gain", "Mix", "Auto Makeup", "Pause", "Gain Reduction" })
                 expect (texts.contains (t), context + ": shows \"" + juce::String (t) + "\"");
             Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), context);
         }
@@ -505,12 +505,13 @@ public:
             Songsmith::UI::Testing::checkEditorFonts (*this, *ed, "Compressor editor");
         }
 
-        beginTest ("COMP-03: Analog Warmth gives the floating panel the brushed grain at once, from the button, from automation and from a restored session");
+        beginTest ("COMP-03: any analogue model gives the floating panel the brushed grain at once, from the dropdown, from automation and from a restored session (songsmithstudio#23)");
         {
             SongsmithCompressorAudioProcessor p;
             auto ed = make (p, Comp::EditorLayout::defaultWidth);
             auto& panel = ed->getPanel();
-            expect (! panel.isTextured(), "off by default: the plain panel");
+            expect (! panel.isTextured(), "Clean by default: the plain panel");
+            expectEquals (ed->getModelBox().getSelectedItemIndex(), 0, "Clean is shown");
 
             const auto snapshot = [&] { return panel.createComponentSnapshot (panel.getLocalBounds(), false, 1.0f); };
             const auto differs = [] (const juce::Image& a, const juce::Image& b)
@@ -525,13 +526,13 @@ public:
             };
             const auto plain = snapshot();
 
-            ed->getWarmthButton().setToggleState (true, juce::sendNotificationSync);
-            expect (panel.isTextured(), "the button switches the texture on immediately");
+            ed->getModelBox().setSelectedItemIndex (1, juce::sendNotificationSync);   // Black
+            expect (panel.isTextured(), "choosing a model switches the texture on immediately");
             expect (getParam (p, Comp::warmthId) > 0.5f, "and it is the Analog Warmth parameter that changed");
             expect (differs (plain, snapshot()), "the panel really looks different with the grain");
 
-            ed->getWarmthButton().setToggleState (false, juce::sendNotificationSync);
-            expect (! panel.isTextured(), "the button switches it off immediately");
+            ed->getModelBox().setSelectedItemIndex (0, juce::sendNotificationSync);   // Clean
+            expect (! panel.isTextured(), "Clean switches it off immediately");
             expect (! differs (plain, snapshot()), "and the plain panel is exactly as it was");
 
             setParam (p, Comp::warmthId, 1.0f);
@@ -542,15 +543,15 @@ public:
             // Only the panel is textured: the rest of the window is not.
             expect (ed->getPauseButton().isVisible() && ed->getPanel().getParentComponent() != nullptr, "the panel is the floating one");
 
-            // A saved session with Analog Warmth on opens with the grain.
+            // A saved session with a model on opens with the grain.
             setParam (p, Comp::warmthId, 1.0f);
             juce::MemoryBlock saved;
             p.getStateInformation (saved);
             SongsmithCompressorAudioProcessor q;
             q.setStateInformation (saved.getData(), (int) saved.getSize());
             auto ed2 = make (q, Comp::EditorLayout::defaultWidth);
-            expect (ed2->getPanel().isTextured(), "a restored session with Analog Warmth on opens textured");
-            expect (ed2->getWarmthButton().getToggleState(), "with the button on");
+            expect (ed2->getPanel().isTextured(), "a restored session with a model on opens textured");
+            expectEquals (ed2->getModelBox().getSelectedItemIndex(), 1, "with Black shown");
 
             // The grain is the faceplates' own: same streaks every time.
             const Songsmith::UI::BrushedGrain g1 (juce::Rectangle<float> (0.0f, 0.0f, 400.0f, 100.0f)), g2 (juce::Rectangle<float> (0.0f, 0.0f, 400.0f, 100.0f));
@@ -862,39 +863,143 @@ public:
             expectLessThan (worst, 1.0e-4f, "blocks of 64, 480 and 4,096 sound the same");
         }
 
-        beginTest ("The dropdown: exactly four items beside the toggle, greyed while Analog Warmth is off, each with its own tooltip, and it follows the session");
+        beginTest ("The one Model dropdown: Clean and the four models, no Analog Warmth button, compact, and it follows the session (songsmithstudio#23)");
         for (int width : { Comp::EditorLayout::minWidth, Comp::EditorLayout::defaultWidth, Comp::EditorLayout::maxWidth })
         {
             SongsmithCompressorAudioProcessor p;
             p.editorWidth = width;
             std::unique_ptr<SongsmithCompressorAudioProcessorEditor> ed (dynamic_cast<SongsmithCompressorAudioProcessorEditor*> (p.createEditor()));
-            auto& box = ed->getWarmthModelBox();
-            auto& toggle = ed->getWarmthButton();
+            auto& box = ed->getModelBox();
             const auto where = "at " + juce::String (width) + " px: ";
-            expectEquals (box.getNumItems(), 4, where + "exactly four");
+            expectEquals (box.getNumItems(), 5, where + "exactly five");
+            expectEquals (box.getItemText (0), juce::String ("Clean"), where + "Clean first");
             for (int i = 0; i < 4; ++i)
-                expectEquals (box.getItemText (i), juce::String (AM::modelLabelTable[i]), where + "item " + juce::String (i));
-            expect (box.isVisible() && box.getTitle() == "Analog Warmth model", where + "visible and named");
-            expect (! box.isEnabled(), where + "greyed while Analog Warmth is off");
-            expectEquals (box.getSelectedItemIndex(), 0, where + "Black is shown");
+                expectEquals (box.getItemText (i + 1), juce::String (AM::modelLabelTable[i]), where + "item " + juce::String (i + 1));
+            expect (box.isVisible() && box.getTitle() == "Model", where + "visible and named");
+            expect (box.isEnabled(), where + "always usable: there is no switch to turn on first");
+            expectEquals (box.getSelectedItemIndex(), 0, where + "Clean is shown for a session with no analogue sound");
 
-            expect (box.getX() >= toggle.getRight() && box.getY() == toggle.getY() && box.getHeight() == toggle.getHeight(), where + "directly beside the toggle, level with it");
-            expect (box.getHeight() >= 26 && box.getRight() <= toggle.getParentComponent()->getWidth(), where + "a comfortable target, inside the panel");
-            expect (! box.getBounds().intersects (ed->getAutoMakeupButton().getBounds()), where + "clear of Auto Makeup");
+            // No separate Analog Warmth button remains anywhere in the toolbox.
+            std::function<void (juce::Component&)> noWarmthButton = [&] (juce::Component& c)
+            {
+                if (auto* b = dynamic_cast<juce::Button*> (&c))
+                    expect (! b->getButtonText().containsIgnoreCase ("warmth") && ! b->getTitle().containsIgnoreCase ("warmth"), where + "no Analog Warmth button (" + b->getButtonText() + ")");
+                for (auto* child : c.getChildren())
+                    noWarmthButton (*child);
+            };
+            noWarmthButton (*ed);
+
+            // Compact: it sits at the left of the row Auto Makeup is on, level with it, with no gap where the toggle was.
+            auto& autoMakeup = ed->getAutoMakeupButton();
+            expect (box.getY() == autoMakeup.getY() && box.getHeight() == autoMakeup.getHeight(), where + "level with Auto Makeup");
+            expect (box.getHeight() >= 26 && box.getRight() <= box.getParentComponent()->getWidth(), where + "a comfortable target, inside the panel");
+            expect (! box.getBounds().intersects (autoMakeup.getBounds()), where + "clear of Auto Makeup");
+            expect (box.getX() <= 16, where + "starts at the panel's left padding");
             const int fit = Songsmith::UI::Dropdown::widthFor (box, box.getLookAndFeel().getComboBoxFont (box));
             expectEquals (box.getWidth(), fit, where + "as wide as its longest item and the chevron need");
-            Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), "Compressor Analog Warmth model " + where);
+            Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), "Compressor model " + where);
 
-            toggle.setToggleState (true, juce::sendNotificationSync);
-            expect (box.isEnabled(), where + "usable straight away once Analog Warmth is on");
-            box.setSelectedItemIndex (3, juce::sendNotificationSync);
-            expectEquals (p.getWarmthModelIndex(), 3, where + "choosing sets the model");
-            expectEquals (box.getTooltip(), juce::String (AM::modelTooltipTable[3]), where + "the box's tooltip describes the model shown");
+            // Choosing changes only the Analog Warmth and model parameters.
+            std::vector<std::pair<juce::String, float>> others;
+            for (auto* prm : p.getParameters())
+                if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (prm))
+                    if (rp->paramID != Comp::warmthId && rp->paramID != Comp::warmthModelId)
+                        others.push_back ({ rp->paramID, rp->getValue() });
+            box.setSelectedItemIndex (4, juce::sendNotificationSync);   // Lindell
+            expectEquals (p.getWarmthModelIndex(), 3, where + "choosing Lindell sets the model");
+            expect (getParam (p, Comp::warmthId) > 0.5f, where + "and switches the analogue sound on");
+            expectEquals (box.getTooltip(), juce::String (AM::modelTooltipTable[3]), where + "the tooltip describes the model shown");
+            bool untouched = true;
+            for (auto& [id, v] : others)
+                untouched = untouched && p.apvts.getParameter (id)->getValue() == v;
+            expect (untouched, where + "Threshold, Ratio, Attack, Release, Knee, Makeup Gain, Mix and the rest do not move");
             setParam (p, Comp::warmthModelId, 1.0f);
-            expectEquals (box.getSelectedItemIndex(), 1, where + "automation moves the dropdown");
+            expectEquals (box.getSelectedItemIndex(), 2, where + "automation moves the dropdown (Blue)");
             expectEquals (box.getTooltip(), juce::String (AM::modelTooltipTable[1]), where + "and its tooltip");
-            toggle.setToggleState (false, juce::sendNotificationSync);
-            expect (! box.isEnabled() && box.getSelectedItemIndex() == 1, where + "off greys it and remembers Blue");
+            box.setSelectedItemIndex (0, juce::sendNotificationSync);
+            expect (getParam (p, Comp::warmthId) < 0.5f && p.getWarmthModelIndex() == 1, where + "Clean switches the sound off and remembers Blue");
+            expect (box.getTooltip().startsWith ("Clean"), where + "and the tooltip says what Clean is");
+            box.setSelectedItemIndex (2, juce::sendNotificationSync);
+            expect (getParam (p, Comp::warmthId) > 0.5f && p.getWarmthModelIndex() == 1, where + "choosing Blue again brings it back");
+
+            // One Undo step undoes the choice.
+            p.history.undo();
+            expect (box.getSelectedItemIndex() == 0 && getParam (p, Comp::warmthId) < 0.5f, where + "Undo goes back to Clean in one step");
+            p.history.redo();
+            expectEquals (box.getSelectedItemIndex(), 2, where + "and Redo to Blue");
+        }
+
+        beginTest ("The toolbox takes the colours of the chosen model, readable, and Clean keeps the teal (songsmithstudio#23)");
+        {
+            namespace MT = Songsmith::UI::ModelTheme;
+            // The Analog Compressor's own faceplate values (the shared table is what its editor draws from).
+            expect (MT::forLook (2).tint == juce::Colour (0xff2f6bc4) && MT::forLook (3).tint == juce::Colour (0xff1c3f94) && MT::forLook (4).tint == juce::Colour (0xff9aa1ab),
+                    "Blue, Anniversary and Lindell tints are the Analog Compressor's");
+            expect (MT::forLook (1).accent == juce::Colour (0xffe8a33d), "Black's accent is the Analog Compressor's amber");
+            expect (MT::forLook (0).accent == CompColours::accent, "Clean keeps the Compressor's teal");
+            for (int a = 0; a < MT::numLooks; ++a)
+                for (int b = a + 1; b < MT::numLooks; ++b)
+                    expect (MT::forLook (a).accent != MT::forLook (b).accent, "no two looks share an accent");
+
+            SongsmithCompressorAudioProcessor p;
+            std::unique_ptr<SongsmithCompressorAudioProcessorEditor> ed (dynamic_cast<SongsmithCompressorAudioProcessorEditor*> (p.createEditor()));
+            auto& panel = ed->getPanel();
+            auto contrast = [] (juce::Colour a, juce::Colour b)
+            {
+                auto lum = [] (juce::Colour c)
+                {
+                    auto f = [] (float v) { return v <= 0.03928f ? v / 12.92f : std::pow ((v + 0.055f) / 1.055f, 2.4f); };
+                    return 0.2126f * f (c.getFloatRed()) + 0.7152f * f (c.getFloatGreen()) + 0.0722f * f (c.getFloatBlue());
+                };
+                const float la = lum (a), lb = lum (b);
+                return (juce::jmax (la, lb) + 0.05f) / (juce::jmin (la, lb) + 0.05f);
+            };
+            const auto baseLabelColour = ed->getLookAndFeel().findColour (juce::Label::textColourId);
+            for (int look = 0; look < MT::numLooks; ++look)
+            {
+                ed->getModelBox().setSelectedItemIndex (look, juce::sendNotificationSync);
+                const auto where = "look " + juce::String (look) + ": ";
+                const auto theme = MT::forLook (look);
+                expect (panel.getTheme().accent == theme.accent && panel.getAccent() == theme.accent, where + "the panel outline and surface use the model's colours");
+                for (auto* knob : { &ed->getThresholdSlider(), &ed->getRatioSlider(), &ed->getAttackSlider(), &ed->getReleaseSlider(),
+                                    &ed->getKneeSlider(), &ed->getMakeupSlider(), &ed->getMixSlider() })
+                    expect (knob->findColour (juce::Slider::rotarySliderFillColourId) == theme.accent, where + "every knob ring uses the accent");
+                expect (ed->getLookAndFeel().findColour (juce::TextButton::buttonOnColourId) == theme.accent.withAlpha (0.85f), where + "lit buttons use the accent");
+                // Readable: the accent against the darkest and the lightest the panel can be (its tint over the dark panel), 3:1 for graphics.
+                const auto surface = Songsmith::UI::Colours::panel.interpolatedWith (theme.tintStrength > 0.0f ? theme.tint : Songsmith::UI::Colours::panel, theme.tintStrength);
+                expectGreaterThan (contrast (theme.accent, surface), 3.0f, where + "the accent reads on the panel (3:1)");
+                expectGreaterThan (contrast (Songsmith::UI::Colours::text, surface), 4.5f, where + "labels and values read on the panel (4.5:1)");
+                expect (ed->getLookAndFeel().findColour (juce::Label::textColourId) == baseLabelColour, where + "label colours never change");
+            }
+            expect (ed->getGraph().getBounds().contains (panel.getBounds()), "the graph and the meters are not part of the theme");
+            ed->getModelBox().setSelectedItemIndex (0, juce::sendNotificationSync);
+            expect (panel.getAccent() == CompColours::accent, "back to Clean: the teal");
+        }
+
+        beginTest ("Saved sessions map to the dropdown: Analog Warmth off is Clean, on with a model is that model, on without one is Classic (songsmithstudio#23)");
+        {
+            for (int model = 0; model < 4; ++model)
+            {
+                SongsmithCompressorAudioProcessor a;
+                setParam (a, Comp::warmthId, 1.0f);
+                setParam (a, Comp::warmthModelId, (float) model);
+                juce::MemoryBlock saved;
+                a.getStateInformation (saved);
+                SongsmithCompressorAudioProcessor b;
+                b.setStateInformation (saved.getData(), (int) saved.getSize());
+                std::unique_ptr<SongsmithCompressorAudioProcessorEditor> ed (dynamic_cast<SongsmithCompressorAudioProcessorEditor*> (b.createEditor()));
+                expectEquals (ed->getModelBox().getSelectedItemIndex(), model + 1, "warmth on with model " + juce::String (model) + " opens as that model");
+            }
+            SongsmithCompressorAudioProcessor off;
+            setParam (off, Comp::warmthModelId, 2.0f);   // a model remembered while off
+            juce::MemoryBlock saved;
+            off.getStateInformation (saved);
+            SongsmithCompressorAudioProcessor off2;
+            off2.setStateInformation (saved.getData(), (int) saved.getSize());
+            std::unique_ptr<SongsmithCompressorAudioProcessorEditor> ed (dynamic_cast<SongsmithCompressorAudioProcessorEditor*> (off2.createEditor()));
+            expectEquals (ed->getModelBox().getSelectedItemIndex(), 0, "warmth off opens as Clean, whatever model was remembered");
+            expectEquals (off2.getWarmthModelIndex(), 2, "and the remembered model is kept");
+            expect (! off2.getEngineParams().warmth, "and the sound is the clean compressor");
         }
 
         beginTest ("Each model has its own plain-words description, the same table as the Analog Compressor's, and a classic session reads Classic");
@@ -912,6 +1017,7 @@ public:
 
             // A session from before the models shows Classic until one is chosen.
             SongsmithCompressorAudioProcessor old;
+            setParam (old, Comp::warmthId, 1.0f);   // Analog Warmth was on, with no model saved
             auto state = old.createState();
             for (int i = state.getNumChildren() - 1; i >= 0; --i)
                 if (state.getChild (i).getProperty ("id").toString() == Comp::warmthModelId)
@@ -919,14 +1025,14 @@ public:
             SongsmithCompressorAudioProcessor q;
             q.restoreFromValueTree (state);
             std::unique_ptr<SongsmithCompressorAudioProcessorEditor> ed2 (dynamic_cast<SongsmithCompressorAudioProcessorEditor*> (q.createEditor()));
-            auto& box2 = ed2->getWarmthModelBox();
+            auto& box2 = ed2->getModelBox();
             expectEquals (box2.getSelectedItemIndex(), -1, "nothing in the list is selected");
             expectEquals (box2.getTextWhenNothingSelected(), juce::String ("Classic"));
             expect (box2.getTooltip().startsWith ("Classic"), "and the tooltip says what Classic is");
-            expectEquals (box2.getNumItems(), 4, "still exactly four items");
-            box2.setSelectedItemIndex (0, juce::sendNotificationSync);
+            expectEquals (box2.getNumItems(), 5, "Clean and the four models");
+            box2.setSelectedItemIndex (1, juce::sendNotificationSync);
             expect (! q.isWarmthClassic(), "choosing Black replaces Classic");
-            expectEquals (box2.getSelectedItemIndex(), 0);
+            expectEquals (box2.getSelectedItemIndex(), 1);
         }
     }
 };
@@ -1215,12 +1321,16 @@ struct ConsoleRunner final : juce::UnitTestRunner
 
 // CompressorTests --screenshot <file.png> [--scale 2]: renders the editor with some compression on the
 // meters to a PNG, so UI changes can be checked without a host.
-static int renderScreenshot (const juce::File& file, float scale, bool warmth = false)
+// look: 0 Clean, 1 to 4 Black, Blue, Anniversary, Lindell (songsmithstudio#23)
+static int renderScreenshot (const juce::File& file, float scale, int look = 0)
 {
     SongsmithCompressorAudioProcessor p;
     p.applyPreset (0);
-    if (warmth)
+    if (look > 0)
+    {
         setParam (p, Comp::warmthId, 1.0f);
+        setParam (p, Comp::warmthModelId, (float) (look - 1));
+    }
     prepare (p, 48000.0, 512);
     std::unique_ptr<SongsmithCompressorAudioProcessorEditor> editor (dynamic_cast<SongsmithCompressorAudioProcessorEditor*> (p.createEditor()));
     // Six seconds of plucked notes, each one louder than the last and dying away, so the graph has something to show.
@@ -1258,11 +1368,15 @@ int main (int argc, char* argv[])
             for (int j = 1; j + 1 < argc; ++j)
                 if (juce::String (argv[j]) == "--scale")
                     scale = juce::jlimit (1.0f, 4.0f, juce::String (argv[j + 1]).getFloatValue());
-            bool warmth = false;
-            for (int j = 1; j < argc; ++j)
+            int look = 0;
+            for (int j = 1; j + 1 < argc; ++j)
+            {
+                if (juce::String (argv[j]) == "--look")
+                    look = juce::jlimit (0, 4, juce::String (argv[j + 1]).getIntValue());
                 if (juce::String (argv[j]) == "--warmth")
-                    warmth = true;
-            return renderScreenshot (juce::File::getCurrentWorkingDirectory().getChildFile (argv[i + 1]), scale, warmth);
+                    look = 1;
+            }
+            return renderScreenshot (juce::File::getCurrentWorkingDirectory().getChildFile (argv[i + 1]), scale, look);
         }
 
     ConsoleRunner runner;

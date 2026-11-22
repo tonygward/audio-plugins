@@ -114,34 +114,25 @@ SongsmithCompressorAudioProcessorEditor::SongsmithCompressorAudioProcessorEditor
     autoMakeupAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Comp::autoMakeupId, autoMakeupButton);
     panel.addAndMakeVisible (autoMakeupButton);
 
-    warmthButton.setClickingTogglesState (true);
-    warmthButton.setTooltip ("Analog Warmth: adds a little smooth, rounded colour to the compressed sound. Off keeps the sound clean. Quiet and normal levels stay the same loudness; only the loudest peaks are rounded off slightly");
-    warmthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Comp::warmthId, warmthButton);
-    panel.addAndMakeVisible (warmthButton);
-    // COMP-03: Analog Warmth on gives the panel the faceplates' brushed grain. The button follows the parameter, so
-    // this also happens for host automation and when a session is restored, and it never touches the sound.
-    warmthButton.onStateChange = [this] { panel.setTextured (warmthButton.getToggleState()); refreshWarmthModel(); };
-    panel.setTextured (warmthButton.getToggleState());
-
-    // songsmithstudio#14: the Analog Warmth model, beside the button it belongs to. The same four models, words and descriptions as the
-    // Songsmith Analog Compressor (they come from the one shared table). It is usable while Analog Warmth is on and greyed while it is off; the
-    // choice is kept either way. Hovering the box describes the model shown (the dropdown list itself cannot carry a tooltip for each entry).
+    // songsmithstudio#23: one model dropdown replaces the Analog Warmth button and the model dropdown beside it. Clean is the Compressor's own
+    // transparent sound (Analog Warmth off); Black, Blue, Anniversary and Lindell are the Analog Compressor's four models, run by the same shared
+    // code (songsmithstudio#14). Choosing one changes only the Analog Warmth and model parameters, in one Undo step; Threshold, Ratio, Attack,
+    // Release, Knee, Makeup Gain and Mix are never touched. An older session saved with Analog Warmth on and no model shows "Classic".
+    modelBox.addItem ("Clean", 1);
     for (int i = 0; i < Songsmith::AnalogModels::numModels; ++i)
-        warmthModelBox.addItem (Songsmith::AnalogModels::modelLabelTable[i], i + 1);
-    warmthModelBox.setTitle ("Analog Warmth model");
-    warmthModelBox.setTextWhenNothingSelected ("Classic");   // a session saved before the models existed, until one is chosen
-    warmthModelBox.onChange = [this]
+        modelBox.addItem (Songsmith::AnalogModels::modelLabelTable[i], i + 2);
+    modelBox.setTitle ("Model");
+    modelBox.setTextWhenNothingSelected ("Classic");
+    modelBox.onChange = [this]
     {
-        const int i = warmthModelBox.getSelectedItemIndex();
+        const int i = modelBox.getSelectedItemIndex();   // 0 Clean, 1 to 4 the models
         if (i >= 0)
-        {
-            proc.chooseWarmthModel (i);
-            refreshWarmthModel();
-        }
+            proc.chooseLook (i);
     };
-    panel.addAndMakeVisible (warmthModelBox);
-    warmthModelAttachment = std::make_unique<juce::ParameterAttachment> (*proc.apvts.getParameter (Comp::warmthModelId), [this] (float) { refreshWarmthModel(); });
-    refreshWarmthModel();
+    panel.addAndMakeVisible (modelBox);
+    warmthModelAttachment = std::make_unique<juce::ParameterAttachment> (*proc.apvts.getParameter (Comp::warmthModelId), [this] (float) { refreshLook(); });
+    warmthSwitchAttachment = std::make_unique<juce::ParameterAttachment> (*proc.apvts.getParameter (Comp::warmthId), [this] (float) { refreshLook(); });
+    refreshLook();
 
     bypassButton.setClickingTogglesState (true);
     bypassButton.setTooltip ("Bypass: the sound passes through untouched");
@@ -294,8 +285,7 @@ void SongsmithCompressorAudioProcessorEditor::layoutContent()
     // Auto Makeup sits under Makeup Gain, the knob it switches off.
     const int buttonTop = knobTop + knobH + panelGap;
     autoMakeupButton.setBounds (panelPad + knobColumn * 5 - 10, buttonTop, 112, buttonH);
-    warmthButton.setBounds (panelPad, buttonTop, 130, buttonH);
-    Songsmith::UI::Dropdown::place (warmthModelBox, warmthButton.getRight() + 8, buttonTop, buttonH);
+    Songsmith::UI::Dropdown::place (modelBox, panelPad, buttonTop, buttonH);
 
     diagnostics->setBounds (0, designH, designW, Comp::EditorLayout::footerHeight);
 }
@@ -309,15 +299,30 @@ void SongsmithCompressorAudioProcessorEditor::paintContent (juce::Graphics& g)
 }
 
 //==============================================================================
-// Shows the model in use (or "Classic"), its own tooltip, and whether it can be changed now.
-void SongsmithCompressorAudioProcessorEditor::refreshWarmthModel()
+// Shows the model in use (Clean, a model, or "Classic"), its own tooltip, and gives the toolbox the model's colours. Called for every way the
+// parameters can change: the dropdown, host automation, Undo and a restored session.
+void SongsmithCompressorAudioProcessorEditor::refreshLook()
 {
-    const bool classic = proc.isWarmthClassic();
-    const int index = proc.getWarmthModelIndex();
-    warmthModelBox.setSelectedItemIndex (classic ? -1 : index, juce::dontSendNotification);
-    warmthModelBox.setTooltip (classic ? juce::String ("Classic: the Analog Warmth sound this session was saved with, from before the models were added. Choose a model to replace it.")
-                                       : juce::String (Songsmith::AnalogModels::modelTooltipTable[juce::jlimit (0, Songsmith::AnalogModels::numModels - 1, index)]));
-    warmthModelBox.setEnabled (warmthButton.getToggleState());
+    const bool on = proc.isWarmthOn();
+    const bool classic = on && proc.isWarmthClassic();
+    const int model = proc.getWarmthModelIndex();
+    shownLook = ! on ? 0 : classic ? -1 : model + 1;
+    modelBox.setSelectedItemIndex (shownLook < 0 ? -1 : shownLook, juce::dontSendNotification);
+    modelBox.setTooltip (shownLook == 0 ? juce::String ("Clean: the compressor with no analogue colour. Choose Black, Blue, Anniversary or Lindell for the Songsmith Analog Compressor's models of the same names. Your other settings do not change.")
+                         : classic ? juce::String ("Classic: the Analog Warmth sound this session was saved with, from before the models were added. Choose a model to replace it.")
+                                   : juce::String (Songsmith::AnalogModels::modelTooltipTable[juce::jlimit (0, Songsmith::AnalogModels::numModels - 1, model)]));
+
+    // The toolbox takes the model's colours at once: its surface and outline, the knob rings and the lit buttons. The meters, the graph, the
+    // title and everything outside the toolbox keep the Compressor's own look. Clean (and the classic sound) keep the Compressor's teal.
+    const auto theme = Songsmith::UI::ModelTheme::forLook (shownLook < 0 ? 0 : shownLook);
+    panel.setTheme (theme);
+    panel.setTextured (on);   // COMP-03: any Analog Warmth sound gives the panel the faceplates' brushed grain
+    for (auto* knob : { &thresholdSlider, &ratioSlider, &attackSlider, &releaseSlider, &kneeSlider, &makeupSlider, &mixSlider })
+        knob->setColour (juce::Slider::rotarySliderFillColourId, theme.accent);
+    lookAndFeel.setColour (juce::TextButton::buttonOnColourId, theme.accent.withAlpha (0.85f));
+    lookAndFeel.setColour (juce::Slider::trackColourId, theme.accent);
+    panel.sendLookAndFeelChange();
+    panel.repaint();
 }
 
 void SongsmithCompressorAudioProcessorEditor::syncFromParameters()

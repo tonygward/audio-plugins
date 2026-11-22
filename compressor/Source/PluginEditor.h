@@ -30,8 +30,8 @@ public:
     juce::Button& getRedoButton() noexcept        { return redoButton; }
     juce::Button& getBypassButton() noexcept      { return bypassButton; }
     juce::Button& getAutoMakeupButton() noexcept  { return autoMakeupButton; }
-    juce::Button& getWarmthButton() noexcept      { return warmthButton; }
-    juce::ComboBox& getWarmthModelBox() noexcept  { return warmthModelBox; }
+    juce::ComboBox& getModelBox() noexcept        { return modelBox; }   // songsmithstudio#23: Clean, Black, Blue, Anniversary, Lindell
+    int getLook() const noexcept                  { return shownLook; }  // 0 Clean, 1 to 4 the models, -1 the classic sound of an older session
     juce::Button& getPauseButton() noexcept       { return pauseButton; }
     juce::ComboBox& getPresetBox() noexcept       { return presetBox; }
     juce::Slider& getThresholdSlider() noexcept   { return thresholdSlider; }
@@ -89,10 +89,11 @@ private:
     juce::Slider makeupSlider    { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Slider mixSlider       { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Label thresholdLabel, ratioLabel, attackLabel, releaseLabel, kneeLabel, makeupLabel, mixLabel;
-    juce::TextButton autoMakeupButton { "Auto Makeup" }, warmthButton { "Analog Warmth" };
-    juce::ComboBox warmthModelBox;   // songsmithstudio#14: Black, Blue, Anniversary, Lindell; enabled while Analog Warmth is on
-    std::unique_ptr<juce::ParameterAttachment> warmthModelAttachment;
-    void refreshWarmthModel();
+    juce::TextButton autoMakeupButton { "Auto Makeup" };
+    juce::ComboBox modelBox;   // songsmithstudio#23: the one model selector, replacing the Analog Warmth button and its model dropdown
+    std::unique_ptr<juce::ParameterAttachment> warmthModelAttachment, warmthSwitchAttachment;
+    int shownLook = 0;
+    void refreshLook();   // the dropdown, its tooltip, and the toolbox colours, from the parameters (also for automation and restored sessions)
 
     juce::TextButton bypassButton { "Bypass" }, undoButton { "Undo" }, redoButton { "Redo" };
     juce::ComboBox presetBox;
@@ -100,7 +101,7 @@ private:
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> thresholdAttachment, ratioAttachment, attackAttachment,
                                                                           releaseAttachment, kneeAttachment, makeupAttachment, mixAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoMakeupAttachment, warmthAttachment, bypassAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoMakeupAttachment, bypassAttachment;
 
     // Right edge: the Gain Reduction bar (how much the compressor is turning the level down) and the Songsmith EQ's
     // output meter (sample peak, CLIP warning and the signed held peak).

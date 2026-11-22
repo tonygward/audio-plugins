@@ -93,6 +93,10 @@ public:
     // models existed is "classic": its Analog Warmth keeps the original sound until the musician chooses a model.
     bool isWarmthClassic() const noexcept { return classicWarmth.load (std::memory_order_relaxed); }
     int getWarmthModelIndex() const noexcept { return warmthModelParam->getIndex(); }
+    bool isWarmthOn() const noexcept { return warmthParam->get(); }
+    // songsmithstudio#23: the one Model dropdown. Look 0 is Clean (Analog Warmth off, the model kept), 1 to 4 are Black, Blue, Anniversary, Lindell
+    // (Analog Warmth on with that model). Only the existing Analog Warmth and model parameters change, in one Undo step; nothing else moves.
+    void chooseLook (int look);
     void chooseWarmthModel (int index);   // the musician chose one: it replaces the classic sound for good. Message thread.
 
     // songsmithstudio#7: the Before and After loudness shown in the footer. Fed by one scope at the top of processBlock.
