@@ -20,6 +20,11 @@ The controls float in a panel on the graph. Drag it by its background to move it
 - **Makeup Gain** and **Auto Makeup:** raise the level after compression. Auto Makeup matches the level for a typical signal of -18 dBFS, so you do not have to; switch it off to set Makeup Gain yourself.
 - **Mix:** blends the compressed sound with the original, for parallel compression.
 - **Analog Warmth:** an on and off button, off to begin with. When on, it adds a little smooth, rounded colour to the compressed sound. Quiet and normal levels keep the same loudness, and only the loudest peaks are rounded off slightly. The floating panel also takes on a fine brushed-metal texture (the same as on Songsmith Analog Compressor and Songsmith Maximiser) while it is on, so you can see at a glance that it is. It does not change how the compressor works. Leave it off if you want the sound to stay clean; there is no right or wrong setting, so choose by ear.
+- **Analog Warmth model** (songsmithstudio#14; a dropdown beside the Analog Warmth button, greyed while it is off): **Black**, **Blue**, **Anniversary** or **Lindell**, the same four models, with the same code, as the [Songsmith Analog Compressor](../analog-compressor/README.md). Black is the default. Your choice is kept while Analog Warmth is off. Hover the dropdown for what the model shown is for. A project saved before the models existed keeps its original Analog Warmth sound, and its dropdown reads **Classic**, until you choose a model.
+
+  ![Analog Warmth on, with the model dropdown](docs/images/comp-warmth-models/warmth-on.png)
+
+  *A real screenshot at 200 %, rendered by the test executable (`CompressorTests --screenshot <file> --scale 2 --warmth`).*
 - **Preset:** starting points for a kind of sound: Acoustic Guitar, Lead Vocal Control, Drum Bus Glue and Gentle Level Smoothing. Adjust Threshold by ear afterwards.
 - **Undo, Redo and Bypass** work as in every Songsmith plugin.
 

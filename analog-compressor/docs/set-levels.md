@@ -44,3 +44,7 @@ Attack: "how quickly compression starts when the sound gets louder. Turn clockwi
 ## Not yet verified
 
 Not tested in a DAW (Studio One, Logic): behaviour when the transport stops while listening (the editor then simply keeps waiting until Finish Listening or Cancel is pressed; Finish with no audio reports "No sound was heard") and with host automation in write mode. Test tolerances above were chosen before a first hosted build and may need adjusting. No before-and-after screenshot was rendered because this run could not build.
+
+## Apply and the panel (songsmithstudio#13)
+
+Apply is the confirmation: it writes Input and Output as one Undo step and closes the panel immediately. The earlier "Applied: Input ..., Output ..." message and its Close button are gone. Messages that explain why nothing was applied (settings changed, no sound) still appear, because there is nothing else to tell the musician; they close with Close, Escape, or by themselves after a few seconds. While the panel is open, a dimming layer under it (22 % black) takes every click, so nothing behind it can be turned, and Tab cycles only inside the panel. The panel's own fill is 88 % opaque, so the faceplate shows faintly through it; its text stays above 7:1 contrast even over the lightest faceplate (tested). A real before and after: `docs/images/acomp-21-set-levels-panel.png` and `docs/images/set-levels-translucent.png`.
