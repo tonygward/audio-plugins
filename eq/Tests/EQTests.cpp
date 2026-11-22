@@ -3846,7 +3846,7 @@ public:
                 slots = slots && p.isBandUsed (b) == ((b % 3) != 1);
             expect (slots, "used/unused band slots restored");
             expectEquals (p.selectedBand.load(), 5, "UI state restored");
-            expectEquals (p.editorWidth.load(), 1111);
+            expectEquals (p.editorWidth.load(), EQ::EditorSize::minWidth, "an old window narrower than the new minimum opens at the minimum (songsmithstudio#17)");
             expectEquals (p.editorHeight.load(), 666);
 
             // Saving again writes the same parameter values back.
@@ -4374,7 +4374,7 @@ public:
                 SongsmithEQAudioProcessor c;
                 c.setStateInformation (old.getData(), (int) old.getSize());
                 expectEquals (c.uiScale.load(), 1.0f, "old state opens at 100%");
-                expectEquals (c.editorWidth.load(), 980, "old state keeps its saved size");
+                expectEquals (c.editorWidth.load(), EQ::EditorSize::minWidth, "an old 980 px window opens at the new, wider minimum (songsmithstudio#17)");
                 expectEquals (c.editorHeight.load(), 580);
 
                 // Out of range: clamped.
@@ -4894,7 +4894,7 @@ public:
             expect (! restoredOff.showPianoStrip.load(), "off round-trips too");
         }
 
-        beginTest ("The Piano button sits at the far right of the footer, beside the strip it controls (EQ-35)");
+        beginTest ("The Piano button is centred in the footer, and the loudness readout keeps the far right (songsmithstudio#17)");
         {
             using namespace EQ::EditorSize;
             for (auto s : uiScales)
@@ -4914,9 +4914,16 @@ public:
                     continue;
                 const auto inContent = piano->getBounds() + footer->getPosition();
                 expect (piano->isVisible(), context + ": the button is shown");
-                expectEquals (inContent.getRight(), content.getWidth() - 16, context + ": right-aligned at the far right");
+                expect (std::abs (inContent.getCentreX() - content.getWidth() / 2) <= 1, context + ": horizontally centred (" + juce::String (inContent.getCentreX()) + " of " + juce::String (content.getWidth()) + ")");
                 expect (inContent.getY() >= ed->getDisplay().getBottom(), context + ": below the graph and its piano-note strip");
-                expect (inContent.getX() > content.getWidth() / 2, context + ": in the right half");
+                if (auto* bar = dynamic_cast<Songsmith::Diagnostics::Bar*> (footer))
+                    if (auto* lufs = bar->getBeforeAfter())
+                    {
+                        const auto loud = lufs->getBounds() + footer->getPosition();
+                        expectEquals (loud.getRight(), content.getWidth() - 16, context + ": the Before and After loudness is right-aligned at the far right, as in every plugin");
+                        expect (! loud.intersects (inContent), context + ": and clear of the Piano button");
+                        expect (! (bar->getReadout().getBounds() + footer->getPosition()).intersects (inContent), context + ": and so is the Processing Load readout");
+                    }
                 expect (findButton (content, "Piano") == piano, context + ": only one Piano button");
                 WordingAndFontTests::checkLayout (*this, *ed, context);
             }
@@ -5144,11 +5151,11 @@ public:
                 expectWithinAbsoluteError ((double) p.getGainScale(), 1.5, 0.01, context + ": and the sound still uses it");
 
                 // EQ-41: the label says Gain Scale, typing works with or without the words, the help is plain.
-                expect (scale.getTextFromValue (100.0) == "Gain Scale 100%", context + ": reads Gain Scale 100%");
-                expect (scale.getTextFromValue (-100.0) == "Gain Scale -100%", context + ": negative end");
-                for (auto text : { "50", "50%", "Gain Scale 50%" })
+                expect (scale.getTextFromValue (100.0) == "All Band Gains 100%", context + ": reads All Band Gains 100%");
+                expect (scale.getTextFromValue (-100.0) == "All Band Gains -100%", context + ": negative end");
+                for (auto text : { "50", "50%", "All Band Gains 50%", "Gain Scale 50%" })
                     expectWithinAbsoluteError (scale.getValueFromText (text), 50.0, 0.001, context + ": typing \"" + juce::String (text) + "\" sets 50");
-                expect (scale.getTooltip().startsWith ("Turns every band's boosts and cuts up or down together."), context + ": plain tooltip");
+                expect (scale.getTooltip().startsWith ("All Band Gains: turns every band's boosts and cuts up or down together."), context + ": plain tooltip");
                 expect (scale.getTooltip().contains ("Double-click to return to 100%."), context + ": tooltip mentions reset");
                 const auto* editorBounds = ed.get();
                 expect (scale.getRight() <= editorBounds->getWidth() && scale.getWidth() > 60, context + ": fits inside the editor");
@@ -6485,11 +6492,54 @@ public:
             expect (u.isHighFrequencyAccurate(), "undo restores it");
         }
 
-        beginTest ("Accurate Highs sits right beside Oversampling, fully visible, at every size");
+        beginTest ("Graph Range sits directly above the dB scale and changes only what is drawn; the Frequency Guide names fit; Oversampling ends its row (songsmithstudio#17)");
+        for (float s : { 0.75f, 1.0f, 1.5f, 2.0f })
+        {
+            SongsmithEQAudioProcessor p;
+            auto ed = UiSizeTests::makeEditor (p, s, juce::roundToInt ((float) EQ::EditorSize::minWidth * s), juce::roundToInt ((float) EQ::EditorSize::minHeight * s));
+            auto* eqEditor = dynamic_cast<SongsmithEQAudioProcessorEditor*> (ed.get());
+            expect (eqEditor != nullptr);
+            if (eqEditor == nullptr)
+                continue;
+            const auto context = "at " + juce::String (s) + "x";
+            auto& range = eqEditor->getRangeBox();
+            auto& graph = eqEditor->getDisplay();
+            expect (range.isVisible() && range.getWidth() > 0, context + ": the Graph Range is shown");
+            expectEquals (range.getRight(), graph.getRight(), context + ": its right edge is the graph's, so it sits over the dB scale");
+            expect (range.getBottom() <= graph.getY(), context + ": directly above the graph, not floating away from it");
+            expect (graph.getY() - range.getBottom() < 12, context + ": and close to it");
+            expectEquals (range.getTitle(), juce::String ("Graph Range"), context + ": named in plain words");
+            expect (! range.getBounds().intersects (eqEditor->getGuideBox().getBounds()), context + ": clear of the Frequency Guide");
+
+            // The Frequency Guide's longest instrument fits whole, with room for its icon and the chevron.
+            auto& guide = eqEditor->getGuideBox();
+            expectGreaterOrEqual (guide.getWidth(), Songsmith::UI::Dropdown::widthFor (guide, guide.getLookAndFeel().getComboBoxFont (guide)), context + ": the Frequency Guide dropdown fits its longest name");
+
+            // Oversampling is the rightmost control of the row it shares.
+            auto& os = eqEditor->getOversamplingBox();
+            for (auto* other : ed->getContent().getChildren())
+                if (other != &os && other->isVisible() && other->getBottom() > os.getY() && other->getY() < os.getBottom()
+                    && other->getX() < os.getX() && other->getWidth() < ed->getContent().getWidth() / 2)
+                    expect (other->getRight() <= os.getX(), context + ": nothing in the row overlaps Oversampling");
+            expect (os.getRight() >= eqEditor->getScaleSlider().getRight(), context + ": Oversampling is the rightmost control of its row");
+
+            // Changing the range is a presentation change only: no parameter, so no sound, moves.
+            std::vector<float> before;
+            for (auto* prm : p.getParameters())
+                before.push_back (prm->getValue());
+            range.setSelectedItemIndex ((range.getSelectedItemIndex() + 1) % range.getNumItems(), juce::sendNotificationSync);
+            size_t k = 0;
+            bool same = true;
+            for (auto* prm : p.getParameters())
+                same = same && prm->getValue() == before[k++];
+            expect (same, context + ": changing the Graph Range changes no parameter");
+        }
+
+        beginTest ("Accurate Highs sits right beside Oversampling (on its left), fully visible, at every size");
         for (float s : { 0.75f, 1.0f, 2.0f })
         {
             SongsmithEQAudioProcessor p;
-            auto ed = UiSizeTests::makeEditor (p, s, juce::roundToInt (980 * s), juce::roundToInt (468 * s));
+            auto ed = UiSizeTests::makeEditor (p, s, juce::roundToInt ((float) EQ::EditorSize::minWidth * s), juce::roundToInt ((float) EQ::EditorSize::minHeight * s));
             auto* eqEditor = dynamic_cast<SongsmithEQAudioProcessorEditor*> (ed.get());
             expect (eqEditor != nullptr);
             if (eqEditor == nullptr)
@@ -6499,7 +6549,8 @@ public:
             const auto context = "at " + juce::String (s) + "x";
             expect (button.isVisible() && button.getWidth() > 0, context + ": visible");
             expectEquals (button.getY(), os.getY(), context + ": same row as Oversampling");
-            expect (button.getX() > os.getRight() && button.getX() - os.getRight() < 16, context + ": immediately right of Oversampling");
+            expect (button.getRight() < os.getX() && os.getX() - button.getRight() < 16, context + ": immediately left of Oversampling, which is the rightmost control of the row");
+            expect (os.getRight() >= eqEditor->getScaleSlider().getRight(), context + ": Oversampling is to the right of the All Band Gains control");
             expect (button.getToggleState(), context + ": on in a new instance");
             expect (button.getTooltip().startsWith ("Accurate highs:"), context + ": tooltip");
         }

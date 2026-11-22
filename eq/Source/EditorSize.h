@@ -15,10 +15,11 @@ namespace EQ::EditorSize
     constexpr int diagnosticsHeight = 28;
     constexpr int defaultWidth = 1280, defaultHeight = 760 + diagnosticsHeight;
 
-    // Design-unit minimum: the three-row top bar fits spelled out at 980, with the Frequency Guide
-    // controls in row 3 (it was 760 before EQ-32 added them). At UI size
+    // Design-unit minimum: the three-row top bar fits spelled out at 1160, with the Frequency Guide
+    // controls and the Graph Range in row 3 and the Output panel at the right (it was 980 before songsmithstudio#16 and #17
+    // added the panel and widened the Frequency Guide dropdown to fit its longest name). At UI size
     // s the minimum window is this times s.
-    constexpr int minWidth = 980, minHeight = 440 + diagnosticsHeight;
+    constexpr int minWidth = 1160, minHeight = 480 + diagnosticsHeight;
 
     // Large enough to fill a 4K screen (3840 x 2160 at 100 % display scaling), or a 16:10 one.
     constexpr int maxWidth = 3840, maxHeight = 2400;

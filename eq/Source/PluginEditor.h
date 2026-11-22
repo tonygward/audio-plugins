@@ -41,6 +41,8 @@ public:
     Songsmith::UI::OutputPanel& getOutputPanel() noexcept { return outputPanel; }
     juce::Button& getAccurateHighsButton() noexcept { return accurateHighsButton; }   // tests (EQ-44)
     juce::ComboBox& getOversamplingBox() noexcept   { return oversamplingBox; }
+    juce::ComboBox& getRangeBox() noexcept { return rangeBox; }         // the Graph Range, above the dB scale (songsmithstudio#17)
+    juce::ComboBox& getGuideBox() noexcept { return guideBox; }         // the Frequency Guide's instrument
     juce::Slider& getScaleSlider() noexcept  { return scaleSlider; }   // Gain Scale, in the toolbox (SUI-18)
     float getContentScale() const noexcept   { return contentScale; }   // design units -> window pixels
     float getLayoutStep() const noexcept     { return layoutStep; }
