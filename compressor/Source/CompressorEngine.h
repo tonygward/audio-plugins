@@ -3,6 +3,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <array>
 #include <cmath>
+#include "../../shared/Source/SongsmithAnalogModels.h"
 
 // Songsmith Compressor engine (COMP-01, slice 1): a clean, feed-forward, stereo-linked compressor.
 // Design choices are written down in compressor/docs/engine.md, with the test that checks each.
@@ -30,6 +31,10 @@ namespace SongsmithComp
         bool  autoMakeup  = false;    // level-match at autoMakeupReferenceDb instead of makeupDb
         float mix         = 1.0f;     // 0 to 1 (1 = fully compressed)
         bool  warmth      = false;    // Analog Warmth: off is exactly the clean compressor
+        // Which Analog Warmth: 0 to 3 are the Songsmith analogue models (Black, Blue, Anniversary, Lindell: the same voicings, FET cell and
+        // output stage the Songsmith Analog Compressor runs); -1 is the original smooth-curve Analog Warmth, which a session saved before
+        // the models existed keeps until the musician chooses a model.
+        int   warmthModel = -1;
     };
 
     inline constexpr float minThresholdDb = -60.0f, maxThresholdDb = 0.0f;
@@ -107,5 +112,13 @@ namespace SongsmithComp
         std::array<WarmState, maxChannels> warm {};
         double dcCoeff = 0.9995;
         double warmShape (WarmState& s, double x) noexcept;
+
+        // The analogue models (songsmithstudio#14): the Analog Compressor's output stage (Class A amplifier and transformer) per channel,
+        // the colour of the FET cell scaled by the model (smoothed, so changing model never clicks), and the model's voicing applied to the
+        // compressor's own Threshold, Knee, Attack and Release while Analog Warmth is on with a model chosen.
+        Songsmith::AnalogModels::OutputStage outputStage;
+        juce::SmoothedValue<float> colourFactor { 1.0f };
+        float effThresholdDb = -24.0f, effKneeDb = 6.0f;
+        bool modelPathOn = false;   // Analog Warmth on with a model chosen (not the original curve)
     };
 }

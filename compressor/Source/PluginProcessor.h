@@ -14,9 +14,10 @@ class SongsmithCompressorAudioProcessor : public juce::AudioProcessor
 {
 public:
     // Saved-state format. 1 = the eight sound parameters, bypass and the editor width. 2 = adds Analog Warmth
-    // (sessions saved before it open with it off, which is exactly how they sounded).
+    // (sessions saved before it open with it off, which is exactly how they sounded). 3 = adds the Analog Warmth model (a session saved
+    // before it keeps the original Analog Warmth sound until a model is chosen).
     // Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 2;
+    static constexpr int stateVersion = 3;
 
     SongsmithCompressorAudioProcessor();
 
@@ -88,6 +89,12 @@ public:
     // Optional timing of processBlock for the editor's Processing Load readout.
     Songsmith::Diagnostics::LoadMeter loadMeter;
 
+    // songsmithstudio#14: which Analog Warmth runs. The model (Black, Blue, Anniversary, Lindell) is a host parameter; a session saved before the
+    // models existed is "classic": its Analog Warmth keeps the original sound until the musician chooses a model.
+    bool isWarmthClassic() const noexcept { return classicWarmth.load (std::memory_order_relaxed); }
+    int getWarmthModelIndex() const noexcept { return warmthModelParam->getIndex(); }
+    void chooseWarmthModel (int index);   // the musician chose one: it replaces the classic sound for good. Message thread.
+
     // songsmithstudio#7: the Before and After loudness shown in the footer. Fed by one scope at the top of processBlock.
     Songsmith::Loudness::BeforeAfterMeter beforeAfter;
 
@@ -101,6 +108,15 @@ private:
     std::atomic<float>* mixRaw = nullptr;
     juce::AudioParameterBool* autoMakeupParam = nullptr;
     juce::AudioParameterBool* warmthParam = nullptr;
+    juce::AudioParameterChoice* warmthModelParam = nullptr;
+    std::atomic<bool> classicWarmth { false };
+    std::atomic<bool> restoring { false };
+    struct ModelListener final : juce::AudioProcessorValueTreeState::Listener
+    {
+        explicit ModelListener (SongsmithCompressorAudioProcessor& o) : owner (o) {}
+        void parameterChanged (const juce::String&, float) override { if (! owner.restoring.load()) owner.classicWarmth.store (false); }   // host automation or the window chose a model
+        SongsmithCompressorAudioProcessor& owner;
+    } modelListener { *this };
     juce::AudioParameterBool* bypassParam = nullptr;
 
     SongsmithComp::Engine engine;

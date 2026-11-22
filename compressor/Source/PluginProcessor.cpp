@@ -31,7 +31,9 @@ SongsmithCompressorAudioProcessor::SongsmithCompressorAudioProcessor()
     autoMakeupParam = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Comp::autoMakeupId));
     bypassParam     = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Comp::bypassId));
     warmthParam     = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Comp::warmthId));
-    jassert (thresholdRaw && ratioRaw && attackRaw && releaseRaw && kneeRaw && makeupRaw && mixRaw && autoMakeupParam && warmthParam && bypassParam);
+    warmthModelParam = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (Comp::warmthModelId));
+    jassert (thresholdRaw && ratioRaw && attackRaw && releaseRaw && kneeRaw && makeupRaw && mixRaw && autoMakeupParam && warmthParam && warmthModelParam && bypassParam);
+    apvts.addParameterListener (Comp::warmthModelId, &modelListener);
 
     dryBuffer.setSize (2, 512, false, true);   // resized in prepareToPlay
 }
@@ -83,6 +85,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithCompressorAudioProc
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { Comp::warmthId, 2 }, "Analog Warmth", false));
 
+    // Version 3 (songsmithstudio#14): which Analog Warmth. Black is the default; a session saved before this keeps the original sound (see restoreFromValueTree).
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { Comp::warmthModelId, 3 }, "Analog Warmth Model", Comp::warmthModelNames(), Comp::defaultWarmthModel));
+
     return layout;
 }
 
@@ -97,6 +103,7 @@ SongsmithComp::Params SongsmithCompressorAudioProcessor::getEngineParams() const
     p.makeupDb    = makeupRaw->load (std::memory_order_relaxed);
     p.autoMakeup  = autoMakeupParam->get();
     p.warmth      = warmthParam->get();
+    p.warmthModel = classicWarmth.load (std::memory_order_relaxed) ? -1 : warmthModelParam->getIndex();
     p.mix         = mixRaw->load (std::memory_order_relaxed) * 0.01f;
     return p;
 }
@@ -240,6 +247,7 @@ juce::ValueTree SongsmithCompressorAudioProcessor::createState()
     ui.setProperty ("editorWidth", editorWidth.load(), nullptr);
     ui.setProperty ("panelX", panelX.load(), nullptr);
     ui.setProperty ("panelY", panelY.load(), nullptr);
+    ui.setProperty ("warmthClassic", classicWarmth.load(), nullptr);
     state.appendChild (ui, nullptr);
     return state;
 }
@@ -281,7 +289,9 @@ void SongsmithCompressorAudioProcessor::restoreFromValueTree (const juce::ValueT
         fresh.appendChild (juce::ValueTree ("PARAM", { { "id", rp->paramID }, { "value", value } }), nullptr);
     }
 
+    restoring = true;
     apvts.replaceState (fresh);
+    restoring = false;
     history.clear();   // a loaded session starts with a clean Undo history
 
     const auto ui = saved.getChildWithName (uiId);
@@ -294,8 +304,23 @@ void SongsmithCompressorAudioProcessor::restoreFromValueTree (const juce::ValueT
     panelX.store (fraction ("panelX", 0.03f));
     panelY.store (fraction ("panelY", 1.0f));
 
+    // A session saved before the models existed has no model in it: its Analog Warmth keeps the original sound until the musician chooses a model.
+    // A newer session says so itself.
+    const bool savedHasModel = saved.getChildWithProperty ("id", Comp::warmthModelId).isValid();
+    classicWarmth.store (savedHasModel ? (ui.isValid() && (bool) ui.getProperty ("warmthClassic", false)) : true);
+
     editorWidth.store (Comp::EditorLayout::constrainWidth (ui.isValid() ? (int) ui.getProperty ("editorWidth", Comp::EditorLayout::defaultWidth)
                                                                         : Comp::EditorLayout::defaultWidth));
+}
+
+void SongsmithCompressorAudioProcessor::chooseWarmthModel (int index)
+{
+    index = juce::jlimit (0, Songsmith::AnalogModels::numModels - 1, index);
+    classicWarmth.store (false);   // choosing a model, even the one already selected, replaces the classic sound
+    auto* p = apvts.getParameter (Comp::warmthModelId);
+    p->beginChangeGesture();
+    p->setValueNotifyingHost (p->convertTo0to1 ((float) index));
+    p->endChangeGesture();
 }
 
 void SongsmithCompressorAudioProcessor::applyPreset (int index)

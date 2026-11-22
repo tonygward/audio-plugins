@@ -5,6 +5,7 @@
 #include "CompLookAndFeel.h"
 #include "CompMeter.h"
 #include "DynamicsGraph.h"
+#include "../../shared/Source/SongsmithDropdown.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithFloatingPanel.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
@@ -30,6 +31,7 @@ public:
     juce::Button& getBypassButton() noexcept      { return bypassButton; }
     juce::Button& getAutoMakeupButton() noexcept  { return autoMakeupButton; }
     juce::Button& getWarmthButton() noexcept      { return warmthButton; }
+    juce::ComboBox& getWarmthModelBox() noexcept  { return warmthModelBox; }
     juce::Button& getPauseButton() noexcept       { return pauseButton; }
     juce::ComboBox& getPresetBox() noexcept       { return presetBox; }
     juce::Slider& getThresholdSlider() noexcept   { return thresholdSlider; }
@@ -88,6 +90,9 @@ private:
     juce::Slider mixSlider       { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Label thresholdLabel, ratioLabel, attackLabel, releaseLabel, kneeLabel, makeupLabel, mixLabel;
     juce::TextButton autoMakeupButton { "Auto Makeup" }, warmthButton { "Analog Warmth" };
+    juce::ComboBox warmthModelBox;   // songsmithstudio#14: Black, Blue, Anniversary, Lindell; enabled while Analog Warmth is on
+    std::unique_ptr<juce::ParameterAttachment> warmthModelAttachment;
+    void refreshWarmthModel();
 
     juce::TextButton bypassButton { "Bypass" }, undoButton { "Undo" }, redoButton { "Redo" };
     juce::ComboBox presetBox;
