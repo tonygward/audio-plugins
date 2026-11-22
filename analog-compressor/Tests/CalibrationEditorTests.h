@@ -95,10 +95,11 @@ struct CalibrationEditorTests final : juce::UnitTest
 
             e.getSetLevelsActionButton().onClick();   // Apply
             expect (e.getLevelsStage() == Stage::idle);
-            expect (e.getSetLevelsMessage().getText().startsWith ("Applied"), "the result is confirmed in the panel");
-            expect (! e.getSetLevelsActionButton().isVisible() && e.getSetLevelsCancelButton().getButtonText() == "Close", "only Close is left");
-            e.getSetLevelsCancelButton().onClick();
-            expect (! e.getSetLevelsPanel().isVisible(), "Close dismisses the panel");
+            // songsmithstudio#13: Apply is the confirmation. No second message, no Close button to press.
+            expect (! e.getSetLevelsPanel().isVisible(), "Apply closes the panel at once");
+            expect (e.getSetLevelsMessage().getText().isEmpty(), "with no \"Applied\" message left behind");
+            expect (! e.getSetLevelsScrim().isVisible(), "and nothing is left over the controls");
+            expect (e.getSetLevelsScrim().getBounds().getWidth() > 0, "(the scrim exists, hidden)");
             expectWithinAbsoluteError (getParam (p, ID::input), r.inputDb, 0.011f);
             expectWithinAbsoluteError (getParam (p, ID::output), r.outputDb, 0.011f);
 
@@ -112,6 +113,71 @@ struct CalibrationEditorTests final : juce::UnitTest
 
             e.getKnob (ID::input).slider.setValue (5.0, juce::sendNotificationSync);   // manual adjustment still works
             expectWithinAbsoluteError (getParam (p, ID::input), 5.0f, 0.011f);
+        }
+
+        beginTest ("songsmithstudio#13: while the panel is open nothing behind it can be reached, Tab stays inside it, and after Apply the controls work at once");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            p.prepareToPlay (fs, 512);
+            SongsmithAnalogCompressorEditor e (p);
+            e.setSize (FET::designWidth, FET::designHeight);
+            auto& inputKnob = e.getKnob (ID::input);
+            auto& content = *e.getSetLevelsPanel().getParentComponent();   // the window's whole content, in design units
+            const auto knobCentre = content.getLocalPoint (&inputKnob, inputKnob.getLocalBounds().getCentre());
+            expect (content.getComponentAt (knobCentre) != &e.getSetLevelsScrim(), "before Set Levels the knob is reachable");
+
+            e.getSetLevelsButton().onClick();
+            expect (e.getSetLevelsPanel().isVisible() && e.getSetLevelsScrim().isVisible(), "the panel and its scrim are shown");
+            auto behindTheDialog = [&] (juce::Component* hit) { return hit == &e.getSetLevelsScrim() || hit == &e.getSetLevelsPanel(); };
+            expect (behindTheDialog (content.getComponentAt (knobCentre)), "a click on the Input knob lands on the scrim or the panel, never on the knob");
+            expect (behindTheDialog (content.getComponentAt (content.getLocalPoint (&e.getBypassButton(), e.getBypassButton().getLocalBounds().getCentre()))), "and Bypass is behind it too");
+            expect (behindTheDialog (content.getComponentAt (content.getLocalPoint (&e.getKnob (ID::output), e.getKnob (ID::output).getLocalBounds().getCentre()))), "and the Output knob");
+            expect (e.getSetLevelsPanel().isKeyboardFocusContainer(),
+                    "Tab cycles inside the panel only");
+            expect (content.getIndexOfChildComponent (&e.getSetLevelsScrim()) < content.getIndexOfChildComponent (&e.getSetLevelsPanel()), "the scrim is under the panel");
+            expect (content.getIndexOfChildComponent (&e.getSetLevelsPanel()) == content.getNumChildComponents() - 1, "and the panel is on top");
+
+            play (p, sustained (fs, 6.0, 0.1f));
+            e.getSetLevelsActionButton().onClick();   // Finish Listening
+            e.getSetLevelsActionButton().onClick();   // Apply
+            expect (! e.getSetLevelsPanel().isVisible() && ! e.getSetLevelsScrim().isVisible(), "Apply closes both");
+            expect (content.getComponentAt (knobCentre) != &e.getSetLevelsScrim(), "and the knob is reachable again at once");
+            e.getKnob (ID::input).slider.setValue (4.0, juce::sendNotificationSync);
+            expectWithinAbsoluteError (getParam (p, ID::input), 4.0f, 0.011f, "so the plugin is usable straight after Apply");
+
+            // Escape and Cancel apply nothing and release the controls too.
+            const float inputBefore = getParam (p, ID::input);
+            e.getSetLevelsButton().onClick();
+            e.getSetLevelsPanel().keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+            expect (! e.getSetLevelsScrim().isVisible(), "Escape releases the controls");
+            expectEquals (getParam (p, ID::input), inputBefore, "and changes nothing");
+            e.getSetLevelsButton().onClick();
+            e.getSetLevelsCancelButton().onClick();
+            expect (! e.getSetLevelsScrim().isVisible() && ! e.getSetLevelsPanel().isVisible(), "Cancel closes everything");
+            expectEquals (getParam (p, ID::input), inputBefore, "Cancel changes nothing");
+        }
+
+        beginTest ("songsmithstudio#13: the panel is subtly see-through, and its text stays clear over the brightest faceplate");
+        {
+            const float panelAlpha = SongsmithAnalogCompressorEditor::getSetLevelsPanelFillAlpha();
+            expect (panelAlpha < 1.0f && panelAlpha >= 0.8f, "subtle: between 80 % and fully solid (" + juce::String (panelAlpha) + ")");
+
+            auto luminance = [] (juce::Colour c)
+            {
+                auto lin = [] (float v) { return v <= 0.03928f ? v / 12.92f : std::pow ((v + 0.055f) / 1.055f, 2.4f); };
+                return 0.2126f * lin (c.getFloatRed()) + 0.7152f * lin (c.getFloatGreen()) + 0.0722f * lin (c.getFloatBlue());
+            };
+            const auto fill = FET::UI::Colours::panel.brighter (0.12f);
+            const auto text = FET::UI::Colours::text;
+            // The worst case is the lightest thing that can be behind the panel: the Lindell faceplate's light grey, and white as an extreme.
+            for (auto behind : { juce::Colour (0xffd0d0d0), juce::Colours::white })
+            {
+                // what really shows: the scrim dims what is behind, then the panel is laid over that
+                const auto shown = behind.overlaidWith (juce::Colours::black.withAlpha (SongsmithAnalogCompressorEditor::getSetLevelsScrimDimAlpha())).overlaidWith (fill.withAlpha (panelAlpha));
+                const float lt = luminance (text) + 0.05f, lb = luminance (shown) + 0.05f;
+                const float contrast = lt > lb ? lt / lb : lb / lt;
+                expectGreaterThan (contrast, 7.0f, "text contrast over " + behind.toDisplayString (false) + " is " + juce::String (contrast, 1) + ":1 (7:1 is the strong level)");
+            }
         }
 
         beginTest ("Cancel leaves everything alone; silence is explained");
