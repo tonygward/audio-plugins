@@ -32,6 +32,9 @@ SongsmithCompressorAudioProcessor::SongsmithCompressorAudioProcessor()
     bypassParam     = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Comp::bypassId));
     warmthParam     = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Comp::warmthId));
     warmthModelParam = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (Comp::warmthModelId));
+    outputTrimRaw = apvts.getRawParameterValue (Comp::outputTrimId);
+    autoGainRaw   = apvts.getRawParameterValue (Comp::autoGainId);
+    jassert (outputTrimRaw && autoGainRaw);
     jassert (thresholdRaw && ratioRaw && attackRaw && releaseRaw && kneeRaw && makeupRaw && mixRaw && autoMakeupParam && warmthParam && warmthModelParam && bypassParam);
     apvts.addParameterListener (Comp::warmthModelId, &modelListener);
 
@@ -89,6 +92,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithCompressorAudioProc
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { Comp::warmthModelId, 3 }, "Analog Warmth Model", Comp::warmthModelNames(), Comp::defaultWarmthModel));
 
+    // Version 4 (songsmithstudio#16): the suite's Output Trim and Auto Gain. 0 dB and off, so a session saved before sounds as it did.
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { Comp::outputTrimId, 4 }, "Output Trim", juce::NormalisableRange<float> (Comp::minOutputTrimDb, Comp::maxOutputTrimDb, 0.1f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("dB")));
+    layout.add (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { Comp::autoGainId, 4 }, "Auto Gain", false));
+
     return layout;
 }
 
@@ -127,6 +136,8 @@ void SongsmithCompressorAudioProcessor::prepareToPlay (double sampleRate, int sa
     bypassMix.reset (sampleRate, bypassFadeSeconds);
     bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
+    outputStage.prepare (sampleRate);
+    outputStage.setTrimImmediately (outputTrimRaw->load());
     engine.prepare (sampleRate);
     engine.setParams (getEngineParams());
     engine.reset();
@@ -166,6 +177,7 @@ void SongsmithCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
 
     float blockPeak = 0.0f, reduction = 0.0f;
     const bool bypassedNow = bypassParam->get();
+    outputStage.beginBlock (isAutoGainOn());
 
     for (int pos = 0; pos < total;)
     {
@@ -182,7 +194,9 @@ void SongsmithCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& 
         }
 
         // The engine always runs, even when bypassed, so un-bypassing never glitches.
+        outputStage.measureInput (ch, numCh, num);   // Auto Gain compares what comes out with what went in
         engine.process (ch, numCh, num);
+        outputStage.process (ch, numCh, num, outputTrimRaw->load (std::memory_order_relaxed));   // Auto Gain, then Output Trim
         const float chunkReduction = engine.readMeters().gainReductionDb;
         reduction = juce::jmax (reduction, chunkReduction);
 

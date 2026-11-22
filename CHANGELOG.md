@@ -3,6 +3,10 @@
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
 
+## Unreleased
+
+- **Songsmith Compressor: a new Output box at the far right, with Output Trim and Auto Gain.** Gain Reduction and the output meter now sit together in one box headed **Output**, with a small **Output Trim** knob (-24 to +24 dB, applied last) and an **Auto Gain** button under them. Auto Gain keeps the loudness the same as the sound going in, correcting by up to 12 dB either way; with Auto Makeup on you rarely need both. Both start neutral, so your existing projects sound exactly as they did and you do not need to do anything. The window is a little wider (about 2%) to fit the box.
+
 ## 0.5.78
 
 - **Songsmith Compressor: one Model dropdown, and a toolbox that changes colour with it.** The separate **Analog Warmth** button is gone. One dropdown now offers **Clean** (the Compressor's own transparent sound), **Black**, **Blue**, **Anniversary** and **Lindell** (the Songsmith Analog Compressor's four models). Choosing one changes only the model, never your Threshold, Ratio, Attack, Release, Knee, Makeup Gain or Mix, and Undo puts it back in one step. The floating panel's surface, outline, knob rings and lit buttons take the colours of the same model in the Analog Compressor (Clean keeps the teal). Your existing projects sound exactly as before: Analog Warmth off opens as Clean, Analog Warmth on opens as the model you had, and an older project keeps its original warmth sound, shown as Classic, until you choose a model.

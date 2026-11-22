@@ -9,6 +9,7 @@
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithFloatingPanel.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
+#include "../../shared/Source/SongsmithOutputPanel.h"
 
 // Songsmith Compressor editor (COMP-02). A scrolling graph of the sound going in and coming out fills the window; a
 // floating panel, which can be dragged like the Songsmith EQ's band panel, holds the controls; and on the right are the
@@ -41,11 +42,12 @@ public:
     juce::Slider& getKneeSlider() noexcept        { return kneeSlider; }
     juce::Slider& getMakeupSlider() noexcept      { return makeupSlider; }
     juce::Slider& getMixSlider() noexcept         { return mixSlider; }
-    CompMeter& getReductionMeter() noexcept       { return reductionMeter; }
+    Songsmith::UI::GainReductionBar& getReductionMeter() noexcept { return reductionMeter; }
     Songsmith::UI::OutputMeterDisplay& getOutputMeter() noexcept { return outputMeter; }
+    Songsmith::UI::OutputPanel& getOutputPanel() noexcept { return outputPanel; }
     Comp::DynamicsGraph& getGraph() noexcept      { return graph; }
     Songsmith::UI::FloatingPanel& getPanel() noexcept { return panel; }
-    juce::Label& getReductionValue() noexcept     { return grValue; }
+    juce::Label& getReductionValue() noexcept     { return outputPanel.getMeters().getReductionValue(); }
     juce::Component& getContent() noexcept        { return content; }
     juce::Component& getTitleHint() noexcept      { return titleHint; }
     juce::Rectangle<int> getTitleBounds() const noexcept { return titleBounds; }
@@ -105,9 +107,13 @@ private:
 
     // Right edge: the Gain Reduction bar (how much the compressor is turning the level down) and the Songsmith EQ's
     // output meter (sample peak, CLIP warning and the signed held peak).
-    juce::Label grLabel, grValue;
-    CompMeter reductionMeter { CompMeter::Kind::reduction };
-    Songsmith::UI::OutputMeterDisplay outputMeter;
+    // songsmithstudio#16: the suite's Output panel: Gain Reduction, the Output meter, a compact Output Trim and Auto Gain.
+    Songsmith::UI::OutputPanel outputPanel { true };
+    Songsmith::UI::GainReductionBar& reductionMeter = outputPanel.getMeters().getReduction();
+    Songsmith::UI::OutputMeterDisplay& outputMeter = outputPanel.getMeters().getOutput();
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputTrimAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoGainAttachment;
+    juce::String lastAutoGainText;
 
     // Latency and the optional Processing Load readout, in the strip below the controls.
     std::unique_ptr<Songsmith::Diagnostics::Bar> diagnostics;

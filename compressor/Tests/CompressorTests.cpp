@@ -105,7 +105,7 @@ public:
                 expectWithinAbsoluteError (getParam (p, r.id), r.def, 1.0e-3f, juce::String (r.id) + " default");
             }
             expect (p.apvts.getParameter (Comp::autoMakeupId) != nullptr && p.apvts.getParameter (Comp::bypassId) != nullptr);
-            expectEquals (p.getParameters().size(), 11, "eleven parameters (Analog Warmth Model was added in version 3)");
+            expectEquals (p.getParameters().size(), 13, "thirteen parameters (Analog Warmth Model was added in version 3, Output Trim and Auto Gain in version 4)");
             expect (p.apvts.getParameter (Comp::warmthId) != nullptr, "Analog Warmth exists");
             expectWithinAbsoluteError (getParam (p, Comp::warmthId), 0.0f, 1.0e-6f, "and is off by default");
             expectEquals (p.apvts.getParameter (Comp::warmthId)->getName (100), juce::String ("Analog Warmth"));
@@ -401,15 +401,19 @@ public:
             const auto makeup = ed->getMakeupSlider().getBounds(), button = ed->getAutoMakeupButton().getBounds();
             expect (button.getY() >= makeup.getBottom() - 2 && std::abs (button.getCentreX() - makeup.getCentreX()) < 120, context + ": Auto Makeup is under Makeup Gain");
 
-            // The right edge: Gain Reduction bar, then the same output meter as the Songsmith EQ, clear of the graph.
+            // The right edge: the Output panel (songsmithstudio#16) holds Gain Reduction, then the same output meter as the Songsmith EQ, clear of the graph.
+            auto& outPanel = ed->getOutputPanel();
             auto& meter = ed->getOutputMeter();
             auto& reduction = ed->getReductionMeter();
-            expect (meter.getX() >= graph.getRight() && reduction.getX() >= graph.getRight(), context + ": the meters are right of the graph");
+            expect (outPanel.getX() >= graph.getRight(), context + ": the Output panel is right of the graph");
+            expect (reduction.getParentComponent() == &outPanel.getMeters() && meter.getParentComponent() == &outPanel.getMeters(), context + ": the meters are in the panel");
             expect (reduction.getRight() <= meter.getX(), context + ": Gain Reduction is beside the output meter");
             expectEquals (meter.getWidth(), Songsmith::UI::OutputMeterDisplay::preferredWidth, context + ": the EQ's meter width");
-            expectEquals (meter.getRight(), ed->getContent().getWidth() - 16, context + ": at the right edge");
-            expectEquals (meter.getBottom(), graph.getBottom(), context + ": as tall as the graph");
-            expect (ed->getContent().getLocalBounds().contains (meter.getBounds()), context + ": inside the editor");
+            expectEquals (outPanel.getRight(), ed->getContent().getWidth() - 16, context + ": at the right edge");
+            expectEquals (outPanel.getBottom(), graph.getBottom(), context + ": as tall as the graph");
+            expect (ed->getContent().getLocalBounds().contains (outPanel.getBounds()), context + ": inside the editor");
+            expect (outPanel.getMetersBounds().getBottom() <= outPanel.getTrimBounds().getY() && outPanel.getTrimBounds().getBottom() <= outPanel.getHeight(), context + ": the trim sits under the meters, inside the panel");
+            expect (outPanel.getAutoGainBounds().getX() >= outPanel.getTrimBounds().getRight() - 1 && outPanel.getAutoGainBounds().getRight() <= outPanel.getWidth(), context + ": Auto Gain is beside the trim");
             expect (graph.contains (ed->getPauseButton().getBounds()), context + ": the Pause button is on the graph");
             expect (! ed->getPauseButton().getBounds().intersects (panelBounds), context + ": and clear of the panel at its default place");
             Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), context);
@@ -457,8 +461,8 @@ public:
             SongsmithCompressorAudioProcessor p;
             auto ed = make (p, Comp::EditorLayout::defaultWidth);
             ed->getReductionMeter().push (40.0f, 0.03);
-            expectLessThan (ed->getReductionMeter().getBallistics().getLevel(), 24.01f, "clamped to the scale");
-            expectGreaterThan (ed->getReductionMeter().getBallistics().getLevel(), 0.0f, "a positive amount, never a minus sign");
+            expectLessThan (ed->getReductionMeter().getLevel(), 24.01f, "clamped to the scale");
+            expectGreaterThan (ed->getReductionMeter().getLevel(), 0.0f, "a positive amount, never a minus sign");
             expect (! ed->getReductionValue().getText().contains ("-"), "and shown without a sign");
 
             auto& m = ed->getOutputMeter();
@@ -641,7 +645,7 @@ public:
                 expectEquals (rp->getVersionHint(), 3);
             }
             expectEquals (juce::String (Comp::warmthModelId), juce::String ("warmth_model"));
-            expectEquals (SongsmithCompressorAudioProcessor::stateVersion, 3);
+            expectEquals (SongsmithCompressorAudioProcessor::stateVersion, 4);
             expect (! p.isWarmthClassic(), "a new instance uses the models");
             expectEquals (AM::numModels, 4);
             expectEquals (juce::String (AM::modelLabelTable[0]) + "/" + AM::modelLabelTable[1] + "/" + AM::modelLabelTable[2] + "/" + AM::modelLabelTable[3],
@@ -765,6 +769,65 @@ public:
             setParam (p, Comp::warmthId, 0.0f);
             setParam (p, Comp::warmthId, 1.0f);
             expectEquals (p.getWarmthModelIndex(), 2, "toggling Analog Warmth off and on keeps the model");
+        }
+
+        beginTest ("Output Trim and Auto Gain (songsmithstudio#16): neutral by default, an older session loads neutral, the trim is exact, and Auto Gain lifts a heavily compressed sound");
+        {
+            const double fs = 48000.0;
+            const auto in = noise (48000 * 6, 0.5f, 21);
+            auto rms = [] (const std::vector<float>& v, size_t from)
+            {
+                double sum = 0.0;
+                for (size_t i = from; i < v.size(); ++i)
+                    sum += (double) v[i] * v[i];
+                return std::sqrt (sum / (double) (v.size() - from));
+            };
+
+            SongsmithCompressorAudioProcessor base;
+            expectWithinAbsoluteError (getParam (base, Comp::outputTrimId), 0.0f, 1.0e-6f, "Output Trim starts at 0 dB");
+            expect (getParam (base, Comp::autoGainId) < 0.5f, "Auto Gain starts off");
+            expect (base.apvts.getParameter (Comp::outputTrimId)->getVersionHint() == 4 && base.apvts.getParameter (Comp::autoGainId)->getVersionHint() == 4, "both are version 4");
+            setParam (base, Comp::thresholdId, -30.0f);
+            setParam (base, Comp::ratioId, 8.0f);
+            setParam (base, Comp::autoMakeupId, 0.0f);
+            prepare (base, fs, 512);
+            const auto plain = run (base, { in, in }, 512)[0];
+
+            // A session saved before these controls (version 3, neither parameter in it) opens neutral and sounds exactly the same.
+            auto old = base.createState();
+            for (int i = old.getNumChildren() - 1; i >= 0; --i)
+            {
+                const auto id = old.getChild (i).getProperty ("id").toString();
+                if (id == Comp::outputTrimId || id == Comp::autoGainId)
+                    old.removeChild (i, nullptr);
+            }
+            old.setProperty ("stateVersion", 3, nullptr);
+            SongsmithCompressorAudioProcessor older;
+            older.restoreFromValueTree (old);
+            expectWithinAbsoluteError (getParam (older, Comp::outputTrimId), 0.0f, 1.0e-6f, "an older session opens at 0 dB");
+            expect (getParam (older, Comp::autoGainId) < 0.5f, "and with Auto Gain off");
+            prepare (older, fs, 512);
+            expect (run (older, { in, in }, 512)[0] == plain, "and sounds exactly the same, bit for bit");
+
+            // The trim is an exact gain after the compressor.
+            SongsmithCompressorAudioProcessor trimmed;
+            trimmed.restoreFromValueTree (base.createState());
+            setParam (trimmed, Comp::outputTrimId, -6.0f);
+            prepare (trimmed, fs, 512);
+            const auto quieter = run (trimmed, { in, in }, 512)[0];
+            expectWithinAbsoluteError ((float) (rms (quieter, 0) / rms (plain, 0)), juce::Decibels::decibelsToGain (-6.0f), 0.002f, "minus 6 dB of Output Trim is minus 6 dB");
+
+            // Auto Gain: a heavily compressed sound comes back towards the loudness that went in.
+            SongsmithCompressorAudioProcessor lifted;
+            lifted.restoreFromValueTree (base.createState());
+            setParam (lifted, Comp::autoGainId, 1.0f);
+            prepare (lifted, fs, 512);
+            const auto matched = run (lifted, { in, in }, 512)[0];
+            const size_t tail = (size_t) (fs * 4);
+            const double gainDb = 20.0 * std::log10 (rms (matched, tail) / rms (plain, tail));
+            expectGreaterThan (gainDb, 3.0, "Auto Gain brings the compressed sound back up");
+            expectLessThan (gainDb, 12.01, "by at most 12 dB");
+            expectGreaterThan (lifted.getAutoGainAppliedDb(), 3.0f, "and the editor can read what it is adding");
         }
 
         beginTest ("Older sessions keep their sound: with no model saved, Analog Warmth stays the original curve until a model is chosen");

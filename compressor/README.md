@@ -8,7 +8,7 @@ A simple, clear compressor: it turns the louder parts of a sound down so the lev
 
 A graph of the last 8 seconds fills the window: **grey is the sound going in, red is the sound coming out**. When the red line falls below the grey one, the compressor is turning the level down. The dashed line is your Threshold. **Pause** holds the picture so you can look at it; the sound carries on.
 
-The controls float in a panel on the graph. Drag it by its background to move it out of the way; it remembers where you put it. On the right, **Gain Reduction** shows how much the level is being turned down, and the output meter is the same one as in Songsmith EQ (it shows each channel, and the held peak with a CLIP warning).
+The controls float in a panel on the graph. Drag it by its background to move it out of the way; it remembers where you put it. On the right, one box headed **Output** holds **Gain Reduction** (how much the level is being turned down), the output meter (the same one as in Songsmith EQ: each channel, and the held peak with a CLIP warning), a small **Output Trim** knob and an **Auto Gain** button (songsmithstudio#16).
 
 ## Controls
 
@@ -18,6 +18,11 @@ The controls float in a panel on the graph. Drag it by its background to move it
 - **Release:** how quickly the sound returns to full level.
 - **Knee:** how gradually the turning down begins around Threshold. 0 is abrupt; larger is smoother.
 - **Makeup Gain** and **Auto Makeup:** raise the level after compression. Auto Makeup matches the level for a typical signal of -18 dBFS, so you do not have to; switch it off to set Makeup Gain yourself.
+- **Output Trim** and **Auto Gain** (in the Output box): **Output Trim** is a last level change, from -24 to +24 dB, applied after everything else; it is separate from Makeup Gain. **Auto Gain** keeps the loudness the same as the sound going in, correcting by up to 12 dB either way after listening for about two seconds; with Auto Makeup on the level is already matched, so you rarely need both. Both start neutral (0 dB, off), so projects saved before they existed sound exactly as they did.
+
+  ![Output panel](../docs/screenshots/sui-16-compressor-output-panel-after.png)
+
+  *A real screenshot, rendered by the test executable (`CompressorTests --screenshot <file>`).*
 - **Mix:** blends the compressed sound with the original, for parallel compression.
 - **Model** (songsmithstudio#23): one dropdown at the bottom left of the floating panel with five choices, **Clean**, **Black**, **Blue**, **Anniversary** and **Lindell**. **Clean** is the Compressor's own transparent sound, with no analogue colour. The other four are the same four models, with the same code, as the [Songsmith Analog Compressor](../analog-compressor/README.md); they add a little smooth, rounded colour to the compressed sound (quiet and normal levels keep the same loudness, and only the loudest peaks are rounded off slightly). Choosing a model changes only the model: Threshold, Ratio, Attack, Release, Knee, Makeup Gain and Mix stay as you set them, and Undo puts the old choice back in one step. Hover the dropdown for what the model shown is for. Clean is the default, so leave it there if you want the sound to stay clean; there is no right or wrong setting, so choose by ear.
 - **The panel's colours follow the model.** The floating panel's surface, outline, knob rings and lit buttons take the colours of the same model in the Songsmith Analog Compressor: amber for Black, blue with a stripe for Blue, deep navy with pinstripes for Anniversary, grey with fine lines for Lindell. Clean keeps the Compressor's teal. Any analogue model also gives the panel the fine brushed-metal texture. The graph, the meters and the title do not change colour.
