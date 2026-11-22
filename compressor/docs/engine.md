@@ -32,6 +32,21 @@ An optional stage after the compression and before the Mix blend, switched by on
 
 Limits to know: the loudest peaks are rounded off, so a very hot signal comes out a little lower than it went in; this is what saturation does, and the level is matched only for quiet and normal levels. First-order anti-aliasing reduces aliasing but does not remove it. The effect is gentle by design and is not meant as a distortion effect. Nothing here has been checked by ear on real recordings.
 
+## Analog Warmth models (songsmithstudio#14)
+
+With Analog Warmth on, a model (Black, Blue, Anniversary, Lindell) decides what it does. The models are the Songsmith Analog Compressor's, and the code is shared (`shared/Source/SongsmithAnalogModels.h`, moved out of the Analog Compressor without change; its own tests still pass), so a fix to a model reaches both plugins.
+
+What a model does here:
+
+1. **Voicing.** The same table as the Analog Compressor's moves the compressor's own controls while Analog Warmth is on: Threshold plus an offset (Black 0, Blue -1.5 dB, Anniversary +2.0 dB, Lindell -0.5 dB), Knee times a factor (1, 0.7, 1.3, 1.5), Attack times a factor (1, 0.7, 1, 1.6) and Release times a factor (1, 0.85, 1.15, 1.3). Black's are 1 and 0, so **with Black the compression is bit-identical to the clean compressor** (tested). Auto Makeup follows the settings it is really running with, so the level stays matched. These are Songsmith voicing choices, as in the Analog Compressor (analog-compressor/docs/models.md).
+2. **Colour.** The compressed sound goes through the Analog Compressor's own stages, in its order: the FET gain cell (a second harmonic that grows with the gain reduction, scaled by the model: Black 1, Blue 2.0, Anniversary 0.6, Lindell 1), then the make-up level, then the Class A output amplifier and its transformer.
+3. **Mapping from the Analog Compressor.** The Analog Compressor has an Input drive; this plugin has none. The colour therefore depends on what it depends on in the Analog Compressor with Input at 0 dB: the level of the sound (0 dBFS is +22 dBm in that calibration) and how hard the compressor is working. Make-up gain takes the place of the Output trim. Quiet and moderate levels stay clean, which is why this is a gentle warmth.
+4. **Click free.** Switching Analog Warmth on or off fades the colour over 20 ms; changing model scales the colour over 20 ms and moves the compression through its normal attack and release; going between the original curve and a model starts from the clean sound and fades in. Tested: no sample-to-sample step beyond the signal's own across repeated switching.
+5. **Off is off:** Analog Warmth off is bit-identical to the clean compressor at every model (tested), and the model chosen is remembered.
+6. **Older sessions.** The original Analog Warmth (the smooth curve described above) is kept as "Classic": a session saved before the models has no model in it, so it opens with Classic, bit-identical to before (tested), and its dropdown reads Classic with nothing selected. Choosing any model (even Black), or the host automating the model, replaces it. A new instance uses the models. Presets leave the choice alone.
+
+**Measured, not claimed** (`WarmthModelTests`): the output equals the shared FET cell and output stage applied to the gain-reduced sound, sample for sample; the second harmonic is ordered Blue > Black > Anniversary; a short burst is caught in the order Blue, Black, Lindell (attack 0.7, 1, 1.6); at -18 dBFS every model keeps the loudness within half a decibel of the clean compressor. **Not done:** level-matched listening on real material, and DAW checks. The dropdown list cannot carry a separate tooltip for each entry in this version of JUCE, so the description is on the dropdown itself and follows the model shown.
+
 ## Ranges
 
 Threshold -60 to 0 dB. Ratio 1:1 to 20:1, continuous. Attack 0.1 to 100 ms. Release 10 to 2000 ms. Knee 0 (hard) to 24 dB. Make-up 0 to 24 dB. Mix 0 to 100 %. Values outside a range, and NaN, are clamped inside the engine (`Extreme settings`).

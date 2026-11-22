@@ -120,8 +120,28 @@ SongsmithCompressorAudioProcessorEditor::SongsmithCompressorAudioProcessorEditor
     panel.addAndMakeVisible (warmthButton);
     // COMP-03: Analog Warmth on gives the panel the faceplates' brushed grain. The button follows the parameter, so
     // this also happens for host automation and when a session is restored, and it never touches the sound.
-    warmthButton.onStateChange = [this] { panel.setTextured (warmthButton.getToggleState()); };
+    warmthButton.onStateChange = [this] { panel.setTextured (warmthButton.getToggleState()); refreshWarmthModel(); };
     panel.setTextured (warmthButton.getToggleState());
+
+    // songsmithstudio#14: the Analog Warmth model, beside the button it belongs to. The same four models, words and descriptions as the
+    // Songsmith Analog Compressor (they come from the one shared table). It is usable while Analog Warmth is on and greyed while it is off; the
+    // choice is kept either way. Hovering the box describes the model shown (the dropdown list itself cannot carry a tooltip for each entry).
+    for (int i = 0; i < Songsmith::AnalogModels::numModels; ++i)
+        warmthModelBox.addItem (Songsmith::AnalogModels::modelLabelTable[i], i + 1);
+    warmthModelBox.setTitle ("Analog Warmth model");
+    warmthModelBox.setTextWhenNothingSelected ("Classic");   // a session saved before the models existed, until one is chosen
+    warmthModelBox.onChange = [this]
+    {
+        const int i = warmthModelBox.getSelectedItemIndex();
+        if (i >= 0)
+        {
+            proc.chooseWarmthModel (i);
+            refreshWarmthModel();
+        }
+    };
+    panel.addAndMakeVisible (warmthModelBox);
+    warmthModelAttachment = std::make_unique<juce::ParameterAttachment> (*proc.apvts.getParameter (Comp::warmthModelId), [this] (float) { refreshWarmthModel(); });
+    refreshWarmthModel();
 
     bypassButton.setClickingTogglesState (true);
     bypassButton.setTooltip ("Bypass: the sound passes through untouched");
@@ -275,6 +295,7 @@ void SongsmithCompressorAudioProcessorEditor::layoutContent()
     const int buttonTop = knobTop + knobH + panelGap;
     autoMakeupButton.setBounds (panelPad + knobColumn * 5 - 10, buttonTop, 112, buttonH);
     warmthButton.setBounds (panelPad, buttonTop, 130, buttonH);
+    Songsmith::UI::Dropdown::place (warmthModelBox, warmthButton.getRight() + 8, buttonTop, buttonH);
 
     diagnostics->setBounds (0, designH, designW, Comp::EditorLayout::footerHeight);
 }
@@ -288,6 +309,17 @@ void SongsmithCompressorAudioProcessorEditor::paintContent (juce::Graphics& g)
 }
 
 //==============================================================================
+// Shows the model in use (or "Classic"), its own tooltip, and whether it can be changed now.
+void SongsmithCompressorAudioProcessorEditor::refreshWarmthModel()
+{
+    const bool classic = proc.isWarmthClassic();
+    const int index = proc.getWarmthModelIndex();
+    warmthModelBox.setSelectedItemIndex (classic ? -1 : index, juce::dontSendNotification);
+    warmthModelBox.setTooltip (classic ? juce::String ("Classic: the Analog Warmth sound this session was saved with, from before the models were added. Choose a model to replace it.")
+                                       : juce::String (Songsmith::AnalogModels::modelTooltipTable[juce::jlimit (0, Songsmith::AnalogModels::numModels - 1, index)]));
+    warmthModelBox.setEnabled (warmthButton.getToggleState());
+}
+
 void SongsmithCompressorAudioProcessorEditor::syncFromParameters()
 {
     // Makeup Gain does nothing while Auto Makeup is on, so it is greyed out (its tooltip says why).

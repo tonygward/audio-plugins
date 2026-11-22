@@ -80,6 +80,8 @@ namespace SongsmithComp
         makeupGain.reset (fs, 0.02);
         mix.reset (fs, 0.02);
         warmthAmount.reset (fs, 0.02);
+        colourFactor.reset (fs, 0.02);
+        outputStage.prepare (fs);
         dcCoeff = 1.0 - 2.0 * juce::MathConstants<double>::pi * 5.0 / fs;
         updateCoefficients();
         reset();
@@ -91,14 +93,24 @@ namespace SongsmithComp
         makeupGain.setCurrentAndTargetValue (makeupGain.getTargetValue());
         mix.setCurrentAndTargetValue (mix.getTargetValue());
         warmthAmount.setCurrentAndTargetValue (warmthAmount.getTargetValue());
+        colourFactor.setCurrentAndTargetValue (colourFactor.getTargetValue());
+        outputStage.reset();
         warm = {};
         meterGr = meterIn = meterOut = 0.0f;
     }
 
     void Engine::updateCoefficients() noexcept
     {
-        attackCoeff  = coefficientFor (params.attackMs, fs);
-        releaseCoeff = coefficientFor (params.releaseMs, fs);
+        // With a model on, its voicing moves the compressor's own Attack, Release, Knee and Threshold the way it moves the Analog
+        // Compressor's (Black leaves them exactly as set: its voicing is 1 and 0).
+        const bool model = params.warmth && params.warmthModel >= 0;
+        const auto& v = Songsmith::AnalogModels::voicingFor (model ? params.warmthModel : 0);
+        const float attackScale = model ? v.attackScale : 1.0f, releaseScale = model ? v.releaseScale : 1.0f;
+        effThresholdDb = model ? juce::jlimit (minThresholdDb - 6.0f, maxThresholdDb + 6.0f, params.thresholdDb + v.thresholdOffsetDb) : params.thresholdDb;
+        effKneeDb      = model ? params.kneeDb * v.kneeScale : params.kneeDb;
+        attackCoeff  = coefficientFor (juce::jlimit (0.01f, 1000.0f, params.attackMs * attackScale), fs);
+        releaseCoeff = coefficientFor (juce::jlimit (1.0f, 10000.0f, params.releaseMs * releaseScale), fs);
+        colourFactor.setTargetValue (model ? v.colourScale : 1.0f);
     }
 
     void Engine::setParams (const Params& p) noexcept
@@ -111,12 +123,23 @@ namespace SongsmithComp
         params.makeupDb    = juce::jlimit (minMakeupDb, maxMakeupDb, sane (p.makeupDb));
         params.autoMakeup  = p.autoMakeup;
         params.mix         = juce::jlimit (0.0f, 1.0f, sane (p.mix));
+        params.warmth = p.warmth;
+        params.warmthModel = juce::jlimit (-1, Songsmith::AnalogModels::numModels - 1, p.warmthModel);
         updateCoefficients();
 
-        const float makeup = params.autoMakeup ? autoMakeupDb (params) : params.makeupDb;
+        // Level matching follows the settings the compressor is really running with.
+        auto effective = params;
+        effective.thresholdDb = effThresholdDb;
+        effective.kneeDb = effKneeDb;
+        const float makeup = params.autoMakeup ? autoMakeupDb (effective) : params.makeupDb;
         makeupGain.setTargetValue (juce::Decibels::decibelsToGain (makeup));
         mix.setTargetValue (params.mix);
-        params.warmth = p.warmth;
+
+        // Going between the original curve and a model starts from the clean sound and fades in, so the change cannot click.
+        const bool nowModel = params.warmth && params.warmthModel >= 0;
+        if (params.warmth && nowModel != modelPathOn)
+            warmthAmount.setCurrentAndTargetValue (0.0f);
+        modelPathOn = nowModel;
         warmthAmount.setTargetValue (params.warmth ? 1.0f : 0.0f);
     }
 
@@ -134,7 +157,7 @@ namespace SongsmithComp
             meterIn = juce::jmax (meterIn, level);
 
             const float levelDb = level > 1.0e-6f ? juce::Decibels::gainToDecibels (level, silenceFloorDb) : silenceFloorDb;
-            const float targetGr = staticGainDb (levelDb, params.thresholdDb, params.ratio, params.kneeDb);
+            const float targetGr = staticGainDb (levelDb, effThresholdDb, params.ratio, effKneeDb);
 
             // Smooth the reduction itself: attack while it deepens, release while it recovers.
             const float coeff = targetGr < grDb ? attackCoeff : releaseCoeff;
@@ -143,19 +166,39 @@ namespace SongsmithComp
                 grDb = 0.0f;
             meterGr = juce::jmax (meterGr, -grDb);
 
-            const float gain = juce::Decibels::decibelsToGain (grDb) * makeupGain.getNextValue();
+            const float reduction = juce::Decibels::decibelsToGain (grDb);
+            const float makeupNow = makeupGain.getNextValue();
+            const float gain = reduction * makeupNow;
             const float wet = mix.getNextValue();
             const float warmAmount = warmthAmount.getNextValue();
+            const float colour = colourFactor.getNextValue();
             const bool warmActive = warmAmount > 0.0f || warmthAmount.isSmoothing();
             if (! warmActive)
+            {
                 for (auto& s : warm) s.primed = false;   // starts clean when it is next switched on
+                outputStage.reset();
+            }
             float peakOut = 0.0f;
             for (int c = 0; c < n; ++c)
             {
                 const float dry = sane (channels[c][i]);
                 float compressed = dry * gain;
                 if (warmActive)
-                    compressed += warmAmount * ((float) warmShape (warm[(size_t) c], (double) compressed) - compressed);
+                {
+                    float warmed;
+                    if (modelPathOn)
+                    {
+                        // The Analog Compressor's signal path, in its order: the gain-reduced sound through the FET cell (second harmonic that
+                        // grows with the gain reduction, scaled by the model), then the make-up level, then the Class A output stage and
+                        // transformer. Same code as the Analog Compressor (shared/Source/SongsmithAnalogModels.h).
+                        float y = Songsmith::AnalogModels::FetCell::process (dry * reduction, reduction, colour);
+                        y *= makeupNow;
+                        warmed = outputStage.processSample (c, y);
+                    }
+                    else
+                        warmed = (float) warmShape (warm[(size_t) c], (double) compressed);   // the original curve
+                    compressed += warmAmount * (warmed - compressed);
+                }
                 const float out = dry + wet * (compressed - dry);   // dry at mix 0, compressed (and warmed) at mix 1
                 channels[c][i] = out;
                 peakOut = juce::jmax (peakOut, std::abs (out));
