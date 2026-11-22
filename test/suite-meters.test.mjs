@@ -38,12 +38,12 @@ for (const plugin of plugins) {
   if (!equalisers.has(plugin)) {
     test(`${plugin}: Gain Reduction meter beside the Output meter`, () => {
       const text = editorText(plugin);
-      assert.match(text, /MeterColumn\s+\w+\s*\{\s*true|reductionMeter|Kind::reduction/,
+      assert.match(text, /(?:MeterColumn|OutputPanel)\s+\w+\s*\{\s*true|reductionMeter|Kind::reduction/,
         `${plugin} turns the level down, so it needs a Gain Reduction meter (use Songsmith::UI::MeterColumn { true })`);
     });
   } else {
     test(`${plugin}: an equaliser shows Output only, never a made-up Gain Reduction`, () => {
-      assert.doesNotMatch(editorText(plugin), /MeterColumn\s+\w+\s*\{\s*true|reductionMeter|Kind::reduction/);
+      assert.doesNotMatch(editorText(plugin), /(?:MeterColumn|OutputPanel)\s+\w+\s*\{\s*true|reductionMeter|Kind::reduction/);
     });
   }
 }
