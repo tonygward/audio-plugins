@@ -32,7 +32,7 @@ test('the plugin list is found (a guard against this test silently checking noth
 for (const plugin of plugins) {
   test(`${plugin}: Output meter at the far right`, () => {
     const text = editorText(plugin);
-    assert.match(text, /OutputMeterDisplay|MeterColumn/, `${plugin}'s editor has no shared Output meter (use Songsmith::UI::MeterColumn)`);
+    assert.match(text, /OutputMeterDisplay|MeterColumn|OutputPanel/, `${plugin}'s editor has no shared Output meter (use Songsmith::UI::MeterColumn)`);
   });
 
   if (!equalisers.has(plugin)) {

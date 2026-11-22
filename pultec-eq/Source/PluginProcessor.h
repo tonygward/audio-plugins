@@ -8,13 +8,15 @@
 #include "../../shared/Source/SongsmithBeforeAfter.h"
 #include "../../shared/Source/SongsmithHeader.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
+#include "../../shared/Source/SongsmithOutputStage.h"
 
 class SongsmithPassiveEQProcessor : public juce::AudioProcessor
 {
 public:
     // Saved-state format. 1 = the three frequency switches, the four amounts, the bandwidth, Bypass, and the editor's
     // width and preset name. Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 3;   // 2: PEQ-04 added the EQ Mode and its controls (older sessions load as Tone Shaper)
+    static constexpr int stateVersion = 4;   // 2: PEQ-04 added the EQ Mode and its controls (older sessions load as Tone Shaper)
+                                              // 4: songsmithstudio#16 added Output Trim and Auto Gain (older sessions load at 0 dB with Auto Gain off)
                                               // 3: PEQ-05 added 150 and 500 Hz High-Pass and 3 kHz Low-Pass steps (version 2 filter positions are remapped)
 
     SongsmithPassiveEQProcessor();
@@ -74,6 +76,10 @@ public:
     juce::ValueTree createState();
     void restoreFromValueTree (const juce::ValueTree& saved);
 
+    // For the editor: the correction Auto Gain is applying right now, in dB (0 when off).
+    float getAutoGainAppliedDb() const noexcept { return outputStage.getAutoGainAppliedDb(); }
+    bool isAutoGainOn() const noexcept { return autoGainRaw->load (std::memory_order_relaxed) > 0.5f; }
+
     static constexpr double bypassFadeSeconds = 0.02;
     static inline const juce::Identifier versionId { "stateVersion" }, uiId { "UI" };
 
@@ -96,6 +102,9 @@ private:
     std::atomic<float>* midHighBoostRaw = nullptr;
     std::atomic<float>* highPassRaw = nullptr;
     std::atomic<float>* lowPassRaw = nullptr;
+    std::atomic<float>* outputTrimRaw = nullptr;
+    std::atomic<float>* autoGainRaw = nullptr;
+    Songsmith::OutputStage outputStage;   // Auto Gain, then Output Trim, after the equaliser (songsmithstudio#16)
 
     SongsmithPassive::Engine engine;
     int currentProgram = 0;
