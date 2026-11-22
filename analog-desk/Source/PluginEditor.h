@@ -6,6 +6,7 @@
 #include "DeskLookAndFeel.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithMeterColumn.h"
+#include "../../shared/Source/SongsmithOutputPanel.h"
 
 // A rotary control with its name above and a readable value below.
 class DeskKnob : public juce::Component
@@ -68,6 +69,7 @@ public:
 
     // For tests and screenshots.
     Songsmith::UI::MeterColumn& getMeterColumn() noexcept { return meterColumn; }
+    Songsmith::UI::OutputPanel& getOutputPanel() noexcept { return outputPanel; }
     // The four modules, left to right: Input and Filters, Dynamics, Equaliser, Output and Meter.
     juce::Rectangle<int> getModuleBounds (int index) const noexcept;
     DeskKnob* findKnob (const juce::String& paramId);
@@ -116,7 +118,12 @@ private:
     juce::TextButton bypassButton { "Bypass" };
     juce::AudioProcessorValueTreeState::ButtonAttachment bypassAttachment;
 
-    Songsmith::UI::MeterColumn meterColumn { true };   // Gain Reduction and Output at the far right, like the Songsmith Compressor
+    // songsmithstudio#16: the suite's Output panel at the far right: Gain Reduction and Output meters, a compact Output Trim and Auto Gain.
+    Songsmith::UI::OutputPanel outputPanel { true };
+    Songsmith::UI::MeterColumn& meterColumn = outputPanel.getMeters();
+    juce::AudioProcessorValueTreeState::SliderAttachment outputTrimAttachment;
+    juce::AudioProcessorValueTreeState::ButtonAttachment autoGainAttachment;
+    juce::String lastAutoGainText;
 
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
     juce::ComboBox presetBox;

@@ -17,7 +17,7 @@ A console channel strip: four modules side by side, in the order the sound goes 
 | **Input and Filters** | Input Trim, Drive, High-Pass Filter, Low-Pass Filter, in one column of large knobs |
 | **Dynamics** | the **Gate** (Gate On, Expander, Threshold, Range, Attack, Hold, Release) and the **Compressor** (Soft Knee, After Equaliser, Threshold, Ratio, Attack, Release, Make-up Gain) side by side, with **Dynamics On** in the header |
 | **Equaliser** | four bands, a column each, colour coded: **Low** dark steel, **Low-Mid** cyan, **High-Mid** green, **High** red; Gain, Frequency and (for the two middle bands) Q down each, **Bell** on Low and High, **Equaliser On** in the header |
-| **Output and Meter** | Output Trim, then the suite's **Gain Reduction** bar and **Output** meter, unchanged |
+| **Output** | The suite's **Output** panel: the **Gain Reduction** bar and **Output** meter, a compact **Output Trim** knob under them, and **Auto Gain** beside it. Auto Gain keeps the loudness the same with the strip on as with it off, and Output Trim is applied after it, so your own setting has the last word. Auto Gain is off by default |
 
 Nothing about the sound, the parameters, the starting points or the saved state changed. The shared title bar (preset menu, Undo, Redo, Bypass), the version and Processing Load strip and the Before and After readout are as in every plugin. The design is inspired by the arrangement of a classic console channel strip; it is not a copy of any product's panel, artwork, logo or lettering, and it makes no claim about circuit-level modelling.
 

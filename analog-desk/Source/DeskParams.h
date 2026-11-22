@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "DeskEngine.h"
 #include "../../shared/Source/SongsmithMeterColumn.h"
+#include "../../shared/Source/SongsmithOutputPanel.h"
 #include "../../shared/Source/SongsmithHeader.h"
 
 // Songsmith Analog Desk: parameter IDs, ranges, defaults, and the editor's layout, shared by the processor, the editor and
@@ -15,6 +16,7 @@ namespace Desk
     // --- Stable parameter IDs (version 1) ------------------------------------------------
     inline constexpr const char* inputTrimId   = "input_trim";       // dB
     inline constexpr const char* outputTrimId  = "output_trim";      // dB
+    inline constexpr const char* autoGainId    = "auto_gain";        // on or off (version 2; songsmithstudio#16)
     inline constexpr const char* driveId       = "drive";            // 0 to 1
     inline constexpr const char* highPassId    = "high_pass";        // Hz; the lowest setting is off
     inline constexpr const char* lowPassId     = "low_pass";         // Hz; the highest setting is off
@@ -78,7 +80,7 @@ namespace Desk
         constexpr int inputX = margin, inputWidth = cellWidth + 20;
         constexpr int dynamicsX = inputX + inputWidth + moduleGap, dynamicsWidth = 2 * cellWidth + 24;
         constexpr int eqX = dynamicsX + dynamicsWidth + moduleGap, eqWidth = 4 * cellWidth + 24;
-        constexpr int outputX = eqX + eqWidth + moduleGap, outputWidth = Songsmith::UI::MeterColumn::widthFor (true) + 16;
+        constexpr int outputX = eqX + eqWidth + moduleGap, outputWidth = Songsmith::UI::OutputPanel::widthFor (true) + 16;
         constexpr int moduleRight = outputX + outputWidth;       // the Output module's right edge
         constexpr int designWidth = moduleRight + margin;
         constexpr int controlsRight = eqX + eqWidth;             // where the controls end (the Output module's meters are beyond)
