@@ -9,6 +9,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <cmath>
 #include "../Source/SongsmithMeterColumn.h"
+#include "../Source/SongsmithOutputPanel.h"
 
 template <class Processor, class Editor>
 class SongsmithMeterColumnTests final : public juce::UnitTest
@@ -32,8 +33,12 @@ public:
 
             auto& col = ed->getMeterColumn();
             expect (col.hasReduction(), "a plugin that turns the level down shows Gain Reduction");
-            const auto b = col.getBounds();
-            expectEquals (b.getRight(), designWidth - MeterColumn::margin, "the column ends at the suite's right margin");
+            // The column may sit inside the shared Output panel (songsmithstudio#16): measure it in the editor content's coordinates.
+            auto b = col.getBounds();
+            for (auto* up = col.getParentComponent(); up != nullptr && up->getParentComponent() != ed; up = up->getParentComponent())
+                b += up->getPosition();
+            const bool inPanel = col.getParentComponent() != nullptr && col.getParentComponent()->getParentComponent() != ed;
+            expectEquals (b.getRight(), designWidth - MeterColumn::margin - (inPanel ? OutputPanel::padding : 0), "the column ends at the suite's right margin (inside the Output panel's padding when it is in one)");
             expect (b.getBottom() <= contentHeight, "inside the controls area, above the footer strip");
             expectEquals (b.getWidth(), MeterColumn::widthFor (true));
 

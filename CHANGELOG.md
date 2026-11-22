@@ -7,6 +7,10 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - **Songsmith EQ: a tidier layout.** The **Piano** button is now centred in the strip along the bottom (the bottom middle), and the Before and After loudness keeps the far right, where it sits in every other plugin. **Oversampling** is the rightmost control in its row, with **Accurate Highs** right beside it. The **Graph Range** dropdown (how many dB the graph shows) now sits directly above the dB scale it changes, and its tooltip says it changes only what you see. The **Frequency Guide** instrument dropdown is wide enough for its longest name. The **Gain Scale** bar, which scaled the boosts and cuts of every band together and looked like a second band gain, has been removed from the window. A project that saved a Gain Scale other than 100% sounds exactly as before; new projects start at 100%. The smallest window is a little wider (1160 instead of 980 pixels) to fit the Output panel; a window saved narrower than that opens at the new minimum.
 
+## 0.5.75
+
+- **Songsmith Analog Desk: a new Output panel at the far right.** The Gain Reduction bar, the Output meter, a smaller **Output Trim** knob and a new **Auto Gain** button are now together in one box headed **Output**. Auto Gain keeps the loudness the same with the strip on as with it off (it listens for two seconds and corrects by up to 12 dB either way); Output Trim is applied after it, so your own setting always has the last word. Hover over Auto Gain to see how much it is adding. Auto Gain is off by default, so your existing projects sound exactly as before.
+
 ## 0.5.74
 
 - **Songsmith Optical Leveller: Set Levels.** A new **Set Levels** button under Peak Reduction listens to a typical part of your song and suggests the Peak Reduction that gives the **Target Gain Reduction** you choose. Type the target in dB (**-3.0 dB** means 3 dB of reduction); it is an average over what you played, not a fixed amount at every moment. A small ear lights up while the plugin is listening to your sound. Apply sets Peak Reduction and closes the panel straight away, Undo puts it back, and Cancel changes nothing.

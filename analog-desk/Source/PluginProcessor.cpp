@@ -43,6 +43,7 @@ SongsmithAnalogDeskProcessor::SongsmithAnalogDeskProcessor()
             get (hfFreqId), get (hfGainId),
             get (compThresholdId), get (compRatioId), get (compAttackId), get (compReleaseId), get (compMakeupId),
             get (gateThresholdId), get (gateRangeId), get (gateAttackId), get (gateHoldId), get (gateReleaseId),
+            get (autoGainId),
             get (eqOnId), get (lfBellId), get (hfBellId), get (dynamicsOnId), get (afterEqId), get (compKneeId), get (gateOnId), get (gateExpanderId) };
     bypassParam = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (bypassId));
     jassert (bypassParam != nullptr);
@@ -109,6 +110,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithAnalogDeskProcessor
     addFloat (gateReleaseId, "Gate Release", skewed (minReleaseSeconds, maxReleaseSeconds, 0.01f, 0.4f), defaultGateReleaseSeconds, seconds());
 
     addFloat (outputTrimId, "Output Trim", Range (minTrimDb, maxTrimDb, 0.1f), 0.0f, db());
+    layout.add (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { autoGainId, 2 }, "Auto Gain", false));
     addBool (bypassId, "Bypass", false);
 
     return layout;
@@ -121,7 +123,7 @@ SongsmithDesk::Params SongsmithAnalogDeskProcessor::getEngineParams() const noex
 
     SongsmithDesk::Params p;
     p.inputTrimDb = f (raw.inputTrim);
-    p.outputTrimDb = f (raw.outputTrim);
+    p.outputTrimDb = 0.0f;   // Output Trim is applied after Auto Gain, by the output stage (songsmithstudio#16)
     p.drive = f (raw.drive);
     p.highPassHz = Desk::highPassFromDial (f (raw.highPass));
     p.lowPassHz = Desk::lowPassFromDial (f (raw.lowPass));
@@ -167,6 +169,8 @@ void SongsmithAnalogDeskProcessor::prepareToPlay (double sampleRate, int samples
     bypassMix.reset (sampleRate, bypassFadeSeconds);
     bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
+    outputStage.prepare (sampleRate);
+    outputStage.setTrimImmediately (raw.outputTrim->load());
     engine.setParams (getEngineParams());
     engine.prepare (sampleRate);
     engine.setParams (getEngineParams());
@@ -218,6 +222,7 @@ void SongsmithAnalogDeskProcessor::processBlock (juce::AudioBuffer<float>& buffe
     sHfFreq.setTargetValue (target.hfHz);   sHfGain.setTargetValue (target.hfDb);
 
     float reduction = 0.0f, blockPeak = 0.0f;
+    outputStage.beginBlock (raw.autoGain->load (std::memory_order_relaxed) > 0.5f);
 
     for (int pos = 0; pos < total;)
     {
@@ -240,8 +245,10 @@ void SongsmithAnalogDeskProcessor::processBlock (juce::AudioBuffer<float>& buffe
         }
 
         // The engine always runs, even when bypassed, so un-bypassing never glitches.
+        outputStage.measureInput (ch, numCh, num);   // Auto Gain compares what comes out with what went in
         engine.process (ch, numCh, num);
         reduction = juce::jmax (reduction, engine.readMaxGainReductionDb());
+        outputStage.process (ch, numCh, num, raw.outputTrim->load (std::memory_order_relaxed));   // Auto Gain, then Output Trim
 
         if (bypassMix.isSmoothing())
         {
