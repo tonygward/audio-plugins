@@ -140,7 +140,7 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
         processor.apvts, EQ::outputGainId, outputSlider);
     outputSlider.textFromValueFunction = [] (double db)
     {
-        return "Output " + juce::String (db > 0.04 ? "+" : "") + juce::String (std::abs (db) < 0.05 ? 0.0 : db, 1) + " dB";
+        return juce::String (db > 0.04 ? "+" : "") + juce::String (std::abs (db) < 0.05 ? 0.0 : db, 1) + " dB";
     };
     outputSlider.valueFromTextFunction = [] (const juce::String& t)
     {
@@ -148,11 +148,11 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     };
     outputSlider.setDoubleClickReturnValue (true, 0.0);
     outputSlider.setTextBoxIsEditable (true);
-    outputSlider.setColour (juce::Slider::trackColourId, EQColours::totalCurve);
-    outputSlider.setColour (juce::Slider::textBoxTextColourId, EQColours::text);
-    outputSlider.setTooltip ("Output gain (double-click: 0 dB)");
+    outputSlider.setRange (EQ::minOutputGain, EQ::maxOutputGain, 0.1);
+    outputSlider.setColour (juce::Slider::rotarySliderFillColourId, EQColours::totalCurve);
     outputSlider.updateText();
-    content.addAndMakeVisible (outputSlider);
+    outputPanel.setAutoGainExplanation ("For an equaliser, it compares the loudness going in with the loudness coming out over two seconds, and corrects by up to 12 dB either way, so a boost is not judged better just because it is louder.");
+    content.addAndMakeVisible (outputPanel);
 
     bypassAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         processor.apvts, EQ::bypassId, bypassButton);
@@ -160,8 +160,6 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     bypassButton.setTooltip ("Bypass the whole EQ (smooth cross-fade)");
     Songsmith::UI::styleBypassButton (bypassButton);   // the suite's Bypass red
     content.addAndMakeVisible (bypassButton);
-
-    content.addAndMakeVisible (outputMeter);
 
     // Scale the whole curve (double-click: 100 %).
     scaleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
@@ -183,12 +181,8 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
 
     autoGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         processor.apvts, EQ::autoGainId, autoGainButton);
-    autoGainButton.setClickingTogglesState (true);
-    autoGainButton.setTooltip ("Auto gain: match the output loudness to the input (measured like a loudness meter over 2 s, up to 12 dB either way), "
-                               "so a boost isn't judged better just because it's louder. Applied before the output gain.");
     autoGainButton.setColour (juce::TextButton::buttonOnColourId, EQColours::totalCurve.withAlpha (0.85f));
     autoGainButton.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
-    content.addAndMakeVisible (autoGainButton);
 
     // Piano strip on/off (task 28). Same setting as "Show piano strip" in the graph's right-click
     // menu; the timer keeps the two in step.
@@ -302,14 +296,18 @@ void SongsmithEQAudioProcessorEditor::timerCallback()
     presetBar.refresh();
 
     {
-        juce::String agText ("Auto Gain");
+        // The correction being applied is a measured fact, so it is shown in the tooltip (the button is too small for it).
+        juce::String ag ("For an equaliser, it compares the loudness going in with the loudness coming out over two seconds, and corrects by up to 12 dB either way, so a boost is not judged better just because it is louder.");
         if (processor.isAutoGainOn())
         {
             const float db = processor.autoGainAppliedDb.load();
-            agText << " " << (db > 0.05f ? "+" : "") << juce::String (std::abs (db) < 0.05f ? 0.0f : db, 1) << " dB";
+            ag << " Right now it is adding " << (db > 0.05f ? "+" : "") << juce::String (std::abs (db) < 0.05f ? 0.0f : db, 1) << " dB.";
         }
-        if (autoGainButton.getButtonText() != agText)
-            autoGainButton.setButtonText (agText);
+        if (ag != lastAutoGainText)
+        {
+            lastAutoGainText = ag;
+            outputPanel.setAutoGainExplanation (ag);
+        }
     }
 
     bandCountLabel.setText (juce::String (processor.getNumUsedBands()) + " / " + juce::String (EQ::numBands) + " bands",
@@ -542,11 +540,6 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         accurateHighsButton.setBounds (row.removeFromLeft (buttonWidth ({ accurateHighsButton.getButtonText() })));
         row.removeFromLeft (gap);
 
-        outputSlider.setBounds (row.removeFromRight (barWidth ({ "Output -24.0 dB", "Output +24.0 dB" })));
-        row.removeFromRight (gap);
-        autoGainButton.setBounds (row.removeFromRight (buttonWidth ({ "Auto Gain -12.0 dB", "Auto Gain +12.0 dB" })));
-        row.removeFromRight (gap);
-
         // The Scale control (gain scale, a real sound parameter) now lives in the toolbox beside the other
         // gain controls, and the band count sits next to it when there is room (both moved out of the header).
         scaleSlider.setBounds (row.removeFromRight (barWidth ({ "Gain Scale -100%", "Gain Scale 200%" })));
@@ -580,9 +573,9 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         hintLabel.setBounds (row.withLeft (juce::jmax (row.getX(), row.getRight() - hintWidth)));
     }
 
-    // The graph, with the output meter in a full-height strip on its right (task 27).
+    // The graph, with the Output panel in a full-height column on its right (songsmithstudio#16).
     auto graph = area.reduced (margin, 0).withTrimmedBottom (margin);
-    outputMeter.setBounds (graph.removeFromRight (OutputMeterDisplay::preferredWidth));
+    outputPanel.setBounds (graph.removeFromRight (Songsmith::UI::OutputPanel::widthFor (false)));
     graph.removeFromRight (6);
     display.setBounds (graph);
 }

@@ -246,7 +246,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithEQAudioProcessor::c
     // Global output stage (added in v0.3). Defaults are neutral, so sessions saved
     // before these existed load with 0 dB output gain and bypass off.
     layout.add (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { EQ::outputGainId, 3 }, "Output Gain",
+        juce::ParameterID { EQ::outputGainId, 3 }, "Output Trim",
         juce::NormalisableRange<float> (EQ::minOutputGain, EQ::maxOutputGain, 0.1f), 0.0f,
         juce::AudioParameterFloatAttributes().withLabel ("dB")));
 

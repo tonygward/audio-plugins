@@ -5,12 +5,12 @@
 #include <algorithm>
 #include "SongsmithKWeighting.h"
 
-namespace EQ
+namespace Songsmith
 {
     // ITU-R BS.1770 K-weighting, shared with Songsmith Maximiser's loudness meter (same coefficients).
-    using KWeighting = Songsmith::KWeighting::Filter;
+    using AutoGainFilter = KWeighting::Filter;
 
-    // Loudness-matching correction for the EQ (auto gain).
+    // Loudness-matching correction (auto gain), shared by every Songsmith plugin that offers Auto Gain (songsmithstudio#16).
     //
     // Compares K-weighted mean-square energy (BS.1770, without gating) of the EQ's input and
     // output over a 2 s sliding window of 100 ms segments, and returns the gain that makes
@@ -95,7 +95,7 @@ namespace EQ
         void setCorrectionDb (double db) noexcept { correctionDb = db; }
 
     private:
-        static double energy (std::array<KWeighting, maxChannels>& k, const float* const* ch, int numChannels, int num) noexcept
+        static double energy (std::array<AutoGainFilter, maxChannels>& k, const float* const* ch, int numChannels, int num) noexcept
         {
             double e = 0.0;
             for (int c = 0; c < std::min (numChannels, maxChannels); ++c)
@@ -107,7 +107,7 @@ namespace EQ
             return e;   // BS.1770: channel energies are summed (L/R weights 1.0)
         }
 
-        std::array<KWeighting, maxChannels> kIn, kOut;
+        std::array<AutoGainFilter, maxChannels> kIn, kOut;
         std::array<double, numSegments> segIn {}, segOut {};
         double accIn = 0.0, accOut = 0.0;
         int accSamples = 0, filled = 0, writePos = 0;
