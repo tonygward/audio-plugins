@@ -20,8 +20,11 @@ namespace Opt::UI
         // ...the leveller's accent (a soft sky blue), and colours only the meter uses.
         inline const juce::Colour accent     { 0xff7fb2e5 };
         // The grey of the textured faceplate (OPT-02): lit from the top, deeper at the bottom.
-        inline const juce::Colour plateTop    { 0xff5a5d63 };
-        inline const juce::Colour plateBottom { 0xff393b40 };
+        inline const juce::Colour plateTop    { 0xff9a9ea5 };
+        inline const juce::Colour plateBottom { 0xff868a91 };
+        // Ink for the words and numbers printed on the plate (songsmithstudio#19): dark, so they read on the lighter grey (4.5:1 or more).
+        inline const juce::Colour plateInk    { 0xff15171a };
+        inline const juce::Colour plateInkDim { 0xff1a1c20 };
         inline const juce::Colour meterFace  { 0xfff1e6c8 };
         inline const juce::Colour meterInk   { 0xff2a2620 };
         inline const juce::Colour meterRed   { 0xffb8402e };

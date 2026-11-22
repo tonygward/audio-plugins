@@ -104,6 +104,7 @@ OptKnob::OptKnob (juce::AudioProcessorValueTreeState& state, const char* paramId
     valueLabel.setFont (juce::Font (numbers (Type::control)));
     valueLabel.setJustificationType (juce::Justification::centred);
     valueLabel.setColour (juce::Label::textColourId, Colours::text);
+    valueLabel.setColour (juce::Label::backgroundColourId, Colours::recess.withAlpha (0.9f));   // a recessed well: it can be typed into
     valueLabel.setColour (juce::Label::backgroundWhenEditingColourId, Colours::recess);
     valueLabel.setColour (juce::Label::textWhenEditingColourId, Colours::text);
     valueLabel.setColour (juce::Label::outlineWhenEditingColourId, Songsmith::UI::Colours::edge);
@@ -142,7 +143,7 @@ void OptKnob::resized()
 void OptKnob::paint (juce::Graphics& g)
 {
     auto r = getLocalBounds().toFloat();
-    g.setColour (Colours::text);
+    g.setColour (Colours::plateInk);
     g.setFont (font (Type::heading, Weight::SemiBold));
     g.drawText (name, r.removeFromTop (20.0f), juce::Justification::centred);
 
@@ -157,7 +158,7 @@ void OptKnob::paint (juce::Graphics& g)
     {
         const float pos = (float) range.convertTo0to1 (value);
         const float angle = params.startAngleRadians + pos * (params.endAngleRadians - params.startAngleRadians);
-        g.setColour (Colours::textDim);
+        g.setColour (Colours::plateInkDim);
         g.drawLine ({ c.getPointOnCircumference (radius + 2.0f, angle), c.getPointOnCircumference (radius + 6.0f, angle) }, 1.2f);
         const auto t = c.getPointOnCircumference (radius + 18.0f, angle);
         g.drawText (label, juce::Rectangle<float> (24.0f, 14.0f).withCentre (t), juce::Justification::centred);
@@ -358,13 +359,19 @@ void SongsmithOpticalLevellerEditor::paintContent (juce::Graphics& g)
     Songsmith::UI::LookAndFeelBase::drawTitleBar (g, r.withHeight (Songsmith::UI::titleBarHeight));
     Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, Colours::text, Colours::accent);
 
+    // The right-hand meters sit on their own dark panel, so their light labels stay readable on the lighter plate.
+    g.setColour (Colours::panel.withAlpha (0.92f));
+    g.fillRoundedRectangle (meterColumn.getBounds().expanded (8, 6).toFloat(), 6.0f);
+    g.setColour (Songsmith::UI::Colours::edge);
+    g.drawRoundedRectangle (meterColumn.getBounds().expanded (8, 6).toFloat().reduced (0.5f), 6.0f, 1.0f);
+
     // Section rules between the knobs and the meter.
-    g.setColour (Colours::panelLight.brighter (0.1f));
+    g.setColour (juce::Colours::black.withAlpha (0.28f));
     for (float x : { 244.0f, 516.0f })
         g.drawLine (x, 70.0f, x, 336.0f, 1.0f);
 
     // Numeric gain reduction under the needle (the needle has VU ballistics; this shows the value).
-    g.setColour (Colours::text);
+    g.setColour (Colours::plateInk);
     g.setFont (numbers (Type::heading, Weight::Medium));
     g.drawText (gainReductionText (grDisplayDb),
                 juce::Rectangle<float> ((float) meterArea.getX(), (float) meterModes.getBottom() + 6.0f, (float) meterArea.getWidth(), 20.0f),
