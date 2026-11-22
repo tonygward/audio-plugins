@@ -15,12 +15,15 @@ namespace Opt
     inline constexpr const char* gainId          = "gain";             // dB
     inline constexpr const char* modeId          = "mode";             // 0 = Compress, 1 = Limit
     inline constexpr const char* bypassId        = "bypass";           // the host's native bypass
+    inline constexpr const char* oversamplingId  = "oversampling";     // 0 = Off, 1 = 2x, 2 = 4x (version 2; songsmithstudio#19)
 
     // --- Defaults: a gentle, useful starting point that leaves the level where it was --------------------
     constexpr float defaultPeakReduction = 40.0f, defaultGainDb = 1.0f;
     constexpr int defaultMode = 0;   // Compress
 
     inline juce::StringArray modeNames() { return { "Compress", "Limit" }; }
+    inline juce::StringArray oversamplingNames() { return { "Off", "2x", "4x" }; }
+    constexpr int defaultOversampling = 0;   // Off: as every session saved before it existed sounded, and no delay
 
     // The meter: 0 = Gain Reduction, 1 = Output (0 on the scale at -18 dBFS, like the LA-2A's +4 position).
     inline juce::String meterModeName (int mode) { return mode == 0 ? "Gain Reduction" : "Output"; }

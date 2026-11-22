@@ -18,6 +18,16 @@ It turns the loud parts of a sound down gently and evenly, so a vocal, a bass or
 - **Gain** sets the level after levelling. Turn it up to bring the sound back to the level it had before.
 - **Compress or Limit** chooses gentle, smooth levelling (Compress) or firmer control of the loudest peaks (Limit).
 
+Click the number under **Gain** or **Peak Reduction** to type an exact value, then press Enter. Escape keeps the old value. The knob and the number always show the same setting.
+
+![The Songsmith Optical Leveller](../docs/screenshots/opt-19-leveller-after.png)
+
+**Set Levels** (under Peak Reduction) finds a Peak Reduction setting for you. Press it, play a typical part of your song for 3 to 12 seconds, and press **Finish Listening**. The plugin replays what it heard through its own levelling and suggests the Peak Reduction that gives your **Target Gain Reduction**, shown in dB: **-3.0 dB** means 3 dB of reduction. Type another target and the suggestion updates from the same listening. The target is an average over the sound you played, so loud parts are turned down more and quiet parts less. It is not a change of volume: Gain is separate. A small ear lights up while the plugin is listening to your sound (it listens to the audio passing through, not a microphone). **Apply** sets Peak Reduction and closes the panel at once, and **Undo** puts the old setting back. **Cancel** and Escape change nothing.
+
+![Set Levels with a suggestion](../docs/screenshots/opt-19-set-levels-proposal-after.png)
+
+**Oversampling** (top right of the controls) can be **Off**, **2×** or **4×**. It runs the leveller at a higher sample rate inside the plugin so fast level changes are followed more precisely, at the cost of more processing power and a little delay, which the plugin reports to your recording program. **Off** is how every earlier session sounded, and it is the default.
+
 At the far right, as in every Songsmith plugin, are the **Gain Reduction** bar and the **Output** meter (left and right channels, clip warning, held peak). Output is the sample peak after the leveller and Bypass, not true peak. The needle meter shows **Gain Reduction** (how much the level is being turned down) or **Output** (the level coming out, with 0 on the scale at -18 dBFS). Everything else is the same as the other Songsmith plugins: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu, and **Processing Load** at the bottom left.
 
 ## What makes it "optical"
@@ -39,7 +49,7 @@ Four starting points, each named for what it is used for and level-matched at -1
 ## Good to know
 
 - **Sessions and presets stay safe.** The parameter names, the plugin identity and the saved format never change for existing sessions.
-- **No delay.** It adds no latency, so there is nothing to compensate for.
+- **No delay with Oversampling off.** Switching Oversampling on adds a small delay, which the plugin tells your recording program about.
 - **Stereo stays steady.** Both channels are turned down by the same amount, so the stereo image does not move.
 - **Resizable.** Drag the bottom-right corner, from 75 % to 300 %. The size is saved with the session.
 - **Status:** not yet verified in a real host, and no level-matched listening notes have been recorded. See [docs/presets.md](docs/presets.md#before-this-is-release-ready).

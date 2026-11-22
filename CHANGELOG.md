@@ -7,6 +7,14 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - **Songsmith Analog Desk: a new Output panel at the far right.** The Gain Reduction bar, the Output meter, a smaller **Output Trim** knob and a new **Auto Gain** button are now together in one box headed **Output**. Auto Gain keeps the loudness the same with the strip on as with it off (it listens for two seconds and corrects by up to 12 dB either way); Output Trim is applied after it, so your own setting always has the last word. Hover over Auto Gain to see how much it is adding. Auto Gain is off by default, so your existing projects sound exactly as before.
 
+## 0.5.74
+
+- **Songsmith Optical Leveller: Set Levels.** A new **Set Levels** button under Peak Reduction listens to a typical part of your song and suggests the Peak Reduction that gives the **Target Gain Reduction** you choose. Type the target in dB (**-3.0 dB** means 3 dB of reduction); it is an average over what you played, not a fixed amount at every moment. A small ear lights up while the plugin is listening to your sound. Apply sets Peak Reduction and closes the panel straight away, Undo puts it back, and Cancel changes nothing.
+- **Songsmith Optical Leveller: type exact values.** Click the number under **Gain** or **Peak Reduction** to type a value. Peak Reduction now shows one decimal place.
+- **Songsmith Optical Leveller: a lighter grey faceplate**, with darker labels so everything stays easy to read. The meters sit on their own dark panel.
+- **Songsmith Optical Leveller: Oversampling.** A new **Oversampling** dropdown (Off, 2× or 4×) runs the leveller at a higher rate inside the plugin. It is Off by default, so your existing projects sound exactly as before. Switching it on adds a small delay, which your recording program is told about. Nothing to do unless you want it.
+- **Songsmith Analog Compressor: the Set Levels panel shows the same listening ear.** It lights up while the plugin is listening to your sound, and shows Waiting for audio until sound arrives.
+
 ## 0.5.73
 
 - **Songsmith EQ: a new Output panel at the far right.** The level meter, the Output Trim knob and the Auto Gain button now sit together in one box headed **Output**. Output Trim is smaller and sits under the meter, with Auto Gain right beside it. Auto Gain no longer puts its number on the button; hover over it to see how much it is adding right now. Your settings, projects and presets sound exactly as before, and Auto Gain stays off unless you switch it on. This is the first plugin to get the new panel; the others follow.

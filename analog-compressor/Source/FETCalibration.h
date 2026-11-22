@@ -5,6 +5,7 @@
 #include <cmath>
 #include <vector>
 #include "FETColour.h"
+#include "../../shared/Source/SongsmithLevelCapture.h"
 #include "FETEngine.h"
 #include "FETParams.h"
 
@@ -28,62 +29,8 @@ namespace FET::Calibration
     inline constexpr float clipPeakDb = -0.1f;
 
     //==============================================================================
-    class Capture
-    {
-    public:
-        // Message thread, before audio runs (prepareToPlay). Allocates.
-        void prepare (double sampleRate, int channels)
-        {
-            rate = sampleRate;
-            numChannels = juce::jlimit (1, 2, channels);
-            capacity = (int) (maxCaptureSeconds * sampleRate);
-            for (auto& c : data)
-                c.assign ((size_t) capacity, 0.0f);
-            count.store (0);
-            active.store (false);
-            resetRequested.store (false);
-        }
-
-        // Message thread.
-        void start() noexcept
-        {
-            resetRequested.store (true);
-            count.store (0, std::memory_order_release);   // the audio thread also restarts from 0 on its next block
-            active.store (true, std::memory_order_release);
-        }
-        void stop() noexcept { active.store (false, std::memory_order_release); }
-        bool isActive() const noexcept { return active.load (std::memory_order_acquire); }
-        int getSamples() const noexcept { return count.load (std::memory_order_acquire); }
-        double getSeconds() const noexcept { return rate > 0.0 ? (double) getSamples() / rate : 0.0; }
-        bool isFull() const noexcept { return getSamples() >= capacity && capacity > 0; }
-        double getSampleRate() const noexcept { return rate; }
-        // Samples below getSamples() never change until the next start().
-        const float* channel (int c) const noexcept { return data[(size_t) juce::jmin (c, numChannels - 1)].data(); }
-
-        // Audio thread. Real-time safe: plain copies into preallocated memory.
-        void push (const float* const* ch, int numCh, int n) noexcept
-        {
-            if (! active.load (std::memory_order_acquire) || capacity == 0)
-                return;
-            int pos = resetRequested.exchange (false) ? 0 : count.load (std::memory_order_relaxed);
-            const int room = juce::jmin (n, capacity - pos);
-            for (int c = 0; c < numChannels; ++c)
-            {
-                const float* src = ch[juce::jmin (c, numCh - 1)];
-                std::copy (src, src + room, data[(size_t) c].data() + pos);
-            }
-            count.store (pos + room, std::memory_order_release);
-            if (pos + room >= capacity)
-                active.store (false, std::memory_order_release);   // full: stop on its own
-        }
-
-    private:
-        double rate = 0.0;
-        int numChannels = 2, capacity = 0;
-        std::vector<float> data[2];
-        std::atomic<int> count { 0 };
-        std::atomic<bool> active { false }, resetRequested { false };
-    };
+    // The listening buffer is shared by every plugin with a Set Levels panel (songsmithstudio#19).
+    using Capture = Songsmith::LevelCapture;
 
     //==============================================================================
     struct Settings

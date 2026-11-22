@@ -128,7 +128,7 @@ struct CalibrationEditorTests final : juce::UnitTest
 
             e.getSetLevelsButton().onClick();
             expect (e.getSetLevelsPanel().isVisible() && e.getSetLevelsScrim().isVisible(), "the panel and its scrim are shown");
-            auto behindTheDialog = [&] (juce::Component* hit) { return hit == &e.getSetLevelsScrim() || hit == &e.getSetLevelsPanel(); };
+            auto behindTheDialog = [&] (juce::Component* hit) { return hit == &e.getSetLevelsScrim() || hit == &e.getSetLevelsPanel() || e.getSetLevelsPanel().isParentOf (hit); };   // the panel or anything on it (its buttons, the ear)
             expect (behindTheDialog (content.getComponentAt (knobCentre)), "a click on the Input knob lands on the scrim or the panel, never on the knob");
             expect (behindTheDialog (content.getComponentAt (content.getLocalPoint (&e.getBypassButton(), e.getBypassButton().getLocalBounds().getCentre()))), "and Bypass is behind it too");
             expect (behindTheDialog (content.getComponentAt (content.getLocalPoint (&e.getKnob (ID::output), e.getKnob (ID::output).getLocalBounds().getCentre()))), "and the Output knob");
