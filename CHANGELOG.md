@@ -9,6 +9,7 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 ## 0.5.75
 
+- **Songsmith Analog Compressor: a new Output panel at the far right, and a new face.** The Output knob has moved into one box headed **Output**, with the Gain Reduction bar, the Output meter and a new **Auto Gain** button; it is now called **Output Trim**, and it is the same setting as before, so your existing projects sound exactly as they did. Input is now the one big knob on the left, with Ignore Below and **Set Levels** side by side under it. Auto Gain keeps the loudness the same with the compressor on as with it off, so you can judge the compression rather than the volume; Output Trim has the last word. Hover over Auto Gain to see how much it is adding. Auto Gain is off by default. The window is a little wider to make room.
 - **Songsmith Analog Desk: a new Output panel at the far right.** The Gain Reduction bar, the Output meter, a smaller **Output Trim** knob and a new **Auto Gain** button are now together in one box headed **Output**. Auto Gain keeps the loudness the same with the strip on as with it off (it listens for two seconds and corrects by up to 12 dB either way); Output Trim is applied after it, so your own setting always has the last word. Hover over Auto Gain to see how much it is adding. Auto Gain is off by default, so your existing projects sound exactly as before.
 
 ## 0.5.74

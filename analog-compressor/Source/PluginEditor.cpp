@@ -37,8 +37,9 @@ namespace
     // because they were limited by the width, not the height.
     // ACOMP-23: everything inside the panel (below the configuration row with the Model dropdown and Oversampling) sits faceShift units lower.
     constexpr int fs = FET::faceShift;
-    const juce::Rectangle<int> inputArea   { 24, 64 + fs, 170, 216 };
-    const juce::Rectangle<int> outputArea  { 200, 64 + fs, 170, 216 };
+    // songsmithstudio#16: Output moved into the Output panel, so Input spans the two columns it and Output used to fill (the knob stays the
+    // same size, centred), with Ignore Below and Set Levels side by side under it.
+    const juce::Rectangle<int> inputArea   { 24, 64 + fs, 346, 216 };
     const juce::Rectangle<int> attackArea  { 382, 56 + fs, 112, 138 };
     const juce::Rectangle<int> releaseArea { 382, 200 + fs, 112, 138 };
     const juce::Rectangle<int> ratioArea   { 510, 72 + fs, 66, 236 };
@@ -241,7 +242,6 @@ void IgnoreBelowControl::paint (juce::Graphics& g)
 SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalogCompressorProcessor& p)
     : AudioProcessorEditor (p), proc (p),
       input (p.apvts, ID::input, "Input", dbMarks ({ -24, 0, 24, 48 }), [] (float v) { return dbText (v); }),
-      output (p.apvts, ID::output, "Output", dbMarks ({ -36, -12, 0, 12, 24 }), [] (float v) { return dbText (v); }),
       attack (p.apvts, ID::attack, "Attack", knobMarks(),
               [] (float v) { return juce::String (v, 1) + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 ")) + timeText (Engine::attackSeconds (v)); }),
       release (p.apvts, ID::release, "Release", knobMarks(),
@@ -264,12 +264,14 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
       grOffAttachment (p.apvts, ID::grOff, grOffButton),
       bypassAttachment (p.apvts, ID::bypass, bypassButton),
       ignoreBelow (p.apvts),
-      oversamplingAttachment (p.apvts, ID::oversampling, oversampling)
+      oversamplingAttachment (p.apvts, ID::oversampling, oversampling),
+      outputTrimAttachment (p.apvts, ID::output, outputPanel.getTrim()),
+      autoGainAttachment (p.apvts, ID::autoGain, outputPanel.getAutoGain())
 {
     setLookAndFeel (&lnf);
     addAndMakeVisible (content);
 
-    for (auto* k : { &input, &output, &attack, &release })
+    for (auto* k : { &input, &attack, &release })
         content.addAndMakeVisible (*k);
 
     // Ratio buttons: one press selects that ratio (and leaves All Buttons); "All Buttons" presses all
@@ -360,9 +362,16 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
         content.addAndMakeVisible (meterButtons[(size_t) m]);
     }
     content.addAndMakeVisible (meter);
-    meterColumn.getOutput().setTooltip ("Output level of the left and right channels, after the compressor, Output and Bypass. The number under the warning is the highest sample level held for 1.5 seconds. "
-                                        "This is sample peak, not true peak. Nothing to do unless the clip warning lights: then lower Output. Click to clear the held number.");
-    content.addAndMakeVisible (meterColumn);
+    meterColumn.getOutput().setTooltip ("Output level of the left and right channels, after the compressor, Auto Gain, Output Trim and Bypass. The number under the warning is the highest sample level held for 1.5 seconds. "
+                                        "This is sample peak, not true peak. Nothing to do unless the clip warning lights: then lower Output Trim. Click to clear the held number.");
+    outputPanel.getTrim().textFromValueFunction = [] (double v) { return (v > 0.05 ? "+" : "") + juce::String (std::abs (v) < 0.05 ? 0.0 : v, 1) + " dB"; };
+    outputPanel.getTrim().valueFromTextFunction = [] (const juce::String& t) { return t.retainCharacters ("0123456789.-+").getDoubleValue(); };
+    outputPanel.getTrim().setTextBoxIsEditable (true);
+    outputPanel.getTrim().setRange (outputMinDb, outputMaxDb, 0.01);
+    outputPanel.getTrim().setTooltip ("Output Trim: the level after compression, the same control as Output was. Double-click for the default. Auto Gain is measured without it, so your setting always has the last word.");
+    outputPanel.getTrim().updateText();
+    outputPanel.setAutoGainExplanation ("It compares the loudness going in with the loudness coming out of the compressor and corrects the difference by up to 12 dB either way, so you can judge the compression rather than the volume.");
+    content.addAndMakeVisible (outputPanel);
 
     for (int i = 0; i < oversamplingNames().size(); ++i)
         oversampling.addItem (oversamplingText (i), i + 1);
@@ -410,7 +419,6 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
 
     input.slider.setTooltip ("Input: how hard you drive the compressor. Turn it up for more compression; there is no threshold control. "
                              "Double-click for the default.");
-    output.slider.setTooltip ("Output: the level after compression. Double-click for the default.");
     attack.slider.setTooltip (attackTooltip());
     release.slider.setTooltip (releaseTooltip());
 
@@ -549,7 +557,6 @@ void SongsmithAnalogCompressorEditor::resized()
 void SongsmithAnalogCompressorEditor::layoutContent()
 {
     input.setBounds (inputArea);
-    output.setBounds (outputArea);
     attack.setBounds (attackArea);
     release.setBounds (releaseArea);
 
@@ -586,7 +593,7 @@ void SongsmithAnalogCompressorEditor::layoutContent()
     legacyRatioLabel.setBounds (ratioArea.getX(), ratioArea.getBottom() + 2, ratioArea.getWidth(), 18);   // only shown for a saved 2:1
 
     meter.setBounds (meterArea);
-    meterColumn.setBounds (Songsmith::UI::MeterColumn::boundsFor (designWidth, FET::plateTop + 14, contentHeight - 26, true));
+    outputPanel.setBounds (Songsmith::UI::OutputPanel::boundsFor (designWidth, FET::plateTop + 14, contentHeight - 26, true));
     auto modes = meterModes;
     const int gainReductionWidth = 116, modeGap = 8;
     meterButtons[0].setBounds (modes.removeFromLeft (gainReductionWidth));
@@ -783,6 +790,19 @@ void SongsmithAnalogCompressorEditor::setMeterMode (int mode)
 
 void SongsmithAnalogCompressorEditor::advanceMeter (float seconds)
 {
+    {   // The correction Auto Gain is applying is a measured fact, shown in the tooltip (the button is too small for it).
+        juce::String ag ("It compares the loudness going in with the loudness coming out of the compressor and corrects the difference by up to 12 dB either way, so you can judge the compression rather than the volume.");
+        if (proc.isAutoGainOn())
+        {
+            const float db = proc.getAutoGainAppliedDb();
+            ag << " Right now it is adding " << (db > 0.05f ? "+" : "") << juce::String (std::abs (db) < 0.05f ? 0.0f : db, 1) << " dB.";
+        }
+        if (ag != lastAutoGainText)
+        {
+            lastAutoGainText = ag;
+            outputPanel.setAutoGainExplanation (ag);
+        }
+    }
     const float gr = proc.takeGainReductionDb();
     const float outDb = proc.takeOutputRmsDb();
     const auto mode = (MeterMode) proc.meterMode.load();
@@ -1051,7 +1071,6 @@ void SongsmithAnalogCompressorEditor::cancelLevels()
 FETKnob& SongsmithAnalogCompressorEditor::getKnob (const juce::String& id)
 {
     if (id == ID::input)  return input;
-    if (id == ID::output) return output;
     if (id == ID::attack) return attack;
     return release;
 }

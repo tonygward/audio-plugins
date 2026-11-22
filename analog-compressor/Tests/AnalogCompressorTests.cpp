@@ -5,6 +5,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <cmath>
 #include "PluginProcessor.h"
+#include <random>
 #include "PluginEditor.h"
 #include "../../shared/Tests/SongsmithControlSheet.h"
 #include "../../shared/Tests/SongsmithUITests.h"
@@ -49,6 +50,103 @@ namespace
 }
 
 //==============================================================================
+// songsmithstudio#16: Auto Gain behind the shared Output panel, with the Output control keeping the last word.
+struct AutoGainTests final : juce::UnitTest
+{
+    AutoGainTests() : juce::UnitTest ("Auto Gain (songsmithstudio#16)", "FET") {}
+
+    static std::vector<float> programme (int n, double fs)
+    {
+        std::vector<float> v ((size_t) n);
+        std::mt19937 rng (5);
+        std::uniform_real_distribution<float> dist (-0.5f, 0.5f);
+        for (int i = 0; i < n; ++i)
+            v[(size_t) i] = dist (rng) * (0.5f + 0.5f * std::sin (juce::MathConstants<float>::twoPi * 0.6f * (float) i / (float) fs));
+        return v;
+    }
+
+    static std::vector<float> run (SongsmithAnalogCompressorProcessor& p, const std::vector<float>& in)
+    {
+        std::vector<float> out = in;
+        juce::MidiBuffer midi;
+        for (size_t pos = 0; pos < in.size(); pos += 512)
+        {
+            const int n = (int) std::min<size_t> (512, in.size() - pos);
+            juce::AudioBuffer<float> b (2, n);
+            for (int c = 0; c < 2; ++c)
+                b.copyFrom (c, 0, in.data() + pos, n);
+            p.processBlock (b, midi);
+            std::copy (b.getReadPointer (0), b.getReadPointer (0) + n, out.begin() + (long) pos);
+        }
+        return out;
+    }
+
+    static float rmsDb (const std::vector<float>& v, size_t from)
+    {
+        double e = 0.0;
+        for (size_t i = from; i < v.size(); ++i)
+            e += (double) v[i] * v[i];
+        return juce::Decibels::gainToDecibels ((float) std::sqrt (e / (double) (v.size() - from)));
+    }
+
+    void runTest() override
+    {
+        const double fs = 48000.0;
+        const auto in = programme ((int) (12.0 * fs), fs);
+        const size_t tail = (size_t) (8.0 * fs);
+        auto make = [&] (float inputDb, float outputDb, bool autoGain, SongsmithAnalogCompressorProcessor& p)
+        {
+            setParam (p, ID::input, inputDb);
+            setParam (p, ID::output, outputDb);
+            setParam (p, ID::autoGain, autoGain ? 1.0f : 0.0f);
+            p.prepareToPlay (fs, 512);
+        };
+
+        beginTest ("Auto Gain is off by default and a session saved before it existed loads with it off");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            expect (getParam (p, ID::autoGain) < 0.5f, "off");
+            setParam (p, ID::autoGain, 1.0f);
+            juce::ValueTree old (p.apvts.state.getType());
+            old.appendChild (juce::ValueTree ("PARAM", { { "id", ID::input }, { "value", 6.0f } }), nullptr);
+            juce::MemoryBlock block;
+            juce::AudioProcessor::copyXmlToBinary (*old.createXml(), block);
+            p.setStateInformation (block.getData(), (int) block.getSize());
+            expect (getParam (p, ID::autoGain) < 0.5f, "off in an older session");
+            expectWithinAbsoluteError (getParam (p, ID::input), 6.0f, 1.0e-3f);
+        }
+
+        beginTest ("Auto Gain brings a hard-driven compressor back to the input loudness, and Output keeps the last word");
+        {
+            SongsmithAnalogCompressorProcessor driven, matched, matchedLower;
+            make (18.0f, 0.0f, false, driven);
+            make (18.0f, 0.0f, true, matched);
+            make (18.0f, -4.0f, true, matchedLower);
+            const float inDb = rmsDb (in, tail);
+            const float drivenDb = rmsDb (run (driven, in), tail);
+            const float matchedDb = rmsDb (run (matched, in), tail);
+            const float lowerDb = rmsDb (run (matchedLower, in), tail);
+            expectGreaterThan (std::abs (drivenDb - inDb), 3.0f, "driving the compressor really changes the loudness");
+            expectWithinAbsoluteError (matchedDb, inDb, 1.5f, "Auto Gain brings it back to the input loudness");
+            expectWithinAbsoluteError (lowerDb - matchedDb, -4.0f, 0.5f, "and the Output control still moves it by exactly its own amount on top");
+        }
+
+        beginTest ("Auto Gain: bypass is the dry sound");
+        {
+            SongsmithAnalogCompressorProcessor p;
+            setParam (p, ID::autoGain, 1.0f);
+            setParam (p, ID::bypass, 1.0f);
+            p.prepareToPlay (fs, 512);
+            const auto out = run (p, in);
+            bool dry = true;
+            for (size_t i = (size_t) fs; i < out.size(); ++i)
+                dry = dry && std::abs (out[i] - in[i]) < 1.0e-6f;
+            expect (dry, "bypassed: the dry signal, untouched");
+        }
+    }
+};
+
+//==============================================================================
 struct IdentityTests final : juce::UnitTest
 {
     IdentityTests() : juce::UnitTest ("Identity", "FET") {}
@@ -77,6 +175,7 @@ struct IdentityTests final : juce::UnitTest
             { "bypass",       0.0f,  1.0f, 0.0f },
             { "oversampling", 0.0f,  2.0f, 0.0f, 2 },
             { "detectorLowCut", 0.0f, 5.0f, 0.0f, 3 },
+            { "auto_gain",    0.0f,  1.0f, 0.0f, 7 },   // songsmithstudio#16: the Output panel; off, so an older session sounds as it did
             { "ratioTwoToOne", 0.0f, 1.0f, 0.0f, 4 },   // ACOMP-11: the Songsmith 2:1 switch
             { "ignoreBelowHz", 0.0f, 500.0f, 0.0f, 5 }, // ACOMP-16: continuous Ignore Below (0 = Off, else 20 to 500 Hz)
             { "model",        0.0f,  3.0f, 0.0f, 6 },   // ACOMP-10: 0 = Rev D Blackface (the original), 1 Rev A, 2 1176AE, 3 Lindell-inspired
@@ -530,7 +629,7 @@ struct EditorTests final : juce::UnitTest
                 expect (os.getBottom() <= meterBounds.getY(), "Oversampling is in the configuration row, above the meter");
                 expect (os.getBottom() < FET::plateTop, "outside the textured panel");
                 expect (os.getY() >= (int) Songsmith::UI::titleBarHeight, "and below the title bar");
-                expectEquals (os.getRight(), ac->getMeterColumn().getRight(), "right-aligned with the meter column");
+                expectEquals (os.getRight(), ac->getOutputPanel().getRight(), "right-aligned with the Output panel (and so with the meter column inside it)");
                 {
                     const auto mb = ac->getModelButtonsBounds();
                     expectEquals (mb.getY(), os.getY(), "level with the Model buttons");
@@ -696,11 +795,11 @@ struct EditorRefinementTests final : juce::UnitTest
             expect (slot.contains (ib.getBounds()), "inside its place");
             expect (juce::Rectangle<int> (0, 0, designWidth, contentHeight).contains (ib.getBounds()), "inside the controls area");
             expectEquals (ib.getX(), inputKnob.getX(), "left-aligned with Input");
-            expectEquals (ib.getWidth(), inputKnob.getWidth(), "as wide as Input");
+            expect (ib.getWidth() <= inputKnob.getWidth(), "no wider than Input (which now spans the room Input and Output used to share)");
             expect (ib.getY() >= inputKnob.getBottom(), "below the Input knob");
             expect (ib.getY() - inputKnob.getBottom() <= 16, "close to the Input knob");
             expect (! ib.getBounds().intersects (inputKnob.getBounds()), "not overlapping Input");
-            expect (! ib.getBounds().intersects (ed->getKnob (ID::output).getBounds()), "nor Output");
+            expect (! ib.getBounds().intersects (ed->getOutputPanel().getBounds()), "nor the Output panel");
             expect (ib.slider.getSliderStyle() == juce::Slider::LinearHorizontal, "a horizontal slider, not a rotary");
             expectEquals (ib.slider.getTitle(), juce::String ("Ignore Below"));
 
@@ -1307,6 +1406,7 @@ static int runBenchmark()
 //==============================================================================
 // ACOMP-09: Set Levels.
 #include "CalibrationEditorTests.h"
+static AutoGainTests autoGainTests;
 static CalibrationTests calibrationTests;
 static CalibrationEditorTests calibrationEditorTests;
 

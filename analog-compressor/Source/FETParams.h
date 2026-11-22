@@ -30,6 +30,7 @@ namespace FET
         inline constexpr const char* allButtons = "allButtons";
         inline constexpr const char* grOff      = "grOff";
         inline constexpr const char* bypass     = "bypass";
+        inline constexpr const char* autoGain  = "auto_gain";     // version hint 7 (songsmithstudio#16): off by default
         inline constexpr const char* oversampling = "oversampling";   // version hint 2
         inline constexpr const char* detectorLowCut = "detectorLowCut";   // version hint 3
         inline constexpr const char* ratioTwoToOne = "ratioTwoToOne";     // version hint 4
@@ -191,7 +192,7 @@ namespace FET
     // Interface sizes (editor menu). The editor is drawn in design units and scaled as a whole,
     // so every option is equally sharp.
     inline constexpr float uiScales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f };
-    inline constexpr int designWidth = 1140, contentHeight = 442;   // 960 for the controls plus the right-hand meter column (SUI-23); they sit in the top 442 (ACOMP-23: 26 more, so the labels clear the top pinstripes and Slow Attack and the meter numbers clear the lower border)
+    inline constexpr int designWidth = 1166, contentHeight = 442;   // 960 for the controls plus the right-hand meter column (SUI-23); they sit in the top 442 (ACOMP-23: 26 more, so the labels clear the top pinstripes and Slow Attack and the meter numbers clear the lower border)
 
     // ACOMP-23: a configuration row directly under the title bar, as in Songsmith EQ, OUTSIDE the textured panel. The Model
     // dropdown is at the left (with its caption) and Oversampling at the right, right-aligned with the meter column. The panel
