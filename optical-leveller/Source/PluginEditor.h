@@ -4,6 +4,7 @@
 #include "PluginProcessor.h"
 #include "OptLookAndFeel.h"
 #include "OptMeter.h"
+#include "../../shared/Source/SongsmithDropdown.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithMeterColumn.h"
 
@@ -66,6 +67,7 @@ public:
     juce::Button& getRedoButton() noexcept { return redoButton; }
     juce::Button& getBypassButton() noexcept { return bypassButton; }
     juce::ComboBox& getPresetBox() noexcept { return presetBox; }
+    juce::ComboBox& getOversamplingBox() noexcept { return oversamplingBox; }
     juce::Rectangle<int> getTitleBounds() const noexcept { return titleBounds; }
     float getContentScale() const noexcept { return (float) getWidth() / (float) Opt::EditorLayout::designWidth; }
     juce::Component& getTitleHint() noexcept { return titleHint; }
@@ -124,6 +126,8 @@ private:
 
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
     juce::ComboBox presetBox;
+    juce::ComboBox oversamplingBox;   // songsmithstudio#19: Off, 2x or 4x, in the title bar left of Bypass
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> oversamplingAttachment;
     juce::TooltipWindow tooltips { this, 600 };
 
     // Latency and the optional Processing Load readout, in the strip below the controls.

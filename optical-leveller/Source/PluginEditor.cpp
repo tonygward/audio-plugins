@@ -20,11 +20,12 @@ namespace
     }
 
     // Layout, in design units (EditorLayout::designWidth x EditorLayout::designHeight).
-    const juce::Rectangle<int> gainArea           { 24, 64, 210, 262 };
+    const juce::Rectangle<int> gainArea           { 24, 86, 210, 240 };   // below the Oversampling dropdown's row (songsmithstudio#19)
     const juce::Rectangle<int> meterArea          { 254, 64, 252, 160 };
     const juce::Rectangle<int> meterModes         { 254, 232, 252, 28 };
     const juce::Rectangle<int> modeArea           { 254, 296, 252, 36 };
-    const juce::Rectangle<int> peakReductionArea  { 526, 64, 210, 262 };
+    const juce::Rectangle<int> peakReductionArea  { 526, 86, 210, 240 };
+    constexpr int oversamplingRight = 526 + 210, oversamplingTop = 60, oversamplingHeight = 22;   // top-right of the controls, left of the Output panel
 
     const char* const compressTip = "Compress: gentle, smooth levelling. A good starting point for most vocals, bass and guitars.";
     const char* const limitTip = "Limit: much firmer control that flattens the loudest sound harder than Compress. It is a stronger setting of the same smooth action, not a hard ceiling. Useful for drums and very uneven playing; "
@@ -193,6 +194,14 @@ SongsmithOpticalLevellerEditor::SongsmithOpticalLevellerEditor (SongsmithOptical
         content.addAndMakeVisible (modeButtons[(size_t) i]);
     }
 
+    for (int i = 0; i < Opt::oversamplingNames().size(); ++i)
+        oversamplingBox.addItem (Songsmith::UI::Dropdown::oversamplingText (i), i + 1);
+    oversamplingBox.setTitle ("Oversampling");
+    oversamplingBox.setTooltip ("Oversampling: runs the leveller at two or four times the sample rate inside the plugin, so fast level changes are followed more precisely. "
+                                "Off is how earlier versions sounded. It uses more processing power and adds a little delay, which the plugin tells your recording program about. Nothing to do unless you want it.");
+    oversamplingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, oversamplingId, oversamplingBox);
+    content.addAndMakeVisible (oversamplingBox);
+
     bypassButton.setClickingTogglesState (true);
     bypassButton.setTooltip ("Bypass: the sound passes through untouched");
     bypassButton.setTitle ("Bypass");
@@ -323,6 +332,10 @@ void SongsmithOpticalLevellerEditor::layoutContent()
     undoButton.setBounds (header.undo);
     redoButton.setBounds (header.redo);
     bypassButton.setBounds (header.bypass);
+    {   // Oversampling: the suite-standard dropdown at the top-right of the controls, beside the Output meters.
+        const int right = Songsmith::UI::Dropdown::place (oversamplingBox, 0, oversamplingTop, oversamplingHeight);
+        oversamplingBox.setTopLeftPosition (oversamplingRight - right, oversamplingTop);
+    }
 
     diagnostics->setBounds (0, contentHeight, designWidth, footerHeight);
 }

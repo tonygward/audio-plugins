@@ -18,8 +18,9 @@ SongsmithOpticalLevellerProcessor::SongsmithOpticalLevellerProcessor()
     peakReductionRaw = apvts.getRawParameterValue (Opt::peakReductionId);
     gainRaw          = apvts.getRawParameterValue (Opt::gainId);
     modeRaw          = apvts.getRawParameterValue (Opt::modeId);
+    oversamplingRaw  = apvts.getRawParameterValue (Opt::oversamplingId);
     bypassParam      = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Opt::bypassId));
-    jassert (peakReductionRaw && gainRaw && modeRaw && bypassParam);
+    jassert (peakReductionRaw && gainRaw && modeRaw && oversamplingRaw && bypassParam);
 
     dryBuffer.setSize (2, 512, false, true);   // resized in prepareToPlay
 }
@@ -40,6 +41,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithOpticalLevellerProc
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { Opt::modeId, 1 }, "Mode", Opt::modeNames(), Opt::defaultMode));
+
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { Opt::oversamplingId, 2 }, "Oversampling", Opt::oversamplingNames(), Opt::defaultOversampling));
 
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { Opt::bypassId, 1 }, "Bypass", false));
@@ -75,14 +79,51 @@ void SongsmithOpticalLevellerProcessor::prepareToPlay (double sampleRate, int sa
     bypassMix.reset (sampleRate, bypassFadeSeconds);
     bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
-    engine.setParams (getEngineParams());
-    engine.prepare (sampleRate);
+    baseRate = sampleRate;
+    using OS = juce::dsp::Oversampling<float>;
+    for (size_t k = 1; k < oversamplers.size(); ++k)
+    {
+        if (oversamplers[k] == nullptr)
+            oversamplers[k] = std::make_unique<OS> ((size_t) SongsmithOptical::Engine::maxChannels, k, OS::filterHalfBandPolyphaseIIR, true, true);
+        oversamplers[k]->initProcessing ((size_t) dryBuffer.getNumSamples());
+        oversamplers[k]->reset();
+        osLatency[k] = juce::roundToInt (oversamplers[k]->getLatencyInSamples());
+    }
+    dryRing.setSize (2, juce::jmax (osLatency[1], osLatency[2]) + 1, false, true, true);
+    pathFade.reset (sampleRate, pathFadeSeconds);
+    pathFade.setCurrentAndTargetValue (1.0f);
+    switchPath (getOversamplingIndex());
     engine.setParams (getEngineParams());
     gainReductionDb.store (0.0f);
     outputMs.store (0.0f);
     outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, getMainBusNumOutputChannels()), std::memory_order_relaxed);
     outputMeter.resetLatch (sampleRate);   // a new session or layout starts without a warning
-    setLatencySamples (0);
+    updateLatencyNow();
+    startTimerHz (10);   // reports a changed latency to the host from the message thread, never the audio thread
+}
+
+SongsmithOpticalLevellerProcessor::~SongsmithOpticalLevellerProcessor()
+{
+    stopTimer();
+}
+
+void SongsmithOpticalLevellerProcessor::updateLatencyNow()
+{
+    const int latency = osLatency[(size_t) getOversamplingIndex()];
+    if (getLatencySamples() != latency)
+        setLatencySamples (latency);   // told to the host whenever it changes
+}
+
+// Switches the engine to the rate of an Oversampling setting. Allocation-free: only coefficients are re-derived.
+void SongsmithOpticalLevellerProcessor::switchPath (int index) noexcept
+{
+    engine.prepare (baseRate * (double) (1 << index));
+    engine.setParams (getEngineParams());
+    if (index > 0)
+        oversamplers[(size_t) index]->reset();
+    dryRing.clear();
+    dryRingPos = 0;
+    osActive = index;
 }
 
 void SongsmithOpticalLevellerProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
@@ -112,14 +153,71 @@ void SongsmithOpticalLevellerProcessor::processBlock (juce::AudioBuffer<float>& 
 
         float* ch[SongsmithOptical::Engine::maxChannels] = {};
         for (int c = 0; c < numCh; ++c)
-        {
             ch[c] = buffer.getWritePointer (c, pos);
-            juce::FloatVectorOperations::copy (dryBuffer.getWritePointer (c), ch[c], num);   // the dry signal, for bypass
+
+        // Oversampling change: fade out, switch once silent, fade back in (no clicks, nothing allocated).
+        const int wantOS = getOversamplingIndex();
+        if (wantOS != osActive)
+        {
+            if (! pathFade.isSmoothing() && pathFade.getCurrentValue() <= 0.0f)
+            {
+                switchPath (wantOS);
+                pathFade.setTargetValue (1.0f);
+            }
+            else
+            {
+                pathFade.setTargetValue (0.0f);
+            }
         }
 
+        // The dry signal for Bypass, delayed by the path's latency so it lines up with the processed one.
+        const int latency = osLatency[(size_t) osActive];
+        for (int c = 0; c < numCh; ++c)
+        {
+            auto* d = dryBuffer.getWritePointer (c);
+            if (latency == 0)
+            {
+                juce::FloatVectorOperations::copy (d, ch[c], num);
+                continue;
+            }
+            auto* ring = dryRing.getWritePointer (c);
+            const int size = dryRing.getNumSamples();
+            int w = dryRingPos;
+            for (int i = 0; i < num; ++i)
+            {
+                d[i] = ring[(w - latency + size) % size];
+                ring[w] = ch[c][i];
+                w = (w + 1) % size;
+            }
+        }
+        if (latency > 0)
+            dryRingPos = (dryRingPos + num) % dryRing.getNumSamples();
+
         // The engine always runs, even when bypassed, so un-bypassing never glitches.
-        engine.process (ch, numCh, num);
+        if (osActive == 0)
+        {
+            engine.process (ch, numCh, num);
+        }
+        else
+        {
+            auto& os = *oversamplers[(size_t) osActive];
+            juce::dsp::AudioBlock<float> block (ch, (size_t) numCh, (size_t) num);
+            auto up = os.processSamplesUp (block);
+            float* upCh[SongsmithOptical::Engine::maxChannels] = {};
+            for (int c = 0; c < numCh; ++c)
+                upCh[c] = up.getChannelPointer ((size_t) c);
+            engine.process (upCh, numCh, (int) up.getNumSamples());
+            os.processSamplesDown (block);
+        }
         reduction = juce::jmax (reduction, engine.readMaxReductionDb());
+
+        if (pathFade.isSmoothing() || pathFade.getTargetValue() < 1.0f)
+            for (int i = 0; i < num; ++i)
+            {
+                const float g = pathFade.getNextValue();
+                for (int c = 0; c < numCh; ++c)
+                    ch[c][i] *= g;
+            }
 
         if (bypassMix.isSmoothing())
         {

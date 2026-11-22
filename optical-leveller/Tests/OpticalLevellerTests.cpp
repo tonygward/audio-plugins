@@ -112,8 +112,9 @@ public:
                 { "gain", 0.0f, 40.0f, 1.0f, "Gain" },
                 { "mode", 0.0f, 1.0f, 0.0f, "Mode" },
                 { "bypass", 0.0f, 1.0f, 0.0f, "Bypass" },
+                { "oversampling", 0.0f, 2.0f, 0.0f, "Oversampling" },
             };
-            expectEquals (p.getParameters().size(), (int) std::size (rows), "four parameters, no more");
+            expectEquals (p.getParameters().size(), (int) std::size (rows), "five parameters, no more");
             for (const auto& r : rows)
             {
                 auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p.apvts.getParameter (r.id));
@@ -249,6 +250,57 @@ public:
             auto xml = a.createState().createXml();
             expect (xml->getChildByName ("UI") != nullptr, "the editor settings are saved");
             expectEquals (a.createState().getProperty ("stateVersion", 0).operator int(), SongsmithOpticalLevellerProcessor::stateVersion);
+        }
+
+        beginTest ("Oversampling is real processing, reports its latency, and is Off by default (songsmithstudio#19)");
+        {
+            const double fs = 48000.0;
+            const int n = 48000;
+            std::vector<float> sine ((size_t) n);
+            for (int i = 0; i < n; ++i)
+                sine[(size_t) i] = 0.5f * std::sin (juce::MathConstants<float>::twoPi * 1000.0f * (float) i / (float) fs);
+
+            SongsmithOpticalLevellerProcessor off;
+            expectEquals (off.getOversamplingIndex(), 0, "Off by default");
+            setParam (off, Opt::peakReductionId, 80.0f);
+            prepare (off, fs, 512);
+            expectEquals (off.getLatencySamples(), 0, "Off adds no delay");
+            const auto outOff = run (off, { sine, sine }, 512);
+
+            for (int mode : { 1, 2 })
+            {
+                SongsmithOpticalLevellerProcessor on;
+                setParam (on, Opt::peakReductionId, 80.0f);
+                setParam (on, Opt::oversamplingId, (float) mode);
+                prepare (on, fs, 512);
+                const int latency = on.getOversamplingLatency (mode);
+                expectGreaterThan (latency, 0, "a real filter has some delay");
+                expectEquals (on.getLatencySamples(), latency, "the host is told the delay");
+                const auto out = run (on, { sine, sine }, 512);
+                expect (out[0] != outOff[0], "it is not the same processing as Off");
+                const float ratioDb = juce::Decibels::gainToDecibels (rms (out[0], 24000) / rms (outOff[0], 24000));
+                expectLessThan (std::abs (ratioDb), 1.0f, "the levelling is the same to within 1 dB (" + juce::String (mode) + ")");
+                expect (std::all_of (out[0].begin(), out[0].end(), [] (float v) { return std::isfinite (v) && std::abs (v) < 4.0f; }), "clean");
+
+                // Bypassed, the dry sound comes back exactly, delayed by the same amount.
+                setParam (on, Opt::bypassId, 1.0f);
+                const auto settle = run (on, { sine, sine }, 512);
+                const auto dry = run (on, { sine, sine }, 512);
+                bool aligned = true;
+                for (int i = latency; i < n; ++i)
+                    aligned = aligned && std::abs (dry[0][(size_t) i] - sine[(size_t) (i - latency)]) < 1.0e-6f;
+                expect (aligned, "bypassed: the dry signal, delayed to line up (" + juce::String (mode) + ")");
+                (void) settle;
+            }
+
+            // A session saved before Oversampling existed (no such parameter) loads with Off.
+            SongsmithOpticalLevellerProcessor p;
+            setParam (p, Opt::oversamplingId, 2.0f);
+            juce::ValueTree old (p.apvts.state.getType());
+            old.appendChild (juce::ValueTree ("PARAM", { { "id", Opt::gainId }, { "value", 5.0f } }), nullptr);
+            p.restoreFromValueTree (old);
+            expectEquals (p.getOversamplingIndex(), 0, "an older session loads with Oversampling off");
+            expectWithinAbsoluteError (getParam (p, Opt::gainId), 5.0f, 1.0e-4f);
         }
 
         beginTest ("Older, partial, damaged and out-of-range saved state loads safely");
