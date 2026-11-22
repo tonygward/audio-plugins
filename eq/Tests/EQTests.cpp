@@ -4112,8 +4112,8 @@ public:
             expect (texts.contains ("Dynamic"), "the dynamic button says Dynamic");
             expect (texts.contains ("Threshold") && texts.contains ("Frequency"), "knob labels are spelled out");
             expect (texts.contains ("Side Chain: spectrum and overlap"));
-            expect (texts.contains ("Auto Gain 0.0 dB"), "auto gain shows its correction with the unit");
-            expect (texts.contains ("Output +0.0 dB") || texts.contains ("Output 0.0 dB"));
+            expect (texts.contains ("Auto Gain"), "the Output panel has an Auto Gain button");
+            expect (texts.contains ("Output Trim"), "the Output panel names the trim");
             expect (texts.contains ("Band 1 Frequency") && texts.contains ("Band 1 Enabled")
                     && texts.contains ("Band 1 Dynamic Side Chain"), "parameter display names");
         }
@@ -4629,14 +4629,25 @@ public:
                 SongsmithEQAudioProcessor p;
                 auto ed = UiSizeTests::makeEditor (p, c.scale, c.w, c.h);
                 const auto context = juce::String (c.w) + " x " + juce::String (c.h) + " at " + juce::String (c.scale);
-                const auto meter = ed->getOutputMeter().getBounds();
+                // songsmithstudio#16: the meter, Output Trim and Auto Gain live in the shared Output panel at the far right.
+                auto& panel = ed->getOutputPanel();
+                const auto box = panel.getBounds();
                 const auto graph = ed->getDisplay().getBounds();
-                expect (meter.getX() >= graph.getRight(), context + ": meter right of the graph");
-                expect (! meter.intersects (graph), context + ": no overlap with the graph");
-                expectEquals (meter.getY(), graph.getY(), context + ": same top as the graph");
-                expectEquals (meter.getBottom(), graph.getBottom(), context + ": same bottom as the graph");
-                expectEquals (meter.getWidth(), OutputMeterDisplay::preferredWidth);
-                expect (ed->getContent().getLocalBounds().contains (meter), context + ": inside the editor");
+                const auto meter = panel.getBoundsInParent().getPosition() + panel.getMetersBounds().getPosition();
+                expect (box.getX() >= graph.getRight(), context + ": Output panel right of the graph");
+                expect (! box.intersects (graph), context + ": no overlap with the graph");
+                expectEquals (box.getBottom(), graph.getBottom(), context + ": same bottom as the graph");
+                expectEquals (box.getWidth(), Songsmith::UI::OutputPanel::widthFor (false));
+                expect (ed->getContent().getLocalBounds().contains (box), context + ": inside the editor");
+                expect (panel.getLocalBounds().contains (panel.getMetersBounds()), context + ": meters inside the panel");
+                expect (panel.getMetersBounds().getRight() == panel.getLocalBounds().getRight() - Songsmith::UI::OutputPanel::padding,
+                        context + ": meters at the panel's right edge");
+                expect (panel.getTrimBounds().getY() >= panel.getMetersBounds().getBottom(), context + ": Output Trim under the meters");
+                expect (panel.getAutoGainBounds().getX() >= panel.getTrimBounds().getRight() - 8
+                        && panel.getAutoGainBounds().getRight() <= panel.getLocalBounds().getRight(), context + ": Auto Gain beside Output Trim");
+                expect (! panel.getTrimBounds().intersects (panel.getAutoGainBounds()), context + ": Output Trim and Auto Gain do not overlap");
+                expectEquals (ed->getOutputMeter().getWidth(), OutputMeterDisplay::preferredWidth);
+                (void) meter;
                 WordingAndFontTests::checkLayout (*this, *ed, context);
             }
         }

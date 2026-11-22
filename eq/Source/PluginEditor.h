@@ -5,6 +5,7 @@
 #include "EQDisplay.h"
 #include "EQLookAndFeel.h"
 #include "OutputMeter.h"
+#include "../../shared/Source/SongsmithOutputPanel.h"
 #include "PresetBar.h"
 #include "FrequencyGuide.h"
 #include "../../shared/Source/SongsmithDropdown.h"
@@ -37,6 +38,7 @@ public:
     juce::Component& getContent() noexcept   { return content; }
     EQDisplay& getDisplay() noexcept         { return display; }
     OutputMeterDisplay& getOutputMeter() noexcept { return outputMeter; }
+    Songsmith::UI::OutputPanel& getOutputPanel() noexcept { return outputPanel; }
     juce::Button& getAccurateHighsButton() noexcept { return accurateHighsButton; }   // tests (EQ-44)
     juce::ComboBox& getOversamplingBox() noexcept   { return oversamplingBox; }
     juce::Slider& getScaleSlider() noexcept  { return scaleSlider; }   // Gain Scale, in the toolbox (SUI-18)
@@ -83,10 +85,12 @@ private:
     juce::Label bandCountLabel, hintLabel;
 
     // Global output stage
-    juce::Slider outputSlider { juce::Slider::LinearBar, juce::Slider::TextBoxLeft };
+    // songsmithstudio#16: the suite's Output panel (meter, compact Output Trim, Auto Gain) at the far right.
+    Songsmith::UI::OutputPanel outputPanel { false };
+    juce::Slider& outputSlider = outputPanel.getTrim();
     juce::Slider scaleSlider { juce::Slider::LinearBar, juce::Slider::TextBoxLeft };
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> scaleAttachment;
-    juce::TextButton bypassButton { "Bypass" }, autoGainButton { "Auto Gain" }, accurateHighsButton { "Accurate Highs" };
+    juce::TextButton bypassButton { "Bypass" }, accurateHighsButton { "Accurate Highs" };
     juce::TextButton guideButton { "Frequency Guide" };   // EQ-32: the listening regions behind the graph
     juce::ComboBox guideBox;                              // which instrument the guide is for
     juce::TextButton pianoButton { "Piano" };   // piano strip on/off (task 28)
@@ -94,10 +98,12 @@ private:
     juce::TextButton analyserSettingsButton { "..." };   // analyser settings popup
     void showAnalyserMenu();
     juce::Rectangle<int> titleBounds;   // the product name, painted
-    OutputMeterDisplay outputMeter;
+    OutputMeterDisplay& outputMeter = outputPanel.getMeters().getOutput();
+    juce::TextButton& autoGainButton = outputPanel.getAutoGain();
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
     double lastMeterTime = 0.0;
+    juce::String lastAutoGainText;
 
     // Latency and the optional Processing Load readout, in the strip along the bottom.
     std::unique_ptr<Songsmith::Diagnostics::Bar> diagnostics;

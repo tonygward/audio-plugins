@@ -9,12 +9,19 @@
 #include "EQEditController.h"
 #include "PresetManager.h"
 #include "SpectrumAnalyser.h"
-#include "AutoGain.h"
+#include "SongsmithAutoGain.h"
 #include "EditorSize.h"
 #include "LinearPhase.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
 #include "../../shared/Source/SongsmithBeforeAfter.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
+
+namespace EQ
+{
+    // The loudness matcher now lives in the shared code (songsmithstudio#16); the EQ keeps its names.
+    using KWeighting = Songsmith::KWeighting::Filter;
+    using AutoGain   = Songsmith::AutoGain;
+}
 
 class SongsmithEQAudioProcessor : public juce::AudioProcessor, private juce::Timer
 {
