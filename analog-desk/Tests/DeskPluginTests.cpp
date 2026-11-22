@@ -96,7 +96,7 @@ namespace
         { "comp_release", 0.3f }, { "comp_soft_knee", 1.0f }, { "comp_makeup", 0.0f },
         { "gate_on", 0.0f }, { "gate_expander", 0.0f }, { "gate_threshold", -50.0f }, { "gate_range", 20.0f }, { "gate_attack", 1.0f },
         { "gate_hold", 0.1f }, { "gate_release", 0.3f },
-        { "bypass", 0.0f } };
+        { "auto_gain", 0.0f }, { "bypass", 0.0f } };
 }
 
 //==============================================================================
@@ -408,6 +408,137 @@ public:
 };
 
 //==============================================================================
+// songsmithstudio#16: Auto Gain, then Output Trim, behind the shared Output panel.
+class AnalogDeskOutputStageTests final : public juce::UnitTest
+{
+public:
+    AnalogDeskOutputStageTests() : juce::UnitTest ("Songsmith Analog Desk output stage", "AnalogDeskPlugin") {}
+
+    static std::vector<float> programme (int n, double fs, float amp)
+    {
+        std::vector<float> v ((size_t) n);
+        std::mt19937 rng (7);
+        std::uniform_real_distribution<float> dist (-amp, amp);
+        for (int i = 0; i < n; ++i)
+            v[(size_t) i] = dist (rng) * (0.6f + 0.4f * std::sin (juce::MathConstants<float>::twoPi * 0.7f * (float) i / (float) fs));
+        return v;
+    }
+
+    static std::vector<float> run (SongsmithAnalogDeskProcessor& p, const std::vector<float>& in)
+    {
+        std::vector<float> out = in;
+        juce::MidiBuffer midi;
+        for (size_t pos = 0; pos < in.size(); pos += 512)
+        {
+            const int n = (int) std::min<size_t> (512, in.size() - pos);
+            juce::AudioBuffer<float> b (2, n);
+            for (int c = 0; c < 2; ++c)
+                b.copyFrom (c, 0, in.data() + pos, n);
+            p.processBlock (b, midi);
+            std::copy (b.getReadPointer (0), b.getReadPointer (0) + n, out.begin() + (long) pos);
+        }
+        return out;
+    }
+
+    static float rmsDb (const std::vector<float>& v, size_t from)
+    {
+        double e = 0.0;
+        for (size_t i = from; i < v.size(); ++i)
+            e += (double) v[i] * v[i];
+        return juce::Decibels::gainToDecibels ((float) std::sqrt (e / (double) (v.size() - from)));
+    }
+
+    static SongsmithAnalogDeskProcessor& prepared (SongsmithAnalogDeskProcessor& p, double fs)
+    {
+        juce::AudioProcessor::BusesLayout layout;
+        layout.inputBuses.add (juce::AudioChannelSet::stereo());
+        layout.outputBuses.add (juce::AudioChannelSet::stereo());
+        p.setBusesLayout (layout);
+        p.setRateAndBufferSizeDetails (fs, 512);
+        p.prepareToPlay (fs, 512);
+        return p;
+    }
+
+    void runTest() override
+    {
+        const double fs = 48000.0;
+        const int n = (int) (12.0 * fs);
+        const auto in = programme (n, fs, 0.4f);
+
+        beginTest ("Auto Gain is off by default, and with it off and Output Trim at 0 dB a session sounds as before");
+        {
+            SongsmithAnalogDeskProcessor p;
+            expect (p.apvts.getRawParameterValue (Desk::autoGainId)->load() < 0.5f, "off");
+            prepared (p, fs);
+            const auto out = run (p, in);
+            SongsmithAnalogDeskProcessor q;   // an identical processor must agree exactly: nothing is added to the path
+            prepared (q, fs);
+            expect (run (q, in) == out, "repeatable and untouched");
+        }
+
+        beginTest ("Output Trim changes the level by its own amount, after everything else");
+        {
+            SongsmithAnalogDeskProcessor flat, trimmed;
+            prepared (flat, fs);
+            prepared (trimmed, fs);
+            auto* prm = trimmed.apvts.getParameter (Desk::outputTrimId);
+            prm->setValueNotifyingHost (prm->convertTo0to1 (-6.0f));
+            trimmed.prepareToPlay (fs, 512);
+            const float difference = rmsDb (run (trimmed, in), (size_t) fs) - rmsDb (run (flat, in), (size_t) fs);
+            expectWithinAbsoluteError (difference, -6.0f, 0.05f, "minus 6 dB of trim is 6 dB quieter");
+        }
+
+        beginTest ("Auto Gain matches the loudness of a boosted strip to its input, and Output Trim stays on top of it");
+        {
+            auto setup = [&] (SongsmithAnalogDeskProcessor& p, bool autoGain, float trimDb)
+            {
+                for (auto [id, v] : { std::pair<const char*, float> { Desk::autoGainId, autoGain ? 1.0f : 0.0f },
+                                      std::pair<const char*, float> { Desk::outputTrimId, trimDb },
+                                      std::pair<const char*, float> { Desk::hmfGainId, 12.0f }, std::pair<const char*, float> { Desk::lmfGainId, 12.0f },
+                                      std::pair<const char*, float> { Desk::lfGainId, 12.0f } })
+                {
+                    auto* prm = p.apvts.getParameter (id);
+                    prm->setValueNotifyingHost (prm->convertTo0to1 (v));
+                }
+                prepared (p, fs);
+            };
+            SongsmithAnalogDeskProcessor boosted, matched, matchedTrimmed;
+            setup (boosted, false, 0.0f);
+            setup (matched, true, 0.0f);
+            setup (matchedTrimmed, true, -3.0f);
+            const size_t tail = (size_t) (8.0 * fs);
+            const float inDb = rmsDb (in, tail);
+            const float boostedDb = rmsDb (run (boosted, in), tail);
+            const float matchedDb = rmsDb (run (matched, in), tail);
+            const float trimmedDb = rmsDb (run (matchedTrimmed, in), tail);
+            expectGreaterThan (boostedDb - inDb, 3.0f, "the boost really is louder");
+            expectWithinAbsoluteError (matchedDb, inDb, 1.5f, "Auto Gain brings it back to the input loudness");
+            expectWithinAbsoluteError (trimmedDb - matchedDb, -3.0f, 0.4f, "and Output Trim moves it by exactly its own amount on top");
+        }
+
+        beginTest ("Auto Gain: bypass is still the dry sound, and an older session loads with Auto Gain off");
+        {
+            SongsmithAnalogDeskProcessor p;
+            auto* ag = p.apvts.getParameter (Desk::autoGainId);
+            ag->setValueNotifyingHost (1.0f);
+            auto* by = p.apvts.getParameter ("bypass");
+            by->setValueNotifyingHost (1.0f);
+            prepared (p, fs);
+            const auto out = run (p, in);
+            bool dry = true;
+            for (size_t i = (size_t) fs; i < out.size(); ++i)
+                dry = dry && std::abs (out[i] - in[i]) < 1.0e-6f;
+            expect (dry, "bypassed: the dry signal, untouched");
+
+            juce::ValueTree old (p.apvts.state.getType());
+            old.appendChild (juce::ValueTree ("PARAM", { { "id", "drive" }, { "value", 0.3f } }), nullptr);
+            p.restoreFromValueTree (old);
+            expect (p.apvts.getRawParameterValue (Desk::autoGainId)->load() < 0.5f, "off in a session saved before it existed");
+        }
+    }
+};
+
+//==============================================================================
 class AnalogDeskEditorTests final : public juce::UnitTest
 {
 public:
@@ -432,6 +563,8 @@ public:
             for (auto* b : ed->getToggles())
                 shown.insert (b->getTitle());
             shown.insert (ed->getBypassButton().getTitle());
+            shown.insert (ed->getOutputPanel().getTrim().getTitle());       // songsmithstudio#16: the Output panel's Output Trim ...
+            shown.insert (ed->getOutputPanel().getAutoGain().getTitle());   // ... and Auto Gain
             for (auto* prm : p.getParameters())
                 expect (shown.count (prm->getName (100)) == 1, "a control named \"" + prm->getName (100) + "\"");
             expectEquals ((int) shown.size(), (int) std::size (allParameters), "and no control without a setting");
@@ -439,7 +572,7 @@ public:
             // Left to right, in the order of the signal: filters, dynamics, equaliser, output (songsmithstudio#9).
             auto x = [&ed] (const char* id) { return ed->findKnob (id)->getX(); };
             expect (x ("high_pass") < x ("gate_threshold") && x ("gate_threshold") < x ("comp_threshold") && x ("comp_threshold") < x ("lf_frequency")
-                    && x ("hf_frequency") < ed->findKnob ("output_trim")->getX() + 1, "Input and Filters, then Dynamics (Gate then Compressor), then the Equaliser, then Output");
+                    && x ("hf_frequency") < ed->getOutputPanel().getX() + 1, "Input and Filters, then Dynamics (Gate then Compressor), then the Equaliser, then Output");
             for (int m = 0; m < 3; ++m)
                 expect (ed->getModuleBounds (m).getRight() < ed->getModuleBounds (m + 1).getX(), "four separate modules, left to right, with a gap between");
             expect (ed->findKnob ("lf_frequency")->getX() < ed->findKnob ("lmf_frequency")->getX()
@@ -458,12 +591,12 @@ public:
                 parts.push_back (k);
             for (auto* b : ed->getToggles())
                 parts.push_back (b);
-            auto* content = ed->getMeterColumn().getParentComponent();
+            auto* content = ed->getOutputPanel().getParentComponent();   // the window's whole content (the meters sit inside the Output panel now)
             for (size_t i = 0; i < parts.size(); ++i)
             {
                 expect (content->getLocalBounds().contains (parts[i]->getBounds()), context + ": inside the editor");
                 expect (parts[i]->getBottom() <= Desk::EditorLayout::contentHeight, context + ": above the footer strip");
-                expect (! parts[i]->getBounds().intersects (ed->getMeterColumn().getBounds()), context + ": clear of the meter column");
+                expect (! parts[i]->getBounds().intersects (ed->getOutputPanel().getBounds()), context + ": clear of the Output panel");
                 for (size_t j = i + 1; j < parts.size(); ++j)
                     expect (! parts[i]->getBounds().intersects (parts[j]->getBounds()), context + ": no overlap");
             }
@@ -607,6 +740,7 @@ public:
 };
 
 static AnalogDeskPluginTests analogDeskPluginTests;
+static AnalogDeskOutputStageTests analogDeskOutputStageTests;
 static AnalogDeskEditorTests analogDeskEditorTests;
 
 //==============================================================================

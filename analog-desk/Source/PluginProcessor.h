@@ -8,13 +8,14 @@
 #include "../../shared/Source/SongsmithBeforeAfter.h"
 #include "../../shared/Source/SongsmithHeader.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
+#include "../../shared/Source/SongsmithOutputStage.h"
 
 class SongsmithAnalogDeskProcessor : public juce::AudioProcessor
 {
 public:
     // Saved-state format. 1 = every setting listed in DeskParams.h, Bypass, and the editor's width and preset name.
     // Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 1;
+    static constexpr int stateVersion = 2;   // 2 = adds Auto Gain (older sessions load with it off)
 
     SongsmithAnalogDeskProcessor();
 
@@ -60,6 +61,10 @@ public:
     // For the meter: the deepest compressor gain reduction (dB, positive) since the last call.
     float takeGainReductionDb() noexcept { return gainReductionDb.exchange (0.0f, std::memory_order_relaxed); }
 
+    // For the editor: the correction Auto Gain is applying right now, in dB (0 when off).
+    float getAutoGainAppliedDb() const noexcept { return outputStage.getAutoGainAppliedDb(); }
+    bool isAutoGainOn() const noexcept { return raw.autoGain->load (std::memory_order_relaxed) > 0.5f; }
+
     // Editor state saved with the session (not automatable): window width.
     std::atomic<int> editorWidth { Desk::EditorLayout::defaultWidth };
 
@@ -86,12 +91,14 @@ private:
                            *lfFreq, *lfGain, *lmfFreq, *lmfGain, *lmfQ, *hmfFreq, *hmfGain, *hmfQ, *hfFreq, *hfGain,
                            *compThreshold, *compRatio, *compAttack, *compRelease, *compMakeup,
                            *gateThreshold, *gateRange, *gateAttack, *gateHold, *gateRelease,
+                           *autoGain,
                            *eqOn, *lfBell, *hfBell, *dynamicsOn, *afterEq, *compKnee, *gateOn, *gateExpander;
     } raw {};
 
     juce::AudioParameterBool* bypassParam = nullptr;
 
     SongsmithDesk::Engine engine;
+    Songsmith::OutputStage outputStage;   // songsmithstudio#16: Auto Gain, then Output Trim, after the strip
     int currentProgram = 0;
 
     std::atomic<float> gainReductionDb { 0.0f };

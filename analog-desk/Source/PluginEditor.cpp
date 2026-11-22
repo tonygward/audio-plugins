@@ -57,8 +57,6 @@ namespace
         if (id == hmfQId)     return cellIn (EL::eqX, 2, 2, 3, 1);
         if (id == hfGainId)   return cellIn (EL::eqX, 3, 0, 3, 1);
         if (id == hfFreqId)   return cellIn (EL::eqX, 3, 1, 3, 1);
-        // Output and Meter: Output Trim above the meters
-        if (id == outputTrimId) return { EL::outputX + 8, moduleKnobsTop (0), EL::cellWidth, 150 };
         jassertfalse;
         return {};
     }
@@ -129,7 +127,7 @@ void DeskKnob::paint (juce::Graphics& g)
 //==============================================================================
 juce::StringArray SongsmithAnalogDeskEditor::paintedTexts()
 {
-    return { "Input and Filters", "Dynamics", "Gate", "Compressor", "Equaliser", "Low", "Low-Mid", "High-Mid", "High", "Output and Meter" };
+    return { "Input and Filters", "Dynamics", "Gate", "Compressor", "Equaliser", "Low", "Low-Mid", "High-Mid", "High" };   // the Output panel paints its own heading
 }
 
 DeskKnob& SongsmithAnalogDeskEditor::addKnob (const char* paramId, const juce::String& name, const juce::String& title, const juce::String& tip,
@@ -156,7 +154,9 @@ DeskToggle& SongsmithAnalogDeskEditor::addToggle (const char* paramId, const juc
 }
 
 SongsmithAnalogDeskEditor::SongsmithAnalogDeskEditor (SongsmithAnalogDeskProcessor& p)
-    : juce::AudioProcessorEditor (&p), proc (p), bypassAttachment (p.apvts, bypassId, bypassButton)
+    : juce::AudioProcessorEditor (&p), proc (p), bypassAttachment (p.apvts, bypassId, bypassButton),
+      outputTrimAttachment (p.apvts, outputTrimId, outputPanel.getTrim()),
+      autoGainAttachment (p.apvts, autoGainId, outputPanel.getAutoGain())
 {
     setLookAndFeel (&lnf);
     addAndMakeVisible (content);
@@ -172,7 +172,6 @@ SongsmithAnalogDeskEditor::SongsmithAnalogDeskEditor (SongsmithAnalogDeskProcess
             [] (float v) { return v < highPassOffBelowHz ? juce::String ("Off") : hzText (v); }, knobRect (highPassId));
     addKnob (lowPassId, "Low-Pass", "Low-Pass Filter", "Low-Pass Filter: removes the high sounds above this frequency, such as hiss. All the way up is off.",
             [] (float v) { return v > lowPassOffAboveHz ? juce::String ("Off") : hzText (v); }, knobRect (lowPassId));
-    addKnob (outputTrimId, "Output Trim", "Output Trim", "Output Trim: the level leaving the strip, after everything else.", db, knobRect (outputTrimId));
 
     // Equaliser
     addToggle (eqOnId, "Equaliser On", "Equaliser On", "Equaliser On: switches the four equaliser bands on and off together. The filters and dynamics are not affected.", toggleRect (eqOnId));
@@ -231,7 +230,13 @@ SongsmithAnalogDeskEditor::SongsmithAnalogDeskEditor (SongsmithAnalogDeskProcess
 
     meterColumn.getOutput().setTooltip ("Output level of the left and right channels, after everything including Output Trim and Bypass. The number under the warning is the highest sample level held for 1.5 seconds. "
                                         "This is sample peak, not true peak. Nothing to do unless the clip warning lights: then lower Output Trim. Click to clear the held number.");
-    content.addAndMakeVisible (meterColumn);
+    outputPanel.getTrim().textFromValueFunction = [] (double v) { return signedDb ((float) v); };
+    outputPanel.getTrim().valueFromTextFunction = [] (const juce::String& t) { return t.retainCharacters ("0123456789.-+").getDoubleValue(); };
+    outputPanel.getTrim().setTextBoxIsEditable (true);
+    outputPanel.getTrim().setRange (SongsmithDesk::minTrimDb, SongsmithDesk::maxTrimDb, 0.1);
+    outputPanel.getTrim().updateText();
+    outputPanel.setAutoGainExplanation ("On the strip it compares the loudness going in with the loudness coming out of the filters, equaliser and dynamics, and corrects the difference by up to 12 dB either way, so a boost is not judged better just because it is louder.");
+    content.addAndMakeVisible (outputPanel);
 
     setWantsKeyboardFocus (true);
     undoButton.setTitle ("Undo");
@@ -344,8 +349,8 @@ juce::Rectangle<int> SongsmithAnalogDeskEditor::getModuleBounds (int index) cons
 
 void SongsmithAnalogDeskEditor::layoutContent()
 {
-    // Under Output Trim, in the Output module.
-    meterColumn.setBounds (Songsmith::UI::MeterColumn::boundsFor (designWidth, moduleKnobsTop (0) + 150 + 6, EL::moduleBottom - 8, true));
+    // The Output panel fills the Output module.
+    outputPanel.setBounds (getModuleBounds (3).reduced (8, 4));
 
     // Title bar (the same in every plugin): name | preset | Undo | Redo ... Bypass (far right).
     const auto header = Songsmith::UI::Header::layout (
@@ -431,7 +436,6 @@ void SongsmithAnalogDeskEditor::paintContent (juce::Graphics& g)
     moduleTitle ("Input and Filters", 0, *this);
     moduleTitle ("Dynamics", 1, *this);
     moduleTitle ("Equaliser", 2, *this);
-    moduleTitle ("Output and Meter", 3, *this);
 
     auto caption = [&g] (const juce::String& text, int x, int y, int width, juce::Colour colour)
     {
@@ -457,6 +461,19 @@ void SongsmithAnalogDeskEditor::paintContent (juce::Graphics& g)
 
 void SongsmithAnalogDeskEditor::advanceMeter (float seconds)
 {
+    {   // The correction Auto Gain is applying is a measured fact, shown in the tooltip (the button is too small for it).
+        juce::String ag ("On the strip it compares the loudness going in with the loudness coming out of the filters, equaliser and dynamics, and corrects the difference by up to 12 dB either way, so a boost is not judged better just because it is louder.");
+        if (proc.isAutoGainOn())
+        {
+            const float db = proc.getAutoGainAppliedDb();
+            ag << " Right now it is adding " << (db > 0.05f ? "+" : "") << juce::String (std::abs (db) < 0.05f ? 0.0f : db, 1) << " dB.";
+        }
+        if (ag != lastAutoGainText)
+        {
+            lastAutoGainText = ag;
+            outputPanel.setAutoGainExplanation (ag);
+        }
+    }
     const float gr = proc.takeGainReductionDb();
     auto& m = proc.outputMeter;
     m.readAndReset();   // the all-channel peak isn't shown; the per-channel ones are
