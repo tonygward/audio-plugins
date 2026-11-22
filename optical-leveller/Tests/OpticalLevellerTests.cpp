@@ -555,15 +555,37 @@ public:
             SongsmithOpticalLevellerProcessor p;
             auto ed = make (p, Opt::EditorLayout::defaultWidth);
             expectEquals (ed->getGainKnob().getValueText(), juce::String ("+1.0 dB"));
-            expectEquals (ed->getPeakReductionKnob().getValueText(), juce::String ("40"));
+            expectEquals (ed->getPeakReductionKnob().getValueText(), juce::String ("40.0"));
             ed->getPeakReductionKnob().slider.setValue (75.0, juce::sendNotificationSync);
             ed->getGainKnob().slider.setValue (12.0, juce::sendNotificationSync);
             expectWithinAbsoluteError (getParam (p, Opt::peakReductionId), 75.0f, 1.0e-3f);
             expectWithinAbsoluteError (getParam (p, Opt::gainId), 12.0f, 1.0e-3f);
-            expectEquals (ed->getPeakReductionKnob().getValueText(), juce::String ("75"));
+            expectEquals (ed->getPeakReductionKnob().getValueText(), juce::String ("75.0"));
             expectEquals (ed->getGainKnob().getValueText(), juce::String ("+12.0 dB"));
             setParam (p, Opt::gainId, 0.0f);
             expectEquals (ed->getGainKnob().getValueText(), juce::String ("0.0 dB"));
+        }
+
+        beginTest ("Typing a value into the field sets the same parameter as the knob (songsmithstudio#19)");
+        {
+            SongsmithOpticalLevellerProcessor p;
+            auto ed = make (p, Opt::EditorLayout::defaultWidth);
+            auto& gain = ed->getGainKnob();
+            auto& peak = ed->getPeakReductionKnob();
+            expect (gain.valueLabel.isEditable() && peak.valueLabel.isEditable(), "both fields can be typed into");
+            expect (gain.applyTypedText ("+7.5 dB"), "a signed decimal with the unit is accepted");
+            expectWithinAbsoluteError (getParam (p, Opt::gainId), 7.5f, 1.0e-3f);
+            expectEquals (gain.valueLabel.getText(), juce::String ("+7.5 dB"));
+            expect (peak.applyTypedText ("62.5"), "a decimal is accepted");
+            expectWithinAbsoluteError (getParam (p, Opt::peakReductionId), 62.5f, 1.0e-3f);
+            expectEquals (peak.valueLabel.getText(), juce::String ("62.5"));
+            expect (peak.applyTypedText ("250"), "an out-of-range number is clamped, not refused");
+            expectWithinAbsoluteError (getParam (p, Opt::peakReductionId), 100.0f, 1.0e-3f);
+            const float before = getParam (p, Opt::gainId);
+            expect (! gain.applyTypedText ("loud"), "text with no digits is refused");
+            expectWithinAbsoluteError (getParam (p, Opt::gainId), before, 1.0e-6f);
+            setParam (p, Opt::gainId, 6.0f);   // host automation moves the field too
+            expectEquals (gain.valueLabel.getText(), juce::String ("+6.0 dB"));
         }
 
         beginTest ("Plain words: every text, parameter name and preset, and every label fits at two sizes");

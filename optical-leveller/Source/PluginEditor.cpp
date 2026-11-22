@@ -97,15 +97,43 @@ OptKnob::OptKnob (juce::AudioProcessorValueTreeState& state, const char* paramId
     slider.setMouseDragSensitivity (220);
     slider.setTitle (name);
     slider.getProperties().set (Songsmith::UI::LookAndFeelBase::valueArcProperty, false);   // the printed scale shows the value
-    slider.onValueChange = [this] { repaint(); };
+    slider.onValueChange = [this] { valueLabel.setText (getValueText(), juce::dontSendNotification); repaint(); };
     addAndMakeVisible (slider);
+
+    valueLabel.setText (getValueText(), juce::dontSendNotification);
+    valueLabel.setFont (juce::Font (numbers (Type::control)));
+    valueLabel.setJustificationType (juce::Justification::centred);
+    valueLabel.setColour (juce::Label::textColourId, Colours::text);
+    valueLabel.setColour (juce::Label::backgroundWhenEditingColourId, Colours::recess);
+    valueLabel.setColour (juce::Label::textWhenEditingColourId, Colours::text);
+    valueLabel.setColour (juce::Label::outlineWhenEditingColourId, Songsmith::UI::Colours::edge);
+    valueLabel.setEditable (false, true, false);   // a click or double-click types a value; Enter applies it and Escape cancels
+    valueLabel.setTitle (name + " value");
+    valueLabel.setTooltip (name + ": click the number to type an exact value, then press Enter. Escape keeps the old value.");
+    valueLabel.onTextChange = [this]
+    {
+        if (! applyTypedText (valueLabel.getText()))
+            valueLabel.setText (getValueText(), juce::dontSendNotification);   // not a number: keep the old value
+    };
+    addAndMakeVisible (valueLabel);
+}
+
+bool OptKnob::applyTypedText (const juce::String& text)
+{
+    const auto digits = text.retainCharacters ("0123456789.-+");
+    if (! digits.containsAnyOf ("0123456789"))
+        return false;
+    const auto range = slider.getRange();
+    slider.setValue (juce::jlimit (range.getStart(), range.getEnd(), digits.getDoubleValue()), juce::sendNotificationSync);
+    valueLabel.setText (getValueText(), juce::dontSendNotification);   // shows the snapped, clamped value
+    return true;
 }
 
 void OptKnob::resized()
 {
     auto r = getLocalBounds();
     r.removeFromTop (22);
-    r.removeFromBottom (24);
+    valueLabel.setBounds (r.removeFromBottom (24).withSizeKeepingCentre (96, 22));
     const int side = juce::jmin (r.getWidth(), r.getHeight());
     const int size = side - juce::roundToInt ((float) side * 0.32f);   // room for the printed scale
     slider.setBounds (juce::Rectangle<int> (size, size).withCentre (r.getCentre()));
@@ -117,9 +145,6 @@ void OptKnob::paint (juce::Graphics& g)
     g.setColour (Colours::text);
     g.setFont (font (Type::heading, Weight::SemiBold));
     g.drawText (name, r.removeFromTop (20.0f), juce::Justification::centred);
-
-    g.setFont (numbers (Type::control));
-    g.drawText (getValueText(), r.removeFromBottom (20.0f), juce::Justification::centred);
 
     // Printed scale around the knob.
     const auto sb = slider.getBounds().toFloat();
@@ -144,7 +169,7 @@ SongsmithOpticalLevellerEditor::SongsmithOpticalLevellerEditor (SongsmithOptical
     : juce::AudioProcessorEditor (&p), proc (p),
       gainKnob (p.apvts, gainId, "Gain", marks ({ 0, 10, 20, 30, 40 }), [] (float v) { return dbText (v); }),
       peakReductionKnob (p.apvts, peakReductionId, "Peak Reduction", marks ({ 0, 25, 50, 75, 100 }),
-                         [] (float v) { return juce::String (juce::roundToInt (v)); }),
+                         [] (float v) { return juce::String (v, 1); }),
       modeAttachment (*p.apvts.getParameter (modeId), [this] (float v) { modeIndex = juce::roundToInt (v); refreshButtons(); }),
       bypassAttachment (p.apvts, bypassId, bypassButton)
 {

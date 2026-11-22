@@ -20,7 +20,11 @@ public:
     void resized() override;
 
     juce::Slider slider { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::NoTextBox };
+    // songsmithstudio#19: the number under the knob is a field you can click and type into. It sets the same parameter as the knob.
+    juce::Label valueLabel;
     juce::String getValueText() const { return formatter ((float) slider.getValue()); }
+    // Reads typed text such as "-3", "+1.5 dB" or "40.5" and returns the value clamped to the knob's range; false if there are no digits.
+    bool applyTypedText (const juce::String& text);
 
 private:
     juce::String name;
