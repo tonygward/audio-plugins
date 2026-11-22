@@ -24,6 +24,15 @@ namespace Comp
     // --- Added in version 2 (Analog Warmth) ---------------------------------------------
     inline constexpr const char* warmthId     = "warmth";        // off by default: the clean compressor
 
+    // --- Added in version 3 (songsmithstudio#14): which Analog Warmth ----------------------------------------------------------
+    inline constexpr const char* warmthModelId = "warmth_model";  // 0 Black, 1 Blue, 2 Anniversary, 3 Lindell (the Analog Compressor's models)
+    inline const juce::StringArray& warmthModelNames()
+    {
+        static const juce::StringArray names { Songsmith::AnalogModels::modelNameTable[0], Songsmith::AnalogModels::modelNameTable[1],
+                                               Songsmith::AnalogModels::modelNameTable[2], Songsmith::AnalogModels::modelNameTable[3] };
+        return names;   // the host's list shows the full names, the same as the Analog Compressor's Model parameter
+    }
+    inline constexpr int defaultWarmthModel = 0;   // Black, the original Songsmith voicing
     // --- Defaults: gentle and musically useful -------------------------------------------
     constexpr float defaultThresholdDb = -18.0f, defaultRatio = 2.0f, defaultAttackMs = 10.0f, defaultReleaseMs = 100.0f,
                     defaultKneeDb = 6.0f, defaultMakeupDb = 0.0f, defaultMixPercent = 100.0f;
