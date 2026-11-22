@@ -1,5 +1,7 @@
 # EQ-35 — Move Piano button to far right of EQ footer
 
+> **Superseded by songsmithstudio#17:** the Piano button is now centred in the bottom strip (the bottom middle), so the Before and After loudness can keep the far right like every other plugin. This prompt is kept as the record of what was built then.
+
 **Status:** Done in #81  
 **Model:** Sonnet  
 **Scope:** Songsmith EQ only.  

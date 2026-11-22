@@ -255,7 +255,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithEQAudioProcessor::c
 
     // Scale the whole curve (v0.5): every gain band's dB gain x scale. 100 % = as set.
     layout.add (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { EQ::gainScaleId, 6 }, "All Band Gains",
+        juce::ParameterID { EQ::gainScaleId, 6 }, "Gain Scale",
         juce::NormalisableRange<float> (EQ::minGainScale, EQ::maxGainScale, 0.1f), 100.0f,
         juce::AudioParameterFloatAttributes().withLabel ("%")));
 

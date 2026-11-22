@@ -5134,7 +5134,7 @@ public:
             Songsmith::UI::Testing::checkGlobalBypass (*this, *ed, *p.apvts.getParameter (EQ::bypassId), "EQ at " + juce::String (s) + "x");
         }
 
-        beginTest ("Title bar reads name, preset, Undo, Redo, Bypass; Gain Scale stays reachable in the toolbox (SUI-18)");
+        beginTest ("Title bar reads name, preset, Undo, Redo, Bypass; the Gain Scale control is gone but a saved scale still shapes the sound (songsmithstudio#17)");
         for (float s : { 1.0f, 2.0f })
         {
             SongsmithEQAudioProcessor p;
@@ -5143,23 +5143,18 @@ public:
             auto ed = UiSizeTests::makeEditor (p, s, juce::roundToInt (1280 * s), juce::roundToInt (788 * s));
             Songsmith::UI::Testing::checkSuiteHeader (*this, *ed, context);
 
-            if (auto* eqEditor = dynamic_cast<SongsmithEQAudioProcessorEditor*> (ed.get()))
-            {
-                auto& scale = eqEditor->getScaleSlider();
-                expect (scale.isVisible() && scale.getY() > 42, context + ": the Scale control is out of the title bar and still visible");
-                expectWithinAbsoluteError (scale.getValue(), 150.0, 0.5, context + ": a saved non-default Gain Scale is kept, not reset to 100 %");
-                expectWithinAbsoluteError ((double) p.getGainScale(), 1.5, 0.01, context + ": and the sound still uses it");
+            // The parameter is never removed (sessions and automation keep their meaning), so a saved scale is still used.
+            expectWithinAbsoluteError ((double) p.getGainScale(), 1.5, 0.01, context + ": a saved non-default Gain Scale still shapes the sound");
+            expect (p.apvts.getParameter (EQ::gainScaleId) != nullptr, context + ": and the parameter still exists");
 
-                // EQ-41: the label says Gain Scale, typing works with or without the words, the help is plain.
-                expect (scale.getTextFromValue (100.0) == "All Band Gains 100%", context + ": reads All Band Gains 100%");
-                expect (scale.getTextFromValue (-100.0) == "All Band Gains -100%", context + ": negative end");
-                for (auto text : { "50", "50%", "All Band Gains 50%", "Gain Scale 50%" })
-                    expectWithinAbsoluteError (scale.getValueFromText (text), 50.0, 0.001, context + ": typing \"" + juce::String (text) + "\" sets 50");
-                expect (scale.getTooltip().startsWith ("All Band Gains: turns every band's boosts and cuts up or down together."), context + ": plain tooltip");
-                expect (scale.getTooltip().contains ("Double-click to return to 100%."), context + ": tooltip mentions reset");
-                const auto* editorBounds = ed.get();
-                expect (scale.getRight() <= editorBounds->getWidth() && scale.getWidth() > 60, context + ": fits inside the editor");
-            }
+            // No control in the window sets it: nothing in the editor is called Gain Scale or All Band Gains.
+            std::function<void (juce::Component&)> check = [&] (juce::Component& c)
+            {
+                expect (! c.getTitle().containsIgnoreCase ("gain scale") && ! c.getTitle().containsIgnoreCase ("all band gains"), context + ": no control named for it (" + c.getTitle() + ")");
+                for (auto* child : c.getChildren())
+                    check (*child);
+            };
+            check (*ed);
         }
     }
 };
@@ -6521,7 +6516,6 @@ public:
                 if (other != &os && other->isVisible() && other->getBottom() > os.getY() && other->getY() < os.getBottom()
                     && other->getX() < os.getX() && other->getWidth() < ed->getContent().getWidth() / 2)
                     expect (other->getRight() <= os.getX(), context + ": nothing in the row overlaps Oversampling");
-            expect (os.getRight() >= eqEditor->getScaleSlider().getRight(), context + ": Oversampling is the rightmost control of its row");
 
             // Changing the range is a presentation change only: no parameter, so no sound, moves.
             std::vector<float> before;
@@ -6550,7 +6544,6 @@ public:
             expect (button.isVisible() && button.getWidth() > 0, context + ": visible");
             expectEquals (button.getY(), os.getY(), context + ": same row as Oversampling");
             expect (button.getRight() < os.getX() && os.getX() - button.getRight() < 16, context + ": immediately left of Oversampling, which is the rightmost control of the row");
-            expect (os.getRight() >= eqEditor->getScaleSlider().getRight(), context + ": Oversampling is to the right of the All Band Gains control");
             expect (button.getToggleState(), context + ": on in a new instance");
             expect (button.getTooltip().startsWith ("Accurate highs:"), context + ": tooltip");
         }

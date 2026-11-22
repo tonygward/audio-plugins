@@ -43,7 +43,6 @@ public:
     juce::ComboBox& getOversamplingBox() noexcept   { return oversamplingBox; }
     juce::ComboBox& getRangeBox() noexcept { return rangeBox; }         // the Graph Range, above the dB scale (songsmithstudio#17)
     juce::ComboBox& getGuideBox() noexcept { return guideBox; }         // the Frequency Guide's instrument
-    juce::Slider& getScaleSlider() noexcept  { return scaleSlider; }   // Gain Scale, in the toolbox (SUI-18)
     float getContentScale() const noexcept   { return contentScale; }   // design units -> window pixels
     float getLayoutStep() const noexcept     { return layoutStep; }
 
@@ -90,8 +89,6 @@ private:
     // songsmithstudio#16: the suite's Output panel (meter, compact Output Trim, Auto Gain) at the far right.
     Songsmith::UI::OutputPanel outputPanel { false };
     juce::Slider& outputSlider = outputPanel.getTrim();
-    juce::Slider scaleSlider { juce::Slider::LinearBar, juce::Slider::TextBoxLeft };
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> scaleAttachment;
     juce::TextButton bypassButton { "Bypass" }, accurateHighsButton { "Accurate Highs" };
     juce::TextButton guideButton { "Frequency Guide" };   // EQ-32: the listening regions behind the graph
     juce::ComboBox guideBox;                              // which instrument the guide is for

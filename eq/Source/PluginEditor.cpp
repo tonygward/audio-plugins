@@ -162,24 +162,6 @@ SongsmithEQAudioProcessorEditor::SongsmithEQAudioProcessorEditor (SongsmithEQAud
     Songsmith::UI::styleBypassButton (bypassButton);   // the suite's Bypass red
     content.addAndMakeVisible (bypassButton);
 
-    // Scale the whole curve (double-click: 100 %).
-    scaleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
-        processor.apvts, EQ::gainScaleId, scaleSlider);
-    scaleSlider.textFromValueFunction = [] (double pct) { return "All Band Gains " + juce::String (juce::roundToInt (pct)) + "%"; };
-    scaleSlider.valueFromTextFunction = [] (const juce::String& t)
-    {
-        return t.retainCharacters ("-0123456789.").getDoubleValue();
-    };
-    scaleSlider.setDoubleClickReturnValue (true, 100.0);
-    scaleSlider.setTextBoxIsEditable (true);
-    scaleSlider.setColour (juce::Slider::trackColourId, EQColours::band (3));
-    scaleSlider.setColour (juce::Slider::textBoxTextColourId, EQColours::text);
-    scaleSlider.setTooltip ("All Band Gains: turns every band's boosts and cuts up or down together. It is not the graph's display range. 100% uses the values you set, "
-                            "0% flattens them, and negative values turn boosts into cuts. Low Cut, High Cut and Notch "
-                            "bands are not affected. Double-click to return to 100%.");
-    scaleSlider.updateText();
-    content.addAndMakeVisible (scaleSlider);
-
     autoGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         processor.apvts, EQ::autoGainId, autoGainButton);
     autoGainButton.setColour (juce::TextButton::buttonOnColourId, EQColours::totalCurve.withAlpha (0.85f));
@@ -536,13 +518,11 @@ void SongsmithEQAudioProcessorEditor::layoutContent()
         auto row = area.removeFromTop (rowHeight).reduced (margin, 3);
         phaseBox.setBounds (row.removeFromLeft (comboWidth (phaseBox)));
         row.removeFromLeft (gap);
-        // The Scale control (gain scale, a real sound parameter) now lives in the toolbox beside the other
-        // gain controls, and the band count sits next to it when there is room (both moved out of the header).
+        // The Gain Scale control was removed from the window (songsmithstudio#17); its parameter stays, so a session that saved a
+        // scale keeps the sound. The band count sits next to Accurate Highs when there is room.
         oversamplingBox.setBounds (row.removeFromRight (comboWidth (oversamplingBox)));   // songsmithstudio#17: the rightmost control of its row
         row.removeFromRight (gap);
         accurateHighsButton.setBounds (row.removeFromRight (buttonWidth ({ accurateHighsButton.getButtonText() })));   // right beside Oversampling, the setting it is the alternative to
-        row.removeFromRight (gap);
-        scaleSlider.setBounds (row.removeFromRight (barWidth ({ "All Band Gains -100%", "All Band Gains 200%" })));
         row.removeFromRight (gap);
         const int countWidth = (int) std::ceil (textWidth ("24 / 24 bands", EQColours::numbers (EQColours::Type::control))) + 8;
         const bool countFits = row.getWidth() >= countWidth + gap * 2;
