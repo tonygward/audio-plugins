@@ -6,6 +6,7 @@
 #include "NeedleMeter.h"
 #include "../../shared/Source/SongsmithDropdown.h"
 #include "../../shared/Source/SongsmithSetLevels.h"
+#include "../../shared/Source/SongsmithOutputPanel.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithMeterColumn.h"
 
@@ -93,6 +94,7 @@ public:
     // For tests and screenshots.
     FET::UI::NeedleMeter& getMeter() noexcept { return meter; }
     Songsmith::UI::MeterColumn& getMeterColumn() noexcept { return meterColumn; }
+    Songsmith::UI::OutputPanel& getOutputPanel() noexcept { return outputPanel; }
     FETKnob& getKnob (const juce::String& id);
     juce::Button& getRatioButton (int index) { return *ratioButtons[(size_t) index]; }   // 0..3 = 4, 8, 12, 20
     juce::Label& getLegacyRatioLabel() noexcept { return legacyRatioLabel; }
@@ -211,7 +213,7 @@ private:
     float uiScale = 1.0f;
     bool constructed = false;   // until then, resizing does not overwrite the saved window width
 
-    FETKnob input, output, attack, release;
+    FETKnob input, attack, release;   // Output moved into the Output panel (songsmithstudio#16)
     std::array<std::unique_ptr<juce::TextButton>, 4> ratioButtons;   // 0..3 = 4, 8, 12, 20 (2:1 is no longer offered, ACOMP-19)
     juce::TextButton allButton { "All" };
     juce::Label legacyRatioLabel;   // "Saved 2:1": shown only when an older session still uses 2:1
@@ -233,7 +235,13 @@ private:
 
     std::array<juce::TextButton, 3> meterButtons { juce::TextButton (meterModeName (0)), juce::TextButton (meterModeName (1)), juce::TextButton (meterModeName (2)) };
     FET::UI::NeedleMeter meter;
-    Songsmith::UI::MeterColumn meterColumn { true };   // SUI-23: Gain Reduction and Output at the far right, like the Songsmith Compressor
+    // songsmithstudio#16: the suite's Output panel at the far right: Gain Reduction and Output meters, the Output control as a compact
+    // Output Trim, and Auto Gain. The parameter is still "output" (ID, range and every saved value unchanged).
+    Songsmith::UI::OutputPanel outputPanel { true };
+    Songsmith::UI::MeterColumn& meterColumn = outputPanel.getMeters();
+    juce::AudioProcessorValueTreeState::SliderAttachment outputTrimAttachment;
+    juce::AudioProcessorValueTreeState::ButtonAttachment autoGainAttachment;
+    juce::String lastAutoGainText;
     float grDisplayDb = 0.0f;
 
     juce::ComboBox oversampling;

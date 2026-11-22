@@ -12,6 +12,7 @@
 #include "../../shared/Source/SongsmithBeforeAfter.h"
 #include "../../shared/Source/SongsmithHeader.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
+#include "../../shared/Source/SongsmithOutputStage.h"
 
 class SongsmithAnalogCompressorProcessor : public juce::AudioProcessor, private juce::Timer
 {
@@ -27,7 +28,7 @@ public:
     // hidden parameter so old automation still works; whichever of the two changed last decides.
     // 6 = adds the Model choice and the 1176AE Slow Attack switch (ACOMP-10). Sessions from 1-5 have no model and load
     // index 0, the original Rev D Blackface, with Slow Attack Off: they sound exactly as before.
-    static constexpr int stateVersion = 6;
+    static constexpr int stateVersion = 7;   // 7: songsmithstudio#16 added Auto Gain (older sessions load with it off)
 
     SongsmithAnalogCompressorProcessor();
     ~SongsmithAnalogCompressorProcessor() override;
@@ -105,6 +106,10 @@ public:
     // Test hook: false = the clean engine only (no FET or output-stage colour).
     void setColourEnabled (bool on) noexcept { colourEnabled = on; }
 
+    // For the editor: the correction Auto Gain is applying right now, in dB (0 when off).
+    float getAutoGainAppliedDb() const noexcept { return outputStage2.getAutoGainAppliedDb(); }
+    bool isAutoGainOn() const noexcept { return autoGainParam->load (std::memory_order_relaxed) > 0.5f; }
+
     void updateLatencyNow();   // what the timer does: report the selected setting's latency
 
     // ACOMP-09 Set Levels. The audio thread only copies the incoming sound into `calibrationCapture`; the
@@ -167,6 +172,8 @@ private:
 
     using Smoothed = juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative>;
     Smoothed inputGain { 1.0f }, outputGain { 1.0f };
+    Songsmith::OutputStage outputStage2;   // Auto Gain only (the Output control stays where it is in the chain; see SongsmithOutputStage.h)
+    std::atomic<float>* autoGainParam = nullptr;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix { 0.0f };   // 1 = fully bypassed
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> pathFade { 1.0f };    // oversampling switch
 

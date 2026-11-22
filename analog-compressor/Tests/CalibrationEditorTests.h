@@ -15,7 +15,7 @@ struct CalibrationEditorTests final : juce::UnitTest
     {
         using namespace CalibrationTestSupport;
 
-        beginTest ("Set Levels sits under Output, beside Input, and does nothing until Apply");
+        beginTest ("Set Levels sits under Input, beside Ignore Below, and does nothing until Apply");
         {
             SongsmithAnalogCompressorProcessor p;
             p.prepareToPlay (fs, 512);
@@ -23,11 +23,12 @@ struct CalibrationEditorTests final : juce::UnitTest
             auto& button = e.getSetLevelsButton();
             expectEquals (button.getButtonText(), juce::String ("Set Levels"));
             expect (button.getTooltip().isNotEmpty() && button.getTitle().isNotEmpty(), "tooltip and accessible name");
-            const auto out = e.getKnob (ID::output).getBounds(), in = e.getKnob (ID::input).getBounds();
-            expect (button.getX() >= out.getX() && button.getRight() <= out.getRight(), "directly under the Output knob");
-            expect (button.getY() >= out.getBottom() - 1, "below the knob, not on it");
-            expect (button.getX() > in.getRight() - 1, "beside Input");
+            const auto in = e.getKnob (ID::input).getBounds();
+            expect (button.getX() >= in.getX() && button.getRight() <= in.getRight(), "directly under the Input knob (Output moved into the Output panel)");
+            expect (button.getY() >= in.getBottom() - 1, "below the knob, not on it");
+            expect (button.getX() > e.getIgnoreBelow().getRight() - 1, "beside Ignore Below, on its right");
             expect (! button.getBounds().intersects (e.getIgnoreBelow().getBounds()), "clear of Ignore Below");
+            expect (! button.getBounds().intersects (e.getOutputPanel().getBounds()), "and of the Output panel");
             expect (! button.getBounds().intersects (e.getGrOffBounds()), "clear of Gain Reduction Off");
             expect (button.getBottom() <= FET::contentHeight, "inside the controls area");
             expect (! e.getSetLevelsPanel().isVisible(), "the steps panel is only open while Set Levels is in use");
@@ -36,7 +37,7 @@ struct CalibrationEditorTests final : juce::UnitTest
             auto snapshot = [&]
             {
                 juce::Array<juce::Rectangle<int>> r;
-                for (auto id : { ID::input, ID::output, ID::attack, ID::release })
+                for (auto id : { ID::input, ID::attack, ID::release })
                     r.add (e.getKnob (id).getBounds());
                 r.add (e.getIgnoreBelow().getBounds());
                 r.add (e.getMeter().getBounds());
@@ -131,7 +132,7 @@ struct CalibrationEditorTests final : juce::UnitTest
             auto behindTheDialog = [&] (juce::Component* hit) { return hit == &e.getSetLevelsScrim() || hit == &e.getSetLevelsPanel() || e.getSetLevelsPanel().isParentOf (hit); };   // the panel or anything on it (its buttons, the ear)
             expect (behindTheDialog (content.getComponentAt (knobCentre)), "a click on the Input knob lands on the scrim or the panel, never on the knob");
             expect (behindTheDialog (content.getComponentAt (content.getLocalPoint (&e.getBypassButton(), e.getBypassButton().getLocalBounds().getCentre()))), "and Bypass is behind it too");
-            expect (behindTheDialog (content.getComponentAt (content.getLocalPoint (&e.getKnob (ID::output), e.getKnob (ID::output).getLocalBounds().getCentre()))), "and the Output knob");
+            expect (behindTheDialog (content.getComponentAt (content.getLocalPoint (&e.getOutputPanel().getTrim(), e.getOutputPanel().getTrim().getLocalBounds().getCentre()))), "and the Output Trim knob");
             expect (e.getSetLevelsPanel().isKeyboardFocusContainer(),
                     "Tab cycles inside the panel only");
             expect (content.getIndexOfChildComponent (&e.getSetLevelsScrim()) < content.getIndexOfChildComponent (&e.getSetLevelsPanel()), "the scrim is under the panel");
