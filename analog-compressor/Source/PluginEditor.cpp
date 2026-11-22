@@ -1,6 +1,7 @@
 #include "PluginEditor.h"
 #include "../../shared/Source/SongsmithGrain.h"
 #include "FETEngine.h"
+#include "../../shared/Source/SongsmithModelTheme.h"
 
 using namespace FET;
 using namespace FET::UI;
@@ -657,34 +658,8 @@ void SongsmithAnalogCompressorEditor::paintContent (juce::Graphics& g)
 
         // ACOMP-20: the model shows mainly through its faceplate colour, under the same brushed grain (drawn before this).
         // Blackface is left exactly as it always looked. These are original designs, not copies of any faceplate.
-        const auto tint = [&] (juce::Colour colour, float strength)
-        {
-            g.setGradientFill (juce::ColourGradient (colour.withAlpha (strength * 1.15f), 0.0f, plate.getY(),
-                                                     colour.withAlpha (strength * 0.75f), 0.0f, plate.getBottom(), false));
-            g.fillRoundedRectangle (plate, 8.0f);
-        };
-        if (modelShown == (int) Model::blueStripe)
-        {
-            tint (juce::Colour (0xff2f6bc4), 0.34f);   // a clear, bright blue, with one broad stripe
-            g.setColour (juce::Colour (0xff6fa8ee).withAlpha (0.85f));
-            g.fillRect (plate.getX() + 24.0f, plate.getY() + 5.0f, plate.getWidth() - 48.0f, 4.0f);
-        }
-        else if (modelShown == (int) Model::anniversary)
-        {
-            tint (juce::Colour (0xff1c3f94), 0.40f);   // a deeper, navy blue, with white pinstripes
-            g.setColour (juce::Colours::white.withAlpha (0.78f));
-            g.fillRect (plate.getX() + 24.0f, plate.getY() + 5.0f, plate.getWidth() - 48.0f, 1.5f);
-            g.fillRect (plate.getX() + 24.0f, plate.getY() + 9.0f, plate.getWidth() - 48.0f, 1.5f);
-            g.fillRect (plate.getX() + 24.0f, plate.getBottom() - 11.0f, plate.getWidth() - 48.0f, 1.5f);
-            g.fillRect (plate.getX() + 24.0f, plate.getBottom() - 7.0f, plate.getWidth() - 48.0f, 1.5f);
-        }
-        else if (modelShown == (int) Model::lindell)
-        {
-            tint (juce::Colour (0xff9aa1ab), 0.30f);   // grey, with fine vertical lines
-            g.setColour (juce::Colours::white.withAlpha (0.05f));
-            for (float x = plate.getX() + 18.0f; x < plate.getRight() - 14.0f; x += 7.0f)
-                g.fillRect (x, plate.getY() + 14.0f, 1.0f, plate.getHeight() - 28.0f);
-        }
+        // songsmithstudio#23: the colours come from the one shared table, which the Songsmith Compressor's toolbox also uses.
+        Songsmith::UI::ModelTheme::paintSurface (g, plate, Songsmith::UI::ModelTheme::forLook (modelShown + 1), 8.0f);
     }
     Songsmith::UI::LookAndFeelBase::drawTitleBar (g, r.withHeight (Songsmith::UI::titleBarHeight));
     Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, Colours::text, Colours::accent);
