@@ -457,6 +457,8 @@ SongsmithAnalogCompressorEditor::SongsmithAnalogCompressorEditor (SongsmithAnalo
     levelsPanel.heading.setInterceptsMouseClicks (false, false);
     levelsPanel.addAndMakeVisible (levelsPanel.heading);
     levelsPanel.addAndMakeVisible (setLevelsMessage);
+    levelsEar.setAccent (Colours::accent);
+    levelsPanel.addAndMakeVisible (levelsEar);
     levelsPanel.addAndMakeVisible (setLevelsAction);
     levelsPanel.addAndMakeVisible (setLevelsCancel);
     content.addAndMakeVisible (setLevelsButton);
@@ -865,6 +867,10 @@ void SongsmithAnalogCompressorEditor::showLevelsStage (LevelsStage stage)
     setLevelsCancel.setButtonText (idle ? "Close" : "Cancel");
     setLevelsCancel.setTitle (idle ? "Close Set Levels" : "Cancel Set Levels");
     setLevelsMessage.setTooltip (setLevelsMessage.getText());
+    if (stage != LevelsStage::listening)
+        levelsEar.setState (Songsmith::UI::ListeningEar::State::hidden);   // the ear shows only while listening
+    else if (levelsEar.getState() == Songsmith::UI::ListeningEar::State::hidden)
+        levelsEar.setState (Songsmith::UI::ListeningEar::State::waitingForAudio);
     levelsPanel.heading.setText (stage == LevelsStage::listening ? "Set Levels: listening"
                                  : stage == LevelsStage::proposal ? "Set Levels: proposal" : "Set Levels",
                                  juce::dontSendNotification);
@@ -899,6 +905,7 @@ void SongsmithAnalogCompressorEditor::layoutLevelsPanel()
     levelsPanel.heading.setBounds (r.removeFromTop (22));
     auto buttons = r.removeFromBottom (28);
     r.removeFromBottom (6);
+    levelsEar.setBounds (r.removeFromBottom (Songsmith::UI::ListeningEar::iconSize + 2));
     setLevelsMessage.setBounds (r);
     setLevelsAction.setBounds (buttons.removeFromLeft ((buttons.getWidth() - 8) / 2));
     buttons.removeFromLeft (8);
@@ -977,6 +984,7 @@ void SongsmithAnalogCompressorEditor::updateLevelsListening()
         finishListening();   // the buffer filled up: that is enough
         return;
     }
+    levelsEar.setState (cap.hasHeardSound() ? Songsmith::UI::ListeningEar::State::listening : Songsmith::UI::ListeningEar::State::waitingForAudio);
     const auto text = "Listening: " + juce::String (cap.getSeconds(), 1) + " seconds. Play a loud, typical part, then press Finish Listening.";
     if (text != setLevelsMessage.getText())
         setLevelsMessage.setText (text, juce::dontSendNotification);

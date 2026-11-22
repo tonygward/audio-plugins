@@ -25,6 +25,7 @@ namespace
     const juce::Rectangle<int> meterModes         { 254, 232, 252, 28 };
     const juce::Rectangle<int> modeArea           { 254, 296, 252, 36 };
     const juce::Rectangle<int> peakReductionArea  { 526, 86, 210, 240 };
+    constexpr int setLevelsX = 576, setLevelsY = 334, setLevelsWidth = 110, setLevelsHeight = 24;   // under Peak Reduction, the knob it sets
     constexpr int oversamplingRight = 526 + 210, oversamplingTop = 60, oversamplingHeight = 22;   // top-right of the controls, left of the Output panel
 
     const char* const compressTip = "Compress: gentle, smooth levelling. A good starting point for most vocals, bass and guitars.";
@@ -202,6 +203,25 @@ SongsmithOpticalLevellerEditor::SongsmithOpticalLevellerEditor (SongsmithOptical
     oversamplingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (p.apvts, oversamplingId, oversamplingBox);
     content.addAndMakeVisible (oversamplingBox);
 
+    setLevelsButton.setTitle ("Set Levels");
+    setLevelsButton.setTooltip ("Set Levels: play a typical part of your song, choose how much gain reduction you want on average, and the plugin suggests a Peak Reduction setting. "
+                                "Nothing changes until you press Apply, and Undo restores the old setting.");
+    setLevelsButton.onClick = [this] { beginListening(); };
+    content.addAndMakeVisible (setLevelsButton);
+    levelsDialog.setAccent (Colours::accent);
+    levelsDialog.applyTooltip = "Apply: set Peak Reduction to the suggestion. Undo restores the old setting.";
+    levelsDialog.finishTooltip = "Finish Listening: stop listening and see the suggested Peak Reduction. Nothing changes until you press Apply.";
+    levelsDialog.enableTarget ("Target Gain Reduction",
+                               "Target Gain Reduction: how much the leveller should turn the level down on average, in dB. -3.0 dB means 3 dB of reduction. "
+                               "It is a goal for the sound you play, not a fixed amount at every moment. It is not a change of volume: Gain is separate. Click the number to type a value.",
+                               -(double) Opt::Calibration::defaultTargetDb,
+                               [] (double v) { return Opt::Calibration::targetText (-v); },
+                               [] (const juce::String& t, double& v) { if (! Opt::Calibration::parseTarget (t, v)) return false; v = -v; return true; });
+    levelsDialog.onFinish = [this] { finishListening(); };
+    levelsDialog.onApply = [this] { applyProposal(); };
+    levelsDialog.onCancel = [this] { cancelLevels(); };
+    levelsDialog.onTargetEdited = [this] (double) { updateLevelsProposal(); };
+
     bypassButton.setClickingTogglesState (true);
     bypassButton.setTooltip ("Bypass: the sound passes through untouched");
     bypassButton.setTitle ("Bypass");
@@ -250,6 +270,7 @@ SongsmithOpticalLevellerEditor::SongsmithOpticalLevellerEditor (SongsmithOptical
     content.addAndMakeVisible (*diagnostics);
 
     content.addAndMakeVisible (titleHint);   // the plugin name explains the plugin
+    content.addChildComponent (levelsDialog);   // last: it floats over everything else while Set Levels is open
 
     layoutContent();
 
@@ -337,6 +358,10 @@ void SongsmithOpticalLevellerEditor::layoutContent()
         oversamplingBox.setTopLeftPosition (oversamplingRight - right, oversamplingTop);
     }
 
+    setLevelsButton.setBounds (setLevelsX, setLevelsY, setLevelsWidth, setLevelsHeight);
+    levelsDialog.setBounds (0, 0, designWidth, contentHeight);
+    levelsDialog.setPanelAnchor ({ setLevelsX, setLevelsY, setLevelsWidth, setLevelsHeight });
+
     diagnostics->setBounds (0, contentHeight, designWidth, footerHeight);
 }
 
@@ -414,6 +439,18 @@ void SongsmithOpticalLevellerEditor::setMeterMode (int mode)
 
 void SongsmithOpticalLevellerEditor::advanceMeter (float seconds)
 {
+    levelsDialog.tick();
+    if (levelsDialog.getStage() == Songsmith::UI::SetLevelsDialog::Stage::listening)
+    {
+        auto& cap = proc.levelCapture;
+        if (! cap.isActive() && cap.getSamples() > 0)
+            finishListening();   // the buffer filled up: that is enough
+        else
+            levelsDialog.updateListening (cap.hasHeardSound(),
+                                          cap.hasHeardSound() ? "Listening: " + juce::String (cap.getSeconds(), 1) + " seconds. Play a typical part, then press Finish Listening."
+                                                              : juce::String ("Waiting for audio. Start playing your song, then press Finish Listening."));
+    }
+
     const float gr = proc.takeGainReductionDb();
     const float outDb = proc.takeOutputRmsDb();
     meter.setReading (meterReadingVu (proc.meterMode.load(), gr, outDb), seconds);
@@ -431,6 +468,83 @@ void SongsmithOpticalLevellerEditor::advanceMeter (float seconds)
     }
 
     content.repaint (meterArea.getX(), meterArea.getY(), meterArea.getWidth(), meterModes.getBottom() + 40 - meterArea.getY());
+}
+
+//==============================================================================
+// Set Levels (songsmithstudio#19). Listening only copies sound; the analysis runs here, on the message thread, once the
+// musician presses Finish Listening. Peak Reduction is written only by Apply, as one Undo step.
+bool SongsmithOpticalLevellerEditor::levelsSettingsUnchanged() const
+{
+    const bool limit = juce::roundToInt (proc.apvts.getRawParameterValue (modeId)->load()) == 1;
+    return limit == levelsSettings.limit
+           && std::abs (proc.apvts.getRawParameterValue (peakReductionId)->load() - levelsSettings.peakReduction) < 0.005f;
+}
+
+void SongsmithOpticalLevellerEditor::beginListening()
+{
+    levelsSettings.limit = juce::roundToInt (proc.apvts.getRawParameterValue (modeId)->load()) == 1;
+    levelsSettings.peakReduction = proc.apvts.getRawParameterValue (peakReductionId)->load();
+    levelsSettings.gainDb = proc.apvts.getRawParameterValue (gainId)->load();
+    levelsResult = {};
+    proc.levelCapture.start();
+    levelsDialog.beginListening ("Waiting for audio. Start playing your song, then press Finish Listening.");
+}
+
+void SongsmithOpticalLevellerEditor::updateLevelsProposal()
+{
+    if (levelsDialog.getStage() != Songsmith::UI::SetLevelsDialog::Stage::proposal)
+        return;
+    auto& cap = proc.levelCapture;
+    const float* in[2] = { cap.channel (0), cap.channel (1) };
+    levelsResult = Opt::Calibration::analyse (in, 2, cap.getSamples(), cap.getSampleRate(), levelsSettings,
+                                              (float) -levelsDialog.getTargetValue());
+    levelsDialog.showProposal (Opt::Calibration::messageFor (levelsResult), levelsResult.usable());
+}
+
+void SongsmithOpticalLevellerEditor::finishListening()
+{
+    if (levelsDialog.getStage() != Songsmith::UI::SetLevelsDialog::Stage::listening)
+        return;
+    proc.levelCapture.stop();
+    if (! levelsSettingsUnchanged())
+    {
+        levelsResult = {};
+        levelsDialog.showNotice ("Peak Reduction or the mode changed while listening, so the result would not fit. Press Set Levels to try again.");
+        return;
+    }
+    levelsDialog.showProposal ({}, false);   // switches to the proposal stage; the analysis fills the message
+    updateLevelsProposal();
+    if (! levelsResult.usable())
+        levelsDialog.showNotice (Opt::Calibration::messageFor (levelsResult));   // silence or too short: nothing to apply
+}
+
+void SongsmithOpticalLevellerEditor::applyProposal()
+{
+    if (levelsDialog.getStage() != Songsmith::UI::SetLevelsDialog::Stage::proposal || ! levelsResult.usable())
+        return;
+    if (! levelsSettingsUnchanged())   // never write over a change the musician or host automation made meanwhile
+    {
+        levelsDialog.showNotice ("Peak Reduction or the mode changed since listening, so nothing was applied. Press Set Levels to try again.");
+        return;
+    }
+    const auto result = levelsResult;
+    proc.history.runStep ("set levels", [&]
+    {
+        auto* p = proc.apvts.getParameter (peakReductionId);
+        p->beginChangeGesture();
+        p->setValueNotifyingHost (p->convertTo0to1 (result.peakReduction));
+        p->endChangeGesture();
+    });
+    levelsResult = {};
+    levelsDialog.closeNow();   // Apply is the confirmation: the panel closes at once, and the knob shows the new value
+    refreshHistoryButtons();
+}
+
+void SongsmithOpticalLevellerEditor::cancelLevels()
+{
+    proc.levelCapture.stop();
+    levelsResult = {};
+    levelsDialog.closeNow();   // Cancel changes nothing
 }
 
 //==============================================================================

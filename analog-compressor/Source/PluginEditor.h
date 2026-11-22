@@ -5,6 +5,7 @@
 #include "FETLookAndFeel.h"
 #include "NeedleMeter.h"
 #include "../../shared/Source/SongsmithDropdown.h"
+#include "../../shared/Source/SongsmithSetLevels.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithMeterColumn.h"
 
@@ -123,6 +124,7 @@ public:
     juce::Button& getSetLevelsCancelButton() noexcept { return setLevelsCancel; }    // in the panel: Cancel, or Close after a result
     juce::Label& getSetLevelsMessage() noexcept { return setLevelsMessage; }
     juce::Component& getSetLevelsPanel() noexcept { return levelsPanel; }
+    Songsmith::UI::ListeningEar& getListeningEar() noexcept { return levelsEar; }
     bool isSetLevelsPanelOpen() const noexcept { return levelsPanel.isVisible(); }
     void closeSetLevelsNotice();           // dismisses the panel after a result (nothing is changed)
     const FET::Calibration::Result& getLevelsResult() const noexcept { return levelsResult; }
@@ -146,6 +148,7 @@ private:
         advanceMeter (1.0f / 30.0f);
         refreshHistoryButtons();
         updateLevelsListening();
+        levelsEar.tick();
         if (levelsNoticeTicks > 0 && --levelsNoticeTicks == 0)
             closeSetLevelsNotice();
     }
@@ -176,6 +179,7 @@ private:
     void layoutLevelsPanel();
     void showLevelsNotice (const juce::String& text);
     LevelsScrim levelsScrim;
+    Songsmith::UI::ListeningEar levelsEar;   // songsmithstudio#19: the suite's listening ear, the same component as the Optical Leveller
     LevelsPanel levelsPanel;
     juce::TextButton setLevelsButton { "Set Levels" }, setLevelsAction { "Finish Listening" }, setLevelsCancel { "Cancel" };
     juce::Label setLevelsMessage;

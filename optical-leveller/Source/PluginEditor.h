@@ -5,6 +5,8 @@
 #include "OptLookAndFeel.h"
 #include "OptMeter.h"
 #include "../../shared/Source/SongsmithDropdown.h"
+#include "../../shared/Source/SongsmithSetLevels.h"
+#include "OptCalibration.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithMeterColumn.h"
 
@@ -68,6 +70,14 @@ public:
     juce::Button& getBypassButton() noexcept { return bypassButton; }
     juce::ComboBox& getPresetBox() noexcept { return presetBox; }
     juce::ComboBox& getOversamplingBox() noexcept { return oversamplingBox; }
+    // Set Levels (songsmithstudio#19)
+    juce::Button& getSetLevelsButton() noexcept { return setLevelsButton; }
+    Songsmith::UI::SetLevelsDialog& getSetLevelsDialog() noexcept { return levelsDialog; }
+    const Opt::Calibration::Result& getLevelsResult() const noexcept { return levelsResult; }
+    void beginListening();
+    void finishListening();
+    void applyProposal();
+    void cancelLevels();
     juce::Rectangle<int> getTitleBounds() const noexcept { return titleBounds; }
     float getContentScale() const noexcept { return (float) getWidth() / (float) Opt::EditorLayout::designWidth; }
     juce::Component& getTitleHint() noexcept { return titleHint; }
@@ -126,6 +136,12 @@ private:
 
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
     juce::ComboBox presetBox;
+    juce::TextButton setLevelsButton { "Set Levels" };
+    Songsmith::UI::SetLevelsDialog levelsDialog;
+    Opt::Calibration::Result levelsResult;
+    Opt::Calibration::Settings levelsSettings;   // what the proposal was measured with
+    bool levelsSettingsUnchanged() const;
+    void updateLevelsProposal();
     juce::ComboBox oversamplingBox;   // songsmithstudio#19: Off, 2x or 4x, in the title bar left of Bypass
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> oversamplingAttachment;
     juce::TooltipWindow tooltips { this, 600 };

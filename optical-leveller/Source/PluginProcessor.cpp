@@ -79,6 +79,7 @@ void SongsmithOpticalLevellerProcessor::prepareToPlay (double sampleRate, int sa
     bypassMix.reset (sampleRate, bypassFadeSeconds);
     bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
+    levelCapture.prepare (sampleRate, juce::jmax (1, getTotalNumInputChannels()));
     baseRate = sampleRate;
     using OS = juce::dsp::Oversampling<float>;
     for (size_t k = 1; k < oversamplers.size(); ++k)
@@ -140,6 +141,8 @@ void SongsmithOpticalLevellerProcessor::processBlock (juce::AudioBuffer<float>& 
     const int numCh = juce::jmin (numIn, SongsmithOptical::Engine::maxChannels);
     const int total = buffer.getNumSamples();
     const int chunk = juce::jmax (1, dryBuffer.getNumSamples());
+
+    levelCapture.push (buffer.getArrayOfReadPointers(), numCh, total);   // Set Levels listens to the dry input; a plain copy
 
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
     engine.setParams (getEngineParams());

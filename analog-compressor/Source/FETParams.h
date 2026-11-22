@@ -208,7 +208,7 @@ namespace FET
     // ACOMP-09 / ACOMP-21: the small Set Levels button sits directly under the Output knob, beside Input. Its steps
     // (listening, proposal, Apply, Cancel) are in a temporary panel above the button, so nothing on the faceplate moves.
     inline constexpr int setLevelsX = 200, setLevelsY = 290 + faceShift, setLevelsWidth = 170, setLevelsHeight = 30;
-    inline constexpr int levelsPanelWidth = 300, levelsPanelHeight = 136, levelsPanelGap = 6;
+    inline constexpr int levelsPanelWidth = 300, levelsPanelHeight = 160, levelsPanelGap = 6;
 
     // ACOMP-21 (replaces ACOMP-19's lower-right place): Oversampling is on the right of the secondary row.
     // songsmithstudio#15: the width follows the text (see Songsmith::UI::Dropdown::widthFor), right-aligned with the meter column.

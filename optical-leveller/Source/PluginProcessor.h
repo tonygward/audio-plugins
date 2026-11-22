@@ -10,6 +10,7 @@
 #include "../../shared/Source/SongsmithDiagnostics.h"
 #include "../../shared/Source/SongsmithBeforeAfter.h"
 #include "../../shared/Source/SongsmithHeader.h"
+#include "../../shared/Source/SongsmithLevelCapture.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
 
 class SongsmithOpticalLevellerProcessor : public juce::AudioProcessor, private juce::Timer
@@ -86,6 +87,9 @@ public:
 
     // songsmithstudio#7: the Before and After loudness shown in the footer. Fed by one scope at the top of processBlock.
     Songsmith::Loudness::BeforeAfterMeter beforeAfter;
+
+    // Set Levels: the audio thread only copies the incoming sound into this; the editor analyses it afterwards.
+    Songsmith::LevelCapture levelCapture;
 
     juce::ValueTree createState();
     void restoreFromValueTree (const juce::ValueTree& saved);
