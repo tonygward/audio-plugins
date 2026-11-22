@@ -26,6 +26,7 @@ SongsmithAnalogCompressorProcessor::SongsmithAnalogCompressorProcessor()
     gentleRatioParam = apvts.getRawParameterValue (ID::ratioTwoToOne);
     grOffParam = apvts.getRawParameterValue (ID::grOff);
     oversamplingParam = apvts.getRawParameterValue (ID::oversampling);
+    autoGainParam = apvts.getRawParameterValue (ID::autoGain);
     allButtonsParam = apvts.getRawParameterValue (ID::allButtons);
     lowCutParam = apvts.getRawParameterValue (ID::detectorLowCut);
     ignoreBelowParam = apvts.getRawParameterValue (ID::ignoreBelowHz);
@@ -63,6 +64,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithAnalogCompressorPro
     layout.add (std::make_unique<AudioParameterBool> (v (ID::allButtons), "All Buttons", false));
     layout.add (std::make_unique<AudioParameterBool> (v (ID::grOff), "Gain Reduction Off", false));
     layout.add (std::make_unique<AudioParameterBool> (v (ID::bypass), "Bypass", false));
+
+    // Added in state version 7 (songsmithstudio#16). Off by default, so older sessions sound exactly as they did.
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ID::autoGain, 7 }, "Auto Gain", false));
 
     // Added in state version 2.
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ID::oversampling, 2 }, "Oversampling",
@@ -209,6 +213,7 @@ void SongsmithAnalogCompressorProcessor::prepareToPlay (double sampleRate, int /
     dryRing.clear();
     dryRingPos = 0;
 
+    outputStage2.prepare (sampleRate);
     inputGain.reset (sampleRate, gainSmoothingSeconds);
     bypassMix.reset (sampleRate, bypassFadeSeconds);
     pathFade.reset (sampleRate, pathFadeSeconds);
@@ -265,6 +270,7 @@ void SongsmithAnalogCompressorProcessor::processBlock (juce::AudioBuffer<float>&
         calibrationCapture.push (in, numCh, n);
     }
 
+    outputStage2.beginBlock (isAutoGainOn());
     inputGain.setTargetValue (dbToGain (inputDb->load()));
     outputGain.setTargetValue (dbToGain (outputDb->load()));
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
@@ -347,6 +353,8 @@ void SongsmithAnalogCompressorProcessor::processChunk (float* const* ch, int num
     if (latency > 0)
         dryRingPos = (dryRingPos + num) % dryRing.getNumSamples();
 
+    outputStage2.measureInput (ch, numCh, num);   // Auto Gain compares what comes out with what went in, before the Input drive
+
     // Input drive at the base rate (linear, so it commutes with the oversampler).
     if (inputGain.isSmoothing() || inputGain.getTargetValue() != 1.0f)
         for (int i = 0; i < num; ++i)
@@ -379,6 +387,9 @@ void SongsmithAnalogCompressorProcessor::processChunk (float* const* ch, int num
             for (int c = 0; c < numCh; ++c)
                 ch[c][i] *= g;
         }
+
+    // Auto Gain: after the whole chain, measured with the Output control's gain taken out, so the control keeps the last word.
+    outputStage2.processAutoGainOnly (ch, numCh, num, outputGain.getTargetValue());
 
     // Bypass. The engine has run either way (ACOMP-18), so un-bypassing continues from the gain
     // reduction the current audio implies instead of a value frozen when bypass engaged, as in

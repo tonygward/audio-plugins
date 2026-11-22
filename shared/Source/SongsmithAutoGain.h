@@ -54,9 +54,11 @@ namespace Songsmith
             accIn += energy (kIn, ch, numChannels, num);
         }
 
-        void measureOutput (const float* const* ch, int numChannels, int num) noexcept
+        // energyScale: for a plugin whose own Output control sits inside the processing being measured, 1 / (that gain squared)
+        // takes the control out of the comparison, so Auto Gain never tries to undo it.
+        void measureOutput (const float* const* ch, int numChannels, int num, double energyScale = 1.0) noexcept
         {
-            accOut += energy (kOut, ch, numChannels, num);
+            accOut += energy (kOut, ch, numChannels, num) * energyScale;
         }
 
         // Call once per measured chunk (after both measure calls). Returns true when a new

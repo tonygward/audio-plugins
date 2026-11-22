@@ -7,8 +7,17 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - **Songsmith Compressor: one Model dropdown, and a toolbox that changes colour with it.** The separate **Analog Warmth** button is gone. One dropdown now offers **Clean** (the Compressor's own transparent sound), **Black**, **Blue**, **Anniversary** and **Lindell** (the Songsmith Analog Compressor's four models). Choosing one changes only the model, never your Threshold, Ratio, Attack, Release, Knee, Makeup Gain or Mix, and Undo puts it back in one step. The floating panel's surface, outline, knob rings and lit buttons take the colours of the same model in the Analog Compressor (Clean keeps the teal). Your existing projects sound exactly as before: Analog Warmth off opens as Clean, Analog Warmth on opens as the model you had, and an older project keeps its original warmth sound, shown as Classic, until you choose a model.
 
+## 0.5.77
+
+Behind-the-scenes improvements and fixes. There is nothing you need to do.
+
+## 0.5.76
+
+- **Songsmith EQ: a tidier layout.** The **Piano** button is now centred in the strip along the bottom (the bottom middle), and the Before and After loudness keeps the far right, where it sits in every other plugin. **Oversampling** is the rightmost control in its row, with **Accurate Highs** right beside it. The **Graph Range** dropdown (how many dB the graph shows) now sits directly above the dB scale it changes, and its tooltip says it changes only what you see. The **Frequency Guide** instrument dropdown is wide enough for its longest name. The **Gain Scale** bar, which scaled the boosts and cuts of every band together and looked like a second band gain, has been removed from the window. A project that saved a Gain Scale other than 100% sounds exactly as before; new projects start at 100%. The smallest window is a little wider (1160 instead of 980 pixels) to fit the Output panel; a window saved narrower than that opens at the new minimum.
+
 ## 0.5.75
 
+- **Songsmith Analog Compressor: a new Output panel at the far right, and a new face.** The Output knob has moved into one box headed **Output**, with the Gain Reduction bar, the Output meter and a new **Auto Gain** button; it is now called **Output Trim**, and it is the same setting as before, so your existing projects sound exactly as they did. Input is now the one big knob on the left, with Ignore Below and **Set Levels** side by side under it. Auto Gain keeps the loudness the same with the compressor on as with it off, so you can judge the compression rather than the volume; Output Trim has the last word. Hover over Auto Gain to see how much it is adding. Auto Gain is off by default. The window is a little wider to make room.
 - **Songsmith Analog Desk: a new Output panel at the far right.** The Gain Reduction bar, the Output meter, a smaller **Output Trim** knob and a new **Auto Gain** button are now together in one box headed **Output**. Auto Gain keeps the loudness the same with the strip on as with it off (it listens for two seconds and corrects by up to 12 dB either way); Output Trim is applied after it, so your own setting always has the last word. Hover over Auto Gain to see how much it is adding. Auto Gain is off by default, so your existing projects sound exactly as before.
 
 ## 0.5.74

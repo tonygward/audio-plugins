@@ -94,6 +94,40 @@ namespace Songsmith
             appliedDb.store (juce::Decibels::gainToDecibels (autoSmoothed.getCurrentValue(), -100.0f), std::memory_order_relaxed);
         }
 
+        // For a plugin whose own Output control cannot move to the end of its chain without changing its sound (the Analog Compressor's
+        // sits before its output stage): Auto Gain only, measured with that control's gain (trimGain, linear) taken out, so Auto Gain
+        // matches the loudness the plugin's processing would have at 0 dB and the control keeps the last word.
+        void processAutoGainOnly (float* const* ch, int numChannels, int num, float trimGain) noexcept
+        {
+            if (wasOn)
+            {
+                const double g = juce::jmax (1.0e-3, (double) trimGain);
+                autoGain.measureOutput (ch, numChannels, num, 1.0 / (g * g));
+                autoGain.advance (num);
+                autoSmoothed.setTargetValue ((float) juce::Decibels::decibelsToGain (autoGain.getCorrectionDb()));
+            }
+            else
+            {
+                autoSmoothed.setTargetValue (1.0f);
+            }
+
+            if (autoSmoothed.isSmoothing())
+            {
+                for (int i = 0; i < num; ++i)
+                {
+                    const float a = autoSmoothed.getNextValue();
+                    for (int c = 0; c < numChannels; ++c)
+                        ch[c][i] *= a;
+                }
+            }
+            else if (const float a = autoSmoothed.getTargetValue(); a != 1.0f)
+            {
+                for (int c = 0; c < numChannels; ++c)
+                    juce::FloatVectorOperations::multiply (ch[c], a, num);
+            }
+            appliedDb.store (juce::Decibels::gainToDecibels (autoSmoothed.getCurrentValue(), -100.0f), std::memory_order_relaxed);
+        }
+
         // For the editor: the correction Auto Gain is applying right now, in dB (0 when off). Safe from any thread.
         float getAutoGainAppliedDb() const noexcept { return appliedDb.load (std::memory_order_relaxed); }
 

@@ -343,7 +343,7 @@ struct ModelTests final : juce::UnitTest
             const auto os = ed->getOversamplingBox().getBounds();
             expectEquals (os.getY(), group.getY(), "Oversampling is level with the buttons");
             expect (group.getRight() < os.getX(), "the buttons are to its left");
-            expectEquals (os.getRight(), ed->getMeterColumn().getRight(), "right-aligned with the meter column");
+            expectEquals (os.getRight(), ed->getOutputPanel().getRight(), "right-aligned with the Output panel");
             expect (group.getBottom() <= ed->getMeter().getY(), "nothing of the row is among the controls");
 
             // Choosing: one click selects the model, writes the parameter, and exactly one button stays lit.

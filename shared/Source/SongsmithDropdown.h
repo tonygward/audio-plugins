@@ -26,7 +26,9 @@ namespace Songsmith::UI::Dropdown
         int widest = 0;
         for (int i = 0; i < box.getNumItems(); ++i)
             widest = juce::jmax (widest, textWidth (box.getItemText (i), font));
-        return widest + chevronAndPadding;
+        // A box that reserves room for an icon (the "textIndent" property, default 4) needs that room too.
+        const int indent = (int) box.getProperties().getWithDefault ("textIndent", 4);
+        return widest + chevronAndPadding + juce::jmax (0, indent - 4);
     }
 
     // Puts a dropdown at (x, y) with the given height, as wide as its text needs, and returns its right edge. The font follows
