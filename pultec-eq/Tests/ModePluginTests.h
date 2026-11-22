@@ -82,7 +82,7 @@ public:
 
             // Saving now records the new version, and loading that back keeps everything.
             expectEquals (oldSession.createState().getProperty ("stateVersion", 0).operator int(), SongsmithPassiveEQProcessor::stateVersion);
-            expectEquals (SongsmithPassiveEQProcessor::stateVersion, 3);
+            expectEquals (SongsmithPassiveEQProcessor::stateVersion, 4);   // 4: songsmithstudio#16 added Output Trim and Auto Gain
         }
 
         beginTest ("Backward compatibility: a preset file saved before the modes loads as Tone Shaper, even from another mode");

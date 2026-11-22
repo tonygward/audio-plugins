@@ -137,6 +137,9 @@ public:
                 { "mid_high_boost", 0.0f, 10.0f, 0.0f, "High-Mid Boost" },
                 { "high_pass_frequency", 0.0f, 7.0f, 0.0f, "High-Pass Frequency" },
                 { "low_pass_frequency", 0.0f, 5.0f, 0.0f, "Low-Pass Frequency" },
+                // songsmithstudio#16 (version 4): the Output panel. 0 dB and off, so an older session sounds as it did.
+                { "output_trim", -24.0f, 24.0f, 0.0f, "Output Trim" },
+                { "auto_gain", 0.0f, 1.0f, 0.0f, "Auto Gain" },
             };
             expectEquals (p.getParameters().size(), (int) std::size (rows), "the nine original parameters (never renamed) and the nine PEQ-04 ones, no more");
             for (const auto& r : rows)
@@ -485,6 +488,126 @@ public:
             }
             Peq::Presets::setDefaultFolderRootForTesting (juce::File());
             root.deleteRecursively();
+        }
+    }
+};
+
+//==============================================================================
+// songsmithstudio#16: Auto Gain, then Output Trim, behind the shared Output panel.
+class OutputStageTests final : public juce::UnitTest
+{
+public:
+    OutputStageTests() : juce::UnitTest ("Songsmith Passive EQ output stage", "PassiveEQ") {}
+
+    static std::vector<float> programme (int n, double fs)
+    {
+        std::vector<float> v ((size_t) n);
+        std::mt19937 rng (3);
+        std::uniform_real_distribution<float> dist (-0.4f, 0.4f);
+        for (int i = 0; i < n; ++i)
+            v[(size_t) i] = dist (rng) * (0.6f + 0.4f * std::sin (juce::MathConstants<float>::twoPi * 0.7f * (float) i / (float) fs));
+        return v;
+    }
+
+    static std::vector<float> run (SongsmithPassiveEQProcessor& p, const std::vector<float>& in)
+    {
+        std::vector<float> out = in;
+        juce::MidiBuffer midi;
+        for (size_t pos = 0; pos < in.size(); pos += 480)
+        {
+            const int n = (int) std::min<size_t> (480, in.size() - pos);
+            juce::AudioBuffer<float> b (2, n);
+            for (int c = 0; c < 2; ++c)
+                b.copyFrom (c, 0, in.data() + pos, n);
+            p.processBlock (b, midi);
+            std::copy (b.getReadPointer (0), b.getReadPointer (0) + n, out.begin() + (long) pos);
+        }
+        return out;
+    }
+
+    static float rmsDb (const std::vector<float>& v, size_t from)
+    {
+        double e = 0.0;
+        for (size_t i = from; i < v.size(); ++i)
+            e += (double) v[i] * v[i];
+        return juce::Decibels::gainToDecibels ((float) std::sqrt (e / (double) (v.size() - from)));
+    }
+
+    static void set (SongsmithPassiveEQProcessor& p, const char* id, float v)
+    {
+        auto* prm = p.apvts.getParameter (id);
+        prm->setValueNotifyingHost (prm->convertTo0to1 (v));
+    }
+
+    void runTest() override
+    {
+        const double fs = 48000.0;
+        const int n = (int) (12.0 * fs);
+        const auto in = programme (n, fs);
+
+        beginTest ("Output Trim and Auto Gain start at 0 dB and off, and change nothing then");
+        {
+            SongsmithPassiveEQProcessor p;
+            expect (p.apvts.getRawParameterValue (Peq::autoGainId)->load() < 0.5f, "Auto Gain off");
+            expectEquals (p.apvts.getRawParameterValue (Peq::outputTrimId)->load(), 0.0f, "Output Trim at 0 dB");
+            prepare (p, fs, 480);
+            set (p, Peq::lowBoostId, 0.0f);
+            const auto out = run (p, in);
+            bool same = true;
+            for (size_t i = 0; i < out.size(); ++i)
+                same = same && std::abs (out[i] - in[i]) < 1.0e-3f;   // a flat equaliser stays flat
+            expect (same, "with everything at zero the sound passes unchanged");
+        }
+
+        beginTest ("Output Trim moves the level by its own amount");
+        {
+            SongsmithPassiveEQProcessor flat, trimmed;
+            prepare (flat, fs, 480);
+            set (trimmed, Peq::outputTrimId, -6.0f);
+            prepare (trimmed, fs, 480);
+            expectWithinAbsoluteError (rmsDb (run (trimmed, in), (size_t) fs) - rmsDb (run (flat, in), (size_t) fs), -6.0f, 0.05f);
+        }
+
+        beginTest ("Auto Gain brings a boosted sound back to the input loudness, and Output Trim stays on top of it");
+        {
+            auto make = [&] (bool autoGain, float trimDb, SongsmithPassiveEQProcessor& p)
+            {
+                set (p, Peq::lowBoostId, 9.0f);
+                set (p, Peq::highBoostId, 12.0f);
+                set (p, Peq::autoGainId, autoGain ? 1.0f : 0.0f);
+                set (p, Peq::outputTrimId, trimDb);
+                prepare (p, fs, 480);
+            };
+            SongsmithPassiveEQProcessor boosted, matched, matchedTrimmed;
+            make (false, 0.0f, boosted);
+            make (true, 0.0f, matched);
+            make (true, -3.0f, matchedTrimmed);
+            const size_t tail = (size_t) (8.0 * fs);
+            const float inDb = rmsDb (in, tail), boostedDb = rmsDb (run (boosted, in), tail);
+            const float matchedDb = rmsDb (run (matched, in), tail), trimmedDb = rmsDb (run (matchedTrimmed, in), tail);
+            expectGreaterThan (boostedDb - inDb, 1.5f, "the boost really is louder");
+            expectWithinAbsoluteError (matchedDb, inDb, 1.5f, "Auto Gain brings it back to the input loudness");
+            expectWithinAbsoluteError (trimmedDb - matchedDb, -3.0f, 0.4f, "and Output Trim moves it by exactly its own amount on top");
+        }
+
+        beginTest ("Bypass is still the dry sound, and a session saved before these controls loads with them off");
+        {
+            SongsmithPassiveEQProcessor p;
+            set (p, Peq::autoGainId, 1.0f);
+            set (p, Peq::outputTrimId, 6.0f);
+            set (p, Peq::bypassId, 1.0f);
+            prepare (p, fs, 480);
+            const auto out = run (p, in);
+            bool dry = true;
+            for (size_t i = (size_t) fs; i < out.size(); ++i)
+                dry = dry && std::abs (out[i] - in[i]) < 1.0e-6f;
+            expect (dry, "bypassed: the dry signal, untouched");
+
+            juce::ValueTree old (p.apvts.state.getType());
+            old.appendChild (juce::ValueTree ("PARAM", { { "id", Peq::lowBoostId }, { "value", 4.0f } }), nullptr);
+            p.restoreFromValueTree (old);
+            expect (p.apvts.getRawParameterValue (Peq::autoGainId)->load() < 0.5f, "Auto Gain off");
+            expectEquals (p.apvts.getRawParameterValue (Peq::outputTrimId)->load(), 0.0f, "Output Trim at 0 dB");
         }
     }
 };
@@ -1031,10 +1154,16 @@ public:
             auto ed = make (p, width);
             const auto context = "at " + juce::String (width) + " px";
             auto& meter = ed->getOutputMeter();
-            auto* content = meter.getParentComponent();
-            expect (content->getLocalBounds().contains (meter.getBounds()), context + ": inside the editor");
-            expect (meter.getBottom() <= Peq::EditorLayout::contentHeight, context + ": above the footer strip");
-            expect (meter.getX() >= ed->getCurve().getRight() && meter.getX() >= ed->getHighCutGroup().getRight(), context + ": right of the curve and every group");
+            auto& panel = ed->getOutputPanel();   // songsmithstudio#16: the meter, Output Trim and Auto Gain live in the Output panel
+            auto* content = panel.getParentComponent();
+            expect (content->getLocalBounds().contains (panel.getBounds()), context + ": inside the editor");
+            expect (panel.getBottom() <= Peq::EditorLayout::contentHeight, context + ": above the footer strip");
+            expect (panel.getX() >= ed->getCurve().getRight() && panel.getX() >= ed->getHighCutGroup().getRight(), context + ": right of the curve and every group");
+            expect (panel.getLocalBounds().contains (panel.getMetersBounds()) && panel.getMetersBounds().getRight() == panel.getWidth() - Songsmith::UI::OutputPanel::padding,
+                    context + ": the meter is at the panel's right edge");
+            expect (panel.getTrimBounds().getY() >= panel.getMetersBounds().getBottom(), context + ": Output Trim under the meters");
+            expect (panel.getAutoGainBounds().getX() >= panel.getTrimBounds().getRight() - 8, context + ": Auto Gain beside Output Trim");
+            expect (! panel.getTrimBounds().intersects (panel.getAutoGainBounds()), context + ": Output Trim and Auto Gain do not overlap");
             expectEquals (meter.getTitle(), juce::String ("Output level"));
             expect (meter.getTooltip().contains ("not true peak") && meter.getTooltip().contains ("left and right"), context + ": the tooltip says what it measures");
             Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), context);
@@ -1078,6 +1207,7 @@ public:
 };
 
 static PassiveEQPluginTests passiveEQPluginTests;
+static OutputStageTests outputStageTests;
 static PassiveEQEditorTests passiveEQEditorTests;
 
 #include "ModePluginTests.h"   // PEQ-04: the EQ Mode (parameters, sessions, presets, editor)
