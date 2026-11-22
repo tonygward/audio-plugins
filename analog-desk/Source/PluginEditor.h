@@ -22,10 +22,13 @@ public:
 
     juce::Slider slider { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::NoTextBox };
     juce::String getValueText() const { return formatter ((float) slider.getValue()); }
+    void setAccent (juce::Colour c) { slider.setColour (juce::Slider::rotarySliderFillColourId, c); accent = c; }
+    juce::Colour getAccent() const noexcept { return accent; }
     const juce::String& getShownName() const noexcept { return shownName; }
 
 private:
     juce::String shownName;
+    juce::Colour accent;
     Formatter formatter;
     juce::AudioProcessorValueTreeState::SliderAttachment attachment;
 };
@@ -65,6 +68,8 @@ public:
 
     // For tests and screenshots.
     Songsmith::UI::MeterColumn& getMeterColumn() noexcept { return meterColumn; }
+    // The four modules, left to right: Input and Filters, Dynamics, Equaliser, Output and Meter.
+    juce::Rectangle<int> getModuleBounds (int index) const noexcept;
     DeskKnob* findKnob (const juce::String& paramId);
     std::vector<DeskKnob*> getKnobs();
     std::vector<juce::Button*> getToggles();
@@ -83,7 +88,7 @@ private:
     void savePresetAsync();
 
     DeskKnob& addKnob (const char* paramId, const juce::String& name, const juce::String& title, const juce::String& tip,
-                       DeskKnob::Formatter format, int row, int cell);
+                       DeskKnob::Formatter format, juce::Rectangle<int> bounds);
     DeskToggle& addToggle (const char* paramId, const juce::String& text, const juce::String& title, const juce::String& tip,
                            juce::Rectangle<int> bounds);
 
