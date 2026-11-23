@@ -92,6 +92,66 @@ public:
 
     void runTest() override
     {
+        beginTest ("Output Trim and Auto Gain (songsmithstudio#16): neutral by default, an older session loads neutral, the trim is exact, and Auto Gain lifts a heavily compressed sound");
+        {
+            const double fs = 48000.0;
+            const auto in = noise (48000 * 6, 0.5f, 31);
+            auto rms = [] (const std::vector<float>& v, size_t from)
+            {
+                double sum = 0.0;
+                for (size_t i = from; i < v.size(); ++i)
+                    sum += (double) v[i] * v[i];
+                return std::sqrt (sum / (double) (v.size() - from));
+            };
+
+            SongsmithBusCompressorProcessor base;
+            expectWithinAbsoluteError (getParam (base, BusComp::outputTrimId), 0.0f, 1.0e-4f, "Output Trim starts at 0 dB");
+            expect (getParam (base, BusComp::autoGainId) < 0.5f, "Auto Gain starts off");
+            expect (base.apvts.getParameter (BusComp::outputTrimId)->getVersionHint() == 2 && base.apvts.getParameter (BusComp::autoGainId)->getVersionHint() == 2, "both are version 2");
+            expectEquals (SongsmithBusCompressorProcessor::stateVersion, 2);
+            setParam (base, BusComp::thresholdId, -10.0f);
+            setParam (base, BusComp::ratioId, 2.0f);
+            prepare (base, fs, 512);
+            const auto plain = run (base, { in, in }, 512)[0];
+
+            // A session saved before these controls (version 1, neither parameter in it) opens neutral and sounds exactly the same.
+            auto old = base.createState();
+            for (int i = old.getNumChildren() - 1; i >= 0; --i)
+            {
+                const auto id = old.getChild (i).getProperty ("id").toString();
+                if (id == BusComp::outputTrimId || id == BusComp::autoGainId)
+                    old.removeChild (i, nullptr);
+            }
+            old.setProperty ("stateVersion", 1, nullptr);
+            SongsmithBusCompressorProcessor older;
+            older.restoreFromValueTree (old);
+            expectWithinAbsoluteError (getParam (older, BusComp::outputTrimId), 0.0f, 1.0e-4f, "an older session opens at 0 dB");
+            expect (getParam (older, BusComp::autoGainId) < 0.5f, "and with Auto Gain off");
+            prepare (older, fs, 512);
+            expect (run (older, { in, in }, 512)[0] == plain, "and sounds exactly the same, bit for bit");
+
+            // The trim is an exact gain after the compressor, and separate from Make-up Gain.
+            SongsmithBusCompressorProcessor trimmed;
+            trimmed.restoreFromValueTree (base.createState());
+            setParam (trimmed, BusComp::outputTrimId, -6.0f);
+            prepare (trimmed, fs, 512);
+            const auto quieter = run (trimmed, { in, in }, 512)[0];
+            expectWithinAbsoluteError ((float) (rms (quieter, 0) / rms (plain, 0)), juce::Decibels::decibelsToGain (-6.0f), 0.002f, "minus 6 dB of Output Trim is minus 6 dB");
+            expectWithinAbsoluteError (getParam (trimmed, BusComp::makeupId), getParam (base, BusComp::makeupId), 1.0e-6f, "Make-up Gain is not touched");
+
+            // Auto Gain: a heavily compressed sound comes back towards the loudness that went in.
+            SongsmithBusCompressorProcessor lifted;
+            lifted.restoreFromValueTree (base.createState());
+            setParam (lifted, BusComp::autoGainId, 1.0f);
+            prepare (lifted, fs, 512);
+            const auto matched = run (lifted, { in, in }, 512)[0];
+            const size_t tail = (size_t) (fs * 4);
+            const double gainDb = 20.0 * std::log10 (rms (matched, tail) / rms (plain, tail));
+            expectGreaterThan (gainDb, 1.0, "Auto Gain brings the compressed sound back up");
+            expectLessThan (gainDb, 12.01, "by at most 12 dB");
+            expectGreaterThan (lifted.getAutoGainAppliedDb(), 1.0f, "and the editor can read what it is adding");
+        }
+
         beginTest ("Identity: the product name and the codes hosts store sessions under never change");
         {
             expectEquals (juce::String (JucePlugin_Name), juce::String ("Songsmith Bus Compressor"));
@@ -113,8 +173,10 @@ public:
                 { "release", 0.0f, 4.0f, 4.0f, "Release" },
                 { "makeup_gain", 0.0f, 15.0f, 0.0f, "Make-up Gain" },
                 { "bypass", 0.0f, 1.0f, 0.0f, "Bypass" },
+                { "output_trim", -24.0f, 24.0f, 0.0f, "Output Trim" },   // songsmithstudio#16, version 2
+                { "auto_gain", 0.0f, 1.0f, 0.0f, "Auto Gain" },           // songsmithstudio#16, version 2
             };
-            expectEquals (p.getParameters().size(), (int) std::size (rows), "six parameters, no more");
+            expectEquals (p.getParameters().size(), (int) std::size (rows), "eight parameters, no more");
             for (const auto& r : rows)
             {
                 auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p.apvts.getParameter (r.id));
@@ -488,7 +550,7 @@ public:
             auto ed = make (p, width);
             const auto context = "at " + juce::String (width) + " px";
             const auto panel = ed->getControlPanelBounds(), zone = ed->getMeteringZoneBounds();
-            auto* content = ed->getMeterColumn().getParentComponent();
+            auto* content = ed->getOutputPanel().getParentComponent();
             expect (panel.getRight() < zone.getX(), context + ": the control panel is left of the metering zone");
             expect (content->getLocalBounds().contains (panel) && content->getLocalBounds().contains (zone), context + ": both zones are inside the editor");
             expect (panel.getBottom() <= BusComp::EditorLayout::contentHeight && zone.getBottom() <= BusComp::EditorLayout::contentHeight, context + ": above the footer strip");
@@ -506,12 +568,12 @@ public:
 
             // The suite's meters stay, in the right-hand zone: the lamps, then Input, then the Gain Reduction and Output column at the far edge.
             expect (zone.contains (ed->getMeter().getBounds()), context + ": the gain reduction lamps are in the metering zone");
-            expect (zone.contains (ed->getInputMeter().getBounds()) && zone.contains (ed->getMeterColumn().getBounds()), context + ": and so are the Input meter and the Gain Reduction and Output column");
-            expect (ed->getMeter().getRight() < ed->getInputMeter().getX() && ed->getInputMeter().getRight() < ed->getMeterColumn().getX(), context + ": lamps, Input, then the Gain Reduction and Output column, left to right");
-            expectEquals (ed->getInputMeter().getY(), ed->getMeterColumn().getY(), context + ": the Input meter is as tall as the column");
-            expectEquals (ed->getInputMeter().getHeight(), ed->getMeterColumn().getHeight());
+            expect (zone.contains (ed->getInputMeter().getBounds()) && zone.contains (ed->getOutputPanel().getBounds()), context + ": and so are the Input meter and the Gain Reduction and Output column");
+            expect (ed->getMeter().getRight() < ed->getInputMeter().getX() && ed->getInputMeter().getRight() < ed->getOutputPanel().getX(), context + ": lamps, Input, then the Gain Reduction and Output column, left to right");
+            expectEquals (ed->getInputMeter().getY(), ed->getOutputPanel().getY(), context + ": the Input meter is as tall as the Output panel");
+            expectEquals (ed->getInputMeter().getHeight(), ed->getOutputPanel().getHeight());
             expect (ed->getInputMeter().getTitle() == "Input level" && ed->getInputMeter().getTooltip().isNotEmpty(), context + ": named and described");
-            std::vector<juce::Component*> parts { &ed->getMeter(), &ed->getInputMeter(), &ed->getMeterColumn() };
+            std::vector<juce::Component*> parts { &ed->getMeter(), &ed->getInputMeter(), &ed->getOutputPanel() };
             for (auto* k : knobs) parts.push_back (k);
             for (size_t i = 0; i < parts.size(); ++i)
                 for (size_t j = i + 1; j < parts.size(); ++j)

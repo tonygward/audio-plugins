@@ -8,13 +8,15 @@
 #include "../../shared/Source/SongsmithBeforeAfter.h"
 #include "../../shared/Source/SongsmithHeader.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
+#include "../../shared/Source/SongsmithOutputStage.h"
 
 class SongsmithBusCompressorProcessor : public juce::AudioProcessor
 {
 public:
     // Saved-state format. 1 = Threshold, Ratio, Attack, Release, Make-up Gain, Bypass, and the editor's width and preset name.
     // Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 1;
+    // 2 = adds Output Trim and Auto Gain (songsmithstudio#16): a session saved before them opens at 0 dB with Auto Gain off, as it sounded.
+    static constexpr int stateVersion = 2;
 
     SongsmithBusCompressorProcessor();
 
@@ -58,6 +60,10 @@ public:
     SongsmithBus::Params getEngineParams() const noexcept;
 
     // For the meter: the deepest gain reduction (dB, positive) since the last call.
+    // For the editor: the correction Auto Gain is applying right now, in dB (0 when off).
+    float getAutoGainAppliedDb() const noexcept { return outputStage.getAutoGainAppliedDb(); }
+    bool isAutoGainOn() const noexcept { return autoGainRaw->load (std::memory_order_relaxed) > 0.5f; }
+
     float takeGainReductionDb() noexcept { return gainReductionDb.exchange (0.0f, std::memory_order_relaxed); }
 
     // Editor state saved with the session (not automatable): window width.
@@ -86,6 +92,9 @@ private:
     std::atomic<float>* attackRaw = nullptr;
     std::atomic<float>* releaseRaw = nullptr;
     std::atomic<float>* makeupRaw = nullptr;
+    std::atomic<float>* outputTrimRaw = nullptr;
+    std::atomic<float>* autoGainRaw = nullptr;
+    Songsmith::OutputStage outputStage;   // Auto Gain, then Output Trim, after the compressor and before Bypass (songsmithstudio#16)
 
     SongsmithBus::Engine engine;
     int currentProgram = 0;

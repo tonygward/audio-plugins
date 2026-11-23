@@ -142,9 +142,17 @@ SongsmithBusCompressorEditor::SongsmithBusCompressorEditor (SongsmithBusCompress
     meter.setTooltip ("Gain Reduction: how much the compressor is turning the level down, in decibels. Each lamp is one decibel.");
     meter.setTitle ("Gain Reduction");
     content.addAndMakeVisible (meter);
-    meterColumn.getOutput().setTooltip ("Output level of the left and right channels, after the compressor, Make-up Gain and Bypass. The number under the warning is the highest sample level held for 1.5 seconds. "
-                                        "This is sample peak, not true peak. Nothing to do unless the clip warning lights: then lower Make-up Gain. Click to clear the held number.");
-    content.addAndMakeVisible (meterColumn);
+    meterColumn.getOutput().setTooltip ("Output level of the left and right channels, after the compressor, Make-up Gain, Auto Gain, Output Trim and Bypass. The number under the warning is the highest sample level held for 1.5 seconds. "
+                                        "This is sample peak, not true peak. Nothing to do unless the clip warning lights: then lower Make-up Gain or Output Trim. Click to clear the held number.");
+    outputTrimAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, BusComp::outputTrimId, outputPanel.getTrim());
+    autoGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, BusComp::autoGainId, outputPanel.getAutoGain());
+    outputPanel.getTrim().textFromValueFunction = [] (double v) { return (v > 0.05 ? "+" : "") + juce::String (std::abs (v) < 0.05 ? 0.0 : v, 1) + " dB"; };
+    outputPanel.getTrim().valueFromTextFunction = [] (const juce::String& t) { return t.retainCharacters ("0123456789.-+").getDoubleValue(); };
+    outputPanel.getTrim().setTextBoxIsEditable (true);
+    outputPanel.getTrim().setRange (BusComp::minOutputTrimDb, BusComp::maxOutputTrimDb, 0.1);
+    outputPanel.getTrim().updateText();
+    outputPanel.setAutoGainExplanation ("It compares the loudness going in with the loudness coming out of the compressor, Make-up Gain included, and corrects the difference by up to 12 dB either way, so compressing harder is not judged better just because it is louder.");
+    content.addAndMakeVisible (outputPanel);
     inputMeterDisplay.setTooltip ("Input level of the left and right channels, before the compressor. The number under the warning is the highest sample level held "
                                   "for 1.5 seconds. This is sample peak, not true peak. Nothing to do unless the clip warning lights: then lower the level coming in "
                                   "from the track. Click to clear the held number.");
@@ -234,9 +242,9 @@ void SongsmithBusCompressorEditor::resized()
 void SongsmithBusCompressorEditor::layoutContent()
 {
     meter.setBounds (lampArea);
-    meterColumn.setBounds (Songsmith::UI::MeterColumn::boundsFor (designWidth, (int) Songsmith::UI::titleBarHeight + 8, contentHeight - 12, true));
-    inputMeterDisplay.setBounds (meterColumn.getX() - EditorLayout::inputMeterGap - (int) Songsmith::UI::OutputMeterDisplay::preferredWidth, meterColumn.getY(),
-                                 (int) Songsmith::UI::OutputMeterDisplay::preferredWidth, meterColumn.getHeight());
+    outputPanel.setBounds (Songsmith::UI::OutputPanel::boundsFor (designWidth, (int) Songsmith::UI::titleBarHeight + 8, contentHeight - 12, true));
+    inputMeterDisplay.setBounds (outputPanel.getX() - EditorLayout::inputMeterGap - (int) Songsmith::UI::OutputMeterDisplay::preferredWidth, outputPanel.getY(),
+                                 (int) Songsmith::UI::OutputMeterDisplay::preferredWidth, outputPanel.getHeight());
     thresholdKnob.setBounds (thresholdArea);
     makeupKnob.setBounds (makeupArea);
     attackKnob.setBounds (attackArea);
@@ -329,6 +337,19 @@ juce::String SongsmithBusCompressorEditor::gainReductionText (float db)
 
 void SongsmithBusCompressorEditor::advanceMeter (float seconds)
 {
+    {   // The correction Auto Gain is applying is a measured fact, shown in the tooltip (the button is too small for it).
+        juce::String ag ("It compares the loudness going in with the loudness coming out of the compressor, Make-up Gain included, and corrects the difference by up to 12 dB either way, so compressing harder is not judged better just because it is louder.");
+        if (proc.isAutoGainOn())
+        {
+            const float db = proc.getAutoGainAppliedDb();
+            ag << " Right now it is adding " << (db > 0.05f ? "+" : "") << juce::String (std::abs (db) < 0.05f ? 0.0f : db, 1) << " dB.";
+        }
+        if (ag != lastAutoGainText)
+        {
+            lastAutoGainText = ag;
+            outputPanel.setAutoGainExplanation (ag);
+        }
+    }
     const float gr = proc.takeGainReductionDb();
     meter.setReading (gr, seconds);
 
