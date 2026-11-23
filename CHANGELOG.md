@@ -7,6 +7,10 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 - **Songsmith Passive EQ: a new Output panel at the far right, with Output Trim and Auto Gain.** The meters now sit in one box headed **Output**, with a compact **Output Trim** knob under them and an **Auto Gain** button beside it. Auto Gain keeps the loudness the same with the equaliser on as with it off, so a boost is not judged better just because it is louder; Output Trim is applied after it. Your existing projects sound exactly as before: Output Trim starts at 0 dB and Auto Gain is off. The window is a little wider to make room.
 
+## 0.5.79
+
+- **Songsmith Compressor: a new Output box at the far right, with Output Trim and Auto Gain.** Gain Reduction and the output meter now sit together in one box headed **Output**, with a small **Output Trim** knob (-24 to +24 dB, applied last) and an **Auto Gain** button under them. Auto Gain keeps the loudness the same as the sound going in, correcting by up to 12 dB either way; with Auto Makeup on you rarely need both. Both start neutral, so your existing projects sound exactly as they did and you do not need to do anything. The window is a little wider (about 2%) to fit the box.
+
 ## 0.5.78
 
 - **Songsmith Compressor: one Model dropdown, and a toolbox that changes colour with it.** The separate **Analog Warmth** button is gone. One dropdown now offers **Clean** (the Compressor's own transparent sound), **Black**, **Blue**, **Anniversary** and **Lindell** (the Songsmith Analog Compressor's four models). Choosing one changes only the model, never your Threshold, Ratio, Attack, Release, Knee, Makeup Gain or Mix, and Undo puts it back in one step. The floating panel's surface, outline, knob rings and lit buttons take the colours of the same model in the Analog Compressor (Clean keeps the teal). Your existing projects sound exactly as before: Analog Warmth off opens as Clean, Analog Warmth on opens as the model you had, and an older project keeps its original warmth sound, shown as Classic, until you choose a model.

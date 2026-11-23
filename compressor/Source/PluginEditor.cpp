@@ -63,10 +63,6 @@ SongsmithCompressorAudioProcessorEditor::SongsmithCompressorAudioProcessorEditor
     setupLabel (panel, kneeLabel, "Knee");
     setupLabel (panel, makeupLabel, "Makeup Gain");
     setupLabel (panel, mixLabel, "Mix");
-    setupLabel (content, grLabel, "Gain Reduction");
-    setupLabel (content, grValue, "0.0 dB");
-    grValue.setFont (juce::Font (CompColours::numbers (CompColours::Type::control)));
-    grValue.setColour (juce::Label::textColourId, CompColours::text);
 
     auto setupKnob = [this] (juce::Slider& s, const char* id, const juce::String& tip,
                              std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>& attachment,
@@ -175,12 +171,19 @@ SongsmithCompressorAudioProcessorEditor::SongsmithCompressorAudioProcessorEditor
 
     reductionMeter.setTooltip ("Gain Reduction: how much the compressor is turning the level down right now, 0 to 24 dB. "
                                "This is the reduction alone; Makeup Gain is separate and is not subtracted");
-    outputMeter.setTooltip ("Output level for each channel, after compression, Makeup Gain, Analog Warmth, Mix and Bypass. "
+    outputMeter.setTooltip ("Output level for each channel, after compression, Makeup Gain, Analog Warmth, Auto Gain, Output Trim, Mix and Bypass. "
                             "The number under the clip warning is the highest sample level held for 1.5 seconds: negative means below 0 dBFS, "
                             "positive means over it and is red. The warning lights when a sample reaches 0 dBFS and stays lit while "
                             "sound continues. This is sample peak, not true peak. Click to clear the held number");
-    content.addAndMakeVisible (reductionMeter);
-    content.addAndMakeVisible (outputMeter);
+    outputTrimAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, Comp::outputTrimId, outputPanel.getTrim());
+    autoGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Comp::autoGainId, outputPanel.getAutoGain());
+    outputPanel.getTrim().textFromValueFunction = [] (double v) { return (v > 0.05 ? "+" : "") + juce::String (std::abs (v) < 0.05 ? 0.0 : v, 1) + " dB"; };
+    outputPanel.getTrim().valueFromTextFunction = [] (const juce::String& t) { return t.retainCharacters ("0123456789.-+").getDoubleValue(); };
+    outputPanel.getTrim().setTextBoxIsEditable (true);
+    outputPanel.getTrim().setRange (Comp::minOutputTrimDb, Comp::maxOutputTrimDb, 0.1);
+    outputPanel.getTrim().updateText();
+    outputPanel.setAutoGainExplanation ("It compares the loudness going in with the loudness coming out of the compressor and corrects the difference by up to 12 dB either way. With Auto Makeup on, the level is already matched, so you rarely need both.");
+    content.addAndMakeVisible (outputPanel);
 
     diagnostics = std::make_unique<Songsmith::Diagnostics::Bar> (proc, proc.loadMeter, JucePlugin_Name);
     diagnostics->setBeforeAfter (&proc.beforeAfter);   // songsmithstudio#7
@@ -243,21 +246,13 @@ void SongsmithCompressorAudioProcessorEditor::layoutContent()
         bypassButton.setBounds (header.bypass);
     }
 
-    // Right edge: the output meter, the same size and place as the Songsmith EQ's (full height, at the far right),
-    // with the Gain Reduction bar beside it, its bar starting level with the meter's bars.
+    // Right edge: the suite's Output panel (songsmithstudio#16), full height at the far right: Gain Reduction and the Output meter,
+    // then a compact Output Trim and Auto Gain.
     const int top = (int) Songsmith::UI::titleBarHeight + 8, bottom = designH - 12, height = bottom - top;
-    const int meterX = designW - 16 - Songsmith::UI::OutputMeterDisplay::preferredWidth;
-    outputMeter.setBounds (meterX, top, Songsmith::UI::OutputMeterDisplay::preferredWidth, height);
-
-    const int barsTop = top + 46, barsBottom = top + height - (int) Songsmith::UI::OutputMeterDisplay::bottomRow;
-    constexpr int grWidth = 88, grBarWidth = 26;
-    const int grX = meterX - 14 - grWidth;
-    grLabel.setBounds (grX, top + 4, grWidth, 36);
-    reductionMeter.setBounds (grX + (grWidth - grBarWidth) / 2, barsTop, grBarWidth, barsBottom - barsTop);
-    grValue.setBounds (grX, barsBottom + 2, grWidth, (int) Songsmith::UI::OutputMeterDisplay::bottomRow - 4);
+    outputPanel.setBounds (Songsmith::UI::OutputPanel::boundsFor (designW, top, bottom, true));
 
     // The graph fills the rest.
-    const juce::Rectangle<int> graphArea (16, top, grX - 12 - 16, height);
+    const juce::Rectangle<int> graphArea (16, top, Songsmith::UI::OutputPanel::contentRightEdge (designW, true) - 16, height);
     graph.setBounds (graphArea);
     pauseButton.setBounds (graphArea.getRight() - 70, graphArea.getY() + 6, 64, 24);
 
@@ -341,19 +336,30 @@ void SongsmithCompressorAudioProcessorEditor::updateMeters (double elapsedSecond
             graph.push (columns[i]);
     graph.refreshIfChanged();
 
-    // The Gain Reduction bar and its number (a positive amount: how much the level is turned down).
-    reductionMeter.push (SongsmithCompressorAudioProcessor::readAndReset (proc.gainReductionDb), elapsedSeconds);
-    grValue.setText (juce::String (reductionMeter.getBallistics().getLevel(), 1) + " dB", juce::dontSendNotification);
+    {   // The correction Auto Gain is applying is a measured fact, shown in the tooltip (the button is too small for it).
+        juce::String ag ("It compares the loudness going in with the loudness coming out of the compressor and corrects the difference by up to 12 dB either way. With Auto Makeup on, the level is already matched, so you rarely need both.");
+        if (proc.isAutoGainOn())
+        {
+            const float db = proc.getAutoGainAppliedDb();
+            ag << " Right now it is adding " << (db > 0.05f ? "+" : "") << juce::String (std::abs (db) < 0.05f ? 0.0f : db, 1) << " dB.";
+        }
+        if (ag != lastAutoGainText)
+        {
+            lastAutoGainText = ag;
+            outputPanel.setAutoGainExplanation (ag);
+        }
+    }
 
-    // The output meter, exactly as the Songsmith EQ feeds it.
+    // The Gain Reduction bar and its number (a positive amount: how much the level is turned down), and the output meter, exactly as the Songsmith EQ feeds it.
     {
         auto& m = proc.outputMeter;
         m.readAndReset();   // the all-channel peak isn't shown; the per-channel ones are
         m.clipped.store (false, std::memory_order_relaxed);
-        outputMeter.update (m.readAndResetChannel (0), m.readAndResetChannel (1),
-                            m.channels.load (std::memory_order_relaxed),
-                            m.clipLatched.load (std::memory_order_relaxed),
-                            juce::Time::getMillisecondCounterHiRes() * 0.001, elapsedSeconds);
+        outputPanel.getMeters().update (m.readAndResetChannel (0), m.readAndResetChannel (1),
+                                        m.channels.load (std::memory_order_relaxed),
+                                        m.clipLatched.load (std::memory_order_relaxed),
+                                        SongsmithCompressorAudioProcessor::readAndReset (proc.gainReductionDb),
+                                        juce::Time::getMillisecondCounterHiRes() * 0.001, elapsedSeconds);
     }
 }
 
