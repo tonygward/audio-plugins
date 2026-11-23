@@ -6,6 +6,7 @@
 #include "BusMeter.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithMeterColumn.h"
+#include "../../shared/Source/SongsmithOutputPanel.h"
 
 // A rotary control with its name above, a printed scale around it and a readable value below. It works for the
 // stepped controls too: their scale marks are the steps, and their value text is the step's name.
@@ -54,6 +55,7 @@ public:
     // For tests and screenshots.
     BusComp::UI::LampMeter& getMeter() noexcept { return meter; }
     Songsmith::UI::MeterColumn& getMeterColumn() noexcept { return meterColumn; }
+    Songsmith::UI::OutputPanel& getOutputPanel() noexcept { return outputPanel; }
     Songsmith::UI::OutputMeterDisplay& getInputMeter() noexcept { return inputMeterDisplay; }
     juce::Rectangle<int> getControlPanelBounds() const noexcept { return { BusComp::EditorLayout::panelX, BusComp::EditorLayout::panelY, BusComp::EditorLayout::panelWidth, BusComp::EditorLayout::panelHeight }; }
     juce::Rectangle<int> getMeteringZoneBounds() const noexcept { return { BusComp::EditorLayout::wellX, BusComp::EditorLayout::wellY, BusComp::EditorLayout::wellRight - BusComp::EditorLayout::wellX, BusComp::EditorLayout::wellHeight }; }
@@ -99,7 +101,12 @@ private:
 
     BusComp::UI::LampMeter meter;
     Songsmith::UI::OutputMeterDisplay inputMeterDisplay;   // songsmithstudio#10: the Input level, beside Gain Reduction and Output
-    Songsmith::UI::MeterColumn meterColumn { true };   // SUI-23: Gain Reduction and Output at the far right, like the Songsmith Compressor
+    // songsmithstudio#16: the suite's Output panel at the far right: Gain Reduction and Output, a compact Output Trim and Auto Gain.
+    Songsmith::UI::OutputPanel outputPanel { true };
+    Songsmith::UI::MeterColumn& meterColumn = outputPanel.getMeters();
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputTrimAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoGainAttachment;
+    juce::String lastAutoGainText;
     float grDisplayDb = 0.0f;
 
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };

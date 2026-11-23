@@ -25,8 +25,13 @@ It turns the loud parts of a stereo sound down a little, so the whole thing sits
 - **Attack** is how quickly it reacts: 0.1 to 30 ms. A slower attack lets the first part of each hit through.
 - **Release** is how quickly it lets go: 0.1 to 1.2 s, or **Auto**, which lets go quickly after a short hit and slowly after a long loud passage.
 - **Make-up Gain** adds back the level that compressing took away.
+- **Output Trim** (in the Output box) is a last level change from -24 to +24 dB, applied after everything else; it is separate from Make-up Gain. **Auto Gain** keeps the loudness the same as the sound going in, correcting by up to 12 dB either way after listening for about two seconds, so compressing harder is not judged better just because it is louder. Both start neutral (0 dB, off), so projects saved before they existed sound exactly as they did.
 
-The row of lamps at the top is the **Gain Reduction** meter, one lamp for each decibel. At the far right, as in every Songsmith plugin, are a tall **Gain Reduction** bar and the **Output** meter (left and right channels, clip warning, held peak; sample peak after the compressor, Make-up Gain and Bypass, not true peak). Also: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu with five starting points and your own saved presets, and **Processing Load** at the bottom left.
+  ![The Output box](../docs/screenshots/sui-16-bus-compressor-output-panel-after.png)
+
+  *A real screenshot, rendered by the test executable (`BusCompressorTests --screenshot <file>`).*
+
+The row of lamps at the top is the **Gain Reduction** meter, one lamp for each decibel. At the far right, as in every Songsmith plugin, one box headed **Output** holds a tall **Gain Reduction** bar, the **Output** meter (left and right channels, clip warning, held peak; sample peak after the compressor, Make-up Gain, Auto Gain, Output Trim and Bypass, not true peak), a small **Output Trim** knob and an **Auto Gain** button (songsmithstudio#16). Also: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu with five starting points and your own saved presets, and **Processing Load** at the bottom left.
 
 ## Where the numbers come from
 
