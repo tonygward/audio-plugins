@@ -6,6 +6,7 @@
 #include "PeqCurve.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
+#include "../../shared/Source/SongsmithOutputPanel.h"
 #include "../../shared/Source/SongsmithMeterColumn.h"
 
 // A rotary control with its name above, a printed scale around it and a readable value below.
@@ -78,6 +79,7 @@ public:
     // For tests and screenshots.
     Peq::UI::ResponseCurve& getCurve() noexcept { return curve; }
     Songsmith::UI::OutputMeterDisplay& getOutputMeter() noexcept { return outputMeter; }
+    Songsmith::UI::OutputPanel& getOutputPanel() noexcept { return outputPanel; }
     // Reads the audio thread's output peaks into the meter, as the timer does 30 times a second.
     void advanceMeter (double elapsedSeconds);
     PeqKnob& getLowBoostKnob() noexcept { return lowBoostKnob; }
@@ -102,7 +104,7 @@ public:
     juce::Rectangle<int> getMidHighGroup() const noexcept;
     juce::Rectangle<int> getHighPassGroup() const noexcept;
     juce::Rectangle<int> getLowPassGroup() const noexcept;
-    juce::Rectangle<int> getMeterBounds() const noexcept { return outputMeter.getBounds(); }
+    juce::Rectangle<int> getMeterBounds() const noexcept { return outputPanel.getBounds(); }   // the Output panel holds the meter
     juce::Rectangle<int> getCurveBounds() const noexcept { return curve.getBounds(); }
     PeqSwitch& getLowSwitch() noexcept { return lowSwitch; }
     PeqSwitch& getHighBoostSwitch() noexcept { return highBoostSwitch; }
@@ -144,7 +146,12 @@ private:
     juce::Rectangle<int> titleBounds;   // the product name, painted
 
     Peq::UI::ResponseCurve curve;
-    Songsmith::UI::OutputMeterDisplay outputMeter;   // the output level of each channel, on the right
+    // songsmithstudio#16: the suite's Output panel on the right: the meter, a compact Output Trim and Auto Gain.
+    Songsmith::UI::OutputPanel outputPanel { false };
+    Songsmith::UI::OutputMeterDisplay& outputMeter = outputPanel.getMeters().getOutput();
+    juce::AudioProcessorValueTreeState::SliderAttachment outputTrimAttachment;
+    juce::AudioProcessorValueTreeState::ButtonAttachment autoGainAttachment;
+    juce::String lastAutoGainText;
 
     PeqSwitch lowSwitch, highBoostSwitch, highCutSwitch;
     PeqKnob lowBoostKnob, lowCutKnob, highBoostKnob, bandwidthKnob, highCutKnob;

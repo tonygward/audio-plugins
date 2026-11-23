@@ -32,11 +32,13 @@ SongsmithPassiveEQProcessor::SongsmithPassiveEQProcessor()
     midHighBoostRaw       = apvts.getRawParameterValue (Peq::midHighBoostId);
     highPassRaw           = apvts.getRawParameterValue (Peq::highPassFrequencyId);
     lowPassRaw            = apvts.getRawParameterValue (Peq::lowPassFrequencyId);
+    outputTrimRaw         = apvts.getRawParameterValue (Peq::outputTrimId);
+    autoGainRaw           = apvts.getRawParameterValue (Peq::autoGainId);
     bypassParam           = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Peq::bypassId));
     jassert (lowFrequencyRaw && lowBoostRaw && lowCutRaw && highBoostFrequencyRaw && highBoostRaw
              && highBandwidthRaw && highCutFrequencyRaw && highCutRaw && bypassParam
              && modeRaw && midLowFrequencyRaw && midLowBoostRaw && midDipFrequencyRaw && midDipRaw
-             && midHighFrequencyRaw && midHighBoostRaw && highPassRaw && lowPassRaw);
+             && midHighFrequencyRaw && midHighBoostRaw && highPassRaw && lowPassRaw && outputTrimRaw && autoGainRaw);
 
     dryBuffer.setSize (2, 512, false, true);   // resized in prepareToPlay
 }
@@ -97,6 +99,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithPassiveEQProcessor:
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { Peq::lowPassFrequencyId, 2 }, "Low-Pass Frequency", Peq::frequencyNamesWithOff (lowPassFrequencies), 0));
 
+    // songsmithstudio#16 (version 4): the suite's Output Trim and Auto Gain. 0 dB and off, so a session saved before sounds as it did.
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { Peq::outputTrimId, 4 }, "Output Trim", juce::NormalisableRange<float> (Peq::minOutputTrimDb, Peq::maxOutputTrimDb, 0.1f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("dB")));
+    layout.add (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { Peq::autoGainId, 4 }, "Auto Gain", false));
+
     return layout;
 }
 
@@ -142,6 +150,8 @@ void SongsmithPassiveEQProcessor::prepareToPlay (double sampleRate, int samplesP
     bypassMix.reset (sampleRate, bypassFadeSeconds);
     bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
+    outputStage.prepare (sampleRate);
+    outputStage.setTrimImmediately (outputTrimRaw->load());
     engine.setParams (getEngineParams());
     engine.prepare (sampleRate);
     engine.setParams (getEngineParams());
@@ -169,6 +179,7 @@ void SongsmithPassiveEQProcessor::processBlock (juce::AudioBuffer<float>& buffer
     engine.setParams (getEngineParams());
 
     float blockPeak = 0.0f;
+    outputStage.beginBlock (isAutoGainOn());
     for (int pos = 0; pos < total;)
     {
         const int num = juce::jmin (chunk, total - pos);
@@ -181,7 +192,9 @@ void SongsmithPassiveEQProcessor::processBlock (juce::AudioBuffer<float>& buffer
         }
 
         // The engine always runs, even when bypassed, so un-bypassing never glitches.
+        outputStage.measureInput (ch, numCh, num);   // Auto Gain compares what comes out with what went in
         engine.process (ch, numCh, num);
+        outputStage.process (ch, numCh, num, outputTrimRaw->load (std::memory_order_relaxed));   // Auto Gain, then Output Trim
 
         if (bypassMix.isSmoothing())
         {

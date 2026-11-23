@@ -37,9 +37,13 @@ namespace Songsmith
         }
 
         // Sets the trim to start from, without gliding (prepareToPlay, so a loaded session does not fade in from 0 dB).
+        // A trim within a ten-thousandth of a decibel of zero is zero: a parameter range that starts at -24 dB rounds its 0 dB default to
+        // about 4e-7 dB on some processors, and that must still leave the audio untouched (bit exact).
+        static float snapTrimDb (float trimDb) noexcept { return std::abs (trimDb) < 1.0e-4f ? 0.0f : trimDb; }
+
         void setTrimImmediately (float trimDb) noexcept
         {
-            trimSmoothed.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (trimDb));
+            trimSmoothed.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (snapTrimDb (trimDb)));
         }
 
         // Call at the start of each block with the Auto Gain setting, before anything is measured.
@@ -74,7 +78,7 @@ namespace Songsmith
             {
                 autoSmoothed.setTargetValue (1.0f);
             }
-            trimSmoothed.setTargetValue (juce::Decibels::decibelsToGain (trimDb));
+            trimSmoothed.setTargetValue (juce::Decibels::decibelsToGain (snapTrimDb (trimDb)));
 
             if (autoSmoothed.isSmoothing() || trimSmoothed.isSmoothing())
             {

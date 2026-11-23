@@ -38,7 +38,7 @@ namespace
     const juce::Rectangle<int> highPassGroup { 24, groupsTop, 450, groupsHeight };
     const juce::Rectangle<int> lowPassGroup  { 486, groupsTop, 450, groupsHeight };
     // The output meter runs the full height of the curve and the groups, on the right edge.
-    const juce::Rectangle<int> meterArea     = Songsmith::UI::MeterColumn::boundsFor (designWidth, curveTop, groupsTop + groupsHeight, false);   // SUI-23: the suite's margin and place
+    const juce::Rectangle<int> meterArea     = Songsmith::UI::OutputPanel::boundsFor (designWidth, curveTop, groupsTop + groupsHeight, false);   // songsmithstudio#16: the suite's Output panel, at its margin and place
     constexpr int groupInset = 12, switchTop = 34, switchHeight = 28, knobTop = 70;
     constexpr int twoRowSwitchHeight = 52, midKnobTop = switchTop + twoRowSwitchHeight + 6;   // the Mid Shaper's switches have two rows
 
@@ -200,17 +200,25 @@ SongsmithPassiveEQEditor::SongsmithPassiveEQEditor (SongsmithPassiveEQProcessor&
       midDipKnob (p.apvts, midDipId, "Dip", "Mid Dip", marks ({ 0, 5, 10 }), [] (float v) { return cutText (v); }),
       midHighKnob (p.apvts, midHighBoostId, "Boost", "High-Mid Boost", marks ({ 0, 5, 10 }), [] (float v) { return boostText (v); }),
       modeAttachment (*p.apvts.getParameter (modeId), [this] (float v) { shownMode = juce::jlimit (0, SongsmithPassive::numModes - 1, juce::roundToInt (v)); refreshMode(); }),
-      bypassAttachment (p.apvts, bypassId, bypassButton)
+      bypassAttachment (p.apvts, bypassId, bypassButton),
+      outputTrimAttachment (p.apvts, outputTrimId, outputPanel.getTrim()),
+      autoGainAttachment (p.apvts, autoGainId, outputPanel.getAutoGain())
 {
     setLookAndFeel (&lnf);
     addAndMakeVisible (content);
 
     content.addAndMakeVisible (curve);
     outputMeter.setTitle ("Output level");
-    outputMeter.setTooltip ("Output level of the left and right channels, after the equaliser and Bypass. This equaliser has no output control, so a boost makes the sound louder: "
-                            "if the clip warning lights, lower the boosts. The number under the warning is the highest sample level held for 1.5 seconds. "
+    outputMeter.setTooltip ("Output level of the left and right channels, after the equaliser, Auto Gain, Output Trim and Bypass. A boost makes the sound louder: "
+                            "if the clip warning lights, lower the boosts or the Output Trim. The number under the warning is the highest sample level held for 1.5 seconds. "
                             "This is sample peak, not true peak. Click to clear the held number.");
-    content.addAndMakeVisible (outputMeter);
+    outputPanel.getTrim().textFromValueFunction = [] (double v) { return (v > 0.05 ? "+" : "") + juce::String (std::abs (v) < 0.05 ? 0.0 : v, 1) + " dB"; };
+    outputPanel.getTrim().valueFromTextFunction = [] (const juce::String& t) { return t.retainCharacters ("0123456789.-+").getDoubleValue(); };
+    outputPanel.getTrim().setTextBoxIsEditable (true);
+    outputPanel.getTrim().setRange (minOutputTrimDb, maxOutputTrimDb, 0.1);
+    outputPanel.getTrim().updateText();
+    outputPanel.setAutoGainExplanation ("For this equaliser it compares the loudness going in with the loudness coming out, and corrects the difference by up to 12 dB either way, so a boost is not judged better just because it is louder.");
+    content.addAndMakeVisible (outputPanel);
     for (auto* c : std::initializer_list<juce::Component*> { &lowSwitch, &highBoostSwitch, &highCutSwitch,
                                                               &lowBoostKnob, &lowCutKnob, &highBoostKnob, &bandwidthKnob, &highCutKnob,
                                                               &midLowSwitch, &midDipSwitch, &midHighSwitch, &highPassSwitch, &lowPassSwitch,
@@ -377,6 +385,19 @@ void SongsmithPassiveEQEditor::resized()
 
 void SongsmithPassiveEQEditor::advanceMeter (double elapsedSeconds)
 {
+    {   // The correction Auto Gain is applying is a measured fact, shown in the tooltip (the button is too small for it).
+        juce::String ag ("For this equaliser it compares the loudness going in with the loudness coming out, and corrects the difference by up to 12 dB either way, so a boost is not judged better just because it is louder.");
+        if (proc.isAutoGainOn())
+        {
+            const float db = proc.getAutoGainAppliedDb();
+            ag << " Right now it is adding " << (db > 0.05f ? "+" : "") << juce::String (std::abs (db) < 0.05f ? 0.0f : db, 1) << " dB.";
+        }
+        if (ag != lastAutoGainText)
+        {
+            lastAutoGainText = ag;
+            outputPanel.setAutoGainExplanation (ag);
+        }
+    }
     auto& m = proc.outputMeter;
     m.readAndReset();   // the all-channel peak isn't shown; the per-channel ones are
     m.clipped.store (false, std::memory_order_relaxed);
@@ -389,7 +410,7 @@ void SongsmithPassiveEQEditor::advanceMeter (double elapsedSeconds)
 void SongsmithPassiveEQEditor::layoutContent()
 {
     curve.setBounds (curveArea);
-    outputMeter.setBounds (meterArea);
+    outputPanel.setBounds (meterArea);
 
     lowSwitch.setBounds (inside (lowGroup));
     highBoostSwitch.setBounds (inside (highBoostGroup));

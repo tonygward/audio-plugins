@@ -23,6 +23,9 @@ namespace Peq
 
     // --- Added in PEQ-04 (ParameterID version 2). Sessions and presets saved before it have none of these, so they
     // load with the mode at Tone Shaper (index 0) and every new amount at zero: the sound they always had.
+    inline constexpr const char* outputTrimId         = "output_trim";          // dB, 0 by default (version 4; songsmithstudio#16)
+    inline constexpr const char* autoGainId           = "auto_gain";            // on or off, off by default (version 4)
+    inline constexpr float minOutputTrimDb = -24.0f, maxOutputTrimDb = 24.0f;
     inline constexpr const char* modeId               = "eq_mode";              // choice: Tone Shaper, Mid Shaper, Frequency Filter
     inline constexpr const char* midLowFrequencyId    = "mid_low_frequency";    // choice: 200, 300, 500, 700 Hz, 1 kHz
     inline constexpr const char* midLowBoostId        = "mid_low_boost";        // 0 to 10 dB
@@ -86,11 +89,11 @@ namespace Peq
         // PEQ-04: a configuration row (the EQ Mode dropdown) sits under the title bar, outside the blue panel, so the panel starts
         // lower (plateTop) and the window is taller by the row and by a little more room for the Mid Shaper's two-line switch.
         constexpr int modeRowY = 58, modeRowHeight = 28, plateTop = modeRowY + modeRowHeight + 6;
-        constexpr int designWidth = 1016, contentHeight = 500;   // the controls sit above the footer strip
+        constexpr int designWidth = 1144, contentHeight = 500;   // the controls sit above the footer strip; 128 wider than before for the Output panel (songsmithstudio#16)
         constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
         constexpr int designHeight = contentHeight + footerHeight;
         constexpr int defaultWidth = designWidth;
-        constexpr int minWidth = 762, maxWidth = 3048;           // 75 % to 300 %
+        constexpr int minWidth = 858, maxWidth = 3432;           // 75 % to 300 %
 
         inline int constrainWidth (int width) noexcept { return juce::jlimit (minWidth, maxWidth, width); }
         inline int heightFor (int width) noexcept      { return juce::roundToInt ((double) width * designHeight / designWidth); }
