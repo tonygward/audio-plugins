@@ -545,11 +545,26 @@ public:
         const int n = (int) (12.0 * fs);
         const auto in = programme (n, fs);
 
+        beginTest ("A trim of a few ten-millionths of a decibel (how some processors round the 0 dB default) leaves the sound untouched");
+        {
+            Songsmith::OutputStage stage;
+            stage.prepare (fs);
+            stage.setTrimImmediately (3.57628e-07f);
+            stage.beginBlock (false);
+            std::vector<float> a (480), b;
+            for (size_t i = 0; i < a.size(); ++i)
+                a[i] = std::sin ((float) i * 0.07f) * 0.5f;
+            b = a;
+            float* ch[1] = { b.data() };
+            stage.process (ch, 1, 480, 3.57628e-07f);
+            expect (a == b, "bit for bit");
+        }
+
         beginTest ("Output Trim and Auto Gain start at 0 dB and off, and change nothing then");
         {
             SongsmithPassiveEQProcessor p;
             expect (p.apvts.getRawParameterValue (Peq::autoGainId)->load() < 0.5f, "Auto Gain off");
-            expectEquals (p.apvts.getRawParameterValue (Peq::outputTrimId)->load(), 0.0f, "Output Trim at 0 dB");
+            expectWithinAbsoluteError (p.apvts.getRawParameterValue (Peq::outputTrimId)->load(), 0.0f, 1.0e-4f, "Output Trim at 0 dB");
             prepare (p, fs, 480);
             set (p, Peq::lowBoostId, 0.0f);
             const auto out = run (p, in);
@@ -607,7 +622,7 @@ public:
             old.appendChild (juce::ValueTree ("PARAM", { { "id", Peq::lowBoostId }, { "value", 4.0f } }), nullptr);
             p.restoreFromValueTree (old);
             expect (p.apvts.getRawParameterValue (Peq::autoGainId)->load() < 0.5f, "Auto Gain off");
-            expectEquals (p.apvts.getRawParameterValue (Peq::outputTrimId)->load(), 0.0f, "Output Trim at 0 dB");
+            expectWithinAbsoluteError (p.apvts.getRawParameterValue (Peq::outputTrimId)->load(), 0.0f, 1.0e-4f, "Output Trim at 0 dB");
         }
     }
 };
