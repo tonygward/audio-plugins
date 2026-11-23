@@ -6,6 +6,7 @@
 #include "CompressorEngine.h"
 #include "DynamicsGraph.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
+#include "../../shared/Source/SongsmithOutputStage.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
 #include "../../shared/Source/SongsmithBeforeAfter.h"
 #include "../../shared/Source/SongsmithHeader.h"
@@ -17,7 +18,8 @@ public:
     // (sessions saved before it open with it off, which is exactly how they sounded). 3 = adds the Analog Warmth model (a session saved
     // before it keeps the original Analog Warmth sound until a model is chosen).
     // Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 3;
+    // 4 = adds Output Trim and Auto Gain (songsmithstudio#16): a session saved before them opens at 0 dB with Auto Gain off, as it sounded.
+    static constexpr int stateVersion = 4;
 
     SongsmithCompressorAudioProcessor();
 
@@ -93,6 +95,9 @@ public:
     // models existed is "classic": its Analog Warmth keeps the original sound until the musician chooses a model.
     bool isWarmthClassic() const noexcept { return classicWarmth.load (std::memory_order_relaxed); }
     int getWarmthModelIndex() const noexcept { return warmthModelParam->getIndex(); }
+    // For the editor: the correction Auto Gain is applying right now, in dB (0 when off).
+    float getAutoGainAppliedDb() const noexcept { return outputStage.getAutoGainAppliedDb(); }
+    bool isAutoGainOn() const noexcept { return autoGainRaw->load (std::memory_order_relaxed) > 0.5f; }
     bool isWarmthOn() const noexcept { return warmthParam->get(); }
     // songsmithstudio#23: the one Model dropdown. Look 0 is Clean (Analog Warmth off, the model kept), 1 to 4 are Black, Blue, Anniversary, Lindell
     // (Analog Warmth on with that model). Only the existing Analog Warmth and model parameters change, in one Undo step; nothing else moves.
@@ -122,6 +127,9 @@ private:
         SongsmithCompressorAudioProcessor& owner;
     } modelListener { *this };
     juce::AudioParameterBool* bypassParam = nullptr;
+    std::atomic<float>* outputTrimRaw = nullptr;
+    std::atomic<float>* autoGainRaw = nullptr;
+    Songsmith::OutputStage outputStage;   // Auto Gain, then Output Trim, after the compressor and before Bypass (songsmithstudio#16)
 
     SongsmithComp::Engine engine;
 

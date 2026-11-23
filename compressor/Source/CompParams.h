@@ -33,6 +33,10 @@ namespace Comp
         return names;   // the host's list shows the full names, the same as the Analog Compressor's Model parameter
     }
     inline constexpr int defaultWarmthModel = 0;   // Black, the original Songsmith voicing
+    // --- Added in version 4 (songsmithstudio#16): the suite's Output panel. 0 dB and off, so a session saved before sounds as it did.
+    inline constexpr const char* outputTrimId = "output_trim";   // dB, applied last, after Auto Gain
+    inline constexpr const char* autoGainId   = "auto_gain";     // on or off, off by default
+    inline constexpr float minOutputTrimDb = -24.0f, maxOutputTrimDb = 24.0f;
     // --- Defaults: gentle and musically useful -------------------------------------------
     constexpr float defaultThresholdDb = -18.0f, defaultRatio = 2.0f, defaultAttackMs = 10.0f, defaultReleaseMs = 100.0f,
                     defaultKneeDb = 6.0f, defaultMakeupDb = 0.0f, defaultMixPercent = 100.0f;
@@ -70,11 +74,11 @@ namespace Comp
     // The editor is laid out once at a design size and scaled as a whole, so every size looks the same.
     namespace EditorLayout
     {
-        constexpr int designWidth = 960, contentHeight = 480;   // the graph and the controls sit in the top 480
+        constexpr int designWidth = 980, contentHeight = 480;   // the graph and the controls sit in the top 480
         constexpr int footerHeight = 28;                         // the latency and Processing Load strip below them
         constexpr int designHeight = contentHeight + footerHeight;
         constexpr int defaultWidth = designWidth;
-        constexpr int minWidth = 720, maxWidth = 2880;           // 75 % to 300 %
+        constexpr int minWidth = 735, maxWidth = 2940;           // 75 % to 300 %; 20 design pixels wider than before for the Output panel (songsmithstudio#16)
 
         inline int constrainWidth (int width) noexcept { return juce::jlimit (minWidth, maxWidth, width); }
         inline int heightFor (int width) noexcept      { return juce::roundToInt ((double) width * designHeight / designWidth); }
