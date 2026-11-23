@@ -9,6 +9,7 @@
 #include "OptCalibration.h"
 #include "../../shared/Source/SongsmithGuidance.h"
 #include "../../shared/Source/SongsmithMeterColumn.h"
+#include "../../shared/Source/SongsmithOutputPanel.h"
 
 // A rotary control with its name above, a printed scale around it and a readable value below.
 class OptKnob : public juce::Component
@@ -85,6 +86,7 @@ public:
     // For tests and screenshots.
     Opt::UI::NeedleMeter& getMeter() noexcept { return meter; }
     Songsmith::UI::MeterColumn& getMeterColumn() noexcept { return meterColumn; }
+    Songsmith::UI::OutputPanel& getOutputPanel() noexcept { return outputPanel; }
     OptKnob& getGainKnob() noexcept { return gainKnob; }
     OptKnob& getPeakReductionKnob() noexcept { return peakReductionKnob; }
     juce::Button& getModeButton (int index) { return modeButtons[(size_t) index]; }   // 0 = Compress, 1 = Limit
@@ -132,7 +134,12 @@ private:
     std::array<juce::TextButton, 2> meterButtons { juce::TextButton (Opt::meterModeName (0)), juce::TextButton (Opt::meterModeName (1)) };
     Opt::UI::NeedleMeter meter;
     float grDisplayDb = 0.0f;
-    Songsmith::UI::MeterColumn meterColumn { true };   // SUI-23: Gain Reduction and Output at the far right, like the Songsmith Compressor
+    // songsmithstudio#16: the suite's Output panel at the far right: Gain Reduction and Output, a compact Output Trim and Auto Gain.
+    Songsmith::UI::OutputPanel outputPanel { true };
+    Songsmith::UI::MeterColumn& meterColumn = outputPanel.getMeters();
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputTrimAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoGainAttachment;
+    juce::String lastAutoGainText;
 
     juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
     juce::ComboBox presetBox;

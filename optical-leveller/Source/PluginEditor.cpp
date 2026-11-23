@@ -237,9 +237,17 @@ SongsmithOpticalLevellerEditor::SongsmithOpticalLevellerEditor (SongsmithOptical
         content.addAndMakeVisible (meterButtons[(size_t) m]);
     }
     content.addAndMakeVisible (meter);
-    meterColumn.getOutput().setTooltip ("Output level of the left and right channels, after the leveller and Bypass. The number under the warning is the highest sample level held for 1.5 seconds. "
-                                        "This is sample peak, not true peak. Nothing to do unless the clip warning lights: then lower Gain. Click to clear the held number.");
-    content.addAndMakeVisible (meterColumn);
+    meterColumn.getOutput().setTooltip ("Output level of the left and right channels, after the leveller, Auto Gain, Output Trim and Bypass. The number under the warning is the highest sample level held for 1.5 seconds. "
+                                        "This is sample peak, not true peak. Nothing to do unless the clip warning lights: then lower Gain or Output Trim. Click to clear the held number.");
+    outputTrimAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, Opt::outputTrimId, outputPanel.getTrim());
+    autoGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, Opt::autoGainId, outputPanel.getAutoGain());
+    outputPanel.getTrim().textFromValueFunction = [] (double v) { return (v > 0.05 ? "+" : "") + juce::String (std::abs (v) < 0.05 ? 0.0 : v, 1) + " dB"; };
+    outputPanel.getTrim().valueFromTextFunction = [] (const juce::String& t) { return t.retainCharacters ("0123456789.-+").getDoubleValue(); };
+    outputPanel.getTrim().setTextBoxIsEditable (true);
+    outputPanel.getTrim().setRange (Opt::minOutputTrimDb, Opt::maxOutputTrimDb, 0.1);
+    outputPanel.getTrim().updateText();
+    outputPanel.setAutoGainExplanation ("It compares the loudness going in with the loudness coming out of the leveller, Gain included, and corrects the difference by up to 12 dB either way, so levelling harder is not judged better just because it is louder.");
+    content.addAndMakeVisible (outputPanel);
 
     // The window is resized by dragging the bottom-right corner; the size is saved with the session.
     setWantsKeyboardFocus (true);
@@ -330,7 +338,7 @@ void SongsmithOpticalLevellerEditor::layoutContent()
     peakReductionKnob.setBounds (peakReductionArea);
 
     meter.setBounds (meterArea);
-    meterColumn.setBounds (Songsmith::UI::MeterColumn::boundsFor (designWidth, (int) Songsmith::UI::titleBarHeight + 8, contentHeight - 12, true));
+    outputPanel.setBounds (Songsmith::UI::OutputPanel::boundsFor (designWidth, (int) Songsmith::UI::titleBarHeight + 8, contentHeight - 12, true));
     auto modes = meterModes;
     const int gainReductionWidth = 128, modeGap = 8;
     meterButtons[0].setBounds (modes.removeFromLeft (gainReductionWidth));
@@ -399,9 +407,7 @@ void SongsmithOpticalLevellerEditor::paintContent (juce::Graphics& g)
 
     // The right-hand meters sit on their own dark panel, so their light labels stay readable on the lighter plate.
     g.setColour (Colours::panel.withAlpha (0.92f));
-    g.fillRoundedRectangle (meterColumn.getBounds().expanded (8, 6).toFloat(), 6.0f);
-    g.setColour (Songsmith::UI::Colours::edge);
-    g.drawRoundedRectangle (meterColumn.getBounds().expanded (8, 6).toFloat().reduced (0.5f), 6.0f, 1.0f);
+    g.fillRoundedRectangle (outputPanel.getBounds().toFloat(), 6.0f);   // the Output panel draws its own edge on top of this dark backing
 
     // Section rules between the knobs and the meter.
     g.setColour (juce::Colours::black.withAlpha (0.28f));
@@ -458,6 +464,19 @@ void SongsmithOpticalLevellerEditor::advanceMeter (float seconds)
     // The numeric readout: instant rise, about 300 ms fall.
     grDisplayDb = gr > grDisplayDb ? gr : grDisplayDb * 0.9f + gr * 0.1f;
 
+    {   // The correction Auto Gain is applying is a measured fact, shown in the tooltip (the button is too small for it).
+        juce::String ag ("It compares the loudness going in with the loudness coming out of the leveller, Gain included, and corrects the difference by up to 12 dB either way, so levelling harder is not judged better just because it is louder.");
+        if (proc.isAutoGainOn())
+        {
+            const float db = proc.getAutoGainAppliedDb();
+            ag << " Right now it is adding " << (db > 0.05f ? "+" : "") << juce::String (std::abs (db) < 0.05f ? 0.0f : db, 1) << " dB.";
+        }
+        if (ag != lastAutoGainText)
+        {
+            lastAutoGainText = ag;
+            outputPanel.setAutoGainExplanation (ag);
+        }
+    }
     {
         auto& m = proc.outputMeter;
         m.readAndReset();   // the all-channel peak isn't shown; the per-channel ones are

@@ -12,6 +12,7 @@
 #include "../../shared/Source/SongsmithHeader.h"
 #include "../../shared/Source/SongsmithLevelCapture.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
+#include "../../shared/Source/SongsmithOutputStage.h"
 
 class SongsmithOpticalLevellerProcessor : public juce::AudioProcessor, private juce::Timer
 {
@@ -19,7 +20,7 @@ public:
     // Saved-state format. 1 = Peak Reduction, Gain, Compress or Limit, Bypass, and the editor's width, meter and preset name.
     // 2 = adds Oversampling (a session saved as 1 loads with Off, as it always sounded).
     // Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 2;
+    static constexpr int stateVersion = 3;   // 3: Output Trim and Auto Gain (songsmithstudio#16); a session saved before them opens at 0 dB with Auto Gain off, as it sounded
 
     SongsmithOpticalLevellerProcessor();
     ~SongsmithOpticalLevellerProcessor() override;
@@ -95,6 +96,10 @@ public:
     void restoreFromValueTree (const juce::ValueTree& saved);
 
     static constexpr double bypassFadeSeconds = 0.02;
+    // For the editor: the correction Auto Gain is applying right now, in dB (0 when off).
+    float getAutoGainAppliedDb() const noexcept { return outputStage.getAutoGainAppliedDb(); }
+    bool isAutoGainOn() const noexcept { return autoGainRaw->load (std::memory_order_relaxed) > 0.5f; }
+
     static inline const juce::Identifier versionId { "stateVersion" }, uiId { "UI" };
 
 private:
@@ -103,6 +108,9 @@ private:
     std::atomic<float>* gainRaw = nullptr;
     std::atomic<float>* modeRaw = nullptr;
     std::atomic<float>* oversamplingRaw = nullptr;
+    std::atomic<float>* outputTrimRaw = nullptr;
+    std::atomic<float>* autoGainRaw = nullptr;
+    Songsmith::OutputStage outputStage;   // Auto Gain, then Output Trim, after the leveller and before Bypass (songsmithstudio#16)
 
     // Oversampling: the engine runs at 2x or 4x the host rate. Half-band polyphase IIR stages, with whole-sample latency.
     void switchPath (int index) noexcept;
