@@ -16,6 +16,11 @@ It turns the loud parts of a sound down gently and evenly, so a vocal, a bass or
 
 - **Peak Reduction** sets how much levelling you get. Turn it up and more of the louder sound is turned down.
 - **Gain** sets the level after levelling. Turn it up to bring the sound back to the level it had before.
+- **Output Trim** (in the Output box) is a last level change from -24 to +24 dB, applied after everything else; it is separate from Gain. **Auto Gain** keeps the loudness the same as the sound going in, correcting by up to 12 dB either way after listening for about two seconds, so levelling harder is not judged better just because it is louder. Both start neutral (0 dB, off), so projects saved before they existed sound exactly as they did.
+
+  ![The Output box](../docs/screenshots/sui-16-optical-leveller-output-panel-after.png)
+
+  *A real screenshot, rendered by the test executable (`OpticalLevellerTests --screenshot <file>`).*
 - **Compress or Limit** chooses gentle, smooth levelling (Compress) or firmer control of the loudest peaks (Limit).
 
 Click the number under **Gain** or **Peak Reduction** to type an exact value, then press Enter. Escape keeps the old value. The knob and the number always show the same setting.
@@ -28,7 +33,7 @@ Click the number under **Gain** or **Peak Reduction** to type an exact value, th
 
 **Oversampling** (top right of the controls) can be **Off**, **2×** or **4×**. It runs the leveller at a higher sample rate inside the plugin so fast level changes are followed more precisely, at the cost of more processing power and a little delay, which the plugin reports to your recording program. **Off** is how every earlier session sounded, and it is the default.
 
-At the far right, as in every Songsmith plugin, are the **Gain Reduction** bar and the **Output** meter (left and right channels, clip warning, held peak). Output is the sample peak after the leveller and Bypass, not true peak. The needle meter shows **Gain Reduction** (how much the level is being turned down) or **Output** (the level coming out, with 0 on the scale at -18 dBFS). Everything else is the same as the other Songsmith plugins: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu, and **Processing Load** at the bottom left.
+At the far right, as in every Songsmith plugin, one box headed **Output** holds the **Gain Reduction** bar, the **Output** meter (left and right channels, clip warning, held peak), a small **Output Trim** knob and an **Auto Gain** button (songsmithstudio#16). Output is the sample peak after the leveller, Auto Gain, Output Trim and Bypass, not true peak. The needle meter shows **Gain Reduction** (how much the level is being turned down) or **Output** (the level coming out, with 0 on the scale at -18 dBFS). Everything else is the same as the other Songsmith plugins: **Bypass** at the top right, **Undo** and **Redo**, a **Preset** menu, and **Processing Load** at the bottom left.
 
 ## What makes it "optical"
 

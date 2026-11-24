@@ -93,6 +93,59 @@ public:
 
     void runTest() override
     {
+        beginTest ("Output Trim and Auto Gain (songsmithstudio#16): neutral by default, an older session loads neutral, the trim is exact, and Auto Gain lifts a heavily levelled sound");
+        {
+            const double fs = 48000.0;
+            const auto in = noise (48000 * 6, 0.5f, 41);
+
+            SongsmithOpticalLevellerProcessor base;
+            expectWithinAbsoluteError (getParam (base, Opt::outputTrimId), 0.0f, 1.0e-4f, "Output Trim starts at 0 dB");
+            expect (getParam (base, Opt::autoGainId) < 0.5f, "Auto Gain starts off");
+            expect (base.apvts.getParameter (Opt::outputTrimId)->getVersionHint() == 3 && base.apvts.getParameter (Opt::autoGainId)->getVersionHint() == 3, "both are version 3");
+            expectEquals (SongsmithOpticalLevellerProcessor::stateVersion, 3);
+            setParam (base, Opt::peakReductionId, 85.0f);
+            setParam (base, Opt::gainId, 0.0f);
+            prepare (base, fs, 512);
+            const auto plain = run (base, { in, in }, 512)[0];
+
+            // A session saved before these controls (version 2, neither parameter in it) opens neutral and sounds exactly the same.
+            auto old = base.createState();
+            for (int i = old.getNumChildren() - 1; i >= 0; --i)
+            {
+                const auto id = old.getChild (i).getProperty ("id").toString();
+                if (id == Opt::outputTrimId || id == Opt::autoGainId)
+                    old.removeChild (i, nullptr);
+            }
+            old.setProperty ("stateVersion", 2, nullptr);
+            SongsmithOpticalLevellerProcessor older;
+            older.restoreFromValueTree (old);
+            expectWithinAbsoluteError (getParam (older, Opt::outputTrimId), 0.0f, 1.0e-4f, "an older session opens at 0 dB");
+            expect (getParam (older, Opt::autoGainId) < 0.5f, "and with Auto Gain off");
+            prepare (older, fs, 512);
+            expect (run (older, { in, in }, 512)[0] == plain, "and sounds exactly the same, bit for bit");
+
+            // The trim is an exact gain after the leveller, and separate from Gain.
+            SongsmithOpticalLevellerProcessor trimmed;
+            trimmed.restoreFromValueTree (base.createState());
+            setParam (trimmed, Opt::outputTrimId, -6.0f);
+            prepare (trimmed, fs, 512);
+            const auto quieter = run (trimmed, { in, in }, 512)[0];
+            expectWithinAbsoluteError (rms (quieter) / rms (plain), juce::Decibels::decibelsToGain (-6.0f), 0.002f, "minus 6 dB of Output Trim is minus 6 dB");
+            expectWithinAbsoluteError (getParam (trimmed, Opt::gainId), getParam (base, Opt::gainId), 1.0e-6f, "Gain is not touched");
+
+            // Auto Gain: a heavily levelled sound comes back towards the loudness that went in.
+            SongsmithOpticalLevellerProcessor lifted;
+            lifted.restoreFromValueTree (base.createState());
+            setParam (lifted, Opt::autoGainId, 1.0f);
+            prepare (lifted, fs, 512);
+            const auto matched = run (lifted, { in, in }, 512)[0];
+            const size_t tail = (size_t) (fs * 4);
+            const double gainDb = 20.0 * std::log10 ((double) rms (matched, tail) / (double) rms (plain, tail));
+            expectGreaterThan (gainDb, 1.0, "Auto Gain brings the levelled sound back up");
+            expectLessThan (gainDb, 12.01, "by at most 12 dB");
+            expectGreaterThan (lifted.getAutoGainAppliedDb(), 1.0f, "and the editor can read what it is adding");
+        }
+
         beginTest ("Identity: the product name and the codes hosts store sessions under never change");
         {
             expectEquals (juce::String (JucePlugin_Name), juce::String ("Songsmith Optical Leveller"));
@@ -113,8 +166,10 @@ public:
                 { "mode", 0.0f, 1.0f, 0.0f, "Mode" },
                 { "bypass", 0.0f, 1.0f, 0.0f, "Bypass" },
                 { "oversampling", 0.0f, 2.0f, 0.0f, "Oversampling" },
+                { "output_trim", -24.0f, 24.0f, 0.0f, "Output Trim" },   // songsmithstudio#16, version 3
+                { "auto_gain", 0.0f, 1.0f, 0.0f, "Auto Gain" },           // songsmithstudio#16, version 3
             };
-            expectEquals (p.getParameters().size(), (int) std::size (rows), "five parameters, no more");
+            expectEquals (p.getParameters().size(), (int) std::size (rows), "seven parameters, no more");
             for (const auto& r : rows)
             {
                 auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p.apvts.getParameter (r.id));

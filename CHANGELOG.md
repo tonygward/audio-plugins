@@ -5,6 +5,8 @@ Every Songsmith plugin, installer and release shares one version number, kept in
 
 ## 0.5.81
 
+- **Songsmith Optical Leveller: a new Output box at the far right, with Output Trim and Auto Gain.** Gain Reduction and the Output meter now sit together in one box headed **Output**, with a small **Output Trim** knob (-24 to +24 dB, applied last, separate from Gain) and an **Auto Gain** button under them. Auto Gain keeps the loudness the same as the sound going in, correcting by up to 12 dB either way, so levelling harder is not judged better just because it is louder. Both start neutral, so your existing projects sound exactly as they did and you do not need to do anything. The window is a little wider (about 2%) to fit the box.
+
 - **Songsmith Bus Compressor: a new Output box at the far right, with Output Trim and Auto Gain.** Gain Reduction and the Output meter now sit together in one box headed **Output**, with a small **Output Trim** knob (-24 to +24 dB, applied last, separate from Make-up Gain) and an **Auto Gain** button under them. Auto Gain keeps the loudness the same as the sound going in, correcting by up to 12 dB either way, so compressing harder is not judged better just because it is louder. Both start neutral, so your existing projects sound exactly as they did and you do not need to do anything. The window is a little wider (about 2%) to fit the box.
 
 ## 0.5.80

@@ -22,6 +22,9 @@ SongsmithOpticalLevellerProcessor::SongsmithOpticalLevellerProcessor()
     bypassParam      = dynamic_cast<juce::AudioParameterBool*> (apvts.getParameter (Opt::bypassId));
     jassert (peakReductionRaw && gainRaw && modeRaw && oversamplingRaw && bypassParam);
 
+    outputTrimRaw = apvts.getRawParameterValue (Opt::outputTrimId);
+    autoGainRaw   = apvts.getRawParameterValue (Opt::autoGainId);
+    jassert (outputTrimRaw && autoGainRaw);
     dryBuffer.setSize (2, 512, false, true);   // resized in prepareToPlay
 }
 
@@ -44,6 +47,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout SongsmithOpticalLevellerProc
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { Opt::oversamplingId, 2 }, "Oversampling", Opt::oversamplingNames(), Opt::defaultOversampling));
+
+    // Version 3 (songsmithstudio#16): the suite's Output Trim and Auto Gain. 0 dB and off, so a session saved before sounds as it did.
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { Opt::outputTrimId, 3 }, "Output Trim", juce::NormalisableRange<float> (Opt::minOutputTrimDb, Opt::maxOutputTrimDb, 0.1f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("dB")));
+    layout.add (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { Opt::autoGainId, 3 }, "Auto Gain", false));
 
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { Opt::bypassId, 1 }, "Bypass", false));
@@ -78,6 +87,8 @@ void SongsmithOpticalLevellerProcessor::prepareToPlay (double sampleRate, int sa
 
     bypassMix.reset (sampleRate, bypassFadeSeconds);
     bypassMix.setCurrentAndTargetValue (bypassParam->get() ? 1.0f : 0.0f);
+    outputStage.prepare (sampleRate);
+    outputStage.setTrimImmediately (outputTrimRaw->load());
 
     levelCapture.prepare (sampleRate, juce::jmax (1, getTotalNumInputChannels()));
     baseRate = sampleRate;
@@ -149,6 +160,7 @@ void SongsmithOpticalLevellerProcessor::processBlock (juce::AudioBuffer<float>& 
 
     float reduction = 0.0f, outputPower = 0.0f, blockPeak = 0.0f;
     const bool bypassedNow = bypassParam->get();
+    outputStage.beginBlock (isAutoGainOn());
 
     for (int pos = 0; pos < total;)
     {
@@ -196,6 +208,8 @@ void SongsmithOpticalLevellerProcessor::processBlock (juce::AudioBuffer<float>& 
         if (latency > 0)
             dryRingPos = (dryRingPos + num) % dryRing.getNumSamples();
 
+        outputStage.measureInput (ch, numCh, num);   // Auto Gain compares what comes out with what went in
+
         // The engine always runs, even when bypassed, so un-bypassing never glitches.
         if (osActive == 0)
         {
@@ -221,6 +235,8 @@ void SongsmithOpticalLevellerProcessor::processBlock (juce::AudioBuffer<float>& 
                 for (int c = 0; c < numCh; ++c)
                     ch[c][i] *= g;
             }
+
+        outputStage.process (ch, numCh, num, outputTrimRaw->load (std::memory_order_relaxed));   // Auto Gain, then Output Trim
 
         if (bypassMix.isSmoothing())
         {
