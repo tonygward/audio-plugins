@@ -3,6 +3,12 @@
 Every Songsmith plugin, installer and release shares one version number, kept in the `VERSION` file. Each version has one release on the [Releases page](https://github.com/tonygward/audio-plugins/releases), tagged `vX.Y.Z`. Releases from before one shared version keep the tags they had (`v0.2.0` to `v0.4.0`, `compressor-v0.1.0`, `maximizer-v0.1.0`, `studio-v1.0.0`), and the plugin changelogs ([Songsmith EQ](eq/CHANGELOG.md), [Songsmith Maximiser](maximiser/CHANGELOG.md)) hold their earlier entries. Versions 1.1.0 to 1.3.8 came first: the suite was then renumbered to 0.5.0, which is why the numbers below 0.5.0 are higher.
 
 
+## Unreleased
+
+- **Songsmith Maximiser: Set Level brings your song to a loudness you choose.** Press **Set Level** under the Integrated LUFS reading, play your song, then press **Finish Listening**. Type a **Target LUFS** (it starts at −14.0 LUFS) and the panel shows the loudness going in, the loudness coming out now, and the Threshold that reaches your target with the peaks kept under your Output Ceiling. **Apply** sets Threshold and closes the panel; **Cancel** changes nothing, and Undo puts the old Threshold back. If the target cannot be reached under your ceiling, it tells you instead of forcing it. It matches the average loudness of what you played, so the level still moves with the music. Your existing projects sound exactly as before; there is nothing you need to do.
+
+- **Songsmith Maximiser: Dither and Oversampling have moved to the top right.** They now sit together in a row at the top right of the controls, **Dither | Oversampling**. Nothing about the sound or your saved settings has changed.
+
 ## 0.5.82
 
 Behind-the-scenes improvements and fixes. There is nothing you need to do.

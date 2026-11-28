@@ -49,8 +49,14 @@ namespace Songsmith::UI
         {
             setInterceptsMouseClicks (true, false);
             setTitle ("Listening status");
-            setTooltip ("Set Levels listens to the sound passing through this plugin, not to a microphone. It is only listening while this ear is lit.");
+            setFeatureName ("Set Levels");
             setVisible (false);
+        }
+
+        // The name of the feature that listens ("Set Levels", or "Set Level" in the Maximiser), used in the tooltip.
+        void setFeatureName (const juce::String& name)
+        {
+            setTooltip (name + " listens to the sound passing through this plugin, not to a microphone. It is only listening while this ear is lit.");
         }
 
         void setState (State s)
@@ -145,7 +151,7 @@ namespace Songsmith::UI
 
         static constexpr float dimAlpha = 0.22f;     // the editor behind the panel
         static constexpr float fillAlpha = 0.88f;    // the panel: 12 % see-through
-        static constexpr int panelWidth = 340, panelHeightBase = 192, targetRowHeight = 30;
+        static constexpr int panelWidth = 340, panelHeightBase = 192, targetRowHeight = 30, errorRowHeight = 18;
         static constexpr int noticeTicks = 8 * 30;   // a one-off notice stays eight seconds
 
         SetLevelsDialog()
@@ -189,6 +195,14 @@ namespace Songsmith::UI
             addChildComponent (targetCaption);
             addChildComponent (targetField);
 
+            targetError.setTitle ("Target problem");
+            targetError.setFont (juce::Font (font (Type::hint, Weight::SemiBold)));
+            targetError.setColour (juce::Label::textColourId, Colours::text);
+            targetError.setJustificationType (juce::Justification::centredLeft);
+            targetError.setMinimumHorizontalScale (1.0f);
+            targetError.setInterceptsMouseClicks (false, false);
+            addChildComponent (targetError);
+
             setStage (Stage::idle);
         }
 
@@ -211,6 +225,14 @@ namespace Songsmith::UI
             layoutPanel();
         }
 
+        // Optional: checks typed text and says what is wrong with it in a line under the field (empty = fine). With it,
+        // a value out of range is never clamped quietly: the old value stays and the musician is told why.
+        void setTargetCheck (std::function<juce::String (const juce::String&)> check)
+        {
+            checkTarget = std::move (check);
+            layoutPanel();
+        }
+
         double getTargetValue() const noexcept { return targetValue; }
 
         void setTargetValue (double v)
@@ -224,11 +246,14 @@ namespace Songsmith::UI
         bool commitTargetText (const juce::String& text)
         {
             double v = targetValue;
-            if (! parseTarget || ! parseTarget (text, v))
+            const auto problem = checkTarget ? checkTarget (text) : juce::String();
+            if (problem.isNotEmpty() || ! parseTarget || ! parseTarget (text, v))
             {
                 targetField.setText (formatTarget (targetValue), juce::dontSendNotification);   // not valid: keep the old value
+                showTargetError (problem);
                 return false;
             }
+            showTargetError ({});
             targetValue = v;
             targetField.setText (formatTarget (targetValue), juce::dontSendNotification);   // shows the checked value
             if (onTargetEdited)
@@ -281,6 +306,7 @@ namespace Songsmith::UI
         void closeNow()
         {
             noticeLeft = 0;
+            showTargetError ({});
             message.setText ({}, juce::dontSendNotification);
             ear.setState (ListeningEar::State::hidden);
             setStage (Stage::idle);
@@ -333,10 +359,23 @@ namespace Songsmith::UI
         juce::Label& getMessage() noexcept { return message; }
         juce::Label& getHeading() noexcept { return heading; }
         juce::Label& getTargetField() noexcept { return targetField; }
+        juce::Label& getTargetError() noexcept { return targetError; }
         ListeningEar& getEar() noexcept { return ear; }
 
         std::function<void()> onFinish, onApply, onCancel;
         std::function<void (double)> onTargetEdited;
+
+        // The feature's name, shown in the heading and read out for the buttons ("Set Levels"; the Maximiser's is "Set Level").
+        void setFeatureName (const juce::String& name)
+        {
+            featureName = name;
+            ear.setFeatureName (name);
+            setTitle (name + " panel");
+            setStage (stage);
+        }
+
+        // Extra room for the message, for a plugin whose result needs more than a few lines.
+        void setExtraMessageHeight (int extra) { extraMessageHeight = juce::jmax (0, extra); layoutPanel(); }
 
         // Wording a plugin may adjust: what Apply changes.
         juce::String applyTooltip = "Apply: use the suggestion. Undo restores the old settings.";
@@ -344,6 +383,13 @@ namespace Songsmith::UI
 
     private:
         void commitTargetText() { commitTargetText (targetField.getText()); }
+
+        void showTargetError (const juce::String& text)
+        {
+            targetError.setText (text, juce::dontSendNotification);
+            targetError.setTooltip (text);
+            targetError.setVisible (text.isNotEmpty());
+        }
 
         void setStage (Stage s)
         {
@@ -355,10 +401,10 @@ namespace Songsmith::UI
             action.setVisible (! idle);
             action.setEnabled (s != Stage::proposal || applyUsable);
             cancel.setButtonText (idle ? "Close" : "Cancel");
-            cancel.setTitle (idle ? "Close Set Levels" : "Cancel Set Levels");
+            cancel.setTitle ((idle ? "Close " : "Cancel ") + featureName);
             cancel.setTooltip (idle ? "Close: nothing was changed." : "Cancel: leave every setting exactly as it is.");
             message.setTooltip (message.getText());
-            heading.setText (s == Stage::listening ? "Set Levels: listening" : s == Stage::proposal ? "Set Levels: proposal" : "Set Levels",
+            heading.setText (s == Stage::listening ? featureName + ": listening" : s == Stage::proposal ? featureName + ": proposal" : featureName,
                              juce::dontSendNotification);
             const bool open = ! idle || message.getText().isNotEmpty();
             if (open && ! isVisible())
@@ -376,7 +422,8 @@ namespace Songsmith::UI
 
         void layoutPanel()
         {
-            const int height = panelHeightBase + (hasTarget ? targetRowHeight : 0);
+            const bool errorRow = hasTarget && checkTarget != nullptr;
+            const int height = panelHeightBase + (hasTarget ? targetRowHeight : 0) + (errorRow ? errorRowHeight : 0) + extraMessageHeight;
             juce::Rectangle<int> p (0, 0, panelWidth, height);
             p.setPosition (anchor.getRight() - panelWidth, anchor.getY() - height);
             if (anchor.isEmpty())
@@ -391,6 +438,8 @@ namespace Songsmith::UI
                 auto row = r.removeFromTop (targetRowHeight);
                 targetCaption.setBounds (row.removeFromLeft (row.getWidth() - 96));
                 targetField.setBounds (row.withSizeKeepingCentre (96, 24));
+                if (errorRow)
+                    targetError.setBounds (r.removeFromTop (errorRowHeight));
                 r.removeFromTop (4);
             }
             auto buttons = r.removeFromBottom (28);
@@ -406,7 +455,10 @@ namespace Songsmith::UI
         Stage stage = Stage::idle;
         juce::Rectangle<int> anchor, panelBounds;
         juce::Colour accentColour { 0xff7fb2e5 };
-        juce::Label heading, message, targetCaption, targetField;
+        juce::Label heading, message, targetCaption, targetField, targetError;
+        juce::String featureName { "Set Levels" };
+        int extraMessageHeight = 0;
+        std::function<juce::String (const juce::String&)> checkTarget;
         juce::TextButton action { "Finish Listening" }, cancel { "Cancel" };
         ListeningEar ear;
         bool hasTarget = false, applyUsable = false;

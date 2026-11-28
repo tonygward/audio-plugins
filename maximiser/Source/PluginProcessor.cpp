@@ -127,6 +127,7 @@ void SongsmithMaximiserAudioProcessor::prepareToPlay (double sampleRate, int sam
     holdSamples = 0;
     dither.reset();
     loudnessMeter.prepare (sampleRate);
+    levelCapture.prepare (sampleRate, juce::jmax (1, getTotalNumInputChannels()), Max::SetLevel::listenSeconds);
     wasPlaying = false;
     outputMeter.channels.store (juce::jlimit (1, (int) Songsmith::UI::OutputMeterState::maxChannels, getMainBusNumOutputChannels()),
                                 std::memory_order_relaxed);
@@ -217,6 +218,9 @@ void SongsmithMaximiserAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     const int numCh = juce::jmin (numIn, Max::BrickwallLimiter::maxChannels);
     const int total = buffer.getNumSamples();
     const int chunk = juce::jmax (1, dryBuffer.getNumSamples());
+
+    if (numCh > 0)
+        levelCapture.push (buffer.getArrayOfReadPointers(), numCh, total);   // Set Level listens to the input; a plain copy, only while listening
 
     bypassMix.setTargetValue (bypassParam->get() ? 1.0f : 0.0f);
 
@@ -359,6 +363,7 @@ juce::ValueTree SongsmithMaximiserAudioProcessor::createState()
     juce::ValueTree ui (uiId);
     ui.setProperty ("link", linkThresholdCeiling.load(), nullptr);
     ui.setProperty ("editorWidth", editorWidth.load(), nullptr);
+    ui.setProperty ("setLevelTarget", setLevelTargetLufs.load(), nullptr);
     state.appendChild (ui, nullptr);
     return state;
 }
@@ -418,6 +423,10 @@ void SongsmithMaximiserAudioProcessor::restoreFromValueTree (const juce::ValueTr
     linkThresholdCeiling.store (ui.isValid() && (bool) ui.getProperty ("link", false));
     editorWidth.store (Max::EditorLayout::constrainWidth (ui.isValid() ? (int) ui.getProperty ("editorWidth", Max::EditorLayout::defaultWidth)
                                                                        : Max::EditorLayout::defaultWidth));
+    // Version 5 on: the Set Level target. Older sessions, and anything outside the range, start at -14 LUFS.
+    const double target = ui.isValid() ? (double) ui.getProperty ("setLevelTarget", Max::SetLevel::defaultTargetLufs) : Max::SetLevel::defaultTargetLufs;
+    setLevelTargetLufs.store (std::isfinite (target) && target >= Max::SetLevel::minTargetLufs && target <= Max::SetLevel::maxTargetLufs
+                                  ? target : Max::SetLevel::defaultTargetLufs);
 }
 
 void SongsmithMaximiserAudioProcessor::applyStartingPoint (int index)

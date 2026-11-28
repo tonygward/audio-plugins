@@ -16,15 +16,15 @@ namespace Songsmith
     class LevelCapture
     {
     public:
-        static constexpr double maxSeconds = 12.0;
+        static constexpr double maxSeconds = 12.0;   // the default length; a plugin that measures loudness may listen longer
         static constexpr float heardSoundThreshold = 1.0e-4f;   // -80 dBFS: quieter than this is silence, not something to listen to
 
         // Message thread, before audio runs (prepareToPlay). Allocates.
-        void prepare (double sampleRate, int channels)
+        void prepare (double sampleRate, int channels, double seconds = maxSeconds)
         {
             rate = sampleRate;
             numChannels = juce::jlimit (1, 2, channels);
-            capacity = (int) (maxSeconds * sampleRate);
+            capacity = (int) (juce::jmax (1.0, seconds) * sampleRate);
             for (auto& c : data)
                 c.assign ((size_t) capacity, 0.0f);
             count.store (0);
@@ -46,6 +46,8 @@ namespace Songsmith
         int getSamples() const noexcept { return count.load (std::memory_order_acquire); }
         double getSeconds() const noexcept { return rate > 0.0 ? (double) getSamples() / rate : 0.0; }
         bool isFull() const noexcept { return getSamples() >= capacity && capacity > 0; }
+        double getMaxSeconds() const noexcept { return rate > 0.0 ? (double) capacity / rate : 0.0; }
+        int getNumChannels() const noexcept { return numChannels; }
         double getSampleRate() const noexcept { return rate; }
 
         // True once any sound louder than silence has arrived since start(): the ear shows "Listening" only then.
