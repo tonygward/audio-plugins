@@ -7,6 +7,7 @@
 #include "../../shared/Source/SongsmithDropdown.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
 #include "../../shared/Source/SongsmithGuidance.h"
+#include "../../shared/Source/SongsmithSetLevels.h"
 
 // Songsmith Maximiser editor. Everything sits in one content component laid out at the design size
 // (888 x 448) and scaled as a whole, so the window can be resized (75 % to 300 %, fixed aspect)
@@ -46,6 +47,20 @@ public:
     juce::Label& getIntegratedCaption() noexcept { return integratedCaption; }
     juce::Label& getIntegratedUnit() noexcept   { return integratedUnit; }
     juce::Rectangle<int> getReleaseDialBounds() const noexcept { return releaseSlider.getBounds(); }
+    juce::Label& getDitherLabel() noexcept      { return ditherLabel; }
+    juce::Label& getReleaseLabel() noexcept     { return releaseLabel; }
+
+    // songsmithstudio#18: Set Level.
+    juce::Button& getSetLevelButton() noexcept  { return setLevelButton; }
+    Songsmith::UI::SetLevelsDialog& getSetLevelDialog() noexcept { return levelsDialog; }
+    const Max::SetLevel::Result& getSetLevelResult() const noexcept { return levelsResult; }
+    void beginListening();
+    void finishListening();
+    void applyProposal();
+    void cancelLevels();
+    // For the tests: waits for the measuring to finish and shows its result, as the timer would.
+    void waitForSetLevelAnalysis();
+    bool isSetLevelMeasuring() const noexcept { return levelsJob != nullptr; }
 
     void clickIntegratedReadout() { if (integratedValue.onClick) integratedValue.onClick(); }
 
@@ -90,6 +105,39 @@ private:
     juce::Rectangle<int> titleBounds;   // the product name, painted
     void refreshHistoryButtons();
     juce::ComboBox peakModeBox, ditherBox, oversamplingBox, startingPointBox;
+
+    // songsmithstudio#18: Set Level. The button sits under the Integrated LUFS readout, the reading it sets; the shared
+    // dialog floats over the editor while it is open. The measuring runs on its own thread so the window never stalls.
+    juce::TextButton setLevelButton { "Set Level" };
+    Songsmith::UI::SetLevelsDialog levelsDialog;
+    Max::SetLevel::Result levelsResult;
+    Max::SetLevel::Settings levelsSettings;      // what the proposal was measured with
+    std::vector<float> levelsAudio[2];           // the sound that was played, copied out of the capture
+    int levelsChannels = 0, levelsSamples = 0;
+    double levelsRate = 0.0;
+
+    struct AnalysisJob final : juce::Thread
+    {
+        AnalysisJob (const SongsmithMaximiserAudioProcessorEditor& e, const Max::SetLevel::Settings& s, double target)
+            : juce::Thread ("Songsmith Set Level"), editor (e), settings (s), targetLufs (target) {}
+        void run() override
+        {
+            const float* in[2] = { editor.levelsAudio[0].data(), editor.levelsAudio[editor.levelsChannels > 1 ? 1 : 0].data() };
+            result = Max::SetLevel::analyse (in, editor.levelsChannels, editor.levelsSamples, editor.levelsRate, settings, targetLufs,
+                                             [this] { return threadShouldExit(); });
+            done.store (true);
+        }
+        const SongsmithMaximiserAudioProcessorEditor& editor;
+        const Max::SetLevel::Settings settings;
+        const double targetLufs;
+        Max::SetLevel::Result result;
+        std::atomic<bool> done { false };
+    };
+    std::unique_ptr<AnalysisJob> levelsJob;
+    void startAnalysis();
+    void stopAnalysis();
+    void takeAnalysisResult();
+    void updateSetLevel();   // the timer's part: the ear, the listening time, a finished measurement
     juce::Label thresholdLabel, ceilingLabel, releaseLabel, inLabel, grLabel, peakLabel, ditherLabel, gainLabel;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseAttachment;

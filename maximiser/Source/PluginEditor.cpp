@@ -140,6 +140,36 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     oversamplingAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, Max::oversamplingId, oversamplingBox);
     content.addAndMakeVisible (oversamplingBox);
 
+    // songsmithstudio#18: Set Level, the Analog Compressor's and Optical Leveller's dialog with a Target LUFS.
+    setLevelButton.setTitle ("Set Level");
+    setLevelButton.setTooltip ("Set Level: play your song, type the loudness you want in LUFS, and the plugin suggests a Threshold that "
+                               "brings the output to it, keeping peaks under the Output Ceiling. Nothing changes until you press Apply, "
+                               "and Undo restores the old setting.");
+    setLevelButton.onClick = [this] { beginListening(); };
+    content.addAndMakeVisible (setLevelButton);
+    levelsDialog.setFeatureName ("Set Level");
+    levelsDialog.setAccent (MaxColours::accent);
+    levelsDialog.setExtraMessageHeight (28);   // room for the measured, target and result figures, and a caution when needed
+    levelsDialog.applyTooltip = "Apply: set Threshold to the suggestion. Undo restores the old setting.";
+    levelsDialog.finishTooltip = "Finish Listening: stop listening and measure what you played. Nothing changes until you press Apply.";
+    levelsDialog.enableTarget ("Target LUFS",
+                               "Target LUFS: the average loudness you want the output to have, measured over what you play. "
+                               + Max::SetLevel::minus() + "14 is a useful reference for some streaming, not a rule. "
+                               "Click the number to type a value, then press Enter.",
+                               proc.setLevelTargetLufs.load(),
+                               [] (double v) { return Max::SetLevel::lufsText (v); },
+                               [] (const juce::String& t, double& v) { return Max::SetLevel::parseTarget (t, v); });
+    levelsDialog.setTargetCheck ([] (const juce::String& t) { return Max::SetLevel::targetProblem (t); });
+    levelsDialog.onFinish = [this] { finishListening(); };
+    levelsDialog.onApply = [this] { applyProposal(); };
+    levelsDialog.onCancel = [this] { cancelLevels(); };
+    levelsDialog.onTargetEdited = [this] (double v)
+    {
+        proc.setLevelTargetLufs.store (v);   // kept for next time, and saved with the session
+        if (levelsDialog.getStage() == Songsmith::UI::SetLevelsDialog::Stage::proposal && levelsSamples > 0)
+            startAnalysis();
+    };
+
     // Factory starting points: loading one sets the parameters (Bypass and Link stay as they are).
     for (size_t i = 0; i < Max::getStartingPoints().size(); ++i)
         startingPointBox.addItem (Max::getStartingPoints()[i].name, (int) i + 1);
@@ -228,6 +258,7 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
     content.addAndMakeVisible (*diagnostics);
 
     content.addAndMakeVisible (titleHint);   // SUI-17: the plugin name explains the plugin
+    content.addChildComponent (levelsDialog);   // last: it floats over everything else while Set Level is open
 
     showLoudness();
     syncFromParameters();
@@ -248,6 +279,8 @@ SongsmithMaximiserAudioProcessorEditor::SongsmithMaximiserAudioProcessorEditor (
 SongsmithMaximiserAudioProcessorEditor::~SongsmithMaximiserAudioProcessorEditor()
 {
     stopTimer();
+    stopAnalysis();
+    proc.levelCapture.stop();
     diagnostics.reset();   // also stops the audio thread timing the blocks
     content.setLookAndFeel (nullptr);
     setLookAndFeel (nullptr);
@@ -284,9 +317,24 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
         bypassButton.setBounds (header.bypass);
     }
 
-    // Main row: Input | Threshold | Link | Output Ceiling | Gain Reduction | Output | Release.
+    // songsmithstudio#21: the top right of the main control area holds Dither | Oversampling, with Oversampling the rightmost
+    // control of the row, right-aligned to the loudness column's edge (clear of the meter column). Every dropdown is as wide
+    // as its longest item plus the chevron and padding, and no wider (songsmithstudio#15).
+    {
+        const int rowY = (int) Songsmith::UI::titleBarHeight + 10, rowH = 26;
+        const int right = Max::EditorLayout::controlsWidth + Max::EditorLayout::loudnessWidth - 12;
+        // place() sizes each box for its font at this height; then they are moved into line from the right.
+        const int osWidth = Songsmith::UI::Dropdown::place (oversamplingBox, 0, rowY, rowH);
+        const int ditherWidth = Songsmith::UI::Dropdown::place (ditherBox, 0, rowY, rowH);
+        const int osX = right - osWidth, ditherX = osX - 8 - ditherWidth;
+        oversamplingBox.setTopLeftPosition (osX, rowY);
+        ditherBox.setTopLeftPosition (ditherX, rowY);
+        ditherLabel.setBounds (ditherX - 4 - 56, rowY, 56, rowH);
+    }
+
+    // Main row: Input | Threshold | Link | Output Ceiling | Gain Reduction | Output | Release, below the Dither | Oversampling row.
     // The meter and fader captions have room for two lines ("Gain Reduction"), so no word is shortened.
-    const int top = 70, labelH = 34, bottom = designH - 24;
+    const int top = 96, labelH = 34, bottom = designH - 24;
     const int meterTop = top + labelH + 4, faderBottom = bottom;
 
     inLabel.setBounds (8, top, 64, labelH);
@@ -321,16 +369,10 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
     autoReleaseButton.setBounds (530 - shift, releaseSlider.getBottom() + 14, 120, 28);
     gainLabel.setBounds (490 - shift, autoReleaseButton.getBottom() + 22, 200, 22);
 
-    // Output settings, under Release and the gain readout: Peak Mode decides what the Output Ceiling measures,
-    // and Dither is applied to the output (both moved out of the title bar).
-    // songsmithstudio#15: every dropdown is as wide as its longest item plus the chevron and padding, and no wider. The second
-    // line reads Dither | Oversampling from the left, with Dither directly to the left of Oversampling.
+    // Peak decides what the Output Ceiling measures: under Release and the gain readout.
     const int boxX = 556 - shift, rowY = gainLabel.getBottom() + 12;
     peakLabel.setBounds (500 - shift, rowY, boxX - (500 - shift) - 4, 26);
     Songsmith::UI::Dropdown::place (peakModeBox, boxX, rowY, 26);
-    ditherLabel.setBounds (500 - shift, rowY + 32, boxX - (500 - shift) - 4, 26);
-    const int ditherRight = Songsmith::UI::Dropdown::place (ditherBox, boxX, rowY + 32, 26);
-    Songsmith::UI::Dropdown::place (oversamplingBox, ditherRight + 8, rowY + 32, 26);
 
     // Integrated LUFS (MAX-09): a column to the right of the Release dial, level with it, never below it.
     // Release spans x 365..515 and the controls end at 570; the column starts at 570 + 12.
@@ -339,6 +381,11 @@ void SongsmithMaximiserAudioProcessorEditor::layoutContent()
     integratedValue.setBounds (lx, releaseTop + 64, 76, 32);
     integratedUnit.setBounds (lx + 78, releaseTop + 72, 42, 20);
     loudnessResetButton.setBounds (lx, releaseTop + 104, 84, 26);
+    // songsmithstudio#18: Set Level under the reading it sets.
+    setLevelButton.setBounds (lx, loudnessResetButton.getBottom() + 14, lw, 28);
+
+    levelsDialog.setBounds (0, 0, designW, designH);
+    levelsDialog.setPanelAnchor (setLevelButton.getBounds());
 
     diagnostics->setBounds (0, designH, designW, Max::EditorLayout::footerHeight);
 }
@@ -367,9 +414,10 @@ void SongsmithMaximiserAudioProcessorEditor::paintContent (juce::Graphics& g)
 
     Songsmith::UI::drawTitle (g, titleBounds.toFloat(), JucePlugin_Name, MaxColours::text, MaxColours::accent);
 
-    // A fine vertical line sets the loudness column apart from the controls on its left.
+    // A fine vertical line sets the loudness column apart from the controls on its left. It starts below the
+    // Dither | Oversampling row (songsmithstudio#21), which spans both.
     g.setColour (MaxColours::panelEdge);
-    g.drawVerticalLine (Max::EditorLayout::controlsWidth, (float) Songsmith::UI::titleBarHeight + 16.0f, (float) designH - 16.0f);
+    g.drawVerticalLine (Max::EditorLayout::controlsWidth, (float) ditherBox.getBottom() + 10.0f, (float) designH - 16.0f);
     // SUI-23: and another sets the meter column apart from the loudness column.
     g.drawVerticalLine (Max::EditorLayout::controlsWidth + Max::EditorLayout::loudnessWidth,
                         (float) Songsmith::UI::titleBarHeight + 16.0f, (float) designH - 16.0f);
@@ -485,10 +533,133 @@ bool SongsmithMaximiserAudioProcessorEditor::keyPressed (const juce::KeyPress& k
 
 void SongsmithMaximiserAudioProcessorEditor::timerCallback()
 {
+    updateSetLevel();
     refreshHistoryButtons();
     const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
     updateMeters (juce::jlimit (0.0, 0.5, now - lastTimerTime));
     lastTimerTime = now;
     syncFromParameters();
     content.repaint (linkButton.getBounds().expanded (80, 0));
+}
+
+//==============================================================================
+// Set Level (songsmithstudio#18). Listening only copies the input; the measuring runs on its own thread once listening has
+// finished, and nothing changes until Apply. Apply writes Threshold as one Undo step and closes the panel at once.
+void SongsmithMaximiserAudioProcessorEditor::beginListening()
+{
+    stopAnalysis();
+    levelsResult = {};
+    levelsSamples = 0;
+    levelsDialog.setTargetValue (proc.setLevelTargetLufs.load());
+    proc.levelCapture.start();
+    levelsDialog.beginListening ("Waiting for audio. Start playing your song, then press Finish Listening.");
+}
+
+void SongsmithMaximiserAudioProcessorEditor::updateSetLevel()
+{
+    levelsDialog.tick();
+    using Stage = Songsmith::UI::SetLevelsDialog::Stage;
+    if (levelsDialog.getStage() == Stage::listening)
+    {
+        auto& cap = proc.levelCapture;
+        if (! cap.isActive() && cap.getSamples() > 0)
+            finishListening();   // the buffer is full: that is enough
+        else
+            levelsDialog.updateListening (cap.hasHeardSound(),
+                cap.hasHeardSound() ? "Listening: " + juce::String (cap.getSeconds(), 1) + " seconds. Play the whole song, or a typical "
+                                      "part of it (up to " + juce::String (juce::roundToInt (cap.getMaxSeconds())) + " seconds), then press Finish Listening."
+                                    : juce::String ("Waiting for audio. Start playing your song, then press Finish Listening."));
+    }
+    if (levelsJob != nullptr && levelsJob->done.load())
+        takeAnalysisResult();
+}
+
+void SongsmithMaximiserAudioProcessorEditor::finishListening()
+{
+    using Stage = Songsmith::UI::SetLevelsDialog::Stage;
+    if (levelsDialog.getStage() != Stage::listening)
+        return;
+    auto& cap = proc.levelCapture;
+    cap.stop();
+    levelsSamples = cap.getSamples();
+    levelsChannels = cap.getNumChannels();
+    levelsRate = cap.getSampleRate();
+    for (int c = 0; c < 2; ++c)
+    {
+        const float* src = cap.channel (c);
+        levelsAudio[c].assign (src, src + levelsSamples);
+    }
+    startAnalysis();
+}
+
+void SongsmithMaximiserAudioProcessorEditor::startAnalysis()
+{
+    stopAnalysis();
+    levelsSettings = proc.getSetLevelSettings();
+    levelsResult = {};
+    levelsDialog.showProposal ("Measuring what you played" + juce::String::charToString (0x2026), false);
+    levelsJob = std::make_unique<AnalysisJob> (*this, levelsSettings, levelsDialog.getTargetValue());
+    levelsJob->startThread();
+}
+
+void SongsmithMaximiserAudioProcessorEditor::stopAnalysis()
+{
+    if (levelsJob != nullptr)
+    {
+        levelsJob->signalThreadShouldExit();
+        levelsJob->stopThread (5000);
+        levelsJob.reset();
+    }
+}
+
+void SongsmithMaximiserAudioProcessorEditor::waitForSetLevelAnalysis()
+{
+    if (levelsJob != nullptr)
+        takeAnalysisResult();
+}
+
+void SongsmithMaximiserAudioProcessorEditor::takeAnalysisResult()
+{
+    levelsJob->waitForThreadToExit (-1);
+    levelsResult = levelsJob->result;
+    levelsJob.reset();
+    using S = Max::SetLevel::Status;
+    if (levelsResult.status == S::stopped)
+        return;
+    if (levelsResult.status == S::silent || levelsResult.status == S::tooShort)
+        levelsDialog.showNotice (Max::SetLevel::messageFor (levelsResult));   // nothing to measure: press Set Level again
+    else
+        levelsDialog.showProposal (Max::SetLevel::messageFor (levelsResult), levelsResult.usable());   // a target out of reach can be retyped here
+}
+
+void SongsmithMaximiserAudioProcessorEditor::applyProposal()
+{
+    using Stage = Songsmith::UI::SetLevelsDialog::Stage;
+    if (levelsDialog.getStage() != Stage::proposal || ! levelsResult.usable() || levelsJob != nullptr)
+        return;
+    if (proc.getSetLevelSettings() != levelsSettings)   // never write over a change the musician or host automation made meanwhile
+    {
+        levelsDialog.showNotice ("A setting changed since measuring, so nothing was applied. Press Set Level to try again.");
+        return;
+    }
+    const float threshold = levelsResult.thresholdDb;
+    proc.history.runStep ("set level", [&]
+    {
+        auto* p = proc.apvts.getParameter (Max::thresholdId);
+        p->beginChangeGesture();
+        p->setValueNotifyingHost (p->convertTo0to1 (threshold));
+        p->endChangeGesture();
+    });
+    levelsResult = {};
+    levelsDialog.closeNow();   // Apply is the confirmation: the panel closes at once, and the fader shows the new Threshold
+    syncFromParameters();
+    refreshHistoryButtons();
+}
+
+void SongsmithMaximiserAudioProcessorEditor::cancelLevels()
+{
+    proc.levelCapture.stop();
+    stopAnalysis();
+    levelsResult = {};
+    levelsDialog.closeNow();   // Cancel changes nothing
 }

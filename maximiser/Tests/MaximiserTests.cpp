@@ -2057,7 +2057,7 @@ public:
             p.updateLoudness();
             p.getStateInformation (after);
             expect (before == after, "readings are not in the session");
-            expectEquals (SongsmithMaximiserAudioProcessor::stateVersion, 4, "state version (4 adds oversampling)");
+            expectEquals (SongsmithMaximiserAudioProcessor::stateVersion, 5, "state version (5 adds the Set Level target)");
         }
 
         beginTest ("The editor shows the readings, Reset and a click on the number start again");
@@ -2386,7 +2386,7 @@ public:
             }
         }
 
-        beginTest ("The editor: Dither is directly left of Oversampling, dropdowns are only as wide as their text, and nothing overlaps");
+        beginTest ("The editor: Dither | Oversampling sit at the top right, dropdowns are only as wide as their text, and nothing overlaps (songsmithstudio#21)");
         for (int width : { Max::EditorLayout::minWidth, Max::EditorLayout::defaultWidth, Max::EditorLayout::maxWidth })
         {
             SongsmithMaximiserAudioProcessor p;
@@ -2410,6 +2410,24 @@ public:
                 expect (box->getRight() <= Max::EditorLayout::controlsWidth + Max::EditorLayout::loudnessWidth, where + "clear of the meter column");
             }
             expect (! os.getBounds().intersects (peak.getBounds()) && ! dither.getBounds().intersects (peak.getBounds()), where + "no overlap with Peak");
+
+            // songsmithstudio#21: the top right of the main control area, Oversampling the rightmost control of its row.
+            const int columnRight = Max::EditorLayout::controlsWidth + Max::EditorLayout::loudnessWidth;
+            expect (os.getRight() <= columnRight && os.getRight() >= columnRight - 16, where + "Oversampling is right-aligned to the main control area");
+            expect (os.getY() >= (int) Songsmith::UI::titleBarHeight && os.getBottom() < ed->getReleaseLabel().getY(),
+                    where + "the row is directly under the title bar, above the main row's captions");
+            expect (os.getY() < ed->getThresholdSlider().getY() && os.getY() < ed->getIntegratedCaption().getY(), where + "above the faders and the loudness reading");
+            auto& content = ed->getContent();
+            for (auto* c : content.getChildren())
+                if (c != &os && c->isVisible() && c->getY() < os.getBottom() && c->getBottom() > os.getY()
+                    && c->getX() > os.getRight() && c->getX() < columnRight)
+                    expect (false, where + "nothing sits to the right of Oversampling in its row: " + c->getTitle());
+            expect (ed->getDitherLabel().getRight() <= dither.getX() && ed->getDitherLabel().getY() == dither.getY(), where + "the Dither caption is just left of its box");
+            for (auto* c : content.getChildren())
+                if (c != &os && c != &dither && c != &ed->getDitherLabel() && c->isVisible() && c != &ed->getSetLevelDialog()
+                    && c != (juce::Component*) &ed->getTitleHint())
+                    for (auto* b : { (juce::Component*) &os, (juce::Component*) &dither, (juce::Component*) &ed->getDitherLabel() })
+                        expect (! c->getBounds().intersects (b->getBounds()), where + b->getTitle() + " does not overlap " + c->getTitle() + " " + c->getName());
             Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), "Maximiser oversampling at " + juce::String (width));
         }
 
@@ -2425,6 +2443,293 @@ public:
     }
 };
 static OversamplingTests oversamplingTests;
+
+
+//==============================================================================
+// songsmithstudio#18: Set Level. Measures integrated loudness through the Maximiser's own limiter and sets Threshold.
+class SetLevelTests final : public juce::UnitTest
+{
+public:
+    SetLevelTests() : juce::UnitTest ("Set Level (songsmithstudio#18)", "Maximiser") {}
+
+    using Ed = SongsmithMaximiserAudioProcessorEditor;
+    using Stage = Songsmith::UI::SetLevelsDialog::Stage;
+
+    // Measures the processor's own Integrated LUFS readout over 'in'.
+    static float playAndMeasure (SongsmithMaximiserAudioProcessor& p, const std::vector<std::vector<float>>& in, float* peak = nullptr)
+    {
+        p.reset();
+        p.resetLoudness();
+        const auto out = run (p, in, { 512 });
+        p.updateLoudness();
+        if (peak != nullptr)
+        {
+            *peak = 0.0f;
+            for (auto& ch : out)
+                for (float v : ch)
+                    *peak = std::max (*peak, std::abs (v));
+        }
+        return p.getLoudnessReadings().getIntegrated().lufs;
+    }
+
+    static std::unique_ptr<Ed> openEditor (SongsmithMaximiserAudioProcessor& p)
+    {
+        return std::unique_ptr<Ed> (dynamic_cast<Ed*> (p.createEditor()));
+    }
+
+    // Listens to 'in' through the editor, as the musician would, and waits for the measurement.
+    static void listen (Ed& ed, SongsmithMaximiserAudioProcessor& p, const std::vector<std::vector<float>>& in)
+    {
+        ed.getSetLevelButton().onClick();   // as a click does (triggerClick is asynchronous)
+        if (ed.getSetLevelDialog().getStage() != Stage::listening)
+            ed.beginListening();
+        run (p, in, { 512 });
+        ed.finishListening();
+        ed.waitForSetLevelAnalysis();
+    }
+
+    void runTest() override
+    {
+        const double fs = 48000.0;
+        const auto quiet = noise ((int) (8 * fs), 0.05f, 11u);   // about -26 LUFS
+        const std::vector<std::vector<float>> song { quiet, noise ((int) (8 * fs), 0.05f, 12u) };
+
+        beginTest ("Target LUFS reads negative and decimal values, and says what is wrong with anything else");
+        {
+            double v = 0.0;
+            expect (Max::SetLevel::parseTarget ("-14", v) && v == -14.0);
+            expect (Max::SetLevel::parseTarget ("-9.5 LUFS", v) && std::abs (v + 9.5) < 1.0e-9);
+            expect (Max::SetLevel::parseTarget (Max::SetLevel::minus() + "16.2", v) && std::abs (v + 16.2) < 1.0e-9, "a real minus sign");
+            expect (Max::SetLevel::targetProblem ("-14").isEmpty() && Max::SetLevel::targetProblem ("-23.5").isEmpty());
+            for (auto bad : { "", "abc", "-14.0.1", "--14", "1-4" })
+                expect (Max::SetLevel::targetProblem (bad).startsWith ("Type a number"), juce::String ("not a number: ") + bad);
+            expect (Max::SetLevel::targetProblem ("14").contains ("below zero"), "a positive loudness is not quietly made negative");
+            expect (Max::SetLevel::targetProblem ("-50").startsWith ("Choose a target from"), "too quiet is not clamped");
+            expect (Max::SetLevel::targetProblem ("-3").startsWith ("Choose a target from"), "too loud is not clamped");
+            expectEquals (Max::SetLevel::lufsText (-14.0), Max::SetLevel::minus() + "14.0 LUFS");
+        }
+
+        beginTest ("The suggested Threshold brings the output to the target, and the peaks stay under the Output Ceiling");
+        for (bool truePeak : { true, false })
+        {
+            SongsmithMaximiserAudioProcessor p;
+            setParam (p, Max::ceilingId, -1.0f);
+            setParam (p, Max::peakModeId, truePeak ? 1.0f : 0.0f);
+            prepare (p, fs, 512);
+            const float* in[2] = { song[0].data(), song[1].data() };
+            for (double target : { -14.0, -18.5, -10.0 })
+            {
+                const auto r = Max::SetLevel::analyse (in, 2, (int) song[0].size(), fs, p.getSetLevelSettings(), target);
+                expect (r.status == Max::SetLevel::Status::good, "reachable at " + juce::String (target));
+                expect (std::abs (r.inputLufs + 26.0f) < 3.0f, "the input is measured: " + juce::String (r.inputLufs));
+                expect (std::abs (r.resultLufs - (float) target) < 0.3f, "its own estimate is on target: " + juce::String (r.resultLufs));
+
+                setParam (p, Max::thresholdId, r.thresholdDb);
+                float peak = 0.0f;
+                const float played = playAndMeasure (p, song, &peak);
+                expect (std::abs (played - (float) target) < 0.5f, "the processor's own readout agrees: " + juce::String (played) + " for " + juce::String (target));
+                expect (Max::gainToDb (peak) <= -1.0f + 0.01f || truePeak, "sample peaks stay under the ceiling");
+                expect (Max::gainToDb (peak) <= -1.0f + 0.01f, "the ceiling holds: " + juce::String (Max::gainToDb (peak)));
+                setParam (p, Max::thresholdId, 0.0f);
+            }
+        }
+
+        beginTest ("A target that cannot be reached is reported, not forced past the ceiling");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            setParam (p, Max::ceilingId, -24.0f);
+            prepare (p, fs, 512);
+            const float* in[2] = { song[0].data(), song[1].data() };
+            auto r = Max::SetLevel::analyse (in, 2, (int) song[0].size(), fs, p.getSetLevelSettings(), -6.0);
+            expect (r.status == Max::SetLevel::Status::louderThanPossible && ! r.usable(), "too loud for this ceiling");
+            expect (Max::SetLevel::messageFor (r).contains ("cannot be reached"), Max::SetLevel::messageFor (r));
+
+            const auto loud = noise ((int) (6 * fs), 0.9f, 3u);
+            setParam (p, Max::ceilingId, 0.0f);
+            const float* inLoud[2] = { loud.data(), loud.data() };
+            r = Max::SetLevel::analyse (inLoud, 2, (int) loud.size(), fs, p.getSetLevelSettings(), -40.0);
+            expect (r.status == Max::SetLevel::Status::quieterThanPossible && ! r.usable(), "too quiet for Threshold alone");
+            expect (Max::SetLevel::messageFor (r).contains ("higher target"), Max::SetLevel::messageFor (r));
+        }
+
+        beginTest ("Silence and a very short listen are reported; heavy limiting is pointed out");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            prepare (p, fs, 512);
+            const std::vector<float> silence ((size_t) (5 * fs), 0.0f);
+            const float* s[2] = { silence.data(), silence.data() };
+            expect (Max::SetLevel::analyse (s, 2, (int) silence.size(), fs, p.getSetLevelSettings(), -14.0).status == Max::SetLevel::Status::silent);
+            const float* in[2] = { song[0].data(), song[1].data() };
+            expect (Max::SetLevel::analyse (in, 2, (int) (1.0 * fs), fs, p.getSetLevelSettings(), -14.0).status == Max::SetLevel::Status::tooShort);
+
+            setParam (p, Max::ceilingId, -6.0f);
+            const auto r = Max::SetLevel::analyse (in, 2, (int) song[0].size(), fs, p.getSetLevelSettings(), -8.0);
+            if (r.usable())
+                expect (r.averageReductionDb > Max::SetLevel::heavyLimitingDb && Max::SetLevel::messageFor (r).contains ("listen for distortion"),
+                        Max::SetLevel::messageFor (r));
+            else
+                expect (r.status == Max::SetLevel::Status::louderThanPossible);
+        }
+
+        beginTest ("Mono and oversampling are measured as they play");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            setParam (p, Max::ceilingId, -1.0f);
+            prepare (p, fs, 512, 1);
+            const float* in[1] = { song[0].data() };
+            auto r = Max::SetLevel::analyse (in, 1, (int) song[0].size(), fs, p.getSetLevelSettings(), -16.0);
+            expect (r.usable());
+            setParam (p, Max::thresholdId, r.thresholdDb);
+            const float mono = playAndMeasure (p, { song[0] });
+            expect (std::abs (mono + 16.0f) < 0.5f, "mono: " + juce::String (mono));
+
+            SongsmithMaximiserAudioProcessor q;
+            setParam (q, Max::ceilingId, -1.0f);
+            setParam (q, Max::oversamplingId, 1.0f);   // 2x
+            prepare (q, fs, 512);
+            const float* in2[2] = { song[0].data(), song[1].data() };
+            r = Max::SetLevel::analyse (in2, 2, (int) song[0].size(), fs, q.getSetLevelSettings(), -12.0);
+            expect (r.usable());
+            setParam (q, Max::thresholdId, r.thresholdDb);
+            float peak = 0.0f;
+            const float os = playAndMeasure (q, song, &peak);
+            expect (std::abs (os + 12.0f) < 0.5f, "2x oversampling: " + juce::String (os));
+            expect (Max::gainToDb (peak) <= -1.0f + 0.01f, "the ceiling holds with oversampling");
+        }
+
+        beginTest ("The dialog: listening, the ear, Cancel changes nothing, Apply sets Threshold at once and Undo restores it");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            setParam (p, Max::thresholdId, -3.0f);
+            setParam (p, Max::ceilingId, -1.0f);
+            prepare (p, fs, 512);
+            auto ed = openEditor (p);
+            auto& dialog = ed->getSetLevelDialog();
+            expect (! dialog.isVisible(), "closed until asked");
+            expectEquals (ed->getSetLevelButton().getButtonText(), juce::String ("Set Level"));
+            expectEquals (dialog.getTargetValue(), -14.0, "Target LUFS starts at -14");
+            expectEquals (dialog.getTargetField().getText(), Max::SetLevel::minus() + "14.0 LUFS");
+            expect (Songsmith::UI::SetLevelsDialog::fillAlpha < 1.0f && Songsmith::UI::SetLevelsDialog::fillAlpha >= 0.85f, "slightly see-through, still legible");
+
+            ed->beginListening();
+            expect (dialog.isVisible() && dialog.getStage() == Stage::listening);
+            expect (dialog.getEar().getState() == Songsmith::UI::ListeningEar::State::waitingForAudio, "waiting until sound arrives");
+            expect (dialog.getHeading().getText().startsWith ("Set Level"), dialog.getHeading().getText());
+            run (p, song, { 512 });
+            expect (p.levelCapture.hasHeardSound(), "the capture heard the input");
+            ed->cancelLevels();
+            expect (! dialog.isVisible() && dialog.getEar().getState() == Songsmith::UI::ListeningEar::State::hidden, "Cancel closes and the ear goes out");
+            expectEquals (p.getThresholdDb(), -3.0f, "Cancel changes nothing");
+            expect (! p.levelCapture.isActive(), "and stops listening");
+
+            listen (*ed, p, song);
+            expect (dialog.getStage() == Stage::proposal && ed->getSetLevelResult().usable(), dialog.getMessage().getText());
+            expect (dialog.getActionButton().isEnabled() && dialog.getActionButton().getButtonText() == "Apply");
+            const auto msg = dialog.getMessage().getText();
+            for (auto part : { "going in", "coming out now", "Threshold", "LUFS", "Output Ceiling", "average loudness" })
+                expect (msg.contains (part), "the proposal says " + juce::String (part) + ": " + msg);
+            expectEquals (p.getThresholdDb(), -3.0f, "nothing changes before Apply");
+            ed->cancelLevels();
+            expectEquals (p.getThresholdDb(), -3.0f, "Cancel after a proposal changes nothing");
+
+            listen (*ed, p, song);
+            const float suggested = ed->getSetLevelResult().thresholdDb;
+            dialog.getActionButton().onClick();   // what pressing Apply does
+
+            expect (! dialog.isVisible(), "Apply closes the panel at once: no second confirmation");
+            expectWithinAbsoluteError (p.getThresholdDb(), suggested, 0.011f);
+            expectEquals (p.getCeilingDb(), -1.0f, "the Output Ceiling is never changed");
+            p.history.undo();
+            expectEquals (p.getThresholdDb(), -3.0f, "Undo restores the old Threshold in one step");
+        }
+
+        beginTest ("Target LUFS: typed values are kept and saved, wrong ones show a reason and leave the value alone");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            prepare (p, fs, 512);
+            {
+                auto ed = openEditor (p);
+                auto& dialog = ed->getSetLevelDialog();
+                ed->beginListening();
+                expect (dialog.commitTargetText ("-9.5"));
+                expectEquals (p.setLevelTargetLufs.load(), -9.5);
+                expect (! dialog.getTargetError().isVisible());
+                expect (! dialog.commitTargetText ("12"), "a positive value is refused");
+                expectEquals (dialog.getTargetValue(), -9.5, "the old value stays");
+                expect (dialog.getTargetError().isVisible() && dialog.getTargetError().getText().contains ("below zero"), dialog.getTargetError().getText());
+                expect (dialog.getPanelBounds().contains (dialog.getTargetError().getBounds()), "the reason is inside the panel");
+                expect (! dialog.commitTargetText ("-80"));
+                expect (dialog.getTargetError().getText().startsWith ("Choose a target"), dialog.getTargetError().getText());
+                expect (dialog.commitTargetText ("-11"));
+                expect (! dialog.getTargetError().isVisible(), "a good value clears the reason");
+                ed->cancelLevels();
+                expectEquals (p.setLevelTargetLufs.load(), -11.0, "Cancel keeps the typed target for next time");
+            }
+            {
+                auto ed = openEditor (p);
+                expectEquals (ed->getSetLevelDialog().getTargetValue(), -11.0, "reopening the window keeps it");
+            }
+            juce::MemoryBlock state;
+            p.getStateInformation (state);
+            SongsmithMaximiserAudioProcessor q;
+            q.setStateInformation (state.getData(), (int) state.getSize());
+            expectEquals (q.setLevelTargetLufs.load(), -11.0, "saved with the session");
+
+            // A version 4 session (no target) loads with -14 and sounds exactly the same.
+            auto tree = p.createState();
+            tree.setProperty ("version", 4, nullptr);
+            tree.getChildWithName ("UI").removeProperty ("setLevelTarget", nullptr);
+            SongsmithMaximiserAudioProcessor old;
+            old.restoreFromValueTree (tree);
+            expectEquals (old.setLevelTargetLufs.load(), -14.0, "older sessions start at -14 LUFS");
+            tree.getChildWithName ("UI").setProperty ("setLevelTarget", 7.0, nullptr);
+            old.restoreFromValueTree (tree);
+            expectEquals (old.setLevelTargetLufs.load(), -14.0, "a value out of range is not used");
+        }
+
+        beginTest ("Editing the target measures again; a target out of reach can be retyped in place");
+        {
+            SongsmithMaximiserAudioProcessor p;
+            setParam (p, Max::ceilingId, -12.0f);
+            prepare (p, fs, 512);
+            auto ed = openEditor (p);
+            auto& dialog = ed->getSetLevelDialog();
+            expect (dialog.commitTargetText ("-6"));
+            listen (*ed, p, song);
+            expect (dialog.getStage() == Stage::proposal && ! dialog.getActionButton().isEnabled(), "out of reach: Apply is off, the panel stays");
+            expect (dialog.getMessage().getText().contains ("cannot be reached"), dialog.getMessage().getText());
+            expect (dialog.commitTargetText ("-18"));
+            expect (ed->isSetLevelMeasuring(), "a new target is measured again");
+            ed->waitForSetLevelAnalysis();
+            expect (ed->getSetLevelResult().usable() && dialog.getActionButton().isEnabled(), dialog.getMessage().getText());
+
+            setParam (p, Max::ceilingId, -10.0f);   // a change (or automation) after measuring
+            ed->applyProposal();
+            expect (dialog.isVisible() && dialog.getMessage().getText().contains ("nothing was applied"), "a changed setting is never written over");
+            expectEquals (p.getThresholdDb(), 0.0f);
+            ed->cancelLevels();
+        }
+
+        beginTest ("Set Level sits under the Integrated LUFS reading, and the panel fits at every size");
+        for (int width : { Max::EditorLayout::minWidth, Max::EditorLayout::defaultWidth, Max::EditorLayout::maxWidth })
+        {
+            SongsmithMaximiserAudioProcessor p;
+            prepare (p, fs, 512);
+            auto ed = openEditor (p);
+            ed->setSize (width, Max::EditorLayout::heightFor (width));
+            const auto b = ed->getSetLevelButton().getBounds();
+            expect (b.getX() >= Max::EditorLayout::controlsWidth && b.getRight() <= Max::EditorLayout::controlsWidth + Max::EditorLayout::loudnessWidth,
+                    "in the loudness column");
+            expect (b.getY() > ed->getLoudnessResetButton().getBottom(), "below the reading and Reset");
+            ed->beginListening();
+            auto& dialog = ed->getSetLevelDialog();
+            expect (ed->getContent().getLocalBounds().contains (dialog.getPanelBounds()), "the panel is inside the window");
+            Songsmith::UI::Wording::expectTextFits (*this, *ed, ed->getLookAndFeel(), "Maximiser Set Level at " + juce::String (width));
+            ed->cancelLevels();
+        }
+    }
+};
+static SetLevelTests setLevelTests;
 
 static SongsmithUITests sharedUITests { "Maximiser" };
 static SongsmithDiagnosticsTests sharedDiagnosticsTests { "Maximiser" };
@@ -2459,6 +2764,22 @@ static int renderScreenshot (const juce::File& file, float scale)
     if (! out.openedOk() || ! juce::PNGImageFormat().writeImageToStream (image, out))
         return 1;
     std::printf ("Wrote %s\n", file.getFullPathName().toRawUTF8());
+
+    {   // songsmithstudio#18: the Set Level panel with a proposal, beside the main screenshot.
+        editor->beginListening();
+        const auto song = noise (8 * 48000, 0.05f, 11u);
+        run (p, { song, noise (8 * 48000, 0.05f, 12u) }, { 512 });
+        editor->finishListening();
+        editor->waitForSetLevelAnalysis();
+        const auto dialogImage = editor->createComponentSnapshot (editor->getLocalBounds(), true, scale);
+        const auto dialogFile = file.getSiblingFile (file.getFileNameWithoutExtension() + "-set-level.png");
+        dialogFile.deleteFile();
+        juce::FileOutputStream dialogOut (dialogFile);
+        if (! dialogOut.openedOk() || ! juce::PNGImageFormat().writeImageToStream (dialogImage, dialogOut))
+            return 1;
+        std::printf ("Wrote %s\n", dialogFile.getFullPathName().toRawUTF8());
+        editor->cancelLevels();
+    }
 
     // Every control state, drawn by the editor's look-and-feel, next to it.
     MaxLookAndFeel lf;

@@ -10,18 +10,21 @@
 #include "Loudness.h"
 #include "EditorLogic.h"
 #include "StartingPoints.h"
+#include "SetLevel.h"
 #include "../../shared/Source/SongsmithDiagnostics.h"
 #include "../../shared/Source/SongsmithBeforeAfter.h"
 #include "../../shared/Source/SongsmithHeader.h"
 #include "../../shared/Source/SongsmithOutputMeter.h"
+#include "../../shared/Source/SongsmithLevelCapture.h"
 
 class SongsmithMaximiserAudioProcessor : public juce::AudioProcessor
 {
 public:
     // Saved-state format. 1 = threshold, ceiling, release, bypass. 2 = adds peak_mode, auto_release.
     // 3 = adds dither and the UI child (link, editor width). 4 = adds oversampling (sessions from 1 to 3 load with Off, as they sounded).
+    // 5 = adds the Set Level target (UI child, not a parameter; older sessions get -14 LUFS and sound exactly the same).
     // Bump it when the meaning of saved data changes, and migrate in restoreFromValueTree().
-    static constexpr int stateVersion = 4;
+    static constexpr int stateVersion = 5;
 
     SongsmithMaximiserAudioProcessor();
     ~SongsmithMaximiserAudioProcessor() override { loudnessTimer.stopTimer(); }
@@ -83,6 +86,24 @@ public:
     // UI state, saved with the session (not automatable).
     std::atomic<bool> linkThresholdCeiling { false };
     std::atomic<int> editorWidth { Max::EditorLayout::defaultWidth };
+    std::atomic<double> setLevelTargetLufs { Max::SetLevel::defaultTargetLufs };   // songsmithstudio#18: the last target typed
+
+    // songsmithstudio#18: Set Level listens to the input (before the limiter) with a plain copy; the editor analyses it.
+    Songsmith::LevelCapture levelCapture;
+
+    // The controls Set Level measures with (message thread).
+    Max::SetLevel::Settings getSetLevelSettings() const noexcept
+    {
+        Max::SetLevel::Settings s;
+        s.thresholdDb = getThresholdDb();
+        s.ceilingDb = getCeilingDb();
+        s.releaseMs = getReleaseMs();
+        s.truePeak = isTruePeak();
+        s.autoRelease = isAutoRelease();
+        s.dither = (int) getDitherDepth();
+        s.oversampling = getOversamplingIndex();
+        return s;
+    }
 
     // The versioned state tree (parameters + version). Used by sessions and the tests.
     juce::ValueTree createState();
